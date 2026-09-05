@@ -260,6 +260,7 @@ async fn test_exposure_dedupe() {
 
     adapter.send_pending_events().await.unwrap();
 
+    assert_eventually_eq!(|| mock_scrapi.get_logged_event_count(), 1);
     assert_eq!(mock_scrapi.get_logged_event_count(), 1);
     let reqs = mock_scrapi.get_requests_for_endpoint(Endpoint::LogEvent);
     assert_eq!(reqs.len(), 1);

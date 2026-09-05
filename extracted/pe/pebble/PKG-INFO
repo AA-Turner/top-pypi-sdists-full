@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Pebble
-Version: 5.2.1
+Version: 5.2.2
 Summary: Threading and multiprocessing eye-candy.
 Home-page: https://github.com/noxdafox/pebble
 Author: Matteo Cafasso
@@ -13,7 +13,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 License-File: LICENSE
 Dynamic: author
 Dynamic: author-email
@@ -37,8 +37,8 @@ Pebble provides a neat API to manage threads and processes within an application
 
 |build badge| |docs badge| |downloads badge|
 
-.. |build badge| image:: https://github.com/noxdafox/pebble/actions/workflows/action.yml/badge.svg
-   :target: https://github.com/noxdafox/pebble/actions/workflows/action.yml
+.. |build badge| image:: https://github.com/noxdafox/pebble/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/noxdafox/pebble/actions/workflows/tests.yml
    :alt: Build Status
 .. |docs badge| image:: https://readthedocs.org/projects/pebble/badge/?version=latest
    :target: https://pebble.readthedocs.io

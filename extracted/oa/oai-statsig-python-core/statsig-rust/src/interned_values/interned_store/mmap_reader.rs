@@ -133,6 +133,12 @@ pub(super) fn is_installed() -> bool {
     MMAP_DATA.get().is_some()
 }
 
+pub(super) fn has_project(id: MmapProjectId) -> bool {
+    MMAP_DATA
+        .get()
+        .is_some_and(|registry| registry.projects.iter().any(|project| project.id == id))
+}
+
 pub(super) fn memory_snapshot() -> Result<Option<MmapReaderMemorySnapshot>, StatsigErr> {
     let Some(registry) = MMAP_DATA.get() else {
         return Ok(None);

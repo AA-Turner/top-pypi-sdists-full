@@ -21,6 +21,7 @@ from darts.logging import get_logger
 from darts.models.forecasting.forecasting_model import (
     TransferableFutureCovariatesLocalForecastingModel,
 )
+from darts.utils._statsmodels_utils import SM_RNG_KWARG
 from darts.utils.utils import random_method
 
 logger = get_logger(__name__)
@@ -45,6 +46,7 @@ class ARIMA(TransferableFutureCovariatesLocalForecastingModel):
         trend: Literal["n", "c", "t", "ct"] | list[int] | None = None,
         random_state: int | None = None,
         add_encoders: dict | None = None,
+        min_train_length: int | None = None,
     ):
         """ARIMA
         ARIMA-type models extensible with exogenous variables (future covariates)
@@ -101,6 +103,10 @@ class ARIMA(TransferableFutureCovariatesLocalForecastingModel):
             ..
         random_state: int or None
             Controls the randomness for reproducible forecasting.
+        min_train_length
+            Optionally, set a custom minimum required training series length for this model to allow training on
+            shorter input series. By default, Darts sets a conservative minimum length to avoid downstream issues.
+            Changing this value might lead to such downstream issues. Default: ``None`` (keeps the default requirement).
 
         Examples
         --------
@@ -126,7 +132,7 @@ class ARIMA(TransferableFutureCovariatesLocalForecastingModel):
         ----------
         .. [1] https://numpy.org/doc/stable/reference/generated/numpy.poly1d.html
         """
-        super().__init__(add_encoders=add_encoders)
+        super().__init__(add_encoders=add_encoders, min_train_length=min_train_length)
         self.order = p, d, q
         self.seasonal_order = seasonal_order
         self.trend = trend
@@ -214,11 +220,11 @@ class ARIMA(TransferableFutureCovariatesLocalForecastingModel):
                 nsimulations=n,
                 repetitions=num_samples,
                 initial_state=self.model.states.predicted[-1, :],
-                random_state=rng,
                 anchor="end",
                 exog=(
                     future_covariates.values(copy=False) if future_covariates else None
                 ),
+                **{SM_RNG_KWARG: rng},
             )
 
         # restoring statsmodels results object state
@@ -240,4 +246,4 @@ class ARIMA(TransferableFutureCovariatesLocalForecastingModel):
 
     @property
     def _target_window_lengths(self) -> tuple[int, int]:
-        return 30, 0
+        return self._min_train_input_length(30), 0

@@ -184,9 +184,6 @@ class Axis:
     def __eq__(self, other: object) -> bool:
         return hasattr(other, "_ax") and self._ax == other._ax
 
-    def __ne__(self, other: object) -> bool:
-        return (not hasattr(other, "_ax")) or self._ax != other._ax
-
     @classmethod
     def _convert_cpp(cls, cpp_object: Any) -> Self:
         nice_ax: Self = cls.__new__(cls)
@@ -430,7 +427,7 @@ class Regular(Axis, family=boost_histogram):
     def _repr_args_(self) -> list[str]:
         "Return inner part of signature for use in repr"
 
-        ret = [f"{self.size:g}", f"{self.edges[0]:g}", f"{self.edges[-1]:g}"]
+        ret = [f"{self.size}", f"{self.edges[0]:g}", f"{self.edges[-1]:g}"]
 
         if self.traits.growth:
             ret.append("growth=True")

@@ -60,6 +60,7 @@ class TestVirtualAccounts:
                     "modern": "treasury",
                 },
             },
+            ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             routing_details=[
                 {
@@ -68,6 +69,7 @@ class TestVirtualAccounts:
                     "payment_type": "ach",
                 }
             ],
+            virtual_account_setting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(VirtualAccount, virtual_account, path=["response"])
 
@@ -304,6 +306,7 @@ class TestAsyncVirtualAccounts:
                     "modern": "treasury",
                 },
             },
+            ledger_account_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             metadata={"foo": "string"},
             routing_details=[
                 {
@@ -312,6 +315,7 @@ class TestAsyncVirtualAccounts:
                     "payment_type": "ach",
                 }
             ],
+            virtual_account_setting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(VirtualAccount, virtual_account, path=["response"])
 

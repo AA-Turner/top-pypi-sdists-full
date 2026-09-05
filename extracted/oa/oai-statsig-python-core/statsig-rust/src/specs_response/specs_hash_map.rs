@@ -4,6 +4,7 @@ use ahash::{HashMap, HashMapExt};
 use rkyv::{primitive::ArchivedU64, vec::ArchivedVec};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
+    de::Error as SerdeError,
     ser::{SerializeSeq, SerializeStruct},
 };
 use serde_json::value::RawValue;
@@ -13,6 +14,7 @@ use crate::{
     interned_string::InternedString,
     interned_values::{
         InternedStore,
+        interned_store::MmapProjectId,
         mmap_data_v2::{
             ArchivedMmapDynamicString, ArchivedMmapReturnable, ArchivedMmapRule, ArchivedMmapSpec,
         },
@@ -22,6 +24,41 @@ use crate::{
 };
 
 const TAG: &str = "SpecsHashMap";
+const REMOTE_CONFIG_METADATA_JSON_KEY: &str = "remoteConfigMetadata";
+const UNHYDRATED_JSON_REMOTE_CONFIG_METADATA_MESSAGE: &str =
+    "Remote config metadata reached the JSON decoder before hydration";
+
+type RawJsonObject = HashMap<String, Box<RawValue>>;
+
+pub(crate) fn raw_spec_has_unhydrated_remote_config_metadata(json_string: &str) -> bool {
+    // The producer emits the literal key, while the unicode-escape fallback
+    // keeps manually supplied bootstrap JSON from bypassing this guard.
+    if !json_string.contains(REMOTE_CONFIG_METADATA_JSON_KEY) && !json_string.contains("\\u") {
+        return false;
+    }
+
+    // Decode only producer-owned object structure. Values stay raw so a valid
+    // return-value number lexeme that serde_json::Value cannot represent does
+    // not make this guard incorrectly conclude that metadata is absent.
+    let Ok(spec) = serde_json::from_str::<RawJsonObject>(json_string) else {
+        return false;
+    };
+    if spec.contains_key(REMOTE_CONFIG_METADATA_JSON_KEY) {
+        return true;
+    }
+
+    let Some(rules) = spec.get("rules") else {
+        return false;
+    };
+    let Ok(rules) = serde_json::from_str::<Vec<RawJsonObject>>(rules.get()) else {
+        // Malformed specs are handled by the existing tolerant full-response
+        // path; they cannot publish a placeholder because they are skipped.
+        return false;
+    };
+    rules
+        .iter()
+        .any(|rule| rule.contains_key(REMOTE_CONFIG_METADATA_JSON_KEY))
+}
 
 #[derive(PartialEq, Debug, Default)] /* DO_NOT_CLONE */
 pub struct SpecsHashMap(pub HashMap<InternedString, SpecPointer>);
@@ -30,6 +67,25 @@ pub struct SpecsHashMap(pub HashMap<InternedString, SpecPointer>);
 pub(crate) struct SpecDecodeStats {
     pub(crate) total: usize,
     pub(crate) mmap: usize,
+}
+
+impl SpecDecodeStats {
+    /// Runs one decode step with this response's counters and mmap project
+    /// installed as thread-local context, then collects the updated counters.
+    /// The transient project selection never becomes part of persisted stats.
+    pub(crate) fn with_mmap_project<T>(
+        &mut self,
+        mmap_project_id: MmapProjectId,
+        callback: impl FnOnce() -> T,
+    ) -> T {
+        let current_stats = *self;
+        let (result, next_stats) = track_spec_decodes(|| {
+            seed_spec_decode_stats(current_stats);
+            InternedStore::with_mmap_project(mmap_project_id, callback)
+        });
+        *self = next_stats;
+        result
+    }
 }
 
 thread_local! {
@@ -125,6 +181,11 @@ impl<'de> Deserialize<'de> for SpecsHashMap {
         let mut result = SpecsHashMap(HashMap::with_capacity(raw_values.len()));
         for (key, raw_value) in raw_values.into_iter() {
             let json_string = raw_value.get();
+            if raw_spec_has_unhydrated_remote_config_metadata(json_string) {
+                return Err(D::Error::custom(
+                    UNHYDRATED_JSON_REMOTE_CONFIG_METADATA_MESSAGE,
+                ));
+            }
 
             let mut preloaded = None;
             if InternedStore::has_preloaded_mmap_v2() {

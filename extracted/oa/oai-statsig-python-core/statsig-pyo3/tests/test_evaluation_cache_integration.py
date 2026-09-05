@@ -91,7 +91,7 @@ def _create_statsig(
         rule["returnValue"] = {"shared": "across-rules"}
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(specs)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 
@@ -126,7 +126,7 @@ def cached_statsig(httpserver: HTTPServer):
 def cached_statsig_with_event_capture(httpserver: HTTPServer):
     mock_scrapi = MockScrapi(httpserver)
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json",
+        "/v2/download_config_specs",
         response=get_test_data_resource("eval_proj_dcs.json"),
         method="GET",
     )

@@ -48,13 +48,13 @@ impl StatsigHttpIdListsAdapter {
     #[must_use]
     pub fn new(sdk_key: &str, options: &StatsigOptions) -> Self {
         let id_lists_manifest_url =
-            normalize_default_cdn_id_lists_manifest_url(sdk_key, options.id_lists_url.as_deref());
+            normalize_default_cdn_id_lists_manifest_url(options.id_lists_url.as_deref());
 
         let mut fallback_url = None;
         if options.fallback_to_statsig_api == Some(true)
             && !id_lists_manifest_url.contains(DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX)
         {
-            fallback_url = Some(default_cdn_id_lists_manifest_url(sdk_key));
+            fallback_url = Some(default_cdn_id_lists_manifest_url());
         }
 
         let sync_interval_duration = Duration::from_millis(u64::from(
@@ -63,14 +63,9 @@ impl StatsigHttpIdListsAdapter {
                 .unwrap_or(DEFAULT_ID_LIST_SYNC_INTERVAL_MS),
         ));
 
-        let network = NetworkClient::new(
-            sdk_key,
-            Some(StatsigMetadata::get_constant_request_headers(
-                sdk_key,
-                options.service_name.as_deref(),
-            )),
-            Some(options),
-        );
+        let headers =
+            StatsigMetadata::get_constant_request_headers(sdk_key, options.service_name.as_deref());
+        let network = NetworkClient::new(sdk_key, Some(headers), Some(options));
 
         let sdk_instance_id = options.get_sdk_instance_id(sdk_key);
 
@@ -957,12 +952,22 @@ mod tests {
             let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
 
             assert_eq!(
-                adapter.id_lists_manifest_url,
-                default_cdn_id_lists_manifest_url("secret-key"),
+                adapter.id_lists_manifest_url, DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX,
                 "failed to normalize {id_lists_url}"
             );
             assert!(adapter.is_cdn_url());
         }
+    }
+
+    #[test]
+    fn test_default_manifest_url_is_keyless() {
+        let adapter = StatsigHttpIdListsAdapter::new("secret-key", &StatsigOptions::default());
+
+        assert_eq!(
+            adapter.id_lists_manifest_url,
+            DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX
+        );
+        assert!(adapter.is_cdn_url());
     }
 
     #[test]
@@ -1014,11 +1019,9 @@ mod tests {
         };
 
         let adapter = StatsigHttpIdListsAdapter::new("secret-key", &options);
+        let expected_fallback = DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX;
 
-        assert_eq!(
-            adapter.fallback_url.as_deref(),
-            Some(default_cdn_id_lists_manifest_url("secret-key").as_str())
-        );
+        assert_eq!(adapter.fallback_url.as_deref(), Some(expected_fallback));
     }
 
     #[tokio::test]

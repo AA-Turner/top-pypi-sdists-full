@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.0.5
+Version: 3.0.6
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -226,7 +226,7 @@ License-File: LICENSE
 Requires-Dist: agnoctl>=0.2.0
 Requires-Dist: docstring-parser
 Requires-Dist: h11>=0.16.0
-Requires-Dist: httpx[http2]
+Requires-Dist: httpx[http2]>=0.28.1
 Requires-Dist: packaging
 Requires-Dist: pydantic-settings
 Requires-Dist: pydantic
@@ -274,8 +274,8 @@ Requires-Dist: opentelemetry-sdk; extra == "os"
 Requires-Dist: openinference-instrumentation-agno; extra == "os"
 Requires-Dist: agno[scheduler]; extra == "os"
 Provides-Extra: mcp
-Requires-Dist: mcp<2,>=1.9.2; extra == "mcp"
-Requires-Dist: fastmcp<4,>=3.4.3; extra == "mcp"
+Requires-Dist: mcp<3.0.0,>=2.1.0; extra == "mcp"
+Requires-Dist: fastmcp<5,>=4.0.0; extra == "mcp"
 Provides-Extra: scheduler
 Requires-Dist: croniter>=1.3; extra == "scheduler"
 Requires-Dist: pytz>=2023.3; extra == "scheduler"
@@ -520,6 +520,7 @@ Provides-Extra: weaviate
 Requires-Dist: weaviate-client; extra == "weaviate"
 Provides-Extra: chonkie
 Requires-Dist: chonkie[code,semantic]>=1.6.7; extra == "chonkie"
+Requires-Dist: tree-sitter-language-pack<1.16; extra == "chonkie"
 Provides-Extra: csv
 Requires-Dist: aiofiles; extra == "csv"
 Provides-Extra: docx

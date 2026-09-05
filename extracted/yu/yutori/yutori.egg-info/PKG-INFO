@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yutori
-Version: 0.9.12
+Version: 0.9.14
 Summary: Official Python SDK for the Yutori API
 Author-email: Yutori <support@yutori.com>
 License-Expression: Apache-2.0

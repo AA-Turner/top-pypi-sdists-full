@@ -29,6 +29,7 @@ from pypdf.generic import (
     IndirectObject,
     NameObject,
     NullObject,
+    NumberObject,
     RectangleObject,
     TextStringObject,
 )
@@ -1570,6 +1571,29 @@ def test_replace_contents__null_object_cloning_error():
     assert len(reader.pages) == 10
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param(NumberObject(1), "got 1", id="number"),
+        pytest.param(TextStringObject("x"), "got x", id="string"),
+        pytest.param(DictionaryObject(), "got {}", id="dictionary"),
+    ],
+)
+def test_get_rectangle__value_is_not_an_array(value, expected):
+    """A page box that is not an array raised a TypeError from len()."""
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    writer.pages[0][NameObject("/MediaBox")] = value
+    stream = BytesIO()
+    writer.write(stream)
+    stream.seek(0)
+
+    with pytest.raises(
+        ValueError, match=f"Expected an array of four values for /MediaBox, {expected}"
+    ):
+        _ = PdfReader(stream).pages[0].mediabox
+
+
 def test_get_rectangle__size_handling(caplog):
     """
     See issue #2991 and related ones. We would previously generate invalid page boxes when they
@@ -1595,3 +1619,38 @@ def test_get_rectangle__size_handling(caplog):
         ValueError, match=r"Expected four values for /MediaBox, got 3: \[0, 0, 13\]"
     ):
         _ = page.mediabox
+
+
+@pytest.mark.parametrize(
+    ("box", "pdf_name"),
+    [
+        ("mediabox", "/MediaBox"),
+        ("cropbox", "/CropBox"),
+        ("trimbox", "/TrimBox"),
+        ("artbox", "/ArtBox"),
+        ("bleedbox", "/BleedBox"),
+    ],
+)
+@pytest.mark.parametrize("values", [[0, 0], [0, 0, 13]])
+def test_box_setter_rejects_too_few_values(box, pdf_name, values):
+    """
+    The getter cannot build a rectangle from fewer than four values, so writing
+    them through the property would produce a box that cannot be read back.
+    """
+    writer = PdfWriter()
+    writer.add_blank_page(100, 100)
+    page = writer.pages[0]
+    with pytest.raises(
+        ValueError, match=f"Expected four values for {pdf_name}, got {len(values)}"
+    ):
+        setattr(page, box, ArrayObject(values))
+
+
+@pytest.mark.parametrize("box", ["mediabox", "cropbox"])
+def test_box_setter_allows_extra_values(box):
+    """More than four entries stays accepted, matching what the getter tolerates."""
+    writer = PdfWriter()
+    writer.add_blank_page(100, 100)
+    page = writer.pages[0]
+    setattr(page, box, ArrayObject([0, 0, 13, 37, 0, 0]))
+    assert getattr(page, box) == RectangleObject((0, 0, 13, 37))

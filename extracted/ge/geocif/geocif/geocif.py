@@ -8,7 +8,9 @@ by ``geocif_runner.run(cfg)``.
 import ast
 import os
 import re
+import time as _time
 import traceback
+import uuid
 from configparser import ConfigParser
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -132,6 +134,63 @@ class Geocif:
         # the default "drop the earliest year" behavior.
         _tsy_raw = self.parser.get("ML", "training_start_year", fallback="").strip()
         self.training_start_year = int(_tsy_raw) if _tsy_raw else None
+
+        # Harvest Years to drop from df_inputs entirely, e.g.
+        # ``exclude_years = [2025]``. Because df_inputs is the single source
+        # for BOTH df_train and df_test, one filter removes the year from
+        # training AND from scoring -- which is the point: a year whose
+        # features or pipeline handling are suspect should not silently
+        # contaminate the fit while also being reported as a bad fold.
+        # Distinct from training_start_year, which can only move a lower
+        # bound and so cannot excise an interior year.
+        # CIDs / whole CID categories to drop from the feature set, e.g.
+        #   exclude_cids = ['ONI_curr_MAM', 'MEI_prev_ND']
+        #   exclude_cid_categories = ['ENSO']
+        # Categories come from cid/definitions.py ("ENSO", "Heat", "Cold",
+        # "Rain", "Drought", "VI", "ESI", "CCI", "Soil", "Snow", "FLDAS",
+        # "Temperature", "ETREF", "Aridity", "AEF"), matched case-insensitively.
+        # Applied to the FINAL feature_names list, not at candidate level --
+        # the correlation_plots=False fallback assigns all CID columns directly
+        # and bypasses candidate hooks (the bug that made the 2026-09-02 CCI
+        # A/B arms bit-identical).
+        self.exclude_cids = self._parse_list_option("exclude_cids")
+        self.exclude_cid_categories = self._parse_list_option(
+            "exclude_cid_categories"
+        )
+
+        # Irrigated share of harvested area as an annual per-region predictor
+        # (NASS Census; see cid/irrigation.py). OFF by default so no existing
+        # project changes behaviour. irrigation_stress_cid names the in-season
+        # CID the share is interacted with -- the interaction is what carries
+        # the signal, because the sign of the irrigation effect flips between
+        # stress and non-stress years.
+        self.use_irrigation_share = self.parser.getboolean(
+            "ML", "use_irrigation_share", fallback=False
+        )
+        self.irrigation_stress_cid = self.parser.get(
+            "ML", "irrigation_stress_cid", fallback="MEAN_ESI4WK"
+        ).strip()
+
+        _ex_raw = self.parser.get("ML", "exclude_years", fallback="").strip()
+        self.exclude_years = []
+        if _ex_raw:
+            try:
+                _parsed = ast.literal_eval(_ex_raw)
+                if isinstance(_parsed, (int, float)):
+                    _parsed = [_parsed]
+                # Require a real sequence. A dict literal would otherwise be
+                # accepted silently (iterating it yields its keys), so a
+                # typo'd config would "work" while meaning something else.
+                if not isinstance(_parsed, (list, tuple, set)):
+                    raise TypeError(type(_parsed).__name__)
+                self.exclude_years = sorted({int(y) for y in _parsed})
+            except (ValueError, SyntaxError, TypeError):
+                # A malformed list must not silently become "exclude nothing":
+                # the run would look successful while testing the wrong thing.
+                raise ValueError(
+                    f"[ML] exclude_years is malformed: {_ex_raw!r}. Use a list "
+                    f"of integer Harvest Years, e.g. exclude_years = [2025]"
+                )
 
         self.model_type = self.parser.get("ML", "model_type")
         self.classify_target = self.parser.getboolean("ML", "classify_target")
@@ -457,7 +516,11 @@ class Geocif:
                 self.pygrf_params[_opt.replace("pygrf_", "")] = _cast("ML", _opt)
         # Optional TabPFN-GSA (model='tabpfn_gsa') overrides: K = grid cells
         # (perfect square), s = distant-sampling rate in [0,1]. Keys map
-        # tabpfn_gsa_<x> -> <x>.
+        # tabpfn_gsa_<x> -> <x>. Shared by model='tabfm_gsa' (same grid
+        # geometry), which additionally reads tabfm_gsa_n_estimators =
+        # TabFM's inner-ensemble width per local fit (default 8; the
+        # tabpfn_gsa trainer branch pops the key, so both models can run
+        # from one config).
         self.gsa_params: dict = {}
         for _opt, _cast in (
             ("tabpfn_gsa_K", self.parser.getint),
@@ -465,6 +528,10 @@ class Geocif:
         ):
             if self.parser.has_option("ML", _opt):
                 self.gsa_params[_opt.replace("tabpfn_gsa_", "")] = _cast("ML", _opt)
+        if self.parser.has_option("ML", "tabfm_gsa_n_estimators"):
+            self.gsa_params["n_estimators"] = self.parser.getint(
+                "ML", "tabfm_gsa_n_estimators"
+            )
         # Optional BNN (model='bnn', Ma et al. 2021 RSE) overrides. Absent
         # keys keep trainers' defaults (epochs=700, kl_weight=0.05 -- NOT the
         # paper's 1.0, which collapses the sigma head to a constant). Keys
@@ -688,7 +755,7 @@ class Geocif:
         # dispatch_name (not model_name) so curated_/top<N>_/auto_
         # wrappers of these algos are covered too.
         if (
-            self.dispatch_name in ("pygrf", "tabpfn_gsa")
+            self.dispatch_name in ("pygrf", "tabpfn_gsa", "tabfm_gsa")
             and not self.include_lat_lon_as_feature
         ):
             raise ValueError(
@@ -696,6 +763,30 @@ class Geocif:
                 "requires [ML] include_lat_lon_as_feature = True — region "
                 "centroid lat/lon are its spatial coordinates. Set it in the "
                 "config before running."
+            )
+
+    def _parse_list_option(self, option, section="ML"):
+        """Parse a ``[section] option = ['a', 'b']`` list of strings.
+
+        Empty/absent -> []. A bare string is wrapped. Anything that is not a
+        list/tuple/set (a dict literal, say) RAISES rather than degrading to
+        "exclude nothing": a typo'd value would otherwise produce a run that
+        looks successful while testing something else entirely.
+        """
+        raw = self.parser.get(section, option, fallback="").strip()
+        if not raw:
+            return []
+        try:
+            parsed = ast.literal_eval(raw)
+            if isinstance(parsed, str):
+                parsed = [parsed]
+            if not isinstance(parsed, (list, tuple, set)):
+                raise TypeError(type(parsed).__name__)
+            return [str(x).strip() for x in parsed if str(x).strip()]
+        except (ValueError, SyntaxError, TypeError):
+            raise ValueError(
+                f"[{section}] {option} is malformed: {raw!r}. Use a list of "
+                f"strings, e.g. {option} = ['ENSO']"
             )
 
     def _refresh_target_column(self):
@@ -743,7 +834,7 @@ class Geocif:
             self._setup_simple_regression_flags()
         elif self.model_name.startswith("cumulative_"):
             self._setup_cumulative_flags()
-        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone", "tabpfn_gsa"]:
+        elif self.dispatch_name in ["tabpfn", "tabpfn_ft", "desreg", "tabicl", "tabicl_ft", "tabfm", "exaone", "tabpfn_gsa", "tabfm_gsa"]:
             self._setup_tabular_flags()
         elif self.dispatch_name in ["oblique", "ydf", "pygrf"]:
             self._setup_tree_flags()
@@ -810,7 +901,7 @@ class Geocif:
         # permutation path would refit local TabPFN ensembles per grid cell
         # per permutation (prohibitively slow) while dropping the Region
         # column GSAModel requires at predict.
-        if self.do_xai and self.dispatch_name == "tabpfn_gsa":
+        if self.do_xai and self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa"):
             self.logger.warning(
                 f"[ML] do_xai = True is not supported for {self.model_name}; "
                 f"disabling XAI for this model (no SHAP explainer path for GSAModel)"
@@ -1018,7 +1109,11 @@ class Geocif:
         
         file_path = self._get_statistics_file_path(country, crop)
         
-        if not file_path.exists() or self.update_input_file:
+        if (
+            not file_path.exists()
+            or self.update_input_file
+            or self._statistics_file_stale(country, crop, file_path)
+        ):
             try:
                 self._create_statistics_file(country, crop, file_path)
             except FileNotFoundError as e:
@@ -1037,6 +1132,47 @@ class Geocif:
         path = utils.statistics_file_path(self.dir_output, self.method, country, crop)
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
+
+    def _statistics_file_stale(self, country: str, crop: str, file_path: Path) -> bool:
+        """True when any per-year CID index CSV is newer than the cached
+        combined statistics file.
+
+        Keeps ``read_data`` seamless when new harvest-year CID files appear
+        (e.g. a future season generated by pre-season mode, or a CID rerun):
+        previously the cached file silently lacked those rows until the user
+        remembered to set ``update_input_file``.
+        """
+        # Escape hatch for frozen-input experiments: [ML]
+        # stats_staleness_check = False restores the old "cache wins until
+        # update_input_file is set" behavior.
+        try:
+            if not self.parser.getboolean(
+                "ML", "stats_staleness_check", fallback=True
+            ):
+                return False
+        except Exception:
+            pass
+        try:
+            stats_mtime = file_path.stat().st_mtime
+            admin_zone = self.parser.get(country, "admin_level")
+            _dir_country = (
+                self.dir_output / "cid" / "indices" / self.method /
+                admin_zone / country / crop
+            )
+            from geocif.indices_runner import get_seasons
+            seasons = get_seasons(country, self.parser, crop=crop)
+            for s in seasons:
+                for f in _dir_country.glob(f"{country}_{crop}_s{s}_*.csv"):
+                    if f.stat().st_mtime > stats_mtime:
+                        self.logger.info(
+                            f"Statistics file is older than {f.name} -- rebuilding"
+                        )
+                        return True
+        except Exception as e:
+            self.logger.warning(
+                f"Statistics staleness check failed ({e}); using cached file"
+            )
+        return False
 
     def _create_statistics_file(self, country: str, crop: str, file_path: Path):
         """Create statistics file by combining CID data with yield statistics."""
@@ -1091,7 +1227,34 @@ class Geocif:
         )
         
         self.logger.info("Writing input file to disk")
-        self.df_inputs.to_csv(file_path, index=False)
+        # Atomic: parallel folds can all decide to rebuild (staleness check /
+        # update_input_file) -- write to a unique temp name and replace, so a
+        # concurrent reader never sees a half-written CSV. uuid (not bare PID)
+        # because gsapp18 + gsapp6 share /gpfs and PIDs collide across hosts.
+        tmp_path = file_path.with_suffix(
+            f".tmp{os.getpid()}_{uuid.uuid4().hex[:8]}.csv"
+        )
+        self.df_inputs.to_csv(tmp_path, index=False)
+        # os.replace is atomic on POSIX. On Windows it raises PermissionError
+        # while another process holds the target open (pd.read_csv opens
+        # without FILE_SHARE_DELETE). Retry briefly, then degrade gracefully:
+        # df_inputs is already in memory, so this fold proceeds either way.
+        for _attempt in range(5):
+            try:
+                os.replace(tmp_path, file_path)
+                break
+            except PermissionError:
+                if _attempt == 4:
+                    self.logger.warning(
+                        f"Could not replace {file_path.name} (target in use); "
+                        f"continuing with in-memory inputs"
+                    )
+                    try:
+                        tmp_path.unlink()
+                    except OSError:
+                        pass
+                else:
+                    _time.sleep(0.5 * (_attempt + 1))
 
     def _merge_season_features_if_missing(
         self, df: pd.DataFrame, country: str, crop: str
@@ -1233,7 +1396,11 @@ class Geocif:
         frames = []
         for country in countries:
             file_path = self._get_statistics_file_path(country, crop)
-            if not file_path.exists() or self.update_input_file:
+            if (
+                not file_path.exists()
+                or self.update_input_file
+                or self._statistics_file_stale(country, crop, file_path)
+            ):
                 try:
                     self._create_statistics_file(country, crop, file_path)
                     frames.append(self.df_inputs)
@@ -1284,6 +1451,12 @@ class Geocif:
           * ``self.training_start_year = <int>``: filter to
             ``Harvest Year >= training_start_year``; an explicit value
             overrides the first-year drop.
+
+        Then drops any ``exclude_years``. That runs AFTER the window filter
+        so the two compose independently, and it is applied to ``df_inputs``
+        (not ``df_train``) so the excluded year leaves both the fit and the
+        scored set -- excluding it from training only would leave it reported
+        as a fold with no training data behind it.
         """
         if self.df_inputs is None or self.df_inputs.empty:
             return
@@ -1310,6 +1483,31 @@ class Geocif:
                 f"  Training-year filter ({mode_msg}): dropped {dropped} rows"
             )
 
+        if self.exclude_years:
+            _before_ex = len(self.df_inputs)
+            _present = sorted(
+                set(self.exclude_years)
+                & set(self.df_inputs["Harvest Year"].dropna().astype(int))
+            )
+            self.df_inputs = self.df_inputs[
+                ~self.df_inputs["Harvest Year"].isin(self.exclude_years)
+            ].reset_index(drop=True)
+            _ex_dropped = _before_ex - len(self.df_inputs)
+            self.logger.info(
+                f"  exclude_years={self.exclude_years}: dropped "
+                f"{_ex_dropped} rows (years actually present: {_present}) "
+                f"-- removed from BOTH training and scoring"
+            )
+            # Asking to exclude a year that is not there means the config and
+            # the data disagree; say so loudly rather than reporting a clean
+            # run that excluded nothing.
+            _absent = sorted(set(self.exclude_years) - set(_present))
+            if _absent:
+                self.logger.warning(
+                    f"  exclude_years: {_absent} not present in df_inputs for "
+                    f"{self.country} {self.crop} -- nothing dropped for those"
+                )
+
     # ============================================================================
     # MAIN EXECUTION PIPELINE
     # ============================================================================
@@ -1332,7 +1530,29 @@ class Geocif:
             # produce distinct FLDAS features. Mixed/observational pre-season
             # runs stop at planting-1.
             self._execute_pre_season(include_in_season=self._is_forecast_only())
-        elif self.run_time_steps in ("latest", "current"):
+            return
+
+        # A forecast season whose rows are ALL init rows (PS_/IS_) has not
+        # started yet -- only forecast CIDs (S2S/FLDAS) + static features
+        # exist for it. Every in-season path below would fit models with an
+        # empty test set at every stage. Say how to run it instead of failing
+        # cryptically.
+        if "Stage_ID" in self.df_inputs.columns:
+            fs_stages = self.df_inputs.loc[
+                self.df_inputs["Harvest Year"] == self.forecast_season,
+                "Stage_ID",
+            ].dropna().astype(str)
+            if len(fs_stages) and fs_stages.str.startswith(("PS", "IS")).all():
+                self.logger.warning(
+                    f"{self.country} {self.crop} {self.forecast_season}: only "
+                    f"pre-season (PS_/IS_) rows exist for this season -- it "
+                    f"has not started yet. Set [ML] run_time_steps = "
+                    f"pre_season to forecast it from S2S/FLDAS leads; "
+                    f"skipping under run_time_steps={self.run_time_steps}."
+                )
+                return
+
+        if self.run_time_steps in ("latest", "current"):
             self._execute_single_pass()
         else:
             self._execute_multi_step()
@@ -1583,6 +1803,20 @@ class Geocif:
             if df.empty:
                 debug_row["result"] = "empty_ml"
                 debug_rows.append(debug_row)
+                continue
+
+            # Nothing to predict: the forecast season has no rows for this
+            # init month (e.g. a future season -- forecast_seasons = [next
+            # year] -- whose init forecast has not been issued yet, or an
+            # init month the calendar drops). A training-only step would fit
+            # a model with an empty test set.
+            if not (df["Harvest Year"] == self.forecast_season).any():
+                debug_row["result"] = "no_forecast_season_rows"
+                debug_rows.append(debug_row)
+                self.logger.info(
+                    f"  Init {month_name}: no Harvest Year "
+                    f"{self.forecast_season} rows after pivot -- skipping step"
+                )
                 continue
 
             debug_row["result"] = "success"
@@ -3016,6 +3250,11 @@ class Geocif:
                     f"y_train will be demeaned in _setup_training_data"
                 )
 
+        # irr_share x in-season stress. Built here, after every train/test
+        # filter has run, so both frames carry the same regions and the
+        # z-score is fitted on the final training set.
+        self._add_irrigation_interaction()
+
     def _compute_yield_trend_feature(self):
         """Compute per-region BEAST-segmented linear trend, write to
         ``Yield Trend`` column on both df_train and df_test.
@@ -3636,6 +3875,7 @@ class Geocif:
         df = self._add_engineered_features(df)
         df = self._add_project_static_features(df)
         df = self._add_static_eo_features(df)
+        df = self._add_annual_region_features(df)
         df = self._add_region_clusters(df)
 
         return df
@@ -4043,6 +4283,140 @@ class Geocif:
                 f"{n}/{len(df)} rows matched"
             )
         return df
+
+    def _add_annual_region_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Join annual per-region features onto the wide ML frame by
+        ``(Region, Harvest Year)``.
+
+        Sibling of ``_add_static_eo_features``. The difference that matters is
+        the join key: these carry one value per region PER YEAR, so a
+        Region-only join would silently collapse them to a constant and throw
+        away the whole signal.
+
+        Today this is ``IRR_SHARE`` — the NASS Census irrigated share of
+        harvested area. ``IRR_SHARE_X_STRESS`` is NOT built here: its z-score
+        must be fitted on training rows only, and this runs before the split.
+        See ``_prepare_train_test_split``.
+
+        Off by default (``[ML] use_irrigation_share``) and presence-driven: a
+        missing CSV logs and returns the frame untouched, so no other project
+        changes behaviour.
+        """
+        if not getattr(self, "use_irrigation_share", False):
+            return df
+        if "Region" not in df.columns or "Harvest Year" not in df.columns:
+            return df
+
+        from geocif.cid import irrigation as irr_mod
+
+        try:
+            csv_path = irr_mod.resolve_csv_path(
+                self.parser, self.parser.get("PATHS", "dir_metadata")
+            )
+        except Exception as e:  # noqa: BLE001
+            self.logger.warning(
+                f"irrigation share: cannot resolve CSV path "
+                f"({type(e).__name__}: {e}); skipping"
+            )
+            return df
+
+        years = sorted(pd.to_numeric(df["Harvest Year"], errors="coerce")
+                       .dropna().astype(int).unique().tolist())
+        frame = irr_mod.get_irrigation_frame(csv_path, self.crop, years=years)
+        if frame is None or frame.empty:
+            self.logger.warning(
+                f"irrigation share: no coverage for {self.country} {self.crop} "
+                f"at {csv_path}; IRR_SHARE not added"
+            )
+            return df
+
+        lookup = {
+            (r, int(y)): v
+            for r, y, v in zip(frame["region"], frame["year"], frame["irr_share"])
+        }
+        keys = zip(
+            df["Region"].map(irr_mod.normalize_region),
+            pd.to_numeric(df["Harvest Year"], errors="coerce"),
+        )
+        df["IRR_SHARE"] = [
+            lookup.get((r, int(y))) if pd.notna(y) else None for r, y in keys
+        ]
+        df["IRR_SHARE"] = pd.to_numeric(df["IRR_SHARE"], errors="coerce")
+
+        matched = int(df["IRR_SHARE"].notna().sum())
+        # warning, not info: info goes to geocif's own logfile and is invisible
+        # in the nohup log, and a silent 0% match is exactly the failure this
+        # feature would otherwise hide.
+        self.logger.warning(
+            f"annual region feature IRR_SHARE: {matched}/{len(df)} rows matched "
+            f"({df.loc[df['IRR_SHARE'].notna(), 'Region'].nunique()} regions, "
+            f"mean share "
+            f"{df['IRR_SHARE'].mean():.3f})" if matched else
+            f"annual region feature IRR_SHARE: 0/{len(df)} rows matched — "
+            f"check region naming against {csv_path}"
+        )
+        return df
+
+    def _add_irrigation_interaction(self):
+        """Build ``IRR_SHARE_X_STRESS`` on df_train/df_test, per fold.
+
+        ``IRR_SHARE`` alone is close to useless: the sign of the irrigation
+        effect flips with the season (Kansas maize corr(irr_share, %err) =
+        -0.63 in 2012 and -0.53 in 2011, but +0.61 in 2014 and +0.48 in 2024).
+        In a stress year the model over-predicts dryland counties; in a good
+        year it under-credits irrigated ones. Only the interaction with an
+        in-season stress signal can express both.
+
+        The stress CID is standardised WITHIN region using training rows only
+        (``_df_train_leakfree``). ``irr_share`` itself is census acreage and
+        carries no yield, but the z-score's mean and sd would otherwise be
+        fitted with the forecast year in them.
+        """
+        if not getattr(self, "use_irrigation_share", False):
+            return
+        if self.df_train is None or "IRR_SHARE" not in self.df_train.columns:
+            return
+
+        stress = getattr(self, "irrigation_stress_cid", "") or ""
+        # The frame carries staged columns ("MEAN_ESI4WK Jul 1-Jul 31"), so
+        # match on the CID prefix and average whatever windows survived the
+        # stage filters.
+        cols = [
+            c for c in self.df_train.columns
+            if str(c) == stress or str(c).startswith(f"{stress} ")
+        ]
+        if not cols:
+            cache_key = (self.country, self.crop, stress)
+            if getattr(self, "_last_irr_stress_miss", None) != cache_key:
+                self.logger.warning(
+                    f"irrigation interaction: stress CID '{stress}' not in the "
+                    f"frame; IRR_SHARE_X_STRESS not built (IRR_SHARE still is)"
+                )
+                self._last_irr_stress_miss = cache_key
+            return
+
+        admin_col = (
+            "Country__Region"
+            if getattr(self, "countries_pooled", None)
+            and "Country__Region" in self.df_train.columns
+            else "Region"
+        )
+        train = self._df_train_leakfree()
+        s_train = train[cols].mean(axis=1)
+        grp = train[admin_col]
+        mu = s_train.groupby(grp).mean()
+        sd = s_train.groupby(grp).std()
+        # A region with one training row (or a constant stress series) has no
+        # usable scale; 1.0 makes the z-score a plain centred value rather than
+        # an infinity.
+        sd = sd.replace(0.0, np.nan).fillna(1.0)
+
+        for frame in (self.df_train, self.df_test):
+            if frame is None or frame.empty or "IRR_SHARE" not in frame.columns:
+                continue
+            s = frame[cols].mean(axis=1)
+            z = (s - frame[admin_col].map(mu)) / frame[admin_col].map(sd)
+            frame["IRR_SHARE_X_STRESS"] = frame["IRR_SHARE"] * z
 
     def _add_region_clusters(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add Region_ID column based on clustering strategy."""
@@ -4493,6 +4867,17 @@ class Geocif:
         # CID name, or its Type e.g. 'Soil'/'Aridity'); gOMP still decides
         # per fold whether they survive.
         for _name, _meta in di.dict_static_eo.items():
+            if _name not in self.df_train.columns:
+                continue
+            if ("all" in self.use_cids or _name in self.use_cids
+                    or _meta[0] in self.use_cids):
+                self.feature_names.append(_name)
+
+        # Annual per-region features (IRR_SHARE, IRR_SHARE_X_STRESS), joined
+        # post-pivot by _add_annual_region_features / built per fold by
+        # _add_irrigation_interaction. Same force-include rule as the static
+        # block above: the correlation screen only sees staged columns.
+        for _name, _meta in di.dict_annual_region.items():
             if _name not in self.df_train.columns:
                 continue
             if ("all" in self.use_cids or _name in self.use_cids
@@ -5135,12 +5520,22 @@ class Geocif:
         df_region: pd.DataFrame
     ) -> Tuple:
         """Predict with confidence intervals."""
-        if not (self.estimate_ci_for_all or self.forecast_season == self.today_year):
+        # >= : a future forecast season (e.g. next year's Southern-Hemisphere
+        # season run pre-season) is a LIVE forecast and gets CIs like today's.
+        if not (self.estimate_ci_for_all or self.forecast_season >= self.today_year):
             return self._predict_point_estimates(X_test, df_region)
         
         # Use self.dispatch_name so curated_<algo> wrappers route through
         # their underlying algo's CI path (e.g. curated_tabpfn uses TabPFN's
         # native quantile path, not the conformal fallback).
+        # CLASSIFICATION is checked FIRST. The per-algo branches below are all
+        # regression CI paths (native quantiles / conformal intervals), and
+        # they matched before this test — so a classifier like tabpfn was
+        # routed into the regression quantile path instead of predict_proba.
+        # Any model fitted as a classifier belongs here regardless of algo.
+        if self.model_type == "CLASSIFICATION" and hasattr(self.model, "predict_proba"):
+            return self._predict_classification_with_proba(X_test)
+
         if self.dispatch_name == "ngboost":
             return self._predict_ngboost_with_ci(X_test)
         elif self.dispatch_name == "tabpfn":
@@ -5647,7 +6042,9 @@ class Geocif:
         if not self.estimate_ci:
             return
 
-        if not (self.estimate_ci_for_all or self.forecast_season == self.today_year):
+        # >= : a future forecast season (e.g. next year's Southern-Hemisphere
+        # season run pre-season) is a LIVE forecast and gets CIs like today's.
+        if not (self.estimate_ci_for_all or self.forecast_season >= self.today_year):
             return
 
         if y_pred_ci is None:
@@ -5978,6 +6375,68 @@ class Geocif:
                     f"names (region_id={region_id}, model={self.model_name})"
                 )
 
+        # CID / category exclusion — same placement rationale as the CCI
+        # policy above: the FINAL name list is the only point every branch
+        # passes through.
+        if (self.exclude_cids or self.exclude_cid_categories) \
+                and self.feature_names:
+            from .ml.stages import resolve_excluded_cids as _resolve_ex
+            from .ml.stages import (
+                filter_feature_names_exclude_cids as _filter_ex,
+            )
+            _drop, _unmatched_cats = _resolve_ex(
+                self.exclude_cids, self.exclude_cid_categories
+            )
+            _before = len(self.feature_names)
+            _removed = [f for f in self.feature_names
+                        if str(f).split(" ")[0] in _drop]
+            self.feature_names = _filter_ex(self.feature_names, _drop)
+
+            # This method runs PER REGION, so a single call is not evidence
+            # about the run: the first region may legitimately have no
+            # candidates from an excluded family. An earlier version warned
+            # "removed NOTHING" off the first call alone and cried wolf on a
+            # run where the filter was in fact working. Accumulate instead,
+            # and only make claims that a single call can actually support.
+            self._cid_excl_calls = getattr(self, "_cid_excl_calls", 0) + 1
+            self._cid_excl_removed = (
+                getattr(self, "_cid_excl_removed", 0) + len(_removed)
+            )
+            if not getattr(self, "_logged_cid_exclusion", False):
+                # Config-level facts, verifiable on any single call.
+                self.logger.info(
+                    f"  exclude_cids={self.exclude_cids} "
+                    f"exclude_cid_categories={self.exclude_cid_categories} "
+                    f"-> resolved to {len(_drop)} CID base names"
+                )
+                if not _drop:
+                    # THIS is the reliable no-op signal: the config resolved to
+                    # nothing at all, so no region could ever be filtered.
+                    self.logger.warning(
+                        f"  exclude_cids/exclude_cid_categories resolved to ZERO"
+                        f" CID base names -- the exclusion cannot have any "
+                        f"effect. Check spelling."
+                    )
+                if _unmatched_cats:
+                    self.logger.warning(
+                        f"  exclude_cid_categories: {_unmatched_cats} matched "
+                        f"NO CID in cid/definitions.py -- check spelling "
+                        f"(valid e.g. ENSO, Heat, Cold, Rain, Drought, VI, "
+                        f"ESI, CCI, Soil, Snow, FLDAS, Temperature)"
+                    )
+                self._logged_cid_exclusion = True
+            # Report the first call that actually removed something, which is
+            # the positive confirmation worth having in the log.
+            if _removed and not getattr(self, "_logged_cid_removal", False):
+                self.logger.info(
+                    f"  exclude_cids: dropped {len(_removed)} of {_before} "
+                    f"feature names for region_id={region_id} "
+                    f"(e.g. {sorted(set(_removed))[:4]}); cumulative "
+                    f"{self._cid_excl_removed} over {self._cid_excl_calls} "
+                    f"region-calls"
+                )
+                self._logged_cid_removal = True
+
         self._warn_if_coords_degenerate()
 
     def _warn_if_coords_degenerate(self):
@@ -5994,7 +6453,7 @@ class Geocif:
         lowercased, so an underscored Country or renamed admin never
         matches) and it is invisible in the metrics.
         """
-        if self.dispatch_name not in ("pygrf", "tabpfn_gsa"):
+        if self.dispatch_name not in ("pygrf", "tabpfn_gsa", "tabfm_gsa"):
             return
         # Once per (country, crop, model) — the check is per-region-per-fold
         # but the geodata join is not, so repeating it would spam the log.
@@ -6519,8 +6978,10 @@ class ModelTrainer:
         if not self.obj.estimate_ci:
             return
 
+        # >= : future forecast seasons are live forecasts (see the twin CI
+        # gates in Geocif) and get confidence intervals too.
         if not (self.obj.estimate_ci_for_all or
-                self.obj.forecast_season == self.obj.today_year):
+                self.obj.forecast_season >= self.obj.today_year):
             return
 
         self.obj.model = trainers.estimate_ci(
@@ -6575,6 +7036,9 @@ class ModelTrainer:
             # tabpfn_gsa wraps GSAModel behind a plain .fit(X, y) — the
             # TabPFNFitter path (DataFrame in, y ravel) is exactly right.
             "tabpfn_gsa": TabPFNFitter(self.obj),
+            # tabfm_gsa: same GSAModel geometry with TabFM local models —
+            # identical plain .fit(X, y) surface, same fitter path.
+            "tabfm_gsa": TabPFNFitter(self.obj),
             "tabicl": TabICLFitter(self.obj),
             "tabicl_ft": TabICLFTFitter(self.obj),
             "tabpfn_ft": TabPFNFTFitter(self.obj),

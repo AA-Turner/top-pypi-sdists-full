@@ -10,7 +10,7 @@ def package_version():
     module_path = os.path.join(CWD, 'pebble', '__init__.py')
     for line in fileinput.FileInput(module_path):
         if line.startswith('__version__'):
-            return line.split('=')[-1].strip().replace('\'', '')
+            return line.split('=')[-1].strip().replace('"', '')
 
 
 setup(
@@ -23,8 +23,10 @@ setup(
     keywords="thread process pool decorator",
     url="https://github.com/noxdafox/pebble",
     packages=find_packages(exclude=["test"]),
+    package_data={"pebble": ["py.typed"]},
+    zip_safe=False,
     long_description=open(os.path.join(CWD, 'README.rst')).read(),
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     classifiers=[
         "Programming Language :: Python :: 3",
         "Development Status :: 5 - Production/Stable",
@@ -33,5 +35,5 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: " +
         "GNU Library or Lesser General Public License (LGPL)"
-    ],
+    ]
 )

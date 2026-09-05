@@ -17,33 +17,35 @@ from .exceptions import DownloadError
 
 
 class _ShowVersionAction(argparse.Action):
+    # The callback protocol requires the full signature even when values are unused.
     def __call__(
         self,
         parser: argparse.ArgumentParser,
-        namespace: argparse.Namespace,
-        values: str | Sequence[Any] | None,
-        option_string: str | None = None,
-    ) -> None:
+        namespace: argparse.Namespace,  # noqa: ARG002
+        values: str | Sequence[Any] | None,  # noqa: ARG002
+        option_string: str | None = None,  # noqa: ARG002
+    ) -> None:  # noqa: GR005 -- inherited protocol accepts both call styles
         print(f"gdown {__version__} at {os.path.dirname(os.path.dirname(__file__))}")
         parser.exit()
 
 
-def file_size(argv: str | None) -> float | None:
-    if argv is not None:
-        m = re.match(r"([0-9]+)(GB|MB|KB|B)", argv)
-        if not m:
-            raise TypeError
-        size, unit = m.groups()
-        size = float(size)
-        if unit == "KB":
-            size *= 1024
-        elif unit == "MB":
-            size *= 1024**2
-        elif unit == "GB":
-            size *= 1024**3
-        elif unit == "B":
-            pass
-        return size
+def file_size(argv: str | None) -> float | None:  # noqa: GR005 -- public API accepts both call styles
+    if argv is None:
+        return None
+    m = re.match(r"([0-9]+)(GB|MB|KB|B)", argv)
+    if not m:
+        raise TypeError
+    size, unit = m.groups()
+    size = float(size)
+    if unit == "KB":
+        size *= 1024
+    elif unit == "MB":
+        size *= 1024**2
+    elif unit == "GB":
+        size *= 1024**3
+    elif unit == "B":
+        pass
+    return size
 
 
 def main() -> None:

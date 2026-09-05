@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ubi-reader
-Version: 0.8.15
+Version: 0.8.16
 Summary: Extract files from UBI and UBIFS images.
 License: GNU GPL
 License-File: LICENSE

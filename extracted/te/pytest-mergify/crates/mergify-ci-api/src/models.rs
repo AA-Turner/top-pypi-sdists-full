@@ -38,6 +38,22 @@ pub struct FlakyDetectionContext {
     pub existing_tests_mean_duration_ms: i64,
     /// Names of tests currently considered unhealthy.
     pub unhealthy_test_names: Vec<String>,
+    /// Fraction of the suite runtime budgeted for retrying failed tests.
+    ///
+    /// Defaulted, like the two `*_test_names` fields below, so a client built
+    /// against this model still deserialises an engine that predates test
+    /// retry -- the absent mechanism then reads as one with nothing to retry.
+    #[serde(default)]
+    pub budget_ratio_for_test_retries: f64,
+    /// Names of tests the server classifies as flaky on the default branch:
+    /// the set a failed attempt may be retried on.
+    #[serde(default)]
+    pub flaky_test_names: Vec<String>,
+    /// Names of tests the server classifies as broken on the default branch.
+    /// Served so the payload says what the data is; retry never acts on them,
+    /// because a deterministic failure is not something a rerun can rescue.
+    #[serde(default)]
+    pub broken_test_names: Vec<String>,
     /// Maximum number of times a single test may be executed.
     pub max_test_execution_count: i64,
     /// Maximum test-name length the server tracks.
@@ -65,8 +81,9 @@ pub struct TestSelection {
     /// Why the server chose this selection — surfaced in the plugin report.
     pub reason: String,
     /// The node ids to run when `selection` is `"subset"`; `None` when the field
-    /// is absent (always for `"full"`; a protocol break for `"subset"`). An
-    /// `Option<T>` field is optional to serde, so a missing key is `None`.
+    /// is absent -- for any answer that carries no subset, `"full"` and any
+    /// variant this client predates included; a protocol break for `"subset"`.
+    /// An `Option<T>` field is optional to serde, so a missing key is `None`.
     pub tests: Option<Vec<String>>,
 }
 
@@ -106,6 +123,25 @@ mod tests {
     }
 
     #[test]
+    fn defaults_test_retry_fields_on_an_engine_that_predates_them() {
+        let json = r#"{
+            "budget_ratio_for_new_tests": 0.1,
+            "budget_ratio_for_unhealthy_tests": 0.2,
+            "existing_test_names": [],
+            "existing_tests_mean_duration_ms": 120,
+            "unhealthy_test_names": [],
+            "max_test_execution_count": 10,
+            "max_test_name_length": 256,
+            "min_budget_duration_ms": 5000,
+            "min_test_execution_count": 3
+        }"#;
+        let ctx: FlakyDetectionContext = serde_json::from_str(json).unwrap();
+        assert!(ctx.flaky_test_names.is_empty());
+        assert!(ctx.broken_test_names.is_empty());
+        assert!(ctx.budget_ratio_for_test_retries.abs() < f64::EPSILON);
+    }
+
+    #[test]
     fn deserializes_subset_test_selection() {
         let json = r#"{"selection":"subset","reason":"queue_rerun","tests":["t::a","t::b"]}"#;
         let selection: TestSelection = serde_json::from_str(json).unwrap();
@@ -121,5 +157,22 @@ mod tests {
         assert_eq!(selection.selection, "full");
         // A missing `tests` is `None`, distinct from a present empty list.
         assert!(selection.tests.is_none());
+    }
+
+    // A published client is older than the server it talks to: the server may
+    // answer with a `selection` variant that did not exist when the client was
+    // built (`empty` -- run nothing, the predecessor already ran them -- is the
+    // first one). Decoding must still succeed, so that the client's own
+    // normalisation can fall back to running the full suite. Keeping
+    // `selection` a plain `String` rather than a closed enum is what makes that
+    // true: an enum would reject the payload outright and every already-shipped
+    // client would stop selecting -- or worse, fail its run -- the day the
+    // server ships a new variant.
+    #[test]
+    fn deserializes_a_selection_variant_this_client_predates() {
+        let json = r#"{"selection":"empty","reason":"predecessor_job_succeeded"}"#;
+        let selection: TestSelection = serde_json::from_str(json).unwrap();
+        assert_eq!(selection.selection, "empty");
+        assert_eq!(selection.tests, None);
     }
 }

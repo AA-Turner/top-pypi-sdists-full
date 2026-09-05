@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: shinychat
-Version: 0.6.1
+Version: 0.7.0
 Summary: An AI Chat interface for Shiny apps.
 Project-URL: Homepage, https://posit-dev.github.io/shinychat/
 Project-URL: Documentation, https://posit-dev.github.io/shinychat/py/
@@ -12,11 +12,12 @@ License: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: htmltools>=0.7.0
-Requires-Dist: pydantic
-Requires-Dist: shiny>=1.4.0
+Requires-Dist: libsass>=0.23.0
+Requires-Dist: pydantic>=2.11
+Requires-Dist: shiny>=1.7.0
 Provides-Extra: providers
 Requires-Dist: anthropic; (python_version >= '3.11') and extra == 'providers'
-Requires-Dist: chatlas[mcp]>=0.18.1; extra == 'providers'
+Requires-Dist: chatlas[mcp]>=0.22.0; extra == 'providers'
 Requires-Dist: google-genai; extra == 'providers'
 Requires-Dist: langchain-core>=1.0.0; extra == 'providers'
 Requires-Dist: ollama>=0.4.0; extra == 'providers'
@@ -55,12 +56,10 @@ from shinychat.express import Chat
 # Set some Shiny page options
 ui.page_opts(title="Hello Chat")
 
-# Create a chat component, with an initial message
+# Create a chat component, with an initial greeting
 chat = Chat(
     id="chat",
-    messages=[
-        {"content": "Hello! How can I help you today?", "role": "assistant"},
-    ],
+    greeting="Hello! How can I help you today?",
 )
 
 # Display the chat

@@ -3,11 +3,14 @@ use std::{io::Read, sync::Arc};
 use crate::{
     StatsigErr,
     networking::{ResponseData, ResponseDataStream},
+    specs_response::proto_compression::ProtoCompression,
 };
 use brotli::Decompressor;
 use bytes::BytesMut;
 
-pub const BUFFER_SIZE: usize = 4096;
+// Configuration responses expand to several megabytes. Keeping the decoder's
+// input and output buffers at 32 KiB avoids resuming it for every 4 KiB.
+pub const BUFFER_SIZE: usize = 32 * 1024;
 
 pub struct ProtoStreamReader<'a> {
     source: ProtoStreamSource<'a>,
@@ -24,6 +27,21 @@ impl<'a> ProtoStreamReader<'a> {
         Self::new_compressed(data)
     }
 
+    pub(crate) fn new_for_response(data: &'a mut ResponseData) -> Result<Self, StatsigErr> {
+        if let Some(bytes) = data.get_prepared_protobuf_stream() {
+            return Ok(Self::from_prepared_stream(bytes));
+        }
+
+        match ProtoCompression::from_response(data) {
+            Some(ProtoCompression::Brotli) => Ok(Self::new_compressed(data)),
+            Some(ProtoCompression::Zstd) => Self::new_zstd_compressed(data),
+            // Direct decoder callers and datastore hydration historically pass
+            // headerless statsig-br bytes. Network response classification rejects
+            // unsupported encodings before this point.
+            None => Ok(Self::new_compressed(data)),
+        }
+    }
+
     /// Always reads the original statsig-br stream, ignoring any prepared
     /// protobuf stream attached by hydration. Hydration uses this constructor
     /// while producing the prepared stream itself.
@@ -38,6 +56,19 @@ impl<'a> ProtoStreamReader<'a> {
         }
     }
 
+    fn new_zstd_compressed(data: &'a mut ResponseData) -> Result<Self, StatsigErr> {
+        let stream_borrower = StreamBorrower::new(data);
+        let zstd_decompressor = zstd::stream::read::Decoder::new(stream_borrower).map_err(|e| {
+            StatsigErr::ProtobufParseError("ZstdDecompressorInit".to_string(), e.to_string())
+        })?;
+
+        Ok(Self {
+            source: ProtoStreamSource::Zstd(Box::new(zstd_decompressor)),
+            scratch: [0u8; BUFFER_SIZE],
+            buf: BytesMut::new(),
+        })
+    }
+
     fn from_prepared_stream(bytes: Arc<Vec<u8>>) -> Self {
         Self {
             source: ProtoStreamSource::Prepared(PreparedStreamReader { bytes, position: 0 }),
@@ -50,6 +81,7 @@ impl<'a> ProtoStreamReader<'a> {
         let required_len = self.read_length_delimiter()?;
 
         while self.buf.len() < required_len {
+            let read_error_label = self.source.read_error_label();
             match self.source.read(&mut self.scratch) {
                 Ok(0) => {
                     return Ok(self.buf.split_to(required_len));
@@ -59,7 +91,7 @@ impl<'a> ProtoStreamReader<'a> {
                 }
                 Err(e) => {
                     return Err(StatsigErr::ProtobufParseError(
-                        "BrotliDecompressorRead".to_string(),
+                        read_error_label.to_string(),
                         e.to_string(),
                     ));
                 }
@@ -111,13 +143,26 @@ impl<'a> ProtoStreamReader<'a> {
 
 enum ProtoStreamSource<'a> {
     Brotli(Box<Decompressor<StreamBorrower<'a>>>),
+    Zstd(Box<zstd::stream::read::Decoder<'static, std::io::BufReader<StreamBorrower<'a>>>>),
     Prepared(PreparedStreamReader),
+}
+
+impl ProtoStreamSource<'_> {
+    const fn read_error_label(&self) -> &'static str {
+        match self {
+            Self::Brotli(_) => "BrotliDecompressorRead",
+            Self::Zstd(_) => "ZstdDecompressorRead",
+            // Preserve the pre-zstd error label for the existing prepared path.
+            Self::Prepared(_) => "BrotliDecompressorRead",
+        }
+    }
 }
 
 impl Read for ProtoStreamSource<'_> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         match self {
             Self::Brotli(reader) => reader.read(buf),
+            Self::Zstd(reader) => reader.read(buf),
             Self::Prepared(reader) => reader.read(buf),
         }
     }

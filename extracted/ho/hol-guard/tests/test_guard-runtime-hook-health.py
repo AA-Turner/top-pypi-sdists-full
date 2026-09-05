@@ -62,7 +62,7 @@ def _write_codex_runtime_hooks(
 def _write_cursor_runtime_hooks(
     home: Path,
     *,
-    include_read_file: bool,
+    include_file_io_hooks: bool,
     create_script: bool = True,
     command: str | None = None,
 ) -> Path:
@@ -77,8 +77,9 @@ def _write_cursor_runtime_hooks(
         "beforeMCPExecution": [{"command": resolved, "timeout": 45, "failClosed": True}],
         "afterShellExecution": [{"command": "node extra-hook.js", "timeout": 5}],
     }
-    if include_read_file:
+    if include_file_io_hooks:
         hooks["beforeReadFile"] = [{"command": resolved, "timeout": 45, "failClosed": True}]
+        hooks["beforeWriteFile"] = [{"command": resolved, "timeout": 45, "failClosed": True}]
     (cursor_home / "hooks.json").write_text(json.dumps({"version": 1, "hooks": hooks}), encoding="utf-8")
     return script_path
 
@@ -155,7 +156,7 @@ def test_live_cursor_hooks_pass_when_attested_identity_is_stale(
 ) -> None:
     ctx = _ctx(tmp_path)
     monkeypatch.setattr(Path, "home", lambda: ctx.home_dir)
-    _write_cursor_runtime_hooks(ctx.home_dir, include_read_file=True)
+    _write_cursor_runtime_hooks(ctx.home_dir, include_file_io_hooks=True)
     store = GuardStore(ctx.guard_home, prime_policy_integrity=False)
     store.set_managed_install("cursor", True, None, {"harness": "cursor", "active": True}, "2026-08-17T12:00:00+00:00")
 
@@ -169,7 +170,7 @@ def test_live_cursor_hooks_reject_missing_read_intercept(
 ) -> None:
     ctx = _ctx(tmp_path)
     monkeypatch.setattr(Path, "home", lambda: ctx.home_dir)
-    _write_cursor_runtime_hooks(ctx.home_dir, include_read_file=False)
+    _write_cursor_runtime_hooks(ctx.home_dir, include_file_io_hooks=False)
     store = GuardStore(ctx.guard_home, prime_policy_integrity=False)
     store.set_managed_install("cursor", True, None, {"harness": "cursor", "active": True}, "2026-08-17T12:00:00+00:00")
 
@@ -183,11 +184,51 @@ def test_live_cursor_hooks_reject_empty_command_or_missing_script(
 ) -> None:
     ctx = _ctx(tmp_path)
     monkeypatch.setattr(Path, "home", lambda: ctx.home_dir)
-    script_path = _write_cursor_runtime_hooks(ctx.home_dir, include_read_file=True, command="")
+    script_path = _write_cursor_runtime_hooks(ctx.home_dir, include_file_io_hooks=True, command="")
     assert cursor_runtime_hooks_verified(ctx) is False
     script_path.unlink(missing_ok=True)
-    _write_cursor_runtime_hooks(ctx.home_dir, include_read_file=True, create_script=False)
+    _write_cursor_runtime_hooks(ctx.home_dir, include_file_io_hooks=True, create_script=False)
     assert cursor_runtime_hooks_verified(ctx) is False
+
+
+def test_live_codex_hooks_pass_for_frozen_cli_bridge_command(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctx = _ctx(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: ctx.home_dir)
+    _write_codex_runtime_hooks(
+        ctx.home_dir,
+        include_permission=True,
+        guard_command="current-hol-guard -I ./codex_daemon_hook_bridge.py '{}'",
+        extra_foreign=False,
+    )
+    store = GuardStore(ctx.guard_home, prime_policy_integrity=False)
+    store.set_managed_install("codex", True, None, {"harness": "codex", "active": True}, "2026-08-17T12:00:00+00:00")
+
+    assert live_guard_codex_hooks_intercept(
+        json.loads((ctx.home_dir / ".codex" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    )
+    assert codex_runtime_hooks_verified(ctx) is True
+    assert _live_hook_verification(store.list_managed_installs(), store) == {"codex": True}
+
+
+def test_live_codex_hooks_reject_noop_bridge_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ctx = _ctx(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: ctx.home_dir)
+    _write_codex_runtime_hooks(
+        ctx.home_dir,
+        include_permission=True,
+        guard_command="true -I ./codex_daemon_hook_bridge.py '{}'",
+        extra_foreign=False,
+    )
+    assert live_guard_codex_hooks_intercept(
+        json.loads((ctx.home_dir / ".codex" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    ) is False
+    assert codex_runtime_hooks_verified(ctx) is False
 
 
 def test_live_codex_hooks_reject_marker_only_noop_command(
@@ -232,7 +273,7 @@ def test_live_cursor_hooks_reject_name_only_noop_command(
     monkeypatch.setattr(Path, "home", lambda: ctx.home_dir)
     _write_cursor_runtime_hooks(
         ctx.home_dir,
-        include_read_file=True,
+        include_file_io_hooks=True,
         command="echo hol-guard-cursor-hook",
     )
     assert cursor_runtime_hooks_verified(ctx) is False

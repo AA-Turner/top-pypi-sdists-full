@@ -74,6 +74,7 @@ def compute_python_publish_tags(
     img_api_dh: str,
     img_svr_dh: str,
     fips: bool = False,
+    base_image_ar_projects: Iterable[str] = (),
 ) -> list[str]:
     """Compute Python publish tags with workflow-compatible behavior."""
     py_version = _require_non_empty("py_version", py_version)
@@ -88,6 +89,7 @@ def compute_python_publish_tags(
     ecr_prefix = _require_non_empty("ecr_prefix", ecr_prefix)
     img_api_dh = _require_non_empty("img_api_dh", img_api_dh)
     img_svr_dh = _require_non_empty("img_svr_dh", img_svr_dh)
+    base_image_projects = _normalize_projects(base_image_ar_projects)
     channel = _release_channel_alias(release_channel)
 
     projects = _normalize_projects(gcr_projects)
@@ -133,6 +135,8 @@ def compute_python_publish_tags(
             tags.append(f"{project}/{gcr_name_suffix}:{test_tag}")
         tags.append(f"{gar_name}:{test_tag}")
         if not licensed:
+            for project in base_image_projects:
+                tags.append(f"{project}/langgraph-api-unlicensed:{test_tag}")
             if ecr_name is None:
                 raise ValueError("ecr_name must be set for unlicensed tags")
             tags.append(f"{ecr_name}:{test_tag}")
@@ -140,37 +144,41 @@ def compute_python_publish_tags(
 
     if licensed:
         tags.append(f"{img_api_dh}:{sha_tag}")
+        tags.append(f"{img_api_dh}:{secondary_tag}")
         if latest_on:
             tags.append(f"{img_api_dh}:{runtime_alias}")
-            tags.append(f"{img_api_dh}:{secondary_tag}")
 
     for project in projects:
         tags.append(f"{project}/{gcr_name_suffix}:{sha_tag}")
+        tags.append(f"{project}/{gcr_name_suffix}:{secondary_tag}")
         if latest_on:
             tags.append(f"{project}/{gcr_name_suffix}:{runtime_alias}")
-            tags.append(f"{project}/{gcr_name_suffix}:{secondary_tag}")
 
-    if licensed:
-        if latest_on:
-            tags.append(f"{gar_name}:{runtime_alias}")
-            tags.append(f"{gar_name}:{secondary_tag}")
-    else:
+    tags.append(f"{gar_name}:{secondary_tag}")
+    if latest_on:
+        tags.append(f"{gar_name}:{runtime_alias}")
+    if not licensed:
+        for project in base_image_projects:
+            base_image_gar_name = f"{project}/langgraph-api-unlicensed"
+            tags.append(f"{base_image_gar_name}:{secondary_tag}")
+            if latest_on:
+                tags.append(f"{base_image_gar_name}:{runtime_alias}")
         if ecr_name is None:
             raise ValueError("ecr_name must be set for unlicensed tags")
-        tags.append(f"{gar_name}:{runtime_alias}")
-        tags.append(f"{gar_name}:{secondary_tag}")
-        tags.append(f"{ecr_name}:{runtime_alias}")
         tags.append(f"{ecr_name}:{secondary_tag}")
+        if latest_on:
+            tags.append(f"{ecr_name}:{runtime_alias}")
 
-    # Publish legacy server tags for langgraph-server
-    if licensed and latest_on and is_stable_channel:
-        tags.append(f"{img_svr_dh}:{ver_major}-{pyfrag}{suf}")
-        tags.append(f"{img_svr_dh}:{ver_minor}-{pyfrag}{suf}")
+    if licensed and is_stable_channel:
         tags.append(f"{img_svr_dh}:{ver_patch}-{pyfrag}{suf}")
         for project in projects:
-            tags.append(f"{project}/langgraph-server:{ver_major}-{pyfrag}{suf}")
-            tags.append(f"{project}/langgraph-server:{ver_minor}-{pyfrag}{suf}")
             tags.append(f"{project}/langgraph-server:{ver_patch}-{pyfrag}{suf}")
+        if latest_on:
+            tags.append(f"{img_svr_dh}:{ver_major}-{pyfrag}{suf}")
+            tags.append(f"{img_svr_dh}:{ver_minor}-{pyfrag}{suf}")
+            for project in projects:
+                tags.append(f"{project}/langgraph-server:{ver_major}-{pyfrag}{suf}")
+                tags.append(f"{project}/langgraph-server:{ver_minor}-{pyfrag}{suf}")
 
     return _sorted_unique(tags)
 
@@ -190,6 +198,7 @@ def compute_js_publish_tags(
     ecr_prefix: str,
     img_js_dh: str,
     fips: bool = False,
+    base_image_ar_projects: Iterable[str] = (),
 ) -> list[str]:
     """Compute JS publish tags with workflow-compatible behavior."""
     node_version = _require_non_empty("node_version", node_version)
@@ -200,6 +209,7 @@ def compute_js_publish_tags(
     ar_project = _require_non_empty("ar_project", ar_project)
     ecr_prefix = _require_non_empty("ecr_prefix", ecr_prefix)
     img_js_dh = _require_non_empty("img_js_dh", img_js_dh)
+    base_image_projects = _normalize_projects(base_image_ar_projects)
     channel = _release_channel_alias(release_channel)
 
     projects = _normalize_projects(gcr_projects)
@@ -239,14 +249,16 @@ def compute_js_publish_tags(
             tags.append(f"{project}/{repo_base}:{test_tag}")
         tags.append(f"{ar_project}/{repo_base}:{test_tag}")
         if not licensed:
+            for project in base_image_projects:
+                tags.append(f"{project}/{repo_base}:{test_tag}")
             tags.append(f"{ecr_prefix}/{repo_base}:{test_tag}")
         return _sorted_unique(tags)
 
     if licensed:
         tags.append(f"{img_js_dh}:{sha_tag}")
+        tags.append(f"{img_js_dh}:{secondary_tag}")
         if latest_on:
             tags.append(f"{img_js_dh}:{runtime_alias}")
-            tags.append(f"{img_js_dh}:{secondary_tag}")
 
     for project in projects:
         tags.append(f"{project}/{repo_base}:{sha_tag}")
@@ -264,6 +276,11 @@ def compute_js_publish_tags(
         tags.append(f"{gar_name}:{secondary_tag}")
 
     if not licensed:
+        for project in base_image_projects:
+            base_image_gar_name = f"{project}/{repo_base}"
+            tags.append(f"{base_image_gar_name}:{secondary_tag}")
+            if latest_on:
+                tags.append(f"{base_image_gar_name}:{runtime_alias}")
         ecr_name = f"{ecr_prefix}/{repo_base}"
         if latest_on:
             tags.append(f"{ecr_name}:{runtime_alias}")

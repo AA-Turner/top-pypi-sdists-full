@@ -5,6 +5,8 @@ import os.path as osp
 import re
 import sys
 import urllib.parse
+from http import HTTPStatus
+from typing import Final
 
 import bs4
 import requests
@@ -17,10 +19,11 @@ from .exceptions import DownloadError
 
 
 class _GoogleDriveFile:
-    TYPE_FOLDER = "application/vnd.google-apps.folder"
+    TYPE_FOLDER: Final = "application/vnd.google-apps.folder"
 
     def __init__(
         self,
+        *,
         id: str,
         name: str,
         type: str,
@@ -36,35 +39,37 @@ class _GoogleDriveFile:
 
 
 def _get_directory_structure(
-    gdrive_file: _GoogleDriveFile, previous_path: str
+    *, gdrive_file: _GoogleDriveFile, previous_path: str
 ) -> list[tuple[str | None, str]]:
-    """Converts a Google Drive folder structure into a local directory list."""
-
     directory_structure = []
     for file in gdrive_file.children:
         file.name = _sanitize_filename(filename=file.name)
         if file.is_folder():
             directory_structure.append((None, osp.join(previous_path, file.name)))
-            for i in _get_directory_structure(file, osp.join(previous_path, file.name)):
+            for i in _get_directory_structure(
+                gdrive_file=file,
+                previous_path=osp.join(previous_path, file.name),
+            ):
                 directory_structure.append(i)
         elif not file.children:
             directory_structure.append((file.id, osp.join(previous_path, file.name)))
     return directory_structure
 
 
+# Parameters remain positional-or-keyword for backward compatibility.
 def download_folder(
     url: str | None = None,
     id: str | None = None,
     output: str | None = None,
-    quiet: bool = False,
+    quiet: bool = False,  # noqa: FBT001, FBT002
     proxy: str | None = None,
     speed: float | None = None,
-    use_cookies: bool = True,
-    verify: bool | str = True,
+    use_cookies: bool = True,  # noqa: FBT001, FBT002
+    verify: bool | str = True,  # noqa: FBT001, FBT002
     user_agent: str | None = None,
-    skip_download: bool = False,
-    resume: bool = False,
-) -> list[str] | list[GoogleDriveFileToDownload]:
+    skip_download: bool = False,  # noqa: FBT001, FBT002
+    resume: bool = False,  # noqa: FBT001, FBT002
+) -> list[str] | list[GoogleDriveFileToDownload]:  # noqa: GR005 -- public API accepts both call styles
     """Downloads entire folder from URL.
 
     Parameters
@@ -123,32 +128,36 @@ def download_folder(
     """
     if not (id is None) ^ (url is None):
         raise ValueError("Either url or id has to be specified")
-    if id is not None:
-        folder_id = id
-    else:
+    if id is None:
         assert url is not None
-        folder_id = _extract_folder_id(url)
+        folder_id = _extract_folder_id(url=url)
+    else:
+        folder_id = id
     if user_agent is None:
         # We need to use different user agent for folder download c.f., file
         user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"  # NOQA: E501
 
     sess, _ = _get_session(proxy=proxy, use_cookies=use_cookies, user_agent=user_agent)
-
-    if not quiet:
-        print("Retrieving folder contents", file=sys.stderr)
-    gdrive_file = _download_and_parse_google_drive_link(
-        sess=sess,
-        folder_id=folder_id,
-        quiet=quiet,
-        verify=verify,
-    )
+    try:
+        if not quiet:
+            print("Retrieving folder contents", file=sys.stderr)
+        gdrive_file = _download_and_parse_google_drive_link(
+            sess=sess,
+            folder_id=folder_id,
+            quiet=quiet,
+            verify=verify,
+        )
+    finally:
+        sess.close()
 
     gdrive_file.name = _sanitize_filename(filename=gdrive_file.name)
 
     if not quiet:
         print("Retrieving folder contents completed", file=sys.stderr)
         print("Building directory structure", file=sys.stderr)
-    directory_structure = _get_directory_structure(gdrive_file, previous_path="")
+    directory_structure = _get_directory_structure(
+        gdrive_file=gdrive_file, previous_path=""
+    )
     if not quiet:
         print("Building directory structure completed", file=sys.stderr)
 
@@ -198,19 +207,20 @@ def download_folder(
     return files
 
 
-def _extract_folder_id(url: str) -> str:
+def _extract_folder_id(*, url: str) -> str:
     return urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
 
 
 def _parse_embedded_folder_view(
+    *,
     sess: requests.Session,
     folder_id: str,
-    verify: bool | str = True,
+    verify: bool | str,
 ) -> tuple[str, list[tuple[str, str, str]]]:
     params = urllib.parse.urlencode({"id": folder_id})
     url = f"https://drive.google.com/embeddedfolderview?{params}"
     res = sess.get(url, verify=verify)
-    if res.status_code != 200:
+    if res.status_code != HTTPStatus.OK:
         raise DownloadError(
             f"Failed to retrieve folder contents for folder ID: {folder_id} "
             f"(status code {res.status_code}). "
@@ -269,10 +279,11 @@ def _parse_embedded_folder_view(
 
 
 def _download_and_parse_google_drive_link(
+    *,
     sess: requests.Session,
     folder_id: str,
-    quiet: bool = False,
-    verify: bool | str = True,
+    quiet: bool,
+    verify: bool | str,
 ) -> _GoogleDriveFile:
     folder_name, children = _parse_embedded_folder_view(
         sess=sess, folder_id=folder_id, verify=verify

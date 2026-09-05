@@ -263,6 +263,7 @@ function esc(s){return String(s??\'\'). replace(/&/g,\'&amp;\').replace(/</g,\'&
 function fmt(v){if(v==null)return\'(empty)\';if(typeof v===\'object\')return JSON.stringify(v,null,2);return String(v);}
 async function load(){
   try{var r=await fetch(\'/api/logs?limit=500\', { credentials: 'include' });if(!r.ok)return;var d=await r.json();all=d.entries||[];render();}catch(e){}
+  clearTimeout(timer);timer = setTimeout(load,3000);
 }
 function render(){
   var q=document.getElementById(\'q\').value.trim().toLowerCase();
@@ -301,8 +302,8 @@ function closeModal(){document.getElementById(\'ov\').classList.remove(\'active\
 function overlayClick(ev){if(ev.target===document.getElementById(\'ov\'))closeModal();}
 document.addEventListener(\'keydown\',function(e){if(e.key===\'Escape\')closeModal();});
 async function clearLogs(){await fetch(\'/api/logs\',{method:\'DELETE\'});all=[];render();}
-function toggleAuto(){clearInterval(timer);timer=null;if(document.getElementById(\'auto\').checked)timer=setInterval(load,3000);}
-load();timer=setInterval(load,3000);
+function toggleAuto(){clearTimeout(timer);timer=null;if(document.getElementById(\'auto\').checked)timer=setTimeout(load,3000);}
+load();if(document.getElementById(\'auto\').checked)timer=setTimeout(load,3000);
 </script>
 </body></html>"""
 
@@ -1607,6 +1608,59 @@ class Api:
             HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
             HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
         }
+
+
+        @self.app.get("/text/{url:path}", responses={
+            HTTP_200_OK: {"content": {"text/plain": {}}},
+            HTTP_401_UNAUTHORIZED: {"model": ErrorResponseModel},
+            HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
+            HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
+        })
+        async def convert_url(
+            request: Request,
+            url: str
+        ):
+            """Convert a URL to Markdown using MarkItDown.
+
+            The full URL (including scheme) is passed in the path, e.g.:
+            GET /markitdown/https://example.com/page
+
+            Query strings are preserved by reading them from the incoming
+            request and re-appending them to the target URL, e.g.:
+            GET /markitdown/https://example.com/page?foo=bar
+            """
+            # FastAPI strips the query string from the {url:path} parameter,
+            # so re-attach it from the incoming request when present.
+            query_string = request.url.query
+            if query_string and "?" not in url:
+                url = f"{url}?{query_string}"
+            elif query_string:
+                # url already contains a '?', append remaining params with '&'
+                url = f"{url}&{query_string}"
+            if not url.startswith(("http://", "https://")):
+                return ErrorResponse.from_message(
+                    f"Invalid URL: {url}. URL must start with http:// or https://",
+                    HTTP_422_UNPROCESSABLE_CONTENT,
+                )
+            try:
+                from g4f.integration.markitdown import MarkItDown
+
+                md = MarkItDown()
+                result = md.convert_url(url)
+                text = result.text_content
+                if asyncio.iscoroutine(text):
+                    text = await text
+                return Response(text, media_type="text/plain")
+            except ImportError as e:
+                logger.exception(e)
+                return ErrorResponse.from_exception(
+                    e, None, HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            except Exception as e:
+                logger.exception(e)
+                return ErrorResponse.from_exception(
+                    e, None, HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
         @self.app.get("/markitdown/{url:path}", responses=responses)
         async def convert_url(

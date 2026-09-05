@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.37.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-09-04T00:14:52.369234                                                            #
+# MF version: 2.19.37.3+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-09-04T19:03:46.151381                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ class ArgoEvent(object, metaclass=type):
             Value
         """
         ...
-    def safe_publish(self, payload = None, ignore_errors = True):
+    def safe_publish(self, payload = None, ignore_errors = False):
         """
         Publishes an event when called inside a deployed workflow. Outside a deployed workflow
         this function does nothing.
@@ -72,7 +72,7 @@ class ArgoEvent(object, metaclass=type):
             If True, events are created on a best effort basis - errors are silently ignored.
         """
         ...
-    def publish(self, payload = None, force = True, ignore_errors = True):
+    def publish(self, payload = None, force = True, ignore_errors = False):
         """
         Publishes an event.
         

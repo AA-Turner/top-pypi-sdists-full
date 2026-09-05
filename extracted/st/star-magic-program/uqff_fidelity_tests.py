@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.415.2", "uqff_calculator.VERSION = 0.415.2 (THE TAG-CHAIN SHIP, ALL-CONTEXTS-FIXED: SHIP GUARD v9 tag-chain continuity + hardened ship.ps1 pre-flight/post-push verification + v0.413.0 history named honestly - THE USER MANUAL BAND, PREPARED, PUBLISHED INSIDE v0.414.0; a ship is not a ship until the remote tag is seen)")
+assert_that(C.VERSION == "0.416.0", "uqff_calculator.VERSION = 0.416.0 (THE ORIGIN POINTS SHIP: SHIP GUARD v9 tag-chain continuity + hardened ship.ps1 pre-flight/post-push verification + v0.413.0 history named honestly - THE USER MANUAL BAND, PREPARED, PUBLISHED INSIDE v0.414.0; a ship is not a ship until the remote tag is seen)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -9570,7 +9570,7 @@ def _sg4_last(path, n=4000):
             return _f.read().decode('utf-8', 'ignore')
     except OSError:
         return ''
-_sg4_band = 'TAGCHAIN_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
+_sg4_band = 'ORIGINPOINTS_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
 for _sg4_f in ('UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv',
                'UNIFIED_REGISTRY_R3_LEDGER.csv', 'UNIFIED_REGISTRY_XGEO_QUEUE.csv',
                'UNIFIED_REGISTRY_XGEO_ROUTES.csv'):
@@ -15050,6 +15050,79 @@ _rq_led = _readfile('RULINGS_QUEUE.md')
 assert_that('BATCH 1 RULINGS' in _rq_led and 'ANSWERS (Daniel, 2026-08-31)' in _readfile('RULINGS_BATCH_1.md'),
             "BATCH 1 FOLD (2/2) - THE ANSWERS ARE ON RECORD: every ruling is written into the ledger's BATCH 1 section and the batch file's ANSWERS appendix with per-question dispositions (including the two partial-scope notes: Q-002 Gauss recorded but its ten carrier papers hold other open questions so they stay flagged, and Q-216 narrowed to Q-216b because the ruled bridge FORM still needs its per-domain reference values) - rulings without a paper trail are how drift starts, so the trail is gate-pinned")
 
+# ---- BATCH 8 RULED 2026-09-03/04 (B58-B65): session files + grok threads - the long-form physics was there ----
+import math as _b8m
+assert_that(all(C.calc(_p)['status'].startswith(('RULED_2026-09-03', 'RULED_2026-09-04'))
+                for _p in ('PAPER_031', 'PAPER_032', 'PAPER_033', 'PAPER_034', 'PAPER_035',
+                           'PAPER_037', 'PAPER_038', 'PAPER_039'))
+            and abs(0.252 * (1 + 0.1 * (5 / 6) * 2) - 0.294) < 1e-3
+            and abs((1 - 0.1 * (5 / 6) / 9) - (1 - 1.0 / 108)) < 1e-12
+            and 13 / 20 == 0.65
+            and abs(5.279 * _b8m.exp(_b8m.pi * 0.57 / 0.1369) * 1e-3 - 2531) < 1
+            and abs(2600 * 0.57 ** 2 - 844.74) < 0.01
+            and abs(1.078e-3 * (1 + 0.057) - 1.14e-3) / 1.14e-3 < 5e-4
+            and abs(1.88e-4 - 1.17e-4 - 0.71e-4) < 1e-6
+            and abs(_b8m.acos(0.507) / _b8m.pi - 0.331) < 1e-3
+            and abs(_b8m.log(1.25e-2 / 1.22e-19) - 39.2) < 0.05,
+            "BATCH 8 (B58-B65) - the long-form physics lived in the session files and grok threads, exactly as Daniel said: S330's exact-rational TRZ channel closures give R(D*) = 7/6*R_SM at 0.34 percent and R_K = 1 - 1/108, K_CKM = 13/20 from the halving series, the 1000x scalar-mass slip is the F_TRZ^3 rung with two disjoint routes converging at 844 GeV, the eta-prime four-order 'shortfall' was two different quantities conflated (the source thread grok_share_7b0e961f says the DCS BRs scale k_eta, and 0.7e-4 is just BESIII's eta-prime-minus-eta difference), kappa_c's 42.0 traces to a grok mock-data fit (b ~ SO_5 echo noted) while the paper's own 18.8 is canonical with the sigma(tH) (1+SSq*F_TRZ) boost at 0.05 percent, t_n collapses to the tautological 0.331 with the 0.74-percent falsifiable surviving, and the F_UBii family papers rule formulas/computed/chain-true over their mojibake prints; Q-030 through Q-037 ALL CLOSED (companion trichotomy the sole holdover)")
+
+# ---- B57 RULED 2026-09-04: Daniel's pointer (pypi uqff 5.86.0 + Star-Magic session logs) closed four of five opens ----
+assert_that('ruling_b57_uqff586' in C.calc('PAPER_023') and 'ruling_b57_sigma_si' in C.calc('PAPER_025')
+            and 'ruling_b57_cabibbo' in C.calc('PAPER_028') and 'ruling_b57_fdm' in C.calc('PAPER_029')
+            and 'ruling_b57_vlq_open' in C.calc('PAPER_026b')
+            and abs((9 * 25 / 12 * 0.6029) / (60 * 0.84) - 0.22429) < 1e-5
+            and abs((4 * 25 / 12 * 1.453162) / (6 * 9) - 0.22425) < 1e-4
+            and abs(1 - 0.6029 * 0.1 * 0.57 * 0.84 - 0.9711) < 1e-4
+            and abs(1 - 1.2 * 0.57 - 0.049 - 0.267) < 1e-3,
+            "B57 - THE POINTER PROTOCOL WORKS: Daniel pointed at pypi uqff 5.86.0 and the Star-Magic session logs, and four of the five Batch-7 opens closed - tau g-2's kappa question dissolves into PAPER_1815's zero-free-parameter route (live-verified 259.58e-11 from the wheel itself, Delta_a_tau = 7.34e-7), sigma_SI is the LZ-bound times (1 - beta_i*F_TRZ*SSq*Phi_res), f_DM = 0.268 was the cosmology suite all along (1 - (6/5)SSq - Omega_b), and the Cabibbo sector carries DUAL primitive closures at 0.008 and 0.025 percent (PAPER_1800) whose convergence chain preserves the AI-error sessions as audit trail - with the (m_s/m_b)^1/2 annotation superseded and the ad-hoc saturation forms demoted by the session log itself; the fifth open (VLQ 85.9 fb) stays OPEN awaiting the next pointer - told honestly, per the protocol")
+
+# ---- BATCH 7 RULED 2026-09-03 (B49-B56): the derivations existed - Daniel pointed, the corpus answered ----
+import math as _b7m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-03')
+                for _p in ('PAPER_023', 'PAPER_024', 'PAPER_025', 'PAPER_026', 'PAPER_026b',
+                           'PAPER_028', 'PAPER_029', 'PAPER_030'))
+            and abs(3.386e-6 * 1.01 - 3.42e-6) / 3.42e-6 < 5e-4
+            and abs(1.807e-20 * 1.01 ** 2 - 1.84e-20) / 1.84e-20 < 0.003
+            and abs(0.073 + 0.047 - 0.120) < 1e-12
+            and abs(20351 * 0.57 - 11600) < 1
+            and abs(1 + (0.1057 / 1.777) - 1.060) < 1e-3
+            and abs(2 + 0.37 - 2.37) < 1e-12
+            and abs(2 * 1.536e-3 * 0.65 - 0.0020) < 5e-5
+            and abs(0.57 ** 6 - 0.0343) < 5e-5
+            and abs(_b7m.sqrt(0.57) - 0.755) < 5e-4,
+            "BATCH 7 (B49-B56) - Daniel's standing correction proven again ('Everything you are working with has a derivation... The answers are in the corpus'): the tau g-2 and EDM component-sum gaps are single and double (1+F_TRZ^2) boosts, the DM split is two measures of one population, the sterile-nu convention is sin^2, the heavy vacuum scale closes as M_s3*SSq = M_KK at 0.0006 percent, and the LFU 1.020 that took three dives IS derived - PAPER_031's Ug3 string-frequency shift R = 1 + ([SCm]_flavor/V_cb^2)*(m_mu/m_tau) with band 1.02-1.06, plus the g-2 sector's exponent 2.37 = 2 + beta_string and K_CKM = 0.65 grounded via row-2 unitarity; f_SM = SSq^6 EXACT with delta_CP routed to the canonical -pi/2; honest opens held: kappa-norm, sigma_SI form, sigma formula, Cabibbo annotation, f_DM form")
+
+# ---- BATCH 6 RULED 2026-09-03 (B41-B48): eight more origin points, incl. the rho_crit forensic closure ----
+import math as _b6m
+assert_that('ruling_b41' in C.calc('PAPER_009')
+            and all(C.calc(_p)['status'].startswith('RULED_2026-09-03')
+                    for _p in ('PAPER_016b', 'PAPER_017', 'PAPER_018', 'PAPER_019', 'PAPER_020', 'PAPER_021', 'PAPER_022'))
+            and abs(3e8 / (5e-4 / 86400) / 3.086e16 * 1e10 / 1e9 - 16.8) < 0.05
+            and abs(_b6m.exp(-0.37) - 0.6907) < 5e-5
+            and abs(0.1 ** 4 - 1e-4) < 1e-18 and 8 / 5 == 1.6 and abs(1.6 * 0.625 - 1.0) < 1e-15
+            and abs(0.57 ** 2 - 0.325) < 5e-4 and abs(0.57 ** 3 - 0.185) < 3e-4 and abs(0.57 ** 4 - 0.106) < 5e-4
+            and abs(0.940 * 0.811 - 0.762) < 1e-3
+            and abs(_b6m.exp(-0.0005 * 410) - 0.82) / 0.82 < 0.008
+            and abs(9.47e-27 - 9.21e-27) / 9.47e-27 < 0.03,
+            "BATCH 6 (B41-B48) - eight for eight again: the 17 Gpc aether scale is (c/kappa)*F_TRZ^-10 at 1.2 percent (the B20 rung), F_Um's printed value encodes exp(-0.37) with the string constant as the exponent and the two readings ARE the 0.333/0.622 regime pair, U_m splits scoped onto the [UA] = F_TRZ^4 rung, the SMBH amplification is 8/5 EXACT with the divisive form its inverse, PAPER_022's polarization ladder is EXACT SSq powers and its BBH 0.82 is the exp(-kappa*D) route beside the primitive 0.81, sigma8's 0.940 hits observed 0.762 EXACTLY - and the FORENSIC closure: the 9.47e-27 mystery constant that drove the 1.894 artifact through 935 papers is the cosmological CRITICAL DENSITY mislabeled as SCm density, PAPER_2156's open audit target CLOSED from inside PAPER_021; open remainders held honestly (L_aether 192 Mpc, R_s closed form)")
+
+# ---- BATCH 5 RULED 2026-09-03 (B32-B40): nine rulings, and Daniel's correction stands - it was NOT drift ----
+import math as _b5m
+assert_that('ruling_b32_b33' in C.calc('PAPER_002') and 'ruling_b34' in C.calc('PAPER_003')
+            and 'ruling_b35' in C.calc('PAPER_004') and 'ruling_b36' in C.calc('PAPER_005')
+            and 'ruling_b37' in C.calc('PAPER_007')
+            and C.calc('PAPER_013')['status'].startswith('RULED_2026-09-03')
+            and C.calc('PAPER_014')['status'].startswith('RULED_2026-09-03')
+            and C.calc('PAPER_015')['status'].startswith('RULED_2026-09-03')
+            and abs(_b5m.exp(-(1.0e13 / 4.4e13) ** 2) * 0.90 * 0.62 - 0.5297) / 0.5297 < 0.001
+            and abs(0.0005 * 410 * 0.57 * 1.1 - 0.126) / 0.126 < 0.025
+            and abs(0.333 * 1.01 * 2.8051e-22 - 9.4332e-23) / 9.4332e-23 < 0.0005
+            and abs(_b5m.exp(-0.0005 * 410 / 2) - 0.903) / 0.903 < 0.001
+            and abs(1 / 0.57 ** 2 - 3.08) < 0.01
+            and abs(1 / (1 - _b5m.exp(-4.4e13 / 2e15)) ** 2 - 2104) < 10
+            and (4 - 1) / 10 == 0.3,
+            "BATCH 5 (B32-B40) - Daniel's correction became the method: 9 times out of 10 it is not drift, and this batch ran 9 for 9 - GW190425's 0.5297 is the EXACT four-mechanism chain with slight SCm activation at 1e13 G (PAPER_009 L318's own words), the phase lag is kappa*D*SSq*(1+F_TRZ), the h_peak carries the (1+F_TRZ^2) boost at 0.01 percent, the 0.903 is exp(-kappa*D/2) aether amplitude decay sharing PAPER_003's convention, the magnetar 3300x conflict is three corpus-grounded channels (1/SSq^2 ages with PAPER_094 calibrating SSq FROM spin-down, 1/D_SCm^2 dipole at the true field ~ PAPER_001's 1e3, anchor-point 1e4 maximum), delta_c is 0.45 with A_damp = (D_phys-1)/SO_5 = 0.3 EXACT joining the PAPER_1953 family, the siren bias survives as a raw-data correction under H_0 = 70 EXACT, and the scenario table + mojibake confirms ride the D_SCm and B2 rulings; Q-001/003/004/005/006/007/010/011/012 ALL CLOSED")
+
 # ---- Q-216b RULED 2026-09-01: the rung-12 conjugate-pair bridge (PAPER_2259 landmark authored + wired) ----
 assert_that(abs(C.calc('PAPER_2259')['value']['sigma_ref_kg_m2'] - 1.0) < 1e-12
             and C.calc('PAPER_2259')['status'].startswith('RULED_2026-09-01')
@@ -15184,7 +15257,7 @@ if _shos.path.isdir('.git'):
         import subprocess as _sg9sp
         _sg9_tags = set(_sg9sp.run(['git', 'tag', '-l'], capture_output=True, text=True, timeout=30).stdout.split())
         _sg9_ledger = [l.strip() for l in _readfile('UNIFIED_REGISTRY_VERSION.txt').splitlines() if l.strip().startswith('v')]
-        _sg9_gap_authorized = {'v0.413.0'}
+        _sg9_gap_authorized = {'v0.413.0', 'v0.415.0', 'v0.415.1'}
         _sg9_ci = _shos.environ.get('GITHUB_ACTIONS') == 'true'
         if _sg9_ci or len(_sg9_tags) < 100:
             # v0.415.0 lesson, part 1: branch-push CI checkouts fetch NO tags (git tag -l empty).

@@ -32,7 +32,7 @@ DO NOT EDIT. Regenerate from your features JSON instead.
 
 from typing import {typing_imports}
 
-from growthbook import FeatureResult, GrowthBook, GrowthBookClient, UserContext
+from growthbook import FeatureResult, GrowthBook, GrowthBookClient, TrackingBuffer, UserContext
 
 '''
 
@@ -64,7 +64,16 @@ def python_type_for(default_value: Any) -> str:
 # endpoint payload from a bare {feature_key: definition} map that happens to
 # contain a feature literally named "features".
 _ENDPOINT_KEYS = frozenset(
-    {"features", "savedGroups", "encryptedFeatures", "encryptedSavedGroups", "dateUpdated", "status"}
+    {
+        "features",
+        "savedGroups",
+        "contextualBandits",
+        "encryptedFeatures",
+        "encryptedSavedGroups",
+        "encryptedContextualBandits",
+        "dateUpdated",
+        "status",
+    }
 )
 
 
@@ -93,9 +102,12 @@ def infer_feature_type(definition: Any) -> str:
     for rule in definition.get("rules") or []:
         if isinstance(rule, dict):
             candidates.append(rule.get("force"))
-            variations = rule.get("variations")
-            if isinstance(variations, list):
-                candidates.extend(variations)
+            # Contextual bandit rules carry their values under
+            # contextualVariations instead of variations.
+            for key in ("variations", "contextualVariations"):
+                variations = rule.get(key)
+                if isinstance(variations, list):
+                    candidates.extend(variations)
     types = {python_type_for(v) for v in candidates if v is not None}
     if len(types) == 1:
         return types.pop()
@@ -139,7 +151,13 @@ def _client_class(feature_types: Dict[str, str], is_async: bool) -> str:
     name = "TypedGrowthBookClient" if is_async else "TypedGrowthBook"
     base = "GrowthBookClient" if is_async else "GrowthBook"
     prefix = "async " if is_async else ""
-    ctx = ", user_context: UserContext" if is_async else ""
+    # The async overrides must stay signature-compatible with GrowthBookClient,
+    # whose eval methods take a keyword-only per-request tracking_buffer.
+    ctx = (
+        ", user_context: UserContext, *, tracking_buffer: Optional[TrackingBuffer] = None"
+        if is_async
+        else ""
+    )
     lines = [
         f"class {name}({base}):",
         f'    """{base} with strictly-typed feature keys (checker-only, runtime no-op)."""',
@@ -244,8 +262,8 @@ def generate(payload: Dict[str, Any], payload_format: str = "auto") -> str:
     if any("List[" in t for t in feature_types.values()):
         typing_imports.append("List")
     typing_imports.append("Literal")
-    if typed_count:
-        typing_imports.append("Optional")
+    # Always needed: the async overrides' tracking_buffer is Optional.
+    typing_imports.append("Optional")
     if any("Union[" in t for t in feature_types.values()):
         typing_imports.append("Union")
     # Overloads are emitted whenever get_feature_value or eval_feature has

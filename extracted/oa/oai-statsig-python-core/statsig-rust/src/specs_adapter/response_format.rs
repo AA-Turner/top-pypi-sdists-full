@@ -1,4 +1,10 @@
-use crate::networking::ResponseData;
+use crate::{
+    StatsigErr,
+    networking::ResponseData,
+    specs_response::{
+        proto_compression::is_compressed_protobuf_response, spec_types::SpecsResponseNoUpdates,
+    },
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SpecsResponseFormat {
@@ -20,13 +26,7 @@ impl SpecsResponseFormat {
 }
 
 fn is_response_protobuf(response_data: &ResponseData) -> bool {
-    let content_type = response_data.get_header_ref("content-type");
-    if content_type.map(|s| s.as_str().contains("application/octet-stream")) != Some(true) {
-        return false;
-    }
-
-    let content_encoding = response_data.get_header_ref("content-encoding");
-    content_encoding.map(|s| s.as_str().contains("statsig-br")) == Some(true)
+    is_compressed_protobuf_response(response_data)
 }
 
 pub fn get_specs_response_format(response_data: &ResponseData) -> SpecsResponseFormat {
@@ -48,4 +48,21 @@ pub fn get_specs_response_format(response_data: &ResponseData) -> SpecsResponseF
     }
 
     SpecsResponseFormat::Unknown
+}
+
+/// Older DCS responses can retain statsig-br headers while returning the
+/// legacy JSON no-update body. Callers that hydrate before parsing need to
+/// preserve that body instead of asking the protobuf hydrator to decode it.
+pub(super) fn is_legacy_json_no_update_under_protobuf_headers(
+    data: &mut ResponseData,
+) -> Result<bool, StatsigErr> {
+    if get_specs_response_format(data) != SpecsResponseFormat::Protobuf {
+        return Ok(false);
+    }
+
+    let is_no_update = data
+        .deserialize_into::<SpecsResponseNoUpdates>()
+        .is_ok_and(|response| !response.has_updates);
+    data.rewind()?;
+    Ok(is_no_update)
 }

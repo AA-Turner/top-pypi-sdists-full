@@ -29,27 +29,26 @@ def year_blocks(start, end):
 
 def month_blocks(start, end):
     """
-    Create pairs of start and end with max a month in between, to deal with usage restrictions on the API
+    Generates UTC time blocks where each block is exactly <= 1 ISO calendar month
+    (P1M) relative to its start time, eliminating unnecessary short slices.
 
-    Parameters
-    ----------
-    start : dt.datetime | pd.Timestamp
-    end : dt.datetime | pd.Timestamp
-
-    Returns
-    -------
-    ((pd.Timestamp, pd.Timestamp))
     """
-    rule = rrule.MONTHLY
+    start_ts = pd.to_datetime(start, utc=True)
+    end_ts = pd.to_datetime(end, utc=True)
 
-    res = []
-    for day in rrule.rrule(rule, dtstart=start, until=end):
-        res.append(pd.Timestamp(day))
-    res.append(end)
-    res = sorted(set(res))
-    res = pairwise(res)
-    return res
+    if start_ts >= end_ts:
+        return []
 
+    blocks = []
+    current_start = start_ts
+
+    while current_start < end_ts:
+        # Step forward by exactly 1 calendar month (handles leap years/varying month lengths safely)
+        next_end = min(current_start + pd.DateOffset(months=1), end_ts)
+        blocks.append((current_start, next_end))
+        current_start = next_end
+
+    return blocks
 
 def day_blocks(start, end):
     """

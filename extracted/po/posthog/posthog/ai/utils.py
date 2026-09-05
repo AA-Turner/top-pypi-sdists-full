@@ -10,6 +10,13 @@ from posthog.ai.sanitization import sanitize_messages  # noqa: F401 -- re-export
 from posthog.ai.types import FormattedMessage, StreamingEventData, TokenUsage
 from posthog.client import Client as PostHogClient
 
+from ..version import VERSION as _POSTHOG_VERSION
+
+
+_AI_LIB_PROPERTIES = {
+    "$ai_lib": "posthog-ai",
+    "$ai_lib_version": _POSTHOG_VERSION,
+}
 
 _TOKEN_PROPERTY_KEYS = frozenset(
     {
@@ -63,7 +70,11 @@ def _ai_lane_enabled(ph_client) -> bool:
 
 
 def _capture_ai_event(ph_client, event: str, **kwargs):
-    """Capture a wrapper-emitted AI event, falling back to `capture()` for duck-typed clients without `capture_ai`."""
+    """Capture a wrapper-emitted AI event with the PostHog AI library identity."""
+    kwargs["properties"] = {
+        **_AI_LIB_PROPERTIES,
+        **(kwargs.get("properties") or {}),
+    }
     if _ai_lane_enabled(ph_client):
         capture_ai = getattr(ph_client, "capture_ai", None)
         if callable(capture_ai):
@@ -235,9 +246,12 @@ def merge_usage_stats(
         raise ValueError(f"Invalid mode: {mode}. Must be 'incremental' or 'cumulative'")
 
 
-def get_model_params(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def get_model_params(
+    kwargs: Dict[str, Any], served_service_tier: Optional[str] = None
+) -> Dict[str, Any]:
     """
-    Extracts model parameters from the kwargs dictionary.
+    Extracts model parameters from the kwargs dictionary. The service tier comes
+    from the response instead, because a requested tier can be refused.
     """
     model_params = {}
     for param in [
@@ -254,6 +268,8 @@ def get_model_params(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     ]:
         if param in kwargs and kwargs[param] is not None:
             model_params[param] = kwargs[param]
+    if served_service_tier is not None:
+        model_params["service_tier"] = served_service_tier
     return model_params
 
 
@@ -476,7 +492,10 @@ def call_llm_and_track_usage(
 
             tag("$ai_provider", provider)
             tag("$ai_model", kwargs.get("model") or getattr(response, "model", None))
-            tag("$ai_model_parameters", get_model_params(kwargs))
+            tag(
+                "$ai_model_parameters",
+                get_model_params(kwargs, getattr(response, "service_tier", None)),
+            )
             tag(
                 "$ai_input",
                 with_privacy_mode(ph_client, posthog_privacy_mode, sanitized_messages),
@@ -639,7 +658,10 @@ async def call_llm_and_track_usage_async(
 
             tag("$ai_provider", provider)
             tag("$ai_model", kwargs.get("model") or getattr(response, "model", None))
-            tag("$ai_model_parameters", get_model_params(kwargs))
+            tag(
+                "$ai_model_parameters",
+                get_model_params(kwargs, getattr(response, "service_tier", None)),
+            )
             tag(
                 "$ai_input",
                 with_privacy_mode(ph_client, posthog_privacy_mode, sanitized_messages),
@@ -786,7 +808,9 @@ def capture_streaming_event(
     event_properties = {
         "$ai_provider": event_data["provider"],
         "$ai_model": event_data["model"],
-        "$ai_model_parameters": get_model_params(event_data["kwargs"]),
+        "$ai_model_parameters": get_model_params(
+            event_data["kwargs"], event_data.get("service_tier")
+        ),
         "$ai_input": with_privacy_mode(
             ph_client,
             event_data["privacy_mode"],
@@ -825,9 +849,14 @@ def capture_streaming_event(
     if available_tools:
         event_properties["$ai_tools"] = available_tools
 
-    # Add optional token fields
+    # Add optional token fields. The zero-defaults below only apply when the
+    # provider reported usage at all: a stream interrupted before any report
+    # has nothing to default, and a fabricated 0 would read as a report of
+    # nothing where absence means unknown.
+    usage_was_reported = input_tokens is not None or output_tokens is not None
+
     # For Anthropic, always include cache fields even if 0 (backward compatibility)
-    if event_data["provider"] == "anthropic":
+    if event_data["provider"] == "anthropic" and usage_was_reported:
         # Anthropic always includes cache fields
         cache_read = event_data["usage_stats"].get("cache_read_input_tokens", 0)
         cache_creation = event_data["usage_stats"].get("cache_creation_input_tokens", 0)
@@ -847,10 +876,15 @@ def capture_streaming_event(
             # OpenAI async streams historically included these fields even when 0.
             # Keep those defaults in the shared path so they are not mistaken for
             # caller-supplied token passthrough properties.
-            if event_data["provider"] == "openai" and field in {
-                "cache_read_input_tokens",
-                "reasoning_tokens",
-            }:
+            if (
+                event_data["provider"] == "openai"
+                and usage_was_reported
+                and field
+                in {
+                    "cache_read_input_tokens",
+                    "reasoning_tokens",
+                }
+            ):
                 event_properties.setdefault(
                     property_name, event_data["usage_stats"].get(field, 0)
                 )

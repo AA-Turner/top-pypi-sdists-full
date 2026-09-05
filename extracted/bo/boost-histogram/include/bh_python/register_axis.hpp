@@ -9,6 +9,7 @@
 
 #include <bh_python/array_like.hpp>
 #include <bh_python/axis.hpp>
+#include <bh_python/def_eq.hpp>
 #include <bh_python/fill.hpp>
 #include <bh_python/make_pickle.hpp>
 
@@ -61,6 +62,21 @@ inline decltype(auto) axis_cast<int>(py::handle x) {
     throw py::type_error(py::str("cannot cast {} to int").format(val));
 }
 } // namespace detail
+
+// we overload vectorize index for the integer axis, whose value type is int
+template <class Options>
+auto vectorize_index(int (bh::axis::integer<int, metadata_t, Options>::*pindex)(int)
+                         const BHP_NOEXCEPT_17) {
+    using A      = bh::axis::integer<int, metadata_t, Options>;
+    auto indexer = py::vectorize(pindex);
+    return [indexer](const A& self, const py::object& arg) mutable -> py::object {
+        auto array = py::array::ensure(arg);
+        // integer input is range checked; anything else keeps the NumPy cast
+        if(array && (array.dtype().kind() == 'i' || array.dtype().kind() == 'u'))
+            return indexer(&self, detail::special_cast<detail::c_array_t<int>>(array));
+        return indexer(&self, py::cast<detail::c_array_t<int>>(arg));
+    };
+}
 
 // we overload vectorize index for category axis
 template <class T, class Options>
@@ -137,24 +153,9 @@ template <class A, class... Args>
 py::class_<A> register_axis(py::module& m, Args&&... args) {
     py::class_<A> ax(m, axis::string_name<A>(), std::forward<Args>(args)...);
 
-    ax.def("__repr__", &shift_to_string<A>)
+    def_eq(ax);
 
-        .def("__eq__",
-             [](const A& self, const py::object& other) {
-                 try {
-                     return self == py::cast<const A&>(other);
-                 } catch(const py::cast_error&) {
-                     return false;
-                 }
-             })
-        .def("__ne__",
-             [](const A& self, const py::object& other) {
-                 try {
-                     return self != py::cast<const A&>(other);
-                 } catch(const py::cast_error&) {
-                     return true;
-                 }
-             })
+    ax.def("__repr__", &shift_to_string<A>)
 
         .def_property_readonly("traits_underflow",
                                [](const A& self) {
@@ -185,8 +186,14 @@ py::class_<A> register_axis(py::module& m, Args&&... args) {
 
         .def_property(
             "raw_metadata",
-            [](const A& self) { return self.metadata(); },
-            [](A& self, const metadata_t& label) { self.metadata() = label; },
+            // Return the actual held dict (not a metadata_t copy, which
+            // would now be an independent dict): callers rely on repeated
+            // .raw_metadata accesses returning the identical object.
+            [](const A& self) -> const py::object& {
+                const py::gil_scoped_acquire gil;
+                return self.metadata().unguarded_obj();
+            },
+            [](A& self, metadata_t label) { self.metadata() = std::move(label); },
             "Set the metadata")
 
         .def_property_readonly(
@@ -202,9 +209,8 @@ py::class_<A> register_axis(py::module& m, Args&&... args) {
         .def("__copy__", [](const A& self) { return A(self); })
         .def("__deepcopy__",
              [](const A& self, const py::object& memo) {
-                 auto a                = std::make_unique<A>(self);
-                 py::module const copy = py::module::import("copy");
-                 a->metadata()         = copy.attr("deepcopy")(a->metadata(), memo);
+                 auto a        = std::make_unique<A>(self);
+                 a->metadata() = deep_copy_metadata(a->metadata(), memo);
                  return a;
              })
 

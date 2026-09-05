@@ -72,7 +72,7 @@ TABLE_ACTION_CELL_CLASSES = [
 ]
 
 
-def result_headers(cl):
+def result_headers(cl):  # noqa: PLR0912, PLR0915
     """
     Generate the list column headers.
     """
@@ -103,6 +103,7 @@ def result_headers(cl):
                     ).render("action-toggle", False),
                     "class_attrib": mark_safe("action-checkbox-column"),
                     "sortable": False,
+                    "formatting": getattr(attr, "formatting", None),
                 }
                 continue
 
@@ -114,16 +115,28 @@ def result_headers(cl):
                 is_field_sortable = False
 
         if not is_field_sortable:
+            th_classes = [
+                format_html("column-{}", field_name),
+            ]
+
+            if hasattr(attr, "wrapper_class"):
+                th_classes.append(attr.wrapper_class)
+
             # Not sortable
             yield {
                 "text": text,
-                "class_attrib": format_html("column-{}", field_name),
+                "class_attrib": format_html("{}", " ".join(th_classes)),
                 "sortable": False,
+                "formatting": getattr(attr, "formatting", None),
             }
             continue
 
         # OK, it is sortable if we got this far
         th_classes = ["sortable", f"column-{field_name}"]
+
+        if hasattr(attr, "wrapper_class"):
+            th_classes.append(attr.wrapper_class)
+
         order_type = ""
         new_order_type = "asc"
         sort_priority = 0
@@ -173,6 +186,7 @@ def result_headers(cl):
             "url_primary": cl.get_query_string({ORDER_VAR: ".".join(o_list_primary)}),
             "url_remove": cl.get_query_string({ORDER_VAR: ".".join(o_list_remove)}),
             "url_toggle": cl.get_query_string({ORDER_VAR: ".".join(o_list_toggle)}),
+            "formatting": getattr(attr, "formatting", None),
             "class_attrib": format_html("{}", " ".join(th_classes))
             if th_classes
             else "",
@@ -214,9 +228,13 @@ def items_for_result(  # noqa: PLR0915, PLR0912
                 if field_name == "action_checkbox":
                     row_classes = TABLE_ACTION_CELL_CLASSES
                 boolean = getattr(attr, "boolean", False)
+                formatting = getattr(attr, "formatting", None)
                 label = getattr(attr, "label", False)
                 header = getattr(attr, "header", False)
                 dropdown = getattr(attr, "dropdown", False)
+
+                if formatting == "price":
+                    row_classes.append("text-right")
 
                 if label:
                     result_repr = display_for_label(value, empty_value_display, label)

@@ -11,9 +11,11 @@ class CreateVSwitchRequest(DaraModel):
     def __init__(
         self,
         cidr_block: str = None,
+        cidr_mask: int = None,
         client_token: str = None,
         description: str = None,
         ipv_6cidr_block: int = None,
+        ipv_6cidr_mask: int = None,
         owner_account: str = None,
         owner_id: int = None,
         region_id: str = None,
@@ -25,36 +27,41 @@ class CreateVSwitchRequest(DaraModel):
         vpc_ipv_6cidr_block: str = None,
         zone_id: str = None,
     ):
-        # The CIDR block of the vSwitch. The following requirements apply: 
+        # The CIDR block of the vSwitch. The vSwitch CIDR block must meet the following requirements: 
         # 
         # - The mask length of the vSwitch CIDR block must be 16 to 29 bits.  
         # 
-        # - The CIDR block of the vSwitch must be a subset of the CIDR block of the VPC to which the vSwitch belongs. 
+        # - The vSwitch CIDR block must be a subset of the CIDR block of the VPC to which the vSwitch belongs. 
         # 
-        # - The CIDR block of the vSwitch cannot be the same as the destination CIDR block of a route in the VPC, but can be a subset of the destination CIDR block. 
+        # - The vSwitch CIDR block cannot be the same as the destination CIDR block of a route entry in the VPC, but can be a subset of the destination CIDR block. 
         # 
-        # - The CIDR block of the vSwitch cannot be within the following reserved address ranges: 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, or 224.0.0.0/4.
+        # - The vSwitch CIDR block cannot be within the following reserved address ranges: 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, or 224.0.0.0/4.
         # 
         # > After a vSwitch is created, you cannot modify its CIDR block.
-        # 
-        # This parameter is required.
         self.cidr_block = cidr_block
+        # The mask length of the IPv4 CIDR block of the vSwitch.
+        # > The mask length of the vSwitch IPv4 CIDR block must be 16 to 29 bits. You must specify at least one of CidrBlock and CidrMask.
+        self.cidr_mask = cidr_mask
         # The client token that is used to ensure the idempotence of the request.
         # 
         # You can use the client to generate the token, but you must make sure that the token is unique among different requests. The ClientToken value can contain only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may differ for each API request.
+        # > If you do not specify this parameter, the system uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** may vary for each API request.
         self.client_token = client_token
         # The description of the vSwitch.  
         # 
         # The description must be 1 to 256 characters in length and cannot start with `http://` or `https://`.
         self.description = description
         # The last 8 bits of the IPv6 CIDR block of the vSwitch. Valid values: **0** to **255**.
-        # You can specify this parameter only when the VPC to which the vSwitch belongs has IPv6 enabled. This allows you to assign an IPv6 CIDR block to the vSwitch. After the IPv6 CIDR block is allocated, it cannot be changed. Make sure that the CIDR block does not overlap with those of other vSwitches in the VPC.
+        # You can specify this parameter to assign an IPv6 CIDR block to the vSwitch only when the VPC to which the vSwitch belongs has IPv6 enabled. After the IPv6 CIDR block is assigned, it cannot be changed to another CIDR block. Make sure that the CIDR block does not overlap with those of other vSwitches in the VPC.
         self.ipv_6cidr_block = ipv_6cidr_block
+        # The subnet mask of the IPv6 CIDR block of the vSwitch. You can specify this parameter to assign an IPv6 CIDR block to the vSwitch only when the VPC to which the vSwitch belongs has IPv6 enabled.
+        # 
+        # > Only 64 is supported.
+        self.ipv_6cidr_mask = ipv_6cidr_mask
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the vSwitch that you want to create.
+        # The region ID of the vSwitch to create.
         # 
         # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
         self.region_id = region_id
@@ -93,6 +100,9 @@ class CreateVSwitchRequest(DaraModel):
         if self.cidr_block is not None:
             result['CidrBlock'] = self.cidr_block
 
+        if self.cidr_mask is not None:
+            result['CidrMask'] = self.cidr_mask
+
         if self.client_token is not None:
             result['ClientToken'] = self.client_token
 
@@ -101,6 +111,9 @@ class CreateVSwitchRequest(DaraModel):
 
         if self.ipv_6cidr_block is not None:
             result['Ipv6CidrBlock'] = self.ipv_6cidr_block
+
+        if self.ipv_6cidr_mask is not None:
+            result['Ipv6CidrMask'] = self.ipv_6cidr_mask
 
         if self.owner_account is not None:
             result['OwnerAccount'] = self.owner_account
@@ -141,6 +154,9 @@ class CreateVSwitchRequest(DaraModel):
         if m.get('CidrBlock') is not None:
             self.cidr_block = m.get('CidrBlock')
 
+        if m.get('CidrMask') is not None:
+            self.cidr_mask = m.get('CidrMask')
+
         if m.get('ClientToken') is not None:
             self.client_token = m.get('ClientToken')
 
@@ -149,6 +165,9 @@ class CreateVSwitchRequest(DaraModel):
 
         if m.get('Ipv6CidrBlock') is not None:
             self.ipv_6cidr_block = m.get('Ipv6CidrBlock')
+
+        if m.get('Ipv6CidrMask') is not None:
+            self.ipv_6cidr_mask = m.get('Ipv6CidrMask')
 
         if m.get('OwnerAccount') is not None:
             self.owner_account = m.get('OwnerAccount')

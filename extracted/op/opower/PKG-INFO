@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opower
-Version: 0.20.0
+Version: 0.21.0
 Summary: A Python library for getting historical and forecasted usage/cost from utilities that use opower.com such as PG&E
 Author-email: tronikos <tronikos@gmail.com>
 License: Apache-2.0
@@ -29,6 +29,7 @@ This library is used by the [Opower integration in Home Assistant](https://www.h
 
 ## Supported Utilities
 
+- AES Indiana
 - American Electric Power (AEP) subsidiaries
   - AEP Ohio
   - AEP Texas
@@ -53,11 +54,6 @@ This library is used by the [Opower integration in Home Assistant](https://www.h
   - PECO Energy Company (PECO)
   - Potomac Electric Power Company (Pepco)
 - Glendale Water and Power (GWP)
-- National Grid US subsidiaries
-  - National Grid Massachusetts
-  - National Grid NY Long Island
-  - National Grid NY Metro
-  - National Grid NY Upstate
 - Northern Indiana Public Service Company (NIPSCO)
 - Pacific Gas & Electric (PG&E)
 - Puget Sound Energy (PSE)
@@ -107,7 +103,25 @@ pytest
 python -m opower --help
 # To output debug logs and API responses to a file run:
 python -m opower -vv 2> out.txt
+```
 
+Instead of passing credentials on the command line or typing them at the prompts,
+you can put them in the environment or in a `.env` file in the current directory:
+
+```sh
+OPOWER_UTILITY=pge
+OPOWER_USERNAME=user@example.com
+OPOWER_PASSWORD=secret
+# Only for utilities with TOTP-based MFA
+OPOWER_TOTP_SECRET=...
+# Only for utilities with interactive MFA, e.g. PG&E
+OPOWER_LOGIN_DATA_FILE=login_data.txt
+```
+
+Real environment variables take precedence over the `.env` file, and command line
+arguments take precedence over both.
+
+```sh
 # Build package
 python -m pip install build
 python -m build

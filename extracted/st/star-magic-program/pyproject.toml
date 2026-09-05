@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.415.2"
-description = "Star-Magic UQFF calculator v0.415.2: THE TAG-CHAIN SHIP (all contexts fixed) - SHIP GUARD v9 ties the version ledger to the git tag chain; ship.ps1 pre-flight + post-push remote-tag verification. v0.415.0: branch CI fetches no tags; v0.415.1: tag-push CI fetches exactly ONE tag, so zero-tags-skip was not enough. Guard now enforces only on full checkouts (GITHUB_ACTIONS or <100 tags = skip). 2,255 papers, gate 6,046/0, acceptance 89/89."
+version = "0.416.0"
+description = "Star-Magic UQFF calculator v0.416.0: THE ORIGIN POINTS SHIP - RULINGS Batches 5-8 + the B57 pointer set: 41 rulings folded, and the recalculate-first method ran the table - GW190425 chain EXACT, exp(-kappa*D/2) aether decay, magnetar three-channel timescales, S330 flavor closures R(D*) = 7/6*R_SM, Cabibbo dual closures at 0.008%, PAPER_1815 g-2 route live-verified, rho_crit forensic closure, eta-prime two-quantity split. Backlog 224 to 191. gate 6,051/0, acceptance 89/89."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -543,6 +543,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_026_Sterile_Neutrino_Mass_Generation_UQFF.md",
     "whitepapers/PAPER_026_Sterile_Neutrino_Mass_UQFF.md",
     "whitepapers/PAPER_026b_Vector_Like_Quarks_UQFF.md",
+    "whitepapers/PAPER_026c_Sterile_Neutrino_Mass_UQFF_short_variant.md",
     "whitepapers/PAPER_027_Lepton_Flavor_Violation_UQFF.md",
     "whitepapers/PAPER_028_BSM_Coupling_Constants_UQFF.md",
     "whitepapers/PAPER_029_New_Physics_TeV_Scale_UQFF.md",

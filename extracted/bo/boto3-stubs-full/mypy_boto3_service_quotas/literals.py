@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_service_quotas.literals import AppliedLevelEnumType
+    from mypy_boto3_service_quotas.literals import AdjustableAtLevelEnumType
 
-    data: AppliedLevelEnumType = "ACCOUNT"
+    data: AdjustableAtLevelEnumType = "ACCOUNT"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AdjustableAtLevelEnumType",
     "AppliedLevelEnumType",
     "ErrorCodeType",
     "ListAWSDefaultServiceQuotasPaginatorName",
@@ -48,6 +49,7 @@ __all__ = (
 )
 
 
+AdjustableAtLevelEnumType = Literal["ACCOUNT", "ALL", "PER_RESOURCE"]
 AppliedLevelEnumType = Literal["ACCOUNT", "ALL", "RESOURCE"]
 ErrorCodeType = Literal[
     "DEPENDENCY_ACCESS_DENIED_ERROR",

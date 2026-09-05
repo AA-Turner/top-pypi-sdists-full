@@ -7,9 +7,12 @@ amazon_creatorsapi.models instead of navigating the SDK structure.
 Example:
     >>> from amazon_creatorsapi.models import Item, Condition, SortBy
     >>> from amazon_creatorsapi.models import GetItemsResource, SearchItemsResource
+    >>> from amazon_creatorsapi.models import Feed, FeedType, ReportMetadata, ReportType
+    >>> from amazon_creatorsapi.models import ErrorData, ResultList
 
 """
 
+from amazon_creatorsapi.core.results import ResultList
 from creatorsapi_python_sdk.models.availability import Availability
 from creatorsapi_python_sdk.models.browse_node import BrowseNode
 from creatorsapi_python_sdk.models.browse_node_ancestor import BrowseNodeAncestor
@@ -24,7 +27,10 @@ from creatorsapi_python_sdk.models.contributor import Contributor
 from creatorsapi_python_sdk.models.customer_reviews import CustomerReviews
 from creatorsapi_python_sdk.models.deal_details import DealDetails
 from creatorsapi_python_sdk.models.delivery_flag import DeliveryFlag
+from creatorsapi_python_sdk.models.error_data import ErrorData
 from creatorsapi_python_sdk.models.external_ids import ExternalIds
+from creatorsapi_python_sdk.models.feed import Feed
+from creatorsapi_python_sdk.models.feed_type import FeedType
 from creatorsapi_python_sdk.models.get_browse_nodes_resource import (
     GetBrowseNodesResource,
 )
@@ -52,6 +58,8 @@ from creatorsapi_python_sdk.models.offers_v2 import OffersV2
 from creatorsapi_python_sdk.models.product_info import ProductInfo
 from creatorsapi_python_sdk.models.refinement import Refinement
 from creatorsapi_python_sdk.models.refinement_bin import RefinementBin
+from creatorsapi_python_sdk.models.report_metadata import ReportMetadata
+from creatorsapi_python_sdk.models.report_type import ReportType
 from creatorsapi_python_sdk.models.saving_basis_type import SavingBasisType
 from creatorsapi_python_sdk.models.search_items_resource import SearchItemsResource
 from creatorsapi_python_sdk.models.search_refinements import SearchRefinements
@@ -81,7 +89,10 @@ __all__ = [
     "CustomerReviews",
     "DealDetails",
     "DeliveryFlag",
+    "ErrorData",
     "ExternalIds",
+    "Feed",
+    "FeedType",
     "GetBrowseNodesResource",
     "GetItemsResource",
     "GetVariationsResource",
@@ -107,6 +118,9 @@ __all__ = [
     "ProductInfo",
     "Refinement",
     "RefinementBin",
+    "ReportMetadata",
+    "ReportType",
+    "ResultList",
     "SavingBasisType",
     "SearchItemsResource",
     "SearchRefinements",

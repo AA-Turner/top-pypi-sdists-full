@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import importlib.metadata
 import importlib.resources
 import json
 import math
@@ -179,6 +180,30 @@ def test_round_trip_transform_custom_falls_back_to_variable() -> None:
     assert np.asarray(h2.axes[0].edges) == pytest.approx(np.asarray(h.axes[0].edges))
 
 
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy",
+    reason="ctypes function-pointer transforms hang forever on PyPy",
+)
+@pytest.mark.skipif(
+    sys.implementation.name == "graalpy",
+    reason="ctypes function-pointer transforms are not supported on GraalPy",
+)
+def test_transform_same_name_as_builtin_is_not_confused() -> None:
+    """A custom Function transform named 'log' must not round-trip as the
+    built-in log transform - the two have different forward/inverse math."""
+    ftype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
+    transform = bh.axis.transform.Function(ftype(math.exp), ftype(math.log), name="log")
+    assert transform != bh.axis.transform.log
+
+    h = bh.Histogram(bh.axis.Regular(5, 1, 10, transform=transform))
+    data = to_uhi(h)
+
+    # Not reconstructable, so it must fall back to a Variable axis, not "log"
+    assert "writer_info" not in data["axes"][0]
+    h2 = from_uhi(data)
+    assert isinstance(h2.axes[0], bh.axis.Variable)
+
+
 def test_from_uhi_unknown_transform_falls_back_to_variable() -> None:
     """An unrecognized transform name in writer_info reads back as a Variable
     axis instead of raising."""
@@ -281,9 +306,12 @@ def test_uhi_wrapper():
         bh.axis.IntCategory([1, 2, 3]),
         storage=bh.storage.WeightedMean(),
     )
-    assert to_uhi(h).keys() == h._to_uhi_().keys()
+    expected_keys = {"uhi_schema", "writer_info", "axes", "storage", "metadata"}
+    assert to_uhi(h).keys() == expected_keys
+    assert h._to_uhi_().keys() == expected_keys
+
     data = h._to_uhi_()
-    assert repr(from_uhi(data)) == repr(bh.Histogram._from_uhi_(data))
+    assert repr(from_uhi(data)) == repr(bh.Histogram._from_uhi_(data)) == repr(h)
 
 
 def test_uhi_direct_conversion():
@@ -294,6 +322,36 @@ def test_uhi_direct_conversion():
     uhi_dict = h._to_uhi_()
     h2 = bh.Histogram(uhi_dict)
     assert h == h2
+
+
+def test_to_uhi_does_not_leak_variance_known() -> None:
+    h = bh.Histogram(bh.axis.Regular(3, 0, 1))
+    data = to_uhi(h)
+    assert "_variance_known" not in data["metadata"]
+
+
+def test_from_uhi_sets_variance_known_by_default() -> None:
+    # A dict without boost-histogram's private "_variance_known" flag (e.g.
+    # built by hand, or written by another UHI library) must still produce a
+    # histogram whose .variances() works.
+    data = {
+        "uhi_schema": 1,
+        "axes": [
+            {
+                "type": "regular",
+                "lower": 0.0,
+                "upper": 1.0,
+                "bins": 3,
+                "underflow": True,
+                "overflow": True,
+                "circular": False,
+            }
+        ],
+        "storage": {"type": "double"},
+        "metadata": {},
+    }
+    h = from_uhi(data)
+    assert h.variances() is not None
 
 
 def test_round_trip_native() -> None:
@@ -470,7 +528,8 @@ def test_unserializable_metadata() -> None:
     h.__dict__["@b"] = 2
     data = to_uhi(h)
 
-    assert data["metadata"] == {"a": 1, "_variance_known": True}
+    # _variance_known is internal Histogram state, not user metadata
+    assert data["metadata"] == {"a": 1}
     assert data["axes"][0]["metadata"] == {"c": 3}
 
 
@@ -486,7 +545,6 @@ def test_histogram_metadata() -> None:
         "name": "Hi",
         "label": "hi",
         "other": 3,
-        "_variance_known": True,
     }
 
 
@@ -722,6 +780,11 @@ def test_to_uhi_matches_uhi_schema(
     """``to_uhi`` output conforms to the UHI histogram JSON schema, including the
     metadata-only (``keep_storage=False``) form used for type-only storage."""
     jsonschema = pytest.importorskip("jsonschema")
+    # Older jsonschema (pulled in where rpds-py has no wheel, e.g. Pyodide 3.15)
+    # cannot resolve the UHI schema's $ref entries
+    jsonschema_version = importlib.metadata.version("jsonschema").split(".")
+    if tuple(int(v) for v in jsonschema_version[:2]) < (4, 18):
+        pytest.skip("jsonschema>=4.18 required")
     schema = json.loads(
         importlib.resources.files("uhi.resources")
         .joinpath("histogram.schema.json")

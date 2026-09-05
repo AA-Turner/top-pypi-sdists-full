@@ -248,6 +248,7 @@ fn materialize_rule(rule: &ArchivedMmapRule) -> Rule {
             .map(|value| mmap_interned_string(value.to_native())),
         is_experiment_group: rule.is_experiment_group.as_ref().copied(),
         sampling_rate: rule.sampling_rate.as_ref().map(|value| value.to_native()),
+        shared_control_experiments: None,
     }
 }
 

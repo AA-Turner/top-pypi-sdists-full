@@ -5,7 +5,8 @@ use serde_with::skip_serializing_none;
 
 use crate::evaluation::evaluation_details::EvaluationDetails;
 use crate::evaluation::{
-    dynamic_returnable::DynamicReturnable, evaluation_types::ExtraExposureInfo,
+    dynamic_returnable::DynamicReturnable,
+    evaluation_types::{ExtraExposureInfo, SharedControlLayerExposure},
 };
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
@@ -185,6 +186,9 @@ pub struct LayerRaw<'a> {
     pub parameter_rule_ids: Option<&'a HashMap<InternedString, InternedString>>,
 
     pub exposure_info: Option<ExtraExposureInfo>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shared_control_exposures: Option<&'a Vec<SharedControlLayerExposure>>,
 }
 
 impl<'a> LayerRaw<'a> {
@@ -208,6 +212,7 @@ impl<'a> LayerRaw<'a> {
             explicit_parameters: None,
             parameter_rule_ids: None,
             exposure_info: None,
+            shared_control_exposures: None,
         }
     }
 
@@ -245,6 +250,7 @@ pub struct PartialLayerRaw {
     pub explicit_parameters: Option<ExplicitParameters>,
     pub parameter_rule_ids: Option<HashMap<InternedString, InternedString>>,
     pub exposure_info: Option<ExtraExposureInfo>,
+    pub shared_control_exposures: Option<Vec<SharedControlLayerExposure>>,
 }
 
 #[cfg(feature = "ffi-support")]
@@ -266,6 +272,7 @@ impl From<&LayerRaw<'_>> for PartialLayerRaw {
             explicit_parameters: raw.explicit_parameters.clone(),
             parameter_rule_ids: raw.parameter_rule_ids.cloned(),
             exposure_info: raw.exposure_info.clone(),
+            shared_control_exposures: raw.shared_control_exposures.cloned(),
         }
     }
 }

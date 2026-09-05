@@ -29,6 +29,7 @@ permissioned_resource_types = [
     "launcher",
     "ssh",
     "database",
+    "printer",
 ]
 resource_types = permissioned_resource_types + ["service_forwarder"]
 permissioned_resource_type_enum = click.Choice(permissioned_resource_types)

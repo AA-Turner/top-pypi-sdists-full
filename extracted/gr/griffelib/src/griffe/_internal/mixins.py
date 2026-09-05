@@ -211,8 +211,9 @@ class SetMembersMixin:
                         # Accessing file paths can trigger a builtin module error.
                         with suppress(AliasResolutionError, CyclicAliasError, BuiltinModuleError):
                             if value.is_module and value.filepath != member.filepath:
+                                psd = self._psd if self.is_collection else self.modules_collection._psd  # ty:ignore[unresolved-attribute]
                                 with suppress(ValueError):
-                                    value = merge_stubs(member, value)  # ty:ignore[invalid-argument-type]
+                                    value = merge_stubs(member, value, prefer_stubs_docs=psd)  # ty:ignore[invalid-argument-type]
                     for alias in member.aliases.values():
                         with suppress(CyclicAliasError):
                             alias.target = value
@@ -345,7 +346,9 @@ class ObjectAliasMixin(GetMembersMixin, SetMembersMixin, DelMembersMixin, Serial
     @property
     def is_imported(self) -> bool:
         """Whether this object/alias was imported from another module."""
-        return bool(self.parent) and self.name in self.parent.imports  # ty:ignore[unresolved-attribute]
+        if not (parent := self.parent):  # ty:ignore[unresolved-attribute]
+            return False
+        return self.name in parent.imports  # ty:ignore[unresolved-attribute]
 
     @property
     def is_exported(self) -> bool:

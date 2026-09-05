@@ -4,7 +4,10 @@ use crate::{
     statsig_types::{DynamicConfig, Experiment, Layer},
 };
 use dashmap::DashMap;
-use std::{ops::Deref, sync::Arc};
+use std::{
+    ops::Deref,
+    sync::{Arc, OnceLock},
+};
 
 const TAG: &str = "SdkEventEmitter";
 
@@ -63,8 +66,8 @@ impl SubscriptionID {
 
 #[derive(Default)]
 pub struct SdkEventEmitter {
-    listeners: DashMap<u8, Vec<Listener>>,
-    internal_listeners: DashMap<u8, Vec<InternalListener>>,
+    listeners: OnceLock<DashMap<u8, Vec<Listener>>>,
+    internal_listeners: OnceLock<DashMap<u8, Vec<InternalListener>>>,
 }
 
 impl SdkEventEmitter {
@@ -80,10 +83,14 @@ impl SdkEventEmitter {
 
         let sub_id = SubscriptionID::new(event);
 
-        self.listeners.entry(code).or_default().push(Listener {
-            sub_id_value: sub_id.value.clone(),
-            callback: Arc::new(callback),
-        });
+        self.listeners
+            .get_or_init(DashMap::new)
+            .entry(code)
+            .or_default()
+            .push(Listener {
+                sub_id_value: sub_id.value.clone(),
+                callback: Arc::new(callback),
+            });
 
         sub_id
     }
@@ -99,6 +106,7 @@ impl SdkEventEmitter {
         }
 
         self.internal_listeners
+            .get_or_init(DashMap::new)
             .entry(code)
             .or_default()
             .push(InternalListener {
@@ -109,12 +117,18 @@ impl SdkEventEmitter {
 
     pub fn unsubscribe(&self, event: &str) {
         let code = SdkEventCode::from_name(event).as_raw();
-        self.listeners.remove(&code);
+        if let Some(listeners) = self.listeners.get() {
+            listeners.remove(&code);
+        }
     }
 
     pub fn unsubscribe_by_id(&self, subscription_id: &SubscriptionID) {
         let code = SdkEventCode::from_name(&subscription_id.event).as_raw();
-        let mut listeners = match self.listeners.get_mut(&code) {
+        let mut listeners = match self
+            .listeners
+            .get()
+            .and_then(|listeners| listeners.get_mut(&code))
+        {
             Some(listeners) => listeners,
             None => return,
         };
@@ -123,10 +137,16 @@ impl SdkEventEmitter {
     }
 
     pub fn unsubscribe_all(&self) {
-        self.listeners.clear();
+        if let Some(listeners) = self.listeners.get() {
+            listeners.clear();
+        }
     }
 
     pub(crate) fn emit(&self, event: SdkEvent) {
+        if self.listeners.get().is_none() && self.internal_listeners.get().is_none() {
+            return;
+        }
+
         let all_code = SdkEventCode::from_name(SdkEvent::ALL).as_raw();
         let event_code = event.get_code().as_raw();
 
@@ -143,15 +163,23 @@ impl SdkEventEmitter {
 
     fn snapshot_listeners(&self, code: u8) -> Vec<Listener> {
         self.listeners
-            .get(&code)
-            .map(|listeners| listeners.value().clone())
+            .get()
+            .and_then(|listeners| {
+                listeners
+                    .get(&code)
+                    .map(|listeners| listeners.value().clone())
+            })
             .unwrap_or_default()
     }
 
     fn snapshot_internal_listeners(&self, code: u8) -> Vec<InternalListener> {
         self.internal_listeners
-            .get(&code)
-            .map(|listeners| listeners.value().clone())
+            .get()
+            .and_then(|listeners| {
+                listeners
+                    .get(&code)
+                    .map(|listeners| listeners.value().clone())
+            })
             .unwrap_or_default()
     }
 
@@ -185,7 +213,11 @@ impl SdkEventEmitter {
         // Callback execution has completed and this thread holds no listener-map
         // guard. Wait for the shard so expired one-shot listeners cannot be
         // retained indefinitely under sustained contention.
-        if let Some(mut listeners) = self.internal_listeners.get_mut(&code) {
+        if let Some(mut listeners) = self
+            .internal_listeners
+            .get()
+            .and_then(|listeners| listeners.get_mut(&code))
+        {
             listeners.retain(|listener| !expired_ids.contains(&listener.id.as_str()));
         }
     }
@@ -348,6 +380,36 @@ mod cleanup_tests {
     };
 
     #[test]
+    fn unsubscribed_emitters_do_not_allocate_listener_maps() {
+        let emitter = SdkEventEmitter::default();
+
+        emitter.emit(SdkEvent::GateEvaluated {
+            gate_name: "test_gate",
+            rule_id: "test_rule_id",
+            value: true,
+            reason: "test_reason",
+        });
+        emitter.unsubscribe(SdkEvent::GATE_EVALUATED);
+        emitter.unsubscribe_all();
+        emitter.unsubscribe_by_id(&SubscriptionID::new(SdkEvent::GATE_EVALUATED));
+
+        assert!(emitter.listeners.get().is_none());
+        assert!(emitter.internal_listeners.get().is_none());
+    }
+
+    #[test]
+    fn subscriptions_allocate_only_their_listener_map() {
+        let emitter = SdkEventEmitter::default();
+
+        emitter.subscribe(SdkEvent::GATE_EVALUATED, |_| {});
+        assert!(emitter.listeners.get().is_some());
+        assert!(emitter.internal_listeners.get().is_none());
+
+        emitter.subscribe_internal(SdkEvent::GATE_EVALUATED, |_| true);
+        assert!(emitter.internal_listeners.get().is_some());
+    }
+
+    #[test]
     fn contended_cleanup_waits_and_prunes_dead_internal_listener() {
         let emitter = Arc::new(SdkEventEmitter::default());
         let callback_count = Arc::new(AtomicUsize::new(0));
@@ -384,6 +446,8 @@ mod cleanup_tests {
         let code = SdkEventCode::GateEvaluated.as_raw();
         let shard_guard = emitter
             .internal_listeners
+            .get()
+            .expect("internal listener map should be initialized")
             .get_mut(&code)
             .expect("internal listener should exist");
         callback_can_return.wait();

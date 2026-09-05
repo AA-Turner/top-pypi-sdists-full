@@ -52,7 +52,7 @@ enum DelayedExposureEntry {
 }
 
 struct DelayedLayerExposure {
-    partial_raw: PartialLayerRaw,
+    partial_raw: Arc<PartialLayerRaw>,
     logged_params: HashSet<String>,
 }
 
@@ -80,7 +80,7 @@ impl DelayedExposureStore {
     pub fn insert_layer(&self, partial_raw: PartialLayerRaw) -> String {
         self.insert(DelayedExposureEntry::Layer(Box::new(
             DelayedLayerExposure {
-                partial_raw,
+                partial_raw: Arc::new(partial_raw),
                 logged_params: HashSet::new(),
             },
         )))
@@ -124,7 +124,7 @@ impl DelayedExposureStore {
         parameter_name: &str,
         event_logger: &Arc<EventLogger>,
     ) -> bool {
-        let prepared = {
+        let partial_raw = {
             let Some(mut inner) = self.try_lock_inner("log_delayed_layer_parameter_exposure")
             else {
                 return false;
@@ -139,18 +139,44 @@ impl DelayedExposureStore {
                 return true;
             }
 
-            let operation = BorrowedLayerParamExposureOp::new(
-                InternedString::from_str_ref(parameter_name),
-                ExposureTrigger::Auto,
-                &layer.partial_raw,
-                None,
-            );
-
-            event_logger.prepare_event(operation)
+            Arc::clone(&layer.partial_raw)
         };
+
+        let operation = BorrowedLayerParamExposureOp::new(
+            InternedString::from_str_ref(parameter_name),
+            ExposureTrigger::Auto,
+            &partial_raw,
+            None,
+        );
+        let prepared = event_logger.prepare_event(operation);
+        let shared_control_prepared = partial_raw
+            .shared_control_exposures
+            .as_ref()
+            .filter(|exposures| !exposures.is_empty())
+            .map(|exposures| {
+                exposures
+                    .iter()
+                    .filter(|exposure| exposure.explicit_parameters.contains(parameter_name))
+                    .filter_map(|exposure| {
+                        let operation = BorrowedLayerParamExposureOp::shared_control(
+                            InternedString::from_str_ref(parameter_name),
+                            ExposureTrigger::Auto,
+                            &partial_raw,
+                            exposure,
+                            None,
+                        );
+                        event_logger.prepare_event(operation)
+                    })
+                    .collect::<Vec<_>>()
+            });
 
         if let Some(prepared) = prepared {
             event_logger.enqueue_prepared(prepared);
+        }
+        if let Some(shared_control_prepared) = shared_control_prepared {
+            for prepared in shared_control_prepared {
+                event_logger.enqueue_prepared(prepared);
+            }
         }
 
         true

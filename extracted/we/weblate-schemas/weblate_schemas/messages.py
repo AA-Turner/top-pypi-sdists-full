@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from fedora_messaging import message
 
 from . import load_schema
 
+MessageData: TypeAlias = dict[str, Any]
+
 if TYPE_CHECKING:
-    from datetime import datetime
+    from pika import BasicProperties
 
 
 class BaseMessage(message.Message):
@@ -33,10 +35,25 @@ class BaseMessage(message.Message):
 class WeblateV1Message(BaseMessage):
     """Actual Weblate message class which uses the Messaging schema."""
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(
+        self,
+        body: MessageData | None = None,
+        headers: MessageData | None = None,
+        topic: str | None = None,
+        properties: BasicProperties | None = None,
+        severity: int | None = None,
+    ) -> None:
         """Initialize the WeblateMessage class with loading of the body_schema."""
-        super().__init__(**kwargs)
-        self.body_schema = load_schema("weblate-messaging.schema.json")
+        super().__init__(
+            body=body,
+            headers=headers,
+            topic=topic,
+            properties=properties,
+            severity=severity,
+        )
+        # Assign through the class to satisfy Fedora Messaging's ClassVar annotation
+        # while keeping schema loading lazy until a message is instantiated.
+        type(self).body_schema = load_schema("weblate-messaging.schema.json")
 
     @property
     def agent_name(self) -> str | None:
@@ -54,52 +71,52 @@ class WeblateV1Message(BaseMessage):
         return self.body["action"]
 
     @property
-    def timestamp(self) -> datetime:
+    def timestamp(self) -> str:
         """Timestamp of the change."""
         return self.body["timestamp"]
 
     @property
-    def target(self) -> str | list[str]:
+    def target(self) -> str | list[str] | None:
         """New value of the change."""
         return self.body.get("target")
 
     @property
-    def old(self) -> str | list[str]:
+    def old(self) -> str | list[str] | None:
         """Old value of the change."""
         return self.body.get("old")
 
     @property
-    def source(self) -> str | list[str]:
+    def source(self) -> str | list[str] | None:
         """Source string."""
         return self.body.get("source")
 
     @property
-    def url(self) -> str:
+    def url(self) -> str | None:
         """URL to the related object."""
         return self.body.get("url")
 
     @property
-    def author(self) -> str:
+    def author(self) -> str | None:
         """Author username."""
         return self.body.get("author")
 
     @property
-    def user(self) -> str:
+    def user(self) -> str | None:
         """Acting username."""
         return self.body.get("user")
 
     @property
-    def project(self) -> str:
+    def project(self) -> str | None:
         """Project slug."""
         return self.body.get("project")
 
     @property
-    def component(self) -> str:
+    def component(self) -> str | None:
         """Component slug."""
         return self.body.get("component")
 
     @property
-    def translation(self) -> str:
+    def translation(self) -> str | None:
         """Translation language code."""
         return self.body.get("translation")
 
@@ -115,7 +132,7 @@ class WeblateV1Message(BaseMessage):
         return sorted({name for name in (self.author, self.user) if name})
 
     @property
-    def context(self) -> str:
+    def context(self) -> str | None:
         """Context of the translation."""
         return self.body.get("context")
 

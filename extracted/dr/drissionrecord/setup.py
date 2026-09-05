@@ -21,6 +21,11 @@ setup(
     install_requires=[
         "openpyxl",
     ],
+    entry_points={
+        "pyinstaller40": [
+            "hook-dirs = DrissionRecord.__pyinstaller:get_hook_dirs",
+        ],
+    },
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "Development Status :: 4 - Beta",

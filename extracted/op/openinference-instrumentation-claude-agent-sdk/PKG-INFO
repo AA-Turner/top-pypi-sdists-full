@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-claude-agent-sdk
-Version: 0.1.15
+Version: 0.1.16
 Summary: OpenInference Claude Agent SDK Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-claude-agent-sdk
 Author-email: OpenInference Authors <oss@arize.com>
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.10
-Requires-Dist: openinference-instrumentation>=0.1.59
+Requires-Dist: openinference-instrumentation>=0.1.60
 Requires-Dist: openinference-semantic-conventions>=0.1.33
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-instrumentation

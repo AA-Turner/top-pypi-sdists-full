@@ -18,6 +18,7 @@ import orjson
 from pydantic import BaseModel
 
 from ._chat import Chat
+from ._connect import connect_viewer_headers
 from ._content import (
     PROVIDER_ANNOTATION_TYPES,
     Content,
@@ -210,7 +211,10 @@ def ChatAnthropic(
         variable.
     kwargs
         Additional arguments to pass to the `anthropic.Anthropic()` client
-        constructor.
+        constructor. Note that the client defaults `base_url` to the
+        `ANTHROPIC_BASE_URL` environment variable when it is set, so setting
+        that variable is enough to route requests through a proxy or
+        gateway.
 
     Returns
     -------
@@ -399,6 +403,13 @@ class AnthropicProvider(
         self._client = Anthropic(**sync_kwargs)  # type: ignore
         self._async_client = AsyncAnthropic(**async_kwargs)
 
+    def close(self) -> None:
+        self._client.close()
+
+    async def close_async(self) -> None:
+        self.close()
+        await self._async_client.close()
+
     def list_models(self):
         models = self._client.models.list()
 
@@ -562,6 +573,12 @@ class AnthropicProvider(
         if has_uploaded(turns):
             headers = dict(kwargs_full.get("extra_headers") or {})
             headers.setdefault("anthropic-beta", "files-api-2025-04-14")
+            kwargs_full["extra_headers"] = headers
+
+        viewer_headers = connect_viewer_headers(str(self._client.base_url))
+        if viewer_headers:
+            headers = dict(kwargs_full.get("extra_headers") or {})
+            headers.update(viewer_headers)
             kwargs_full["extra_headers"] = headers
 
         return kwargs_full

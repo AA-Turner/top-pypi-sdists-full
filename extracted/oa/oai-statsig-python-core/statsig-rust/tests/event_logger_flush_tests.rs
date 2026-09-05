@@ -19,6 +19,17 @@ async fn setup(
     Arc<MockObservabilityClient>,
 ) {
     let logging_adapter = Arc::new(MockEventLoggingAdapter::new());
+    setup_with_logging_adapter(options, logging_adapter).await
+}
+
+async fn setup_with_logging_adapter(
+    options: StatsigOptions,
+    logging_adapter: Arc<MockEventLoggingAdapter>,
+) -> (
+    Statsig,
+    Arc<MockEventLoggingAdapter>,
+    Arc<MockObservabilityClient>,
+) {
     let specs_adapter = Arc::new(MockSpecsAdapter::with_data("tests/data/eval_proj_dcs.json"));
 
     let obs_client = Arc::new(MockObservabilityClient::new());
@@ -73,6 +84,44 @@ async fn test_limit_flushing() {
             .no_diagnostics_logged_event_count
             .load(Ordering::SeqCst),
         456
+    );
+
+    teardown(Some(statsig)).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn test_disables_background_flush_when_adapter_opts_out() {
+    std::env::set_var("STATSIG_TEST_OVERRIDE_TICK_INTERVAL_MS", "1");
+    std::env::set_var("STATSIG_TEST_OVERRIDE_MIN_FLUSH_INTERVAL_MS", "1");
+    std::env::set_var("STATSIG_TEST_OVERRIDE_MAX_FLUSH_INTERVAL_MS", "1");
+
+    let mut options = StatsigOptions::new();
+    options.event_logging_max_queue_size = Some(10);
+    options.event_logging_max_pending_batch_queue_size = Some(20);
+
+    let logging_adapter = Arc::new(MockEventLoggingAdapter::new_with_background_flush(false));
+    let (statsig, logging_adapter, _) = setup_with_logging_adapter(options, logging_adapter).await;
+
+    log_some_events(&statsig, 20);
+
+    assert!(
+        tokio::time::timeout(
+            Duration::from_millis(100),
+            logging_adapter.on_log_notify.notified()
+        )
+        .await
+        .is_err()
+    );
+    assert_eq!(logging_adapter.times_called.load(Ordering::SeqCst), 0);
+
+    statsig.shutdown().await.unwrap();
+
+    assert_eq!(
+        logging_adapter
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        20
     );
 
     teardown(Some(statsig)).await;

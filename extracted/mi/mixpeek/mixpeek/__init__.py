@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.573"
+__version__ = "1.3.583"
 
 # Define package exports
 __all__ = [
@@ -864,6 +864,7 @@ __all__ = [
     "OrganizationModelResponse",
     "OrganizationPublishStatsResponse",
     "OrganizationUpdateRequest",
+    "OwnerConfirmation",
     "OwnershipEntry",
     "OwnershipListResponse",
     "PageMeta",
@@ -2254,6 +2255,7 @@ from mixpeek.models.org_model_list_response import OrgModelListResponse as OrgMo
 from mixpeek.models.organization_model_response import OrganizationModelResponse as OrganizationModelResponse
 from mixpeek.models.organization_publish_stats_response import OrganizationPublishStatsResponse as OrganizationPublishStatsResponse
 from mixpeek.models.organization_update_request import OrganizationUpdateRequest as OrganizationUpdateRequest
+from mixpeek.models.owner_confirmation import OwnerConfirmation as OwnerConfirmation
 from mixpeek.models.ownership_entry import OwnershipEntry as OwnershipEntry
 from mixpeek.models.ownership_list_response import OwnershipListResponse as OwnershipListResponse
 from mixpeek.models.page_meta import PageMeta as PageMeta

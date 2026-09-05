@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: gdown
-Version: 6.1.0
+Version: 6.1.1
 Summary: Google Drive Public File/Folder Downloader
 Project-URL: Homepage, https://github.com/wkentaro/gdown
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>
@@ -235,8 +235,8 @@ Google throttles downloads when too many people access the same file.
 If you can still open the file in your browser, try exporting cookies:
 
 1. Install a browser extension like [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
-1. Export `cookies.txt` and move it to `~/.cache/gdown/cookies.txt`
-1. Run the download again
+2. Export `cookies.txt` and move it to `~/.cache/gdown/cookies.txt`
+3. Run the download again
 
 Once the file is in place, gdown loads it automatically (no extra flags needed).
 

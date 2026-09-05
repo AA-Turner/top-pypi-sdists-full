@@ -283,7 +283,22 @@ def format_template_tags(config: Config, attributes: str, spacing: int) -> str:
         return f"\n{match.group()}"
 
     def add_break_after(match: re.Match[str]) -> str:
-        return f"{match.group(1)}\n{match.group(2).strip()}"
+        """Break after a template tag, and split what it guards.
+
+        Attributes a template tag guards are still attributes, so one per
+        line means one per line inside the block too. The run is only
+        split where the attribute pattern accounts for all of it, since
+        anything it missed would be dropped.
+        """
+        body = match.group(2).strip()
+
+        if config.single_attribute_per_line:
+            found = list(config.attribute_pattern.finditer(body))
+            parts = [x.group().strip() for x in found if x.group().strip()]
+            if len(parts) > 1 and _is_fully_matched(body, found):
+                body = "\n".join(parts)
+
+        return f"{match.group(1)}\n{body}"
 
     attributes = re.sub(
         config.break_before
@@ -327,6 +342,32 @@ def _is_fully_matched(
     return not attribute_group[covered:].strip()
 
 
+def _spreading_would_shorten_the_line(
+    config: Config, html: str, token: TagToken, attribute_group: str
+) -> bool:
+    """Whether the tag's line is too long and its attributes could fix it.
+
+    Content is left where it is, since breaking it would change what
+    renders, so a line only long because of its text stays long. Two or
+    more attributes can each take a line without changing the page, so
+    where they are what overruns the limit they are spread.
+    """
+    start = html.rfind("\n", 0, token.start) + 1
+    end = html.find("\n", token.end)
+    if end == -1:
+        end = len(html)
+    line = len(html[start:end].rstrip())
+    if line <= config.max_line_length:
+        return False
+
+    # Taking the attributes off the line is all spreading can win back, so
+    # a line still too long without them is too long because of its text.
+    if line - len(attribute_group) > config.max_line_length:
+        return False
+
+    return len(config.attribute_pattern.findall(attribute_group)) > 1
+
+
 def format_attributes(config: Config, html: str, token: TagToken) -> str:
     """Spread long attributes over multiple lines."""
     attribute_group = html[token.name_end : token.attributes_end].strip()
@@ -335,6 +376,9 @@ def format_attributes(config: Config, html: str, token: TagToken) -> str:
         or (
             _rendered_length(config, attribute_group)
             < config.max_attribute_length
+            and not _spreading_would_shorten_the_line(
+                config, html, token, attribute_group
+            )
             and CLASS_ATTRIBUTE_NEWLINE not in attribute_group
             and VERBATIM_ATTRIBUTE_NEWLINE not in attribute_group
         )

@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 import yaml as pyyaml
 
+import xbsl.engine  # noqa: F401 - breaks the scaffold <-> rules import cycle
 from xbsl import scaffold
 from xbsl.scaffold import (
     FileRename,
@@ -655,6 +656,65 @@ def test_add_forms_for_catalog(tmp_path):
     assert owner["Интерфейс"]["Объект"]["Форма"] == "ТоварыФормаОбъекта"
     assert owner["Интерфейс"]["Список"]["Форма"] == "ТоварыФормаСписка"
     assert owner["Интерфейс"]["ИспользоватьСозданиеПриВводе"] is True or owner["Интерфейс"]["ИспользоватьСозданиеПриВводе"] == "Истина"
+
+
+def test_record_form_for_an_information_register(tmp_path):
+    """A register has no object form: the editable thing is its RECORD."""
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "РегистрСведений", "Остатки"))
+    yaml_path = subsystem / "Остатки.yaml"
+    apply_result(scaffold.op_add_field(yaml_path, "измерение", "Склад"))
+    apply_result(scaffold.op_add_field(yaml_path, "ресурс", "Количество", type_="Число"))
+
+    apply_result(scaffold.op_add_form(tmp_path, name="Остатки", forms=["record"]))
+
+    form = (subsystem / "ОстаткиФормаЗаписи.yaml").read_text(encoding="utf-8")
+    parsed = _valid_yaml(form)
+    assert parsed["Наследует"]["Тип"] == "ФормаЗаписи<Остатки.Запись>"
+    # The fields bind to the RECORD, and the write commands are the form's own - the type
+    # declares Write / WriteAndClose / Refresh / Delete, so no module is needed.
+    assert "Значение: =Запись.Склад" in form and "Значение: =Запись.Количество" in form
+    assert parsed["Наследует"]["ОсновнаяКоманда"] == "=ЗаписатьИЗакрыть"
+
+    owner = _valid_yaml(yaml_path.read_text(encoding="utf-8"))
+    assert owner["Интерфейс"]["Запись"]["Форма"] == "ОстаткиФормаЗаписи"
+
+
+def test_a_record_form_is_refused_where_there_is_no_record(tmp_path):
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "Справочник", "Товары"))
+    with pytest.raises(ScaffoldError, match="нет формы записи"):
+        scaffold.op_add_form(tmp_path, name="Товары", forms=["record"])
+
+
+def test_the_object_form_refusal_names_the_record_form(tmp_path):
+    """The refusal used to leave a register with the list form alone as the way out."""
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "РегистрСведений", "Остатки"))
+    with pytest.raises(ScaffoldError, match="форма записи"):
+        scaffold.op_add_form(tmp_path, name="Остатки", forms=["object"])
+
+
+def test_a_component_can_be_built_on_a_base_other_than_a_form(tmp_path):
+    """A group is the most common base in a real project, and it takes no template wrapper."""
+    result = scaffold.op_new_object(tmp_path, "КомпонентИнтерфейса", "ШапкаКарточки", base="Группа")
+    apply_result(result)
+    parsed = _valid_yaml((tmp_path / "ШапкаКарточки.yaml").read_text(encoding="utf-8"))
+    assert parsed["Наследует"] == {"Тип": "Группа"}
+
+
+def test_a_form_base_keeps_the_template_wrapper(tmp_path):
+    result = scaffold.op_new_object(
+        tmp_path, "КомпонентИнтерфейса", "СписокПробы", base="ФормаСписка<Неопределено>")
+    apply_result(result)
+    parsed = _valid_yaml((tmp_path / "СписокПробы.yaml").read_text(encoding="utf-8"))
+    assert parsed["Наследует"]["Тип"] == "ФормаСписка<Неопределено>"
+    assert parsed["Наследует"]["Содержимое"]["Тип"] == "ПроизвольныйШаблонФормы"
+
+
+def test_a_base_is_refused_for_a_kind_that_has_no_markup(tmp_path):
+    with pytest.raises(ScaffoldError, match="КомпонентИнтерфейса"):
+        scaffold.op_new_object(tmp_path, "Справочник", "Товары", base="Группа")
 
 
 def test_add_forms_skips_existing(tmp_path):
@@ -1575,9 +1635,9 @@ def test_register_fields_include_dimensions_and_resources(tmp_path):
     _register(tmp_path)
     info = scaffold.object_info(tmp_path, name="КурсыВалют")
     # Register data is Измерения and Ресурсы; the summary used to see only Реквизиты.
-    # Измерение1 is the starter dimension (the information register does not compile
-    # without it), then the added ones.
-    assert [f["name"] for f in info["fields"]] == ["Измерение1", "Валюта", "Курс", "Источник"]
+    # The starter dimension the register is born with (it does not compile without one) is
+    # GONE: the first real dimension took its place, the way a tabular part has long done.
+    assert [f["name"] for f in info["fields"]] == ["Валюта", "Курс", "Источник"]
 
 
 def test_register_gets_list_form_only(tmp_path):
@@ -1588,7 +1648,7 @@ def test_register_gets_list_form_only(tmp_path):
     assert not (subsystem / "КурсыВалютФормаОбъекта.yaml").exists()
     form = _valid_yaml((subsystem / "КурсыВалютФормаСписка.yaml").read_text(encoding="utf-8"))
     columns = form["Наследует"]["Содержимое"]["Содержимое"]["Колонки"]
-    assert [c["Имя"] for c in columns] == ["Измерение1", "Валюта", "Курс", "Источник"]
+    assert [c["Имя"] for c in columns] == ["Валюта", "Курс", "Источник"]
 
     with pytest.raises(ScaffoldError, match="нет формы объекта"):
         scaffold.op_add_form(tmp_path, name="КурсыВалют", forms=["object"])
@@ -1617,10 +1677,10 @@ def test_object_info_balance_register(tmp_path):
     # Остатки is the default ВидРегистра value; a movement needs ВидЗаписи (Приход/Расход).
     assert info["register"]["register_kind"] == "Остатки"
     assert info["register"]["needs_record_type"] is True
-    # Ресурс1 is the starter resource (the accumulation register does not compile without
-    # it); it sits in the Ресурсы section before the added Количество.
+    # The starter resource the register is born with is GONE: the first real resource took
+    # its place, exactly as the first dimension takes the place of the starter dimension.
     assert [f["name"] for f in info["fields"]] == [
-        "Период", "Регистратор", "ВидЗаписи", "Товар", "Ресурс1", "Количество",
+        "Период", "Регистратор", "ВидЗаписи", "Товар", "Количество",
     ]
 
 
@@ -1650,7 +1710,8 @@ def test_object_info_information_register_periodicity(tmp_path):
                          encoding="utf-8")
     periodic = scaffold.object_info(tmp_path, name="Настройки")
     assert periodic["register"]["periodicity"] == "День"
-    # Период (the standard field of a periodic register) plus the starter Измерение1.
+    # The standard field of a periodic register plus the starter dimension: nothing has
+    # replaced it, the register was only created.
     assert [f["name"] for f in periodic["fields"]] == ["Период", "Измерение1"]
 
 

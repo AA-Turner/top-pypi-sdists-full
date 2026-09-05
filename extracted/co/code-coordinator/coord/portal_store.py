@@ -529,11 +529,16 @@ def seed_revision(submission_id: str, revision: int, *, now: float | None = None
     stamp = time.time() if now is None else now
     conn = _conn()
     _ensure_submission_row(conn, submission_id, stamp)
+    # #3083: `MAX(a, b)` is SQLite's two-argument *scalar* max; Postgres
+    # spells that `GREATEST(a, b)` and rejects the two-argument MAX with
+    # `function max(integer, smallint) does not exist`. sql.greatest() is
+    # the seam's name for it -- never an inline dialect branch here.
     sql.execute(
         conn,
-        """
+        f"""
         UPDATE portal_submissions
-           SET last_revision = MAX(last_revision, ?), updated_at = ?
+           SET last_revision = {sql.greatest(conn, "last_revision", "?")},
+               updated_at = ?
          WHERE submission_id = ?
         """,
         (revision, stamp, submission_id),
@@ -730,11 +735,14 @@ def mark_applied(row: OutboxRow, *, now: float | None = None) -> None:
             )
         elif row.kind == "design_round":
             round_no = _round_number(row.fields)
+            # #3083: two-argument scalar max — `GREATEST` on Postgres. See
+            # seed_revision()'s matching note.
             sql.execute(
                 conn,
-                """
+                f"""
                 UPDATE portal_submissions
-                   SET design_round = MAX(design_round, ?), updated_at = ?
+                   SET design_round = {sql.greatest(conn, "design_round", "?")},
+                       updated_at = ?
                  WHERE submission_id = ?
                 """,
                 (round_no, stamp, row.submission_id),
@@ -1665,6 +1673,7 @@ def link_milestone(
     submission_id: str,
     actor: str = "",
     now: float | None = None,
+    force: bool = False,
 ) -> PortalLink:
     """Record (or overwrite) the portal submission_id for one milestone.
 
@@ -1673,6 +1682,10 @@ def link_milestone(
     for the same reason. Relinking is expected — an operator fixing a typo'd
     submission_id, or correcting an id entered against the wrong milestone —
     not an error case.
+
+    ``force`` (#3110): the write is refused when SUBMISSION_ID is already
+    linked to a DIFFERENT target unless this is ``True`` — see
+    :func:`coord.state._save_portal_link_local` for the fan-in guard.
     """
     return _link_target(
         repo_name=repo_name,
@@ -1681,6 +1694,7 @@ def link_milestone(
         submission_id=submission_id,
         actor=actor,
         now=now,
+        force=force,
     )
 
 
@@ -1691,12 +1705,13 @@ def link_issue(
     submission_id: str,
     actor: str = "",
     now: float | None = None,
+    force: bool = False,
 ) -> PortalLink:
     """Record (or overwrite) the portal submission_id for one milestone-less
     issue (#2665) — the one-off-decomposition counterpart to
     :func:`link_milestone`, for a decomposition that produced a single issue
     with no milestone to hang a link off of. Same overwrite-not-append
-    semantics, same reason.
+    semantics, same reason, same ``force`` escape hatch (#3110).
     """
     return _link_target(
         repo_name=repo_name,
@@ -1705,6 +1720,7 @@ def link_issue(
         submission_id=submission_id,
         actor=actor,
         now=now,
+        force=force,
     )
 
 
@@ -1716,6 +1732,7 @@ def _link_target(
     submission_id: str,
     actor: str,
     now: float | None,
+    force: bool = False,
 ) -> PortalLink:
     from coord import state  # noqa: PLC0415
 
@@ -1727,8 +1744,33 @@ def _link_target(
         milestone_number=milestone_number,
         issue_number=issue_number,
     )
-    state.save_portal_link(record.to_dict())
+    state.save_portal_link(record.to_dict(), force=force)
     return record
+
+
+def unlink_milestone(
+    *, repo_name: str, milestone_number: int, actor: str = ""
+) -> bool:
+    """Remove one milestone's portal link (#3110) — the ``coord portal
+    unlink`` counterpart to :func:`link_milestone`. Returns ``True`` if a
+    link was removed, ``False`` if there was nothing to remove.
+    """
+    from coord import state  # noqa: PLC0415
+
+    return state.delete_portal_link(
+        repo_name=repo_name, milestone_number=int(milestone_number), actor=actor
+    )
+
+
+def unlink_issue(*, repo_name: str, issue_number: int, actor: str = "") -> bool:
+    """Remove one milestone-less issue's portal link (#2665, #3110) — the
+    ``coord portal unlink --issue`` counterpart to :func:`link_issue`.
+    """
+    from coord import state  # noqa: PLC0415
+
+    return state.delete_portal_link(
+        repo_name=repo_name, issue_number=int(issue_number), actor=actor
+    )
 
 
 def get_milestone_link(*, repo_name: str, milestone_number: int) -> PortalLink | None:

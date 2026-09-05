@@ -11,6 +11,9 @@ on:
 env:
   FORCE_COLOR: 3
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -20,6 +23,7 @@ jobs:
     name: Clang-Tidy
     runs-on: ubuntu-latest
     container: silkeh/clang:20
+    timeout-minutes: 30
 
     steps:
       - name: Install requirements
@@ -42,6 +46,7 @@ jobs:
   pylint:
     runs-on: ubuntu-latest
     name: PyLint
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v7
@@ -55,6 +60,7 @@ jobs:
   cmake:
     name: CMake 🐍 ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -64,6 +70,7 @@ jobs:
           - python-version: "3.11"
           - python-version: "3.14"
           - python-version: "3.14t"
+          - python-version: "3.15"
           - python-version: "pypy3.11"
 
     steps:
@@ -79,7 +86,7 @@ jobs:
 
       - uses: rui314/setup-mold@v1
 
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.0.1
 
       - uses: hendrikmuhs/ccache-action@v1.2
         with:
@@ -101,6 +108,7 @@ jobs:
   hist:
     name: Hist 🐍 ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -117,7 +125,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
 
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.0.1
 
       - name: Run Hist tests
         run: uvx nox -s hist
@@ -125,6 +133,7 @@ jobs:
   build_wheels:
     name: ${{ matrix.only }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -137,12 +146,16 @@ jobs:
             only: cp310-win32
           - os: windows-latest
             only: cp313-win_amd64
+          - os: windows-latest
+            only: cp314t-win_amd64
           - os: macos-15-intel
             only: cp314t-macosx_x86_64
           - os: macos-latest
             only: cp312-macosx_arm64
           - os: windows-11-arm
             only: cp311-win_arm64
+          - os: ubuntu-latest
+            only: cp315-manylinux_x86_64
           - os: ubuntu-latest
             only: gp312_250-manylinux_x86_64
 
@@ -152,7 +165,7 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - uses: astral-sh/setup-uv@v9.0.0
+      - uses: astral-sh/setup-uv@v10.0.1
 
       - uses: pypa/cibuildwheel@v4.2
         with:
@@ -171,6 +184,7 @@ jobs:
     if: always()
     needs: [clang-tidy, pylint, cmake, hist, build_wheels]
     runs-on: ubuntu-slim
+    timeout-minutes: 5
     steps:
       - uses: re-actors/alls-green@release/v1
         with:

@@ -210,8 +210,9 @@ def remap_categories():
         cmap = cmap.items()
 
     for old, new in cmap:
-        if old in opts and new not in opts:
-            opts[new] = opts[old]
+        if old in opts:
+            opts[new] = ({**opts[old], **opts[new]} if new in opts else
+                         opts[old])
 
 
 def load(files=None, strict=False, loads=None, conf=_config):

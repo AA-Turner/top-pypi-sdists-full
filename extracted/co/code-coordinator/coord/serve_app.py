@@ -3353,6 +3353,22 @@ def openapi_spec() -> dict:
                                             "is replaced wholesale."
                                         ),
                                     },
+                                    "force": {
+                                        "type": "boolean",
+                                        "default": False,
+                                        "description": (
+                                            "#3110: without this, a write "
+                                            "whose submission_id is already "
+                                            "linked to a DIFFERENT target is "
+                                            "refused with 400 — that fan-in "
+                                            "is what mailed a real customer "
+                                            "161 duplicate emails. With it "
+                                            "the link MOVES: the other "
+                                            "target's claim is dropped, so "
+                                            "the escape hatch cannot itself "
+                                            "recreate the fan-in."
+                                        ),
+                                    },
                                 },
                                 "required": ["record"],
                             }
@@ -3364,7 +3380,69 @@ def openapi_spec() -> dict:
                         "description": "OK",
                         "content": {"application/json": {"schema": ok_response}},
                     },
-                    "400": {"description": "Bad portal-link"},
+                    "400": {
+                        "description": (
+                            "Bad portal-link — malformed record, or (#3110) "
+                            "its submission_id is already linked to another "
+                            "target and `force` was not set"
+                        )
+                    },
+                },
+            },
+            "delete": {
+                "summary": (
+                    "#3110: clear a milestone's/issue's portal link — "
+                    "`coord portal unlink`. The supported way to stop a bad "
+                    "link's notification fan-out, replacing the hand sqlite "
+                    "edit of `board_meta` the incident actually needed. Like "
+                    "GET/POST above it is not thin-client-refused (#2751): "
+                    "an operator killing an active flood needs it to work "
+                    "from wherever they are."
+                ),
+                "parameters": [
+                    {
+                        "name": "repo_name", "in": "query", "required": True,
+                        "schema": {"type": "string"},
+                    },
+                    {
+                        "name": "milestone_number", "in": "query", "required": False,
+                        "schema": {"type": "integer"},
+                    },
+                    {
+                        "name": "issue_number", "in": "query", "required": False,
+                        "schema": {"type": "integer"},
+                    },
+                    {
+                        "name": "actor", "in": "query", "required": False,
+                        "schema": {"type": "string"},
+                        "description": (
+                            "Recorded on the `portal_unlink` audit entry; "
+                            "empty when the caller does not identify itself."
+                        ),
+                    },
+                ],
+                "responses": {
+                    "200": {
+                        "description": (
+                            "OK — {'deleted': true} if a link was removed, "
+                            "{'deleted': false} if that target had none"
+                        ),
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"deleted": {"type": "boolean"}},
+                                    "required": ["deleted"],
+                                }
+                            }
+                        },
+                    },
+                    "400": {
+                        "description": (
+                            "Missing repo_name, or not exactly one of "
+                            "milestone_number/issue_number"
+                        )
+                    },
                 },
             },
         },
@@ -3886,6 +3964,67 @@ def openapi_spec() -> dict:
                         "content": {"application/json": {"schema": ok_response}},
                     },
                     "400": {"description": "Missing assignment_id"},
+                },
+            }
+        },
+        "/review-claim": {
+            "post": {
+                "summary": (
+                    "Atomically claim the right to dispatch a review for a "
+                    "completed work assignment (#3113) — a conditional "
+                    "insert so two racing coordinator passes can never both "
+                    "win"
+                ),
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "of_assignment_id": {"type": "string"},
+                                },
+                                "required": ["of_assignment_id"],
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK — `claimed` is true iff this call won",
+                        "content": {"application/json": {"schema": ok_response}},
+                    },
+                    "400": {"description": "Missing of_assignment_id"},
+                },
+            }
+        },
+        "/review-claim-release": {
+            "post": {
+                "summary": (
+                    "Release a claim taken via /review-claim (#3113) so a "
+                    "later legitimate re-review of the same work assignment "
+                    "isn't permanently stranded"
+                ),
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "of_assignment_id": {"type": "string"},
+                                },
+                                "required": ["of_assignment_id"],
+                            }
+                        }
+                    },
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK — idempotent, absent claim is a no-op",
+                        "content": {"application/json": {"schema": ok_response}},
+                    },
+                    "400": {"description": "Missing of_assignment_id"},
                 },
             }
         },
@@ -6774,6 +6913,15 @@ def build_app(
         # #2751: upsert a milestone's/issue's portal submission_id link on
         # the shared DB for a thin client's `coord portal link`. Mirrors
         # post_gate_a_approval above — same seam, same error posture.
+        #
+        # #3110: `_save_portal_link_local` now also (a) refuses a write that
+        # would fan a submission_id out to a second target unless `force` is
+        # set, and (b) audits every write at the business tier — both landed
+        # here, the one choke point every write funnels through (a same-host
+        # CLI call reaches `_save_portal_link_local` directly; this handler
+        # is the other path in, including a hand-run `curl POST
+        # /portal-link` — the leading suspect for #3110's bogus link, and
+        # exactly the caller this endpoint must audit).
         from coord import state  # noqa: PLC0415
 
         body = await _read_json(request)
@@ -6784,8 +6932,9 @@ def build_app(
             return JSONResponse(
                 {"error": "portal-link needs a 'record' object"}, status_code=400
             )
+        force = bool(body.get("force") or False)
         try:
-            state._save_portal_link_local(record)
+            state._save_portal_link_local(record, force=force)
         except (TypeError, KeyError, ValueError) as e:
             return JSONResponse({"error": f"bad portal-link: {e}"}, status_code=400)
         except Exception as e:  # noqa: BLE001
@@ -6794,6 +6943,51 @@ def build_app(
                 status_code=503,
             )
         return JSONResponse({"ok": True})
+
+    async def delete_portal_link(request: Request) -> Response:
+        # #3110: DELETE counterpart to post_portal_link above — the daemon
+        # side of `coord portal unlink`, so clearing a bad/stale link (the
+        # incident: an unrelated product epic's link mailed a real customer
+        # 161 "shipped" emails) is a supported operation instead of a
+        # hand-run sqlite edit on the daemon host. Not thin-client-refused,
+        # mirroring get_portal_link/post_portal_link above (#2751) — an
+        # operator clearing an active flood needs this to work from
+        # wherever they are, not just the daemon host.
+        from coord import state  # noqa: PLC0415
+
+        repo_name = request.query_params.get("repo_name")
+        raw_ms = request.query_params.get("milestone_number")
+        raw_issue = request.query_params.get("issue_number")
+        actor = request.query_params.get("actor") or ""
+        if not repo_name or (raw_ms is None) == (raw_issue is None):
+            return JSONResponse(
+                {
+                    "error": "repo_name and exactly one of milestone_number/"
+                    "issue_number are required"
+                },
+                status_code=400,
+            )
+        try:
+            milestone_number = int(raw_ms) if raw_ms is not None else None
+            issue_number = int(raw_issue) if raw_issue is not None else None
+        except (TypeError, ValueError):
+            return JSONResponse(
+                {"error": "milestone_number/issue_number must be an int"},
+                status_code=400,
+            )
+        try:
+            deleted = state._delete_portal_link_local(
+                repo_name=repo_name,
+                milestone_number=milestone_number,
+                issue_number=issue_number,
+                actor=actor,
+            )
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse(
+                {"error": "portal-link delete failed", "detail": str(e)},
+                status_code=503,
+            )
+        return JSONResponse({"deleted": deleted})
 
     async def post_portal_decision(request: Request) -> Response:
         # #2749 (IL-3): the running-context ledger's one agent-writable
@@ -7437,6 +7631,44 @@ def build_app(
                 status_code=503,
             )
         return JSONResponse({"ok": True, "written": written})
+
+    async def post_review_claim(request: Request) -> Response:
+        # #3113: atomic review-dispatch claim on the daemon's canonical DB —
+        # see coord.state.claim_review_dispatch's docstring for the race this
+        # closes.
+        from coord import state  # noqa: PLC0415
+
+        body = await _read_json(request)
+        if body is None:
+            return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+        try:
+            claimed = state._claim_review_dispatch_local(body["of_assignment_id"])
+        except KeyError as e:
+            return JSONResponse({"error": f"missing field: {e}"}, status_code=400)
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse(
+                {"error": "review-claim write failed", "detail": str(e)},
+                status_code=503,
+            )
+        return JSONResponse({"ok": True, "claimed": claimed})
+
+    async def post_review_claim_release(request: Request) -> Response:
+        # #3113: release a claim taken via post_review_claim above.
+        from coord import state  # noqa: PLC0415
+
+        body = await _read_json(request)
+        if body is None:
+            return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+        try:
+            state._release_review_dispatch_claim_local(body["of_assignment_id"])
+        except KeyError as e:
+            return JSONResponse({"error": f"missing field: {e}"}, status_code=400)
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse(
+                {"error": "review-claim-release write failed", "detail": str(e)},
+                status_code=503,
+            )
+        return JSONResponse({"ok": True})
 
     async def post_review_posted(request: Request) -> Response:
         # #905: mark a review assignment as posted (sets review_posted_at) on the
@@ -10616,6 +10848,7 @@ def build_app(
         Route("/gate-a-approval", post_gate_a_approval, methods=["POST"]),
         Route("/portal-link", get_portal_link, methods=["GET"]),
         Route("/portal-link", post_portal_link, methods=["POST"]),
+        Route("/portal-link", delete_portal_link, methods=["DELETE"]),
         Route(
             "/portal-link-by-submission",
             get_portal_link_by_submission,
@@ -10642,6 +10875,8 @@ def build_app(
         Route("/acceptance-verdict", post_acceptance_verdict, methods=["POST"]),
         Route("/acceptance-record", post_acceptance_record, methods=["POST"]),
         Route("/review-findings", post_review_findings, methods=["POST"]),
+        Route("/review-claim", post_review_claim, methods=["POST"]),
+        Route("/review-claim-release", post_review_claim_release, methods=["POST"]),
         Route("/review-posted", post_review_posted, methods=["POST"]),
         Route(
             "/needs-attention-notified",

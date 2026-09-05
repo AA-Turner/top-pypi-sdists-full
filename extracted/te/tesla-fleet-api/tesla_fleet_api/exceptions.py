@@ -15,7 +15,7 @@ class TeslaFleetError(BaseException):
 
     def __init__(
         self, data: dict[str, Any] | str | None = None, status: int | None = None
-    ):
+    ) -> None:
         LOGGER.debug(self.message)
         self.data = data
         self.status = status or self.status
@@ -423,6 +423,25 @@ class SigningDisabled(LibraryError):
             "broadcasts (the listen_* methods); any signed command or read "
             "needs a real private_key."
         )
+
+
+class PrivateKeyError(LibraryError):
+    """An existing private key file could not be loaded as a usable key.
+
+    Raised by ``Tesla.get_private_key``/``get_rsa_private_key`` only for a
+    known-existing key file's read/parse failure - key generation and the
+    O_EXCL create-race fallback keep raising their original exceptions.
+    ``reason`` is one of ``"unreadable"`` (I/O failure), ``"malformed"`` (not
+    valid PEM), ``"encrypted"`` (PEM requires a passphrase), or
+    ``"wrong_type"`` (loaded key is not the expected type). A local key-file
+    failure, not an upstream Fleet API error, so this subclasses
+    ``LibraryError`` rather than ``TeslaFleetError``.
+    """
+
+    def __init__(self, reason: str, message: str) -> None:
+        self.reason = reason
+        self.message = message
+        super().__init__(message)
 
 
 class SignedCommandRequired(TeslaFleetError):

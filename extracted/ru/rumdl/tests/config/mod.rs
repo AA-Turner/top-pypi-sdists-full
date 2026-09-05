@@ -1,6 +1,8 @@
 mod config_application_tests;
 mod config_documentation_completeness;
 mod config_file_command_test;
+mod config_format_equivalence_test;
+mod config_output_completeness_test;
 mod config_path_resolution_test;
 mod config_schema_display_split_test;
 mod config_style_normalization_test;
@@ -14,6 +16,7 @@ mod extends_tests;
 mod fixable_unfixable_config_test;
 mod inline_config_blocks_test;
 mod inline_config_test;
+mod line_length_inheritance_test;
 mod markdownlint_config_test;
 mod per_directory_config_test;
 mod per_file_ignores_integration_test;

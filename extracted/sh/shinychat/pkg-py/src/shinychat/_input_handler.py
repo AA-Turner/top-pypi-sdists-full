@@ -6,6 +6,7 @@ type-tagged input through a registered handler (and errors if none exists), so
 this module must be imported for shinychat to work. The handler normalizes the
 composite into a ``UserInput``-compatible dict so ``Chat`` can read it without
 further coercion.
+
 """
 
 from __future__ import annotations
@@ -35,9 +36,13 @@ def _(value: Any, _name: "ResolvedId", _session: "Session") -> UserInputValue:
     if isinstance(value, str):
         return UserInputValue(text=value, attachments=[])
     if not isinstance(value, dict):
-        raise TypeError(f"Expected str or dict from shinychat.userInput, got {type(value)!r}")
+        raise TypeError(
+            f"Expected str or dict from shinychat.userInput, got {type(value)!r}"
+        )
     attachments = [
         Attachment.model_validate(a) for a in (value.get("attachments") or [])
     ]
     validate_attachments(attachments)
-    return UserInputValue(text=str(value.get("text", "")), attachments=attachments)
+    return UserInputValue(
+        text=str(value.get("text", "")), attachments=attachments
+    )

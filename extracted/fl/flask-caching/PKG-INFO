@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: Flask-Caching
-Version: 2.5.0
+Version: 2.5.1
 Summary: Adds caching support to Flask applications.
 Author-email: Peter Justin <peter.justin@outlook.com>
 Maintainer-email: Pallets Ecosystem <contact@palletsprojects.com>
@@ -19,6 +19,7 @@ Project-URL: Changes, https://github.com/pallets-eco/flask-caching/releases/
 Project-URL: Chat, https://discord.gg/pallets
 Project-URL: Documentation, https://flask-caching.readthedocs.io
 Project-URL: Source, https://github.com/pallets-eco/flask-caching
+Import-Name: flask_caching
 
 # Flask-Caching
 

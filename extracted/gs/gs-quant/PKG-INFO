@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gs_quant
-Version: 2.1.7
+Version: 2.1.12
 Summary: Goldman Sachs Quant
 Author-email: Goldman Sachs <developer@gs.com>
 License: Apache-2.0
@@ -37,7 +37,7 @@ Requires-Dist: python-dateutil>=2.7.0
 Requires-Dist: requests
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: scipy>=1.2.0
-Requires-Dist: statsmodels>=0.13.0
+Requires-Dist: statsmodels>=0.14.5
 Requires-Dist: pyyaml
 Requires-Dist: tqdm
 Requires-Dist: websockets

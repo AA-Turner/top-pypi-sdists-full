@@ -102,8 +102,9 @@ def test_open_stream(tmp_path):
         def read(self, size=-1):
             return self._fd.read(size)
 
-    with file_path.open("rb") as fd, asdf.open(StreamWrapper(fd)) as af:
-        assert af["foo"] == "bar"
+    with pytest.deprecated_call():
+        with file_path.open("rb") as fd, asdf.open(StreamWrapper(fd)) as af:
+            assert af["foo"] == "bar"
 
 
 def test_atomic_write(tmp_path, small_tree):
@@ -502,7 +503,7 @@ def test_array_access_after_file_close(tmp_path):
     # the file has been closed:
     with asdf.open(path) as af:
         tree = af.tree
-    with pytest.raises(OSError, match=r"ASDF file has already been closed. Can not get the data."):
+    with pytest.raises(OSError, match=r"Attempt to load block from closed file"):
         tree["data"][0]
 
     # With memory mapping disabled and copying arrays enabled,

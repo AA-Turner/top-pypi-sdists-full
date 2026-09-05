@@ -161,7 +161,7 @@ def statsig_setup(httpserver: HTTPServer):
     data_store = MockDataStore(test_param="test_param")
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(updated_dcs_json_data)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 
@@ -185,7 +185,7 @@ def statsig_bytes_setup(httpserver: HTTPServer):
     data_store = MockBytesDataStore(test_param="test_param")
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(updated_dcs_json_data)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 

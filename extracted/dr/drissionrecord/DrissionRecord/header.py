@@ -138,8 +138,7 @@ class Header(BaseHeader):
         return key_or_num if key is None else key
 
     def get_col(self, key_or_num):
-        num = self.get_num(key_or_num)
-        return ZeroHeader()[num] if num else None
+        return ZeroHeader()[self._get_num(key_or_num)]
 
     def get_num(self, key_or_num):  # 修改时记得ZeroHeader
         if isinstance(key_or_num, int):
@@ -150,7 +149,7 @@ class Header(BaseHeader):
             raise TypeError(f'col值只能是int或str。当前值：{key_or_num}')
 
     def _get_num(self, key_or_num):
-        return self.get_num(key_or_num) or len(self) + 1
+        return self.get_num(key_or_num) or self.get_num(Col(key_or_num))
 
     def _num2num(self, num):
         if num > 0:
@@ -236,7 +235,10 @@ class ZeroHeader(Header):
 
 
 def Col(key):
-    return ZeroHeader().key_num[key.upper()]
+    try:
+        return ZeroHeader().key_num[key.upper()]
+    except KeyError:
+        raise KeyError(f'无此表头项：{key}')
 
 
 def _get_column_letter(col_idx):

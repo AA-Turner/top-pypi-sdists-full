@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import functools
 import json
 import math
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from .overlay_build import OVERLAY_PROTOCOL_VERSION, PreparedMacOSOverlay, load_prepared_macos_overlay
 from .process_lifecycle import (
@@ -90,6 +91,58 @@ _KEY_LABELS = {
     "left": "←",
     "right": "→",
 }
+
+
+_T = TypeVar("_T")
+
+
+def _fail_soft(reason: str, default: _T) -> Callable[[Callable[..., Awaitable[_T]]], Callable[..., Awaitable[_T]]]:
+    """Decorate a controller method: on any exception, degrade with ``reason`` and return ``default``.
+
+    Consolidates the identical ``try: ...; return X`` / ``except Exception: await
+    self._degrade(reason, error); return default`` shape shared by
+    ``show_thumbnail``, ``before_capture``, ``after_capture``, and
+    ``encode_observation``. Each of those is a single self-contained
+    presentation operation whose only failure handling is "degrade and report
+    failure to the caller" -- unlike ``present``/``_present_status``, which
+    interleave several branches and must re-raise ``asyncio.CancelledError``
+    before degrading, so those use :func:`_fail_soft_cancellable` instead.
+    """
+
+    def decorator(func: Callable[..., Awaitable[_T]]) -> Callable[..., Awaitable[_T]]:
+        @functools.wraps(func)
+        async def wrapper(self: "MacOSPresentationController", *args: Any, **kwargs: Any) -> _T:
+            try:
+                return await func(self, *args, **kwargs)
+            except Exception as error:  # noqa: BLE001 - presentation is fail-soft
+                await self._degrade(reason, error)
+                return default
+
+        return wrapper
+
+    return decorator
+
+
+def _fail_soft_cancellable(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
+    """Decorate a controller method: reraise ``asyncio.CancelledError``, else degrade and swallow.
+
+    Consolidates the identical ``except asyncio.CancelledError: raise`` / ``except
+    Exception as error: await self._degrade(f"presentation_failed:{type(error).__name__}",
+    error)`` shape shared by ``present`` and ``_present_status``. Unlike :func:`_fail_soft`,
+    these interleave several branches across a whole event dispatch and must let
+    cancellation propagate rather than being reported as a presentation failure.
+    """
+
+    @functools.wraps(func)
+    async def wrapper(self: "MacOSPresentationController", *args: Any, **kwargs: Any) -> None:
+        try:
+            await func(self, *args, **kwargs)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
+            await self._degrade(f"presentation_failed:{type(error).__name__}", error)
+
+    return wrapper
 
 
 class MacOSPresentationError(RuntimeError):
@@ -485,23 +538,20 @@ class MacOSPresentationController:
         cursor = "hidden" if self._mode == "status" else "yutori"
         self._status = replace(self._status, available=True, state="active", cursor=cursor)
 
+    @_fail_soft("thumbnail_failed", False)
     async def show_thumbnail(self, image_bytes: bytes, *, caption: "str | None" = None) -> bool:
         """Status mode: put the latest frame of the driven window in the menu bar item's menu."""
         if self._mode != "status" or not self._status.available or self._stopping:
             return False
-        try:
-            command: dict[str, Any] = {"op": "thumbnail", "data": base64.b64encode(image_bytes).decode("ascii")}
-            if caption is not None:
-                command["caption"] = caption
-            reply = await self._send_command(command)
-            if reply.get("state") != "shown":
-                raise MacOSPresentationError("Status item did not show the thumbnail.")
-            if caption is not None:
-                self._last_render["status"] = caption
-            return True
-        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
-            await self._degrade("thumbnail_failed", error)
-            return False
+        command: dict[str, Any] = {"op": "thumbnail", "data": base64.b64encode(image_bytes).decode("ascii")}
+        if caption is not None:
+            command["caption"] = caption
+        reply = await self._send_command(command)
+        if reply.get("state") != "shown":
+            raise MacOSPresentationError("Status item did not show the thumbnail.")
+        if caption is not None:
+            self._last_render["status"] = caption
+        return True
 
     def blocks_point(self, point: tuple[float, float]) -> bool:
         if not self._status.available:
@@ -525,43 +575,39 @@ class MacOSPresentationController:
         self._terminal_command = ""
         self._active_keys = None
 
+    @_fail_soft_cancellable
     async def present(self, event: dict[str, Any]) -> None:
         if not self._status.available or self._stopping:
             return
         if self._mode == "status":
             await self._present_status(event)
             return
-        try:
-            # The transcript is the same conversation in either mode; only the desktop
-            # surfaces below differ.
-            await self._present_transcript(event)
-            event_type = event.get("type")
-            if event_type == "reasoning":
-                text = event.get("text")
-                if isinstance(text, str) and text.strip():
-                    self._reasoning = text.strip()
-                    self._clear_action_labels()
-                    await self._render_capsule()
-            elif event_type in {"action", "batch_member"}:
-                await self._present_action(event)
-            elif event_type == "action_done":
-                if self._batch_is_last:
-                    self._queue_active = False
-                    self._batch_is_last = False
+        # The transcript is the same conversation in either mode; only the desktop
+        # surfaces below differ.
+        await self._present_transcript(event)
+        event_type = event.get("type")
+        if event_type == "reasoning":
+            text = event.get("text")
+            if isinstance(text, str) and text.strip():
+                self._reasoning = text.strip()
                 self._clear_action_labels()
                 await self._render_capsule()
-            elif event_type == "final":
-                self._reasoning = ""
-                self._clear_action_labels()
-                await self._render_capsule()
-            elif event_type == "shell":
-                shell_event = event.get("event")
-                if isinstance(shell_event, ShellPresentationEvent):
-                    await self._present_shell(shell_event)
-        except asyncio.CancelledError:
-            raise
-        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
-            await self._degrade(f"presentation_failed:{type(error).__name__}", error)
+        elif event_type in {"action", "batch_member"}:
+            await self._present_action(event)
+        elif event_type == "action_done":
+            if self._batch_is_last:
+                self._queue_active = False
+                self._batch_is_last = False
+            self._clear_action_labels()
+            await self._render_capsule()
+        elif event_type == "final":
+            self._reasoning = ""
+            self._clear_action_labels()
+            await self._render_capsule()
+        elif event_type == "shell":
+            shell_event = event.get("event")
+            if isinstance(shell_event, ShellPresentationEvent):
+                await self._present_shell(shell_event)
 
     async def show_preview_frame(self, image_bytes: bytes) -> bool:
         """Status mode: refresh the live frame (menu thumbnail and activity window) with a streamed frame.
@@ -579,6 +625,7 @@ class MacOSPresentationController:
             return False
         return reply.get("state") == "shown"
 
+    @_fail_soft_cancellable
     async def _present_status(self, event: dict[str, Any]) -> None:
         """Status mode: the menu's caption, the activity window's transcript, and the shell rail.
 
@@ -588,23 +635,18 @@ class MacOSPresentationController:
         rail under the menu bar a foreground run shows, because a command running on their
         Mac should not require opening a window to notice.
         """
-        try:
-            if event.get("type") == "shell":
-                shell_event = event.get("event")
-                if isinstance(shell_event, ShellPresentationEvent):
-                    self._record_shell(shell_event)
-                    await self._track_shell_rail(shell_event)
-            await self._present_transcript(event)
-            text = _status_line(event)
-            if text is not None and self._last_render.get("status") != text:
-                self._last_render["status"] = text
-                reply = await self._send_command({"op": "status", "text": text})
-                if reply.get("state") != "shown":
-                    raise MacOSPresentationError("Status item did not accept the caption.")
-        except asyncio.CancelledError:
-            raise
-        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
-            await self._degrade(f"presentation_failed:{type(error).__name__}", error)
+        if event.get("type") == "shell":
+            shell_event = event.get("event")
+            if isinstance(shell_event, ShellPresentationEvent):
+                self._record_shell(shell_event)
+                await self._track_shell_rail(shell_event)
+        await self._present_transcript(event)
+        text = _status_line(event)
+        if text is not None and self._last_render.get("status") != text:
+            self._last_render["status"] = text
+            reply = await self._send_command({"op": "status", "text": text})
+            if reply.get("state") != "shown":
+                raise MacOSPresentationError("Status item did not accept the caption.")
 
     async def _present_transcript(self, event: dict[str, Any]) -> None:
         """Append this event to the activity window's conversation, if it has a row to show."""
@@ -614,59 +656,50 @@ class MacOSPresentationController:
         self._transcript_sequence += 1
         await self._send_command({"op": "transcript", "entry": entry})
 
+    @_fail_soft("capture_hide_failed", False)
     async def before_capture(self, capture_id: int) -> bool:
         if not self._status.available or self._mode == "status":
             return False
-        try:
-            if capture_id <= self._capture_id:
-                raise MacOSPresentationError("Capture IDs must increase monotonically.")
-            self._capture_id = capture_id
-            reply = await self._send_command({"op": "captureHide", "capture_id": capture_id})
-            if reply.get("capture_id") != capture_id or reply.get("state") != "hidden":
-                raise MacOSPresentationError("Overlay did not hide for capture.")
-            return True
-        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
-            await self._degrade("capture_hide_failed", error)
-            return False
+        if capture_id <= self._capture_id:
+            raise MacOSPresentationError("Capture IDs must increase monotonically.")
+        self._capture_id = capture_id
+        reply = await self._send_command({"op": "captureHide", "capture_id": capture_id})
+        if reply.get("capture_id") != capture_id or reply.get("state") != "hidden":
+            raise MacOSPresentationError("Overlay did not hide for capture.")
+        return True
 
+    @_fail_soft("capture_reveal_failed", False)
     async def after_capture(self, capture_id: int, width: int, height: int) -> bool:
         if not self._status.available or capture_id != self._capture_id:
             return False
-        try:
-            self._validate_capture_geometry(width, height)
-            reply = await self._send_command({"op": "captureReveal", "capture_id": capture_id})
-            if reply.get("capture_id") != capture_id or reply.get("state") != "visible":
-                raise MacOSPresentationError("Overlay did not reveal after capture.")
-            return True
-        except Exception as error:  # noqa: BLE001 - presentation is fail-soft
-            await self._degrade("capture_reveal_failed", error)
-            return False
+        self._validate_capture_geometry(width, height)
+        reply = await self._send_command({"op": "captureReveal", "capture_id": capture_id})
+        if reply.get("capture_id") != capture_id or reply.get("state") != "visible":
+            raise MacOSPresentationError("Overlay did not reveal after capture.")
+        return True
 
+    @_fail_soft("encoder_failed", None)  # Pillow JPEG remains available
     async def encode_observation(self, png_bytes: bytes) -> "tuple[bytes, str] | None":
         if not self._status.available or self._mode == "status":
             return None
-        try:
-            reply = await self._send_command(
-                {
-                    "op": "encode",
-                    "data": base64.b64encode(png_bytes).decode("ascii"),
-                    "max_long_side": 1920,
-                    "quality": 0.8,
-                },
-                timeout=_ENCODE_TIMEOUT_SECONDS,
-            )
-            encoded = reply.get("encoded")
-            if not isinstance(encoded, dict) or encoded.get("format") not in {"webp", "jpeg"}:
-                raise MacOSPresentationError("Overlay observation encoder returned invalid data.")
-            data = base64.b64decode(encoded.get("data") or "", validate=True)
-            if not data:
-                raise MacOSPresentationError("Overlay observation encoder returned empty data.")
-            codec = str(encoded["format"])
-            self._status = replace(self._status, codec=codec)
-            return data, codec
-        except Exception as error:  # noqa: BLE001 - Pillow JPEG remains available
-            await self._degrade("encoder_failed", error)
-            return None
+        reply = await self._send_command(
+            {
+                "op": "encode",
+                "data": base64.b64encode(png_bytes).decode("ascii"),
+                "max_long_side": 1920,
+                "quality": 0.8,
+            },
+            timeout=_ENCODE_TIMEOUT_SECONDS,
+        )
+        encoded = reply.get("encoded")
+        if not isinstance(encoded, dict) or encoded.get("format") not in {"webp", "jpeg"}:
+            raise MacOSPresentationError("Overlay observation encoder returned invalid data.")
+        data = base64.b64decode(encoded.get("data") or "", validate=True)
+        if not data:
+            raise MacOSPresentationError("Overlay observation encoder returned empty data.")
+        codec = str(encoded["format"])
+        self._status = replace(self._status, codec=codec)
+        return data, codec
 
     async def stop(self) -> None:
         if self._stopping:

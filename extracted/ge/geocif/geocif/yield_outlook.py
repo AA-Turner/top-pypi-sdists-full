@@ -5233,7 +5233,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     threshold=20.0,
                 )
                 # RMSE twins of the three MAPE plots above. Same (Region, Year)
-                # grid, natural Mg/ha units, no percentage cap.
+                # grid, in the crop's DISPLAY units (df_mape comes from a
+                # frame already run through _convert_yield_columns), no
+                # percentage cap.
                 diag.rmse_box_by_region(
                     df_mape,
                     title=(
@@ -5244,6 +5246,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     dir_out=plot_dir,
                     fname=f"rmse_box_region_{country_lower}_{crop}_{model}.png",
                     production_pct=prod_pct,
+                    yield_units=_yield_display_for(parser, crop)[0],
                 )
                 diag.rmse_box_by_year(
                     df_mape,
@@ -5254,6 +5257,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     ),
                     dir_out=plot_dir,
                     fname=f"rmse_box_year_{country_lower}_{crop}_{model}.png",
+                    yield_units=_yield_display_for(parser, crop)[0],
                 )
                 diag.rmse_by_year(
                     df_mape,
@@ -5263,6 +5267,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     obs_col="Observed Yield (tn per ha)",
                     pred_col="Predicted Yield (tn per ha)",
                     area_col="Area (ha)",
+                    yield_units=_yield_display_for(parser, crop)[0],
                 )
 
             # % of national crop area — choropleth (mirrors analysis.py's perc_area map)

@@ -183,7 +183,7 @@ CustomModelDeploymentUpdateStatusType = Literal["UpdateCompleted", "UpdateFailed
 CustomizationTypeType = Literal[
     "CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED", "REINFORCEMENT_FINE_TUNING"
 ]
-DataRetentionModeType = Literal["default", "inherit", "none", "provider_data_share"]
+DataRetentionModeType = Literal["aws_review", "default", "inherit", "none", "provider_data_share"]
 EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
     "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
@@ -499,6 +499,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",

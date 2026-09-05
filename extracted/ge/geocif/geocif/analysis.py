@@ -842,7 +842,7 @@ class Geoanalysis:
             textstr = (
                 f"RMSE: {rmse:.2f} {self.yield_units}\n"
                 f"MAPE: {mape:.2%}\n"
-                f"$r^2$: {r2:.2f}\n"
+                f"$R^2$: {r2:.2f}\n"
                 f"N: {n_points}"
             )
 
@@ -1071,6 +1071,8 @@ class Geoanalysis:
 
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
+                            annotate_values=self.annotate_map_values,
+                            value_fmt=self.annotate_value_fmt,
                             loc_legend="lower left",
                         )
                     #
@@ -1104,6 +1106,8 @@ class Geoanalysis:
                             use_key=True,
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
+                            annotate_values=self.annotate_map_values,
+                            value_fmt=self.annotate_value_fmt,
                             loc_legend="lower left",
                         )
                     #                     breakpoint()
@@ -1156,6 +1160,8 @@ class Geoanalysis:
 
                                 annotate_regions=self.annotate_regions,
                                 annotate_region_column=annotate_region_column,
+                                annotate_values=self.annotate_map_values,
+                                value_fmt=self.annotate_value_fmt,
                                 loc_legend="lower left",
                             )
 
@@ -1183,6 +1189,8 @@ class Geoanalysis:
 
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
+                            annotate_values=self.annotate_map_values,
+                            value_fmt=self.annotate_value_fmt,
                             loc_legend="lower left",
                         )
 
@@ -1215,6 +1223,8 @@ class Geoanalysis:
                                 series="diverging",
                                 annotate_regions=self.annotate_regions,
                                 annotate_region_column=annotate_region_column,
+                                annotate_values=self.annotate_map_values,
+                                value_fmt=self.annotate_value_fmt,
                                 loc_legend="lower left",
                                 extend=_extend,
                             )
@@ -1240,6 +1250,8 @@ class Geoanalysis:
                                 series="diverging",
                                 annotate_regions=self.annotate_regions,
                                 annotate_region_column=annotate_region_column,
+                                annotate_values=self.annotate_map_values,
+                                value_fmt=self.annotate_value_fmt,
                                 loc_legend="lower left",
                                 extend=_extend,
                             )
@@ -1271,6 +1283,8 @@ class Geoanalysis:
 
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
+                            annotate_values=self.annotate_map_values,
+                            value_fmt=self.annotate_value_fmt,
                             loc_legend="lower left",
                         )
 
@@ -1298,6 +1312,8 @@ class Geoanalysis:
                                 series="diverging",
                                 annotate_regions=self.annotate_regions,
                                 annotate_region_column=annotate_region_column,
+                                annotate_values=self.annotate_map_values,
+                                value_fmt=self.annotate_value_fmt,
                                 loc_legend="lower left",
                                 extend=_extend,
                             )
@@ -1323,6 +1339,8 @@ class Geoanalysis:
                             series="diverging",
                             annotate_regions=self.annotate_regions,
                             annotate_region_column=annotate_region_column,
+                            annotate_values=self.annotate_map_values,
+                            value_fmt=self.annotate_value_fmt,
                             loc_legend="lower left",
                             extend=_extend,
                         )
@@ -1347,6 +1365,8 @@ class Geoanalysis:
 
                             annotate_regions=self.annotate_regions,
                             loc_legend="lower left",
+                            annotate_values=self.annotate_map_values,
+                            value_fmt=self.annotate_value_fmt,
                         )
 
     def plot_metric(self, df, metric="$r^2$"):
@@ -1504,6 +1524,25 @@ class Geoanalysis:
         # Concatenate all country shapefiles for consolidated maps
         self.dg = pd.concat(all_shapefiles, ignore_index=True)
         self.annotate_regions = self.parser.getboolean(self.countries[-1], "annotate_regions", fallback=False)
+        # Label each polygon with the region name AND the mapped value on a
+        # second line (e.g. "Iowa\n13.3"). plot.plot_map already supports this
+        # via annotate_values/value_fmt -- it was only ever wired to the
+        # MAPE/metric choropleths (viz/diagnostics.py:1548,1611), never to the
+        # yield / outlook-index maps. Read from the country section like
+        # annotate_regions, with [ML] as a fallback so a project-wide default
+        # works too.
+        self.annotate_map_values = self.parser.getboolean(
+            self.countries[-1], "annotate_map_values",
+            fallback=self.parser.getboolean(
+                "ML", "annotate_map_values", fallback=False),
+        )
+        # Values differ by two orders of magnitude between an outlook INDEX
+        # (~100) and a yield in tn/ha (~3-13), so the format is configurable.
+        self.annotate_value_fmt = self.parser.get(
+            self.countries[-1], "annotate_value_fmt",
+            fallback=self.parser.get("ML", "annotate_value_fmt",
+                                     fallback="{:.1f}"),
+        )
 
         # Create a new column called Country Region that is the concatenation of ADM0_NAME and ADM1_NAME
         # however if ADM2_NAME is not null, then it is the concatenation of ADM0_NAME and ADM2_NAME

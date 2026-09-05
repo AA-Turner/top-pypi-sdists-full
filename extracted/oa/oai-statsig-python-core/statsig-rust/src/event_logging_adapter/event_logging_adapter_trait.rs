@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::log_event_payload::LogEventRequest;
+use crate::log_event_payload::{LogEventPayload, LogEventRequest, SerializedLogEventRequest};
 use crate::{StatsigErr, StatsigRuntime};
 use async_trait::async_trait;
 
@@ -8,6 +8,25 @@ use async_trait::async_trait;
 pub trait EventLoggingAdapter: Send + Sync {
     async fn start(&self, statsig_runtime: &Arc<StatsigRuntime>) -> Result<(), StatsigErr>;
     async fn log_events(&self, request: LogEventRequest) -> Result<bool, StatsigErr>;
+    fn supports_serialized_events(&self) -> bool {
+        false
+    }
+    async fn log_serialized_events(
+        &self,
+        request: SerializedLogEventRequest,
+    ) -> Result<bool, StatsigErr> {
+        let payload =
+            serde_json::from_slice::<LogEventPayload>(&request.payload).map_err(|error| {
+                StatsigErr::JsonParseError("LogEventPayload".into(), error.to_string())
+            })?;
+
+        self.log_events(LogEventRequest {
+            payload,
+            event_count: request.event_count,
+            retries: request.retries,
+        })
+        .await
+    }
     async fn shutdown(&self) -> Result<(), StatsigErr>;
     fn should_schedule_background_flush(&self) -> bool;
     fn get_observability_tags(&self) -> Option<HashMap<String, String>> {
@@ -17,14 +36,18 @@ pub trait EventLoggingAdapter: Send + Sync {
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
     use serde_json::{Value, json};
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
-    use crate::StatsigUser;
     use crate::event_logging::statsig_event::StatsigEvent;
     use crate::event_logging::statsig_event_internal::StatsigEventInternal;
-    use crate::log_event_payload::{LogEventPayload, LogEventRequest};
+    use crate::event_logging_adapter::EventLoggingAdapter;
+    use crate::log_event_payload::{LogEventPayload, LogEventRequest, SerializedLogEventRequest};
     use crate::statsig_metadata::StatsigMetadata;
     use crate::user::StatsigUserInternal;
+    use crate::{StatsigErr, StatsigRuntime, StatsigUser};
 
     #[test]
     fn test_request_jsonify() {
@@ -77,5 +100,63 @@ mod tests {
         let request_json = r#"{"payload":{"events":[{"eventName":"my_custom_event","metadata":null,"secondaryExposures":null,"time":1730831508904,"user":{"statsigEnvironment":null,"userID":"a-user"},"value":null}],"statsigMetadata":{"sdkType":"statsig-server-core","sdkVersion":"0.0.1","sessionId":"1ff863ed-a9ab-4785-bb0e-1a7b0140c040"}},"eventCount":1,"retries":0}"#;
         let request: LogEventRequest = serde_json::from_str(request_json).unwrap();
         assert_eq!(request.event_count, 1);
+    }
+
+    struct RecordingAdapter {
+        request: Mutex<Option<LogEventRequest>>,
+    }
+
+    #[async_trait]
+    impl EventLoggingAdapter for RecordingAdapter {
+        async fn start(&self, _statsig_runtime: &Arc<StatsigRuntime>) -> Result<(), StatsigErr> {
+            Ok(())
+        }
+
+        async fn log_events(&self, request: LogEventRequest) -> Result<bool, StatsigErr> {
+            *self.request.lock().unwrap() = Some(request);
+            Ok(true)
+        }
+
+        async fn shutdown(&self) -> Result<(), StatsigErr> {
+            Ok(())
+        }
+
+        fn should_schedule_background_flush(&self) -> bool {
+            false
+        }
+
+        fn get_observability_tags(&self) -> Option<HashMap<String, String>> {
+            None
+        }
+    }
+
+    #[tokio::test]
+    async fn default_serialized_event_path_preserves_custom_adapter_payload() {
+        let payload = LogEventPayload {
+            events: json!([{"eventName": "custom-event"}]),
+            statsig_metadata: json!({"flushType": "scheduled_max_time"}),
+        };
+        let serialized_payload = serde_json::to_vec(&payload).unwrap();
+        let adapter = RecordingAdapter {
+            request: Mutex::new(None),
+        };
+
+        assert!(
+            adapter
+                .log_serialized_events(SerializedLogEventRequest {
+                    payload: serialized_payload,
+                    event_count: 1,
+                    retries: 2,
+                    flush_type: "scheduled_max_time".to_string(),
+                })
+                .await
+                .unwrap()
+        );
+
+        let request = adapter.request.lock().unwrap().take().unwrap();
+        assert_eq!(request.event_count, 1);
+        assert_eq!(request.retries, 2);
+        assert_eq!(request.payload.events, payload.events);
+        assert_eq!(request.payload.statsig_metadata, payload.statsig_metadata);
     }
 }

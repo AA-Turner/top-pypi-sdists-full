@@ -33,5 +33,14 @@ fn test_layer_serialization() {
 
     let result = serde_json::from_str::<Layer>(raw_value);
     assert_eq!(result.as_ref().err().map(|x| x.to_string()), None);
-    assert_eq!(result.ok().map(|x| x.name), Some("test_layer".to_string()));
+    let layer = result.unwrap();
+    assert_eq!(layer.name, "test_layer");
+    assert!(layer.__shared_control_exposures.is_empty());
+    assert!(
+        !serde_json::to_value(&layer)
+            .unwrap()
+            .as_object()
+            .unwrap()
+            .contains_key("__shared_control_exposures")
+    );
 }

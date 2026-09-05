@@ -1,21 +1,18 @@
-"""GitHub Actions workflow generator for deploying documentation to GitHub Pages."""
+"""Deployment workflow configuration."""
 
 from types import MethodType
 from typing import Any
 
 from pyrig.rig.configs.base.workflow import WorkflowConfigFile
-from pyrig.rig.configs.version_control.remote.workflows.release import (
-    ReleaseWorkflowConfigFile,
-)
 from pyrig.rig.tools.docs.builder import DocsBuilder
 from pyrig.rig.tools.packages.manager import PackageManager
 
 
 class DeployWorkflowConfigFile(WorkflowConfigFile):
-    """GitHub Actions workflow that publishes documentation to GitHub Pages.
+    """Workflow configurations for deployments.
 
-    Triggered whenever the release workflow completes, but its job only
-    runs if that completion was a success.
+    This includes jobs for building and deploying the documentation site
+    to GitHub Pages.
     """
 
     def job(  # noqa: PLR0913
@@ -25,27 +22,45 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         needs: list[str] | None = None,
         strategy: dict[str, Any] | None = None,
         permissions: dict[str, Any] | None = None,
-        runs_on: str = WorkflowConfigFile.UBUNTU_LATEST,
         if_condition: str | None = None,
+        runs_on: str = WorkflowConfigFile.UBUNTU_LATEST,
+        environment: str | None = None,
         steps: list[dict[str, Any]] | None = None,
+        uses: str | None = None,
+        secrets: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Build a job, defaulting `if_condition` to a success-gate condition.
+        """Build a deployment job with an environment derived from its ID.
 
-        When `if_condition` is not given, it defaults to a condition that is
-        true only if the workflow run that triggered this workflow succeeded.
+        Args:
+            method: Method representing this job; its name is used to derive
+                the job ID and default environment name.
+            needs: IDs of jobs that must complete before this job starts.
+            strategy: Matrix or other strategy configuration.
+            permissions: Job-level permissions override.
+            if_condition: GitHub Actions conditional expression controlling
+                whether the job runs.
+            runs_on: Runner label. Defaults to `ubuntu-latest`.
+            environment: Deployment environment name. Defaults to the job ID
+                when omitted.
+            steps: Ordered list of job steps.
+            uses: Reference to a reusable workflow instead of job steps.
+            secrets: Named secrets to forward to a called workflow.
 
         Returns:
-            Dict mapping the derived job ID to its configuration.
+            A single job configuration keyed by its derived job ID.
         """
-        if_condition = if_condition or self.if_workflow_run_is_success()
+        environment = environment or self.job_id_from_method(method)
         return super().job(
             method,
             needs=needs,
             strategy=strategy,
             permissions=permissions,
-            runs_on=runs_on,
             if_condition=if_condition,
+            runs_on=runs_on,
+            environment=environment,
             steps=steps,
+            uses=uses,
+            secrets=secrets,
         )
 
     def concurrency_cancel_in_progress(self) -> bool:
@@ -65,14 +80,12 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         return "deploy"
 
     def workflow_triggers(self) -> dict[str, Any]:
-        """Return a `workflow_run` trigger for completion of the release workflow.
+        """Return a reusable-workflow trigger.
 
         Returns:
-            Trigger configuration dict with a `workflow_run` entry.
+            Workflow-call trigger configuration.
         """
-        return self.on_workflow_run(
-            workflows=[ReleaseWorkflowConfigFile.I.workflow_name()],
-        )
+        return self.on_workflow_call()
 
     def job_documentation(self) -> dict[str, Any]:
         """Build the job that builds and deploys the documentation site.
@@ -121,21 +134,10 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         )
 
     def step_configure_pages(self) -> dict[str, Any]:
-        """Build a step that enables GitHub Pages for the repository.
-
-        Idempotent: running it on a repository where Pages is already enabled
-        has no effect.
-
-        Authenticates with `REPO_TOKEN` rather than the automatic
-        `GITHUB_TOKEN`: enabling Pages calls
-        `POST /repos/{owner}/{repo}/pages`, and for an installation token
-        like `GITHUB_TOKEN` that call also requires `administration: write`
-        -- a scope the automatic token can never hold -- so it would fail
-        with `Resource not accessible by integration`. A fine-grained PAT
-        reaches the endpoint with `pages: write` alone.
+        """Build a step that enables GitHub Pages.
 
         Returns:
-            Step that enables GitHub Pages using `REPO_TOKEN`.
+            Pages-configuration step using the repository token.
         """
         return self.step(
             self.step_configure_pages,

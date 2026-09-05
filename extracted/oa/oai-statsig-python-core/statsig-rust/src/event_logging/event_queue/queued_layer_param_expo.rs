@@ -1,6 +1,6 @@
 use crate::{
     EvaluationDetails, SecondaryExposure,
-    evaluation::evaluation_types::ExtraExposureInfo,
+    evaluation::evaluation_types::{ExtraExposureInfo, SharedControlLayerExposure},
     event_logging::{
         event_logger::ExposureTrigger,
         exposure_sampling::{EvtSamplingDecision, ExposureSamplingKey},
@@ -20,6 +20,13 @@ use crate::event_logging::statsig_event::string_metadata_to_value_metadata;
 pub enum EnqueueLayerParamExpoOp<'a> {
     LayerRef(u64, &'a Layer, &'a str, ExposureTrigger),
     LayerOwned(u64, Box<Layer>, String, ExposureTrigger),
+    SharedControlRef(
+        u64,
+        &'a Layer,
+        &'a str,
+        &'a SharedControlLayerExposure,
+        ExposureTrigger,
+    ),
 }
 
 impl<'a> EnqueueLayerParamExpoOp<'a> {
@@ -27,6 +34,7 @@ impl<'a> EnqueueLayerParamExpoOp<'a> {
         match self {
             EnqueueLayerParamExpoOp::LayerRef(_, layer, _, _) => layer,
             EnqueueLayerParamExpoOp::LayerOwned(_, layer, _, _) => layer,
+            EnqueueLayerParamExpoOp::SharedControlRef(_, layer, _, _, _) => layer,
         }
     }
 
@@ -34,6 +42,7 @@ impl<'a> EnqueueLayerParamExpoOp<'a> {
         match self {
             EnqueueLayerParamExpoOp::LayerRef(_, _, parameter_name, _) => parameter_name,
             EnqueueLayerParamExpoOp::LayerOwned(_, _, parameter_name, _) => parameter_name.as_str(),
+            EnqueueLayerParamExpoOp::SharedControlRef(_, _, parameter_name, _, _) => parameter_name,
         }
     }
 }
@@ -63,6 +72,20 @@ impl EnqueueOperation for EnqueueLayerParamExpoOp<'_> {
                     sampling_decision,
                 )
             }
+            EnqueueLayerParamExpoOp::SharedControlRef(
+                exposure_time,
+                layer,
+                parameter_name,
+                shared_control_exposure,
+                trigger,
+            ) => extract_from_shared_control_layer(
+                exposure_time,
+                layer,
+                parameter_name,
+                shared_control_exposure,
+                trigger,
+                sampling_decision,
+            ),
         };
 
         QueuedEvent::LayerParamExposure(event)
@@ -82,19 +105,33 @@ impl<'a> QueuedExposure<'a> for EnqueueLayerParamExpoOp<'a> {
         // todo: use Cow and pre-hash the parameter name
         let pname = self.get_parameter_name_ref();
         let pname_hash = ahash_str(pname);
-        ExposureSamplingKey::new_from_user_values_hash(
+        let mut sampling_key = ExposureSamplingKey::new_from_user_values_hash(
             evaluation,
             layer.__user.create_exposure_dedupe_user_hash(unit_id_type),
             pname_hash,
-        )
+        );
+        if let EnqueueLayerParamExpoOp::SharedControlRef(_, _, _, exposure, _) = self {
+            sampling_key.rule_id_hash = exposure.control_group_id.hash;
+        }
+        sampling_key
     }
 
     fn get_rule_id_ref(&'a self) -> &'a str {
-        &self.get_layer_ref().rule_id
+        match self {
+            EnqueueLayerParamExpoOp::SharedControlRef(_, _, _, exposure, _) => {
+                exposure.control_group_id.as_str()
+            }
+            _ => &self.get_layer_ref().rule_id,
+        }
     }
 
     fn get_extra_exposure_info_ref(&'a self) -> Option<&'a ExtraExposureInfo> {
-        get_layer_exposure_info(self.get_layer_ref())
+        match self {
+            EnqueueLayerParamExpoOp::SharedControlRef(_, _, _, exposure, _) => {
+                Some(&exposure.exposure_info)
+            }
+            _ => get_layer_exposure_info(self.get_layer_ref()),
+        }
     }
 }
 
@@ -280,5 +317,120 @@ fn extract_from_layer_owned(
         secondary_exposures,
         is_explicit,
         allocated_experiment,
+    }
+}
+
+fn extract_from_shared_control_layer(
+    exposure_time: u64,
+    layer: &Layer,
+    parameter_name: &str,
+    shared_control_exposure: &SharedControlLayerExposure,
+    trigger: ExposureTrigger,
+    sampling_decision: EvtSamplingDecision,
+) -> QueuedLayerParamExposureEvent {
+    QueuedLayerParamExposureEvent {
+        exposure_time,
+        user: layer.__user.clone(),
+        layer_name: layer.name.clone(),
+        rule_id: shared_control_exposure
+            .control_group_id
+            .unperformant_to_string(),
+        parameter_name: parameter_name.to_string(),
+        exposure_trigger: trigger,
+        evaluation_details: layer.details.clone(),
+        version: shared_control_exposure.exposure_info.version,
+        sampling_decision,
+        override_config_name: shared_control_exposure
+            .exposure_info
+            .override_config_name
+            .clone(),
+        secondary_exposures: Some(shared_control_exposure.secondary_exposures.clone()),
+        is_explicit: true,
+        allocated_experiment: Some(shared_control_exposure.allocated_experiment_name.clone()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        evaluation::evaluation_types::SharedControlLayerExposure,
+        specs_response::explicit_params::ExplicitParameters,
+    };
+
+    #[test]
+    fn shared_control_layer_exposure_uses_control_attribution() {
+        let layer = Layer {
+            name: "ads_layer".to_string(),
+            rule_id: "sharedControl".to_string(),
+            id_type: "userID".to_string(),
+            group_name: None,
+            details: EvaluationDetails::unrecognized_no_data(),
+            allocated_experiment_name: None,
+            is_experiment_active: false,
+            __parameter_rule_ids: None,
+            __evaluation: None,
+            __value: Default::default(),
+            __user: StatsigUserLoggable::null(),
+            __disable_exposure: false,
+            __shared_control_exposures: Vec::new(),
+            __version: None,
+            __exposure_info: None,
+            __event_logger_ptr: None,
+        };
+        let shared_control_exposure = SharedControlLayerExposure {
+            allocated_experiment_name: InternedString::from_str_ref("ranking_experiment"),
+            control_group_id: InternedString::from_str_ref("control_group"),
+            secondary_exposures: Vec::new(),
+            explicit_parameters: ExplicitParameters::from_vec(vec!["ranking_model".to_string()]),
+            exposure_info: ExtraExposureInfo {
+                sampling_rate: Some(201),
+                forward_all_exposures: Some(true),
+                has_seen_analytical_gates: Some(true),
+                override_config_name: None,
+                version: Some(12),
+                rule_pass_percentage: None,
+            },
+        };
+
+        let operation = EnqueueLayerParamExpoOp::SharedControlRef(
+            123,
+            &layer,
+            "ranking_model",
+            &shared_control_exposure,
+            ExposureTrigger::Auto,
+        );
+        let exposure_info = operation
+            .get_extra_exposure_info_ref()
+            .expect("shared-control exposure metadata should be preserved");
+        assert_eq!(exposure_info.sampling_rate, Some(201));
+        assert_eq!(exposure_info.forward_all_exposures, Some(true));
+        assert_eq!(exposure_info.has_seen_analytical_gates, Some(true));
+        assert_eq!(
+            operation.create_exposure_sampling_key().rule_id_hash,
+            shared_control_exposure.control_group_id.hash
+        );
+
+        let event = extract_from_shared_control_layer(
+            123,
+            &layer,
+            "ranking_model",
+            &shared_control_exposure,
+            ExposureTrigger::Auto,
+            EvtSamplingDecision::ForceSampled,
+        );
+
+        assert_eq!(event.layer_name, "ads_layer");
+        assert_eq!(event.rule_id, "control_group");
+        assert_eq!(event.parameter_name, "ranking_model");
+        assert_eq!(
+            event
+                .allocated_experiment
+                .as_ref()
+                .map(InternedString::as_str),
+            Some("ranking_experiment")
+        );
+        assert!(event.is_explicit);
+        assert_eq!(event.version, Some(12));
     }
 }

@@ -119,7 +119,16 @@ impl NetworkClient {
     }
 
     pub async fn get(&self, request_args: RequestArgs) -> Result<Response, NetworkError> {
-        self.make_request(HttpMethod::GET, request_args).await
+        self.make_request(HttpMethod::GET, request_args, None).await
+    }
+
+    pub(crate) async fn get_with_response_limit(
+        &self,
+        request_args: RequestArgs,
+        max_response_bytes: u64,
+    ) -> Result<Response, NetworkError> {
+        self.make_request(HttpMethod::GET, request_args, Some(max_response_bytes))
+            .await
     }
 
     pub async fn post(
@@ -128,13 +137,15 @@ impl NetworkClient {
         body: Option<Vec<u8>>,
     ) -> Result<Response, NetworkError> {
         request_args.body = body;
-        self.make_request(HttpMethod::POST, request_args).await
+        self.make_request(HttpMethod::POST, request_args, None)
+            .await
     }
 
     async fn make_request(
         &self,
         method: HttpMethod,
         mut request_args: RequestArgs,
+        max_response_bytes: Option<u64>,
     ) -> Result<Response, NetworkError> {
         let is_shutdown = if let Some(is_shutdown) = &request_args.is_shutdown {
             is_shutdown.clone()
@@ -192,16 +203,27 @@ impl NetworkClient {
             }
 
             let request_start = Instant::now();
-            let mut response = match self.net_provider.upgrade() {
-                Some(net_provider) => net_provider.send(&method, &request_args).await,
-                None => {
-                    return Err(NetworkError::RequestFailed(
-                        request_args.url,
-                        None,
-                        "Failed to get a NetworkProvider instance".to_string(),
-                    ));
-                }
-            };
+            let (mut response, response_size_limit_exceeded, response_limit_unsupported) =
+                match self.net_provider.upgrade() {
+                    Some(net_provider) => match max_response_bytes {
+                        Some(max_response_bytes) => net_provider
+                            .send_with_response_limit(&method, &request_args, max_response_bytes)
+                            .await
+                            .into_parts(),
+                        None => (
+                            net_provider.send(&method, &request_args).await,
+                            false,
+                            false,
+                        ),
+                    },
+                    None => {
+                        return Err(NetworkError::RequestFailed(
+                            request_args.url,
+                            None,
+                            "Failed to get a NetworkProvider instance".to_string(),
+                        ));
+                    }
+                };
 
             let status = response.status_code;
             let error_message = response
@@ -226,7 +248,13 @@ impl NetworkClient {
                 .data
                 .as_ref()
                 .and_then(|data| data.get_header_ref("x-statsig-region").cloned());
-            let success = (200..300).contains(&status.unwrap_or(0));
+            // Keep existing unlimited request semantics unchanged. Limited blob
+            // requests need body-read failures to enter retry handling instead
+            // of accepting an empty successful response.
+            let success = !response_size_limit_exceeded
+                && !response_limit_unsupported
+                && (200..300).contains(&status.unwrap_or(0))
+                && (max_response_bytes.is_none() || response.error.is_none());
             let duration_ms = request_start.elapsed().as_millis() as f64;
             self.log_network_request_latency_to_ob(&request_args, status, success, duration_ms);
 
@@ -266,6 +294,22 @@ impl NetworkClient {
 
             if success {
                 return Ok(response);
+            }
+
+            // A non-2xx response can have an error body larger than the expected blob.
+            // Keep the body bound, but preserve status-based retry behavior for those responses.
+            let limited_response_failure_is_terminal = response_limit_unsupported
+                || (response_size_limit_exceeded
+                    && status.is_none_or(|status| (200..300).contains(&status)));
+
+            if limited_response_failure_is_terminal {
+                let error = NetworkError::RequestNotRetryable(
+                    request_args.url.clone(),
+                    status,
+                    error_message,
+                );
+                self.log_warning(&error, &request_args);
+                return Err(error);
             }
 
             if NON_RETRY_CODES.contains(&status.unwrap_or(0)) {
@@ -470,9 +514,195 @@ mod tests {
     };
     use crate::StatsigOptions;
     use crate::networking::{
-        NetworkError, RequestArgs, get_source_service_and_request_path,
+        HttpMethod, NetworkError, NetworkProvider, RequestArgs, Response, ResponseData,
+        ResponseLimitOutcome, get_source_service_and_request_path,
         should_log_network_request_latency,
     };
+    use async_trait::async_trait;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    struct RetryableBodyReadFailureProvider {
+        attempts: AtomicUsize,
+    }
+
+    struct UnsupportedSuccessProvider {
+        limited_calls: AtomicUsize,
+    }
+
+    #[async_trait]
+    impl NetworkProvider for UnsupportedSuccessProvider {
+        async fn send(&self, _method: &HttpMethod, _args: &RequestArgs) -> Response {
+            panic!("unsupported limited requests must not fall back to send")
+        }
+
+        async fn send_with_response_limit(
+            &self,
+            _method: &HttpMethod,
+            _args: &RequestArgs,
+            _max_response_bytes: u64,
+        ) -> ResponseLimitOutcome {
+            self.limited_calls.fetch_add(1, Ordering::SeqCst);
+            ResponseLimitOutcome::Unsupported(Response {
+                status_code: Some(200),
+                data: Some(ResponseData::from_bytes(b"looks-successful".to_vec())),
+                error: None,
+            })
+        }
+    }
+
+    impl RetryableBodyReadFailureProvider {
+        fn next_response(&self) -> Response {
+            if self.attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Response {
+                    status_code: Some(200),
+                    data: None,
+                    error: Some("body read interrupted".to_string()),
+                };
+            }
+
+            Response {
+                status_code: Some(200),
+                data: Some(ResponseData::from_bytes(b"ok".to_vec())),
+                error: None,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl NetworkProvider for RetryableBodyReadFailureProvider {
+        async fn send(&self, _method: &HttpMethod, _args: &RequestArgs) -> Response {
+            self.next_response()
+        }
+
+        async fn send_with_response_limit(
+            &self,
+            _method: &HttpMethod,
+            _args: &RequestArgs,
+            _max_response_bytes: u64,
+        ) -> ResponseLimitOutcome {
+            ResponseLimitOutcome::Response(self.next_response())
+        }
+    }
+
+    #[tokio::test]
+    async fn retries_success_status_response_with_body_read_error() {
+        let provider = Arc::new(RetryableBodyReadFailureProvider {
+            attempts: AtomicUsize::new(0),
+        });
+        let network_provider: Arc<dyn NetworkProvider> = provider.clone();
+        let mut client = NetworkClient::new("secret-test", None, None);
+        client.net_provider = Arc::downgrade(&network_provider);
+
+        let response = client
+            .get_with_response_limit(
+                RequestArgs {
+                    url: "https://example.com/remote-value".to_string(),
+                    retries: 1,
+                    ..RequestArgs::new()
+                },
+                1024,
+            )
+            .await
+            .unwrap();
+
+        assert!(response.data.is_some());
+        assert_eq!(provider.attempts.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn unsupported_response_limit_outcome_is_terminal_even_with_status_200() {
+        let provider = Arc::new(UnsupportedSuccessProvider {
+            limited_calls: AtomicUsize::new(0),
+        });
+        let network_provider: Arc<dyn NetworkProvider> = provider.clone();
+        let mut client = NetworkClient::new("secret-test", None, None);
+        client.net_provider = Arc::downgrade(&network_provider);
+
+        let result = client
+            .get_with_response_limit(
+                RequestArgs {
+                    url: "https://example.com/remote-value".to_string(),
+                    retries: 2,
+                    ..RequestArgs::new()
+                },
+                1024,
+            )
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(NetworkError::RequestNotRetryable(_, Some(200), _))
+        ));
+        assert_eq!(provider.limited_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[cfg(not(feature = "custom_network_provider"))]
+    #[tokio::test]
+    async fn response_limited_blob_urls_retry_oversized_errors() {
+        use crate::networking::providers::net_provider_reqwest::NetworkProviderReqwest;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/dynamic_config_value/retry"))
+            .respond_with(ResponseTemplate::new(500).set_body_bytes(b"temporary upstream failure"))
+            .up_to_n_times(1)
+            .with_priority(1)
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/v1/dynamic_config_value/retry"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"retry"))
+            .with_priority(2)
+            .expect(1)
+            .mount(&server)
+            .await;
+        let network_provider: Arc<dyn NetworkProvider> = Arc::new(NetworkProviderReqwest::new());
+        let mut client = NetworkClient::new("secret-test", None, None);
+        client.net_provider = Arc::downgrade(&network_provider);
+
+        let retry_response = client
+            .get_with_response_limit(
+                RequestArgs {
+                    url: format!("{}/v1/dynamic_config_value/retry", server.uri()),
+                    retries: 1,
+                    ..RequestArgs::new()
+                },
+                5,
+            )
+            .await
+            .expect("retrying blob request should succeed");
+        assert_eq!(retry_response.status_code, Some(200));
+
+        Mock::given(method("GET"))
+            .and(path("/v1/dynamic_config_value/oversized-success"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(b"too-large"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let oversized_success = client
+            .get_with_response_limit(
+                RequestArgs {
+                    url: format!("{}/v1/dynamic_config_value/oversized-success", server.uri()),
+                    retries: 1,
+                    ..RequestArgs::new()
+                },
+                5,
+            )
+            .await;
+        assert!(matches!(
+            oversized_success,
+            Err(NetworkError::RequestNotRetryable(_, Some(200), _))
+        ));
+
+        server.verify().await;
+    }
 
     #[test]
     fn test_log_event_connection_reuse_defaults_to_true() {

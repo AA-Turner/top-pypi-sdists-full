@@ -77,6 +77,13 @@ pub struct StatsigOptions {
     pub specs_adapter: Option<Arc<dyn SpecsAdapter>>,
     pub specs_sync_interval_ms: Option<u32>,
     pub specs_url: Option<String>,
+    /// Trusted origin used to resolve relative blob-backed dynamic config value paths.
+    /// Defaults to the URL used to download config specs.
+    pub remote_config_value_source_url: Option<String>,
+    /// Keeps session update metadata in parsed specs for callers that build
+    /// live overlays from one pinned SDK snapshot.
+    #[doc(hidden)]
+    pub preserve_dcs_session_update_mode: Option<bool>,
 
     pub wait_for_country_lookup_init: Option<bool>,
     pub wait_for_user_agent_init: Option<bool>,
@@ -89,6 +96,18 @@ pub struct StatsigOptions {
     pub disable_disk_access: Option<bool>,
 
     pub experimental_flags: Option<HashSet<String>>,
+}
+
+/// Internal configuration for the lightweight snapshot-evaluation constructor.
+///
+/// This stays separate from StatsigOptions so specialized behavior does not change the public,
+/// exhaustively constructible SDK options struct.
+#[derive(Clone, Default)]
+pub(crate) struct SnapshotEvaluationSessionInitOptions {
+    pub(crate) preserve_dcs_session_update_mode: bool,
+    pub(crate) precompute_gcir_evaluation_plan: bool,
+    pub(crate) config_only_mode: bool,
+    pub(crate) interned_mmap_sdk_key: Option<String>,
 }
 
 impl StatsigOptions {
@@ -124,6 +143,25 @@ impl StatsigOptionsBuilder {
     #[must_use]
     pub fn specs_url(mut self, specs_url: Option<String>) -> Self {
         self.inner.specs_url = specs_url;
+        self
+    }
+
+    #[must_use]
+    pub fn remote_config_value_source_url(
+        mut self,
+        remote_config_value_source_url: Option<String>,
+    ) -> Self {
+        self.inner.remote_config_value_source_url = remote_config_value_source_url;
+        self
+    }
+
+    #[doc(hidden)]
+    #[must_use]
+    pub fn preserve_dcs_session_update_mode(
+        mut self,
+        preserve_dcs_session_update_mode: Option<bool>,
+    ) -> Self {
+        self.inner.preserve_dcs_session_update_mode = preserve_dcs_session_update_mode;
         self
     }
 
@@ -413,8 +451,18 @@ impl Serialize for StatsigOptions {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("StatsigOptions", 24)?;
+        let mut state = serializer.serialize_struct("StatsigOptions", 26)?;
         serialize_if_not_none!(state, "spec_url", &self.specs_url);
+        serialize_if_not_none!(
+            state,
+            "remote_config_value_source_url",
+            &self.remote_config_value_source_url
+        );
+        serialize_if_not_none!(
+            state,
+            "preserve_dcs_session_update_mode",
+            &self.preserve_dcs_session_update_mode
+        );
         serialize_if_not_none!(
             state,
             "spec_adapter",
@@ -562,6 +610,11 @@ impl StatsigOptions {
         if should_fix_null_url(&self.specs_url) {
             log_d!(TAG, "Setting specs_url to be default url");
             mut_ref.specs_url = None;
+        }
+
+        if should_fix_null_url(&self.remote_config_value_source_url) {
+            log_d!(TAG, "Setting remote_config_value_source_url to default");
+            mut_ref.remote_config_value_source_url = None;
         }
 
         if should_fix_null_url(&self.id_lists_url) {

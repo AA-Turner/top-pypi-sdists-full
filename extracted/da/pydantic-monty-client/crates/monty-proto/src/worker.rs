@@ -22,13 +22,14 @@ use monty::{Dump, MontyRepl, ReplProgress, ReplStartError, Session, SessionRef, 
 use monty_type_checking::{SourceFile, TypeChecker};
 use monty_types::{
     AssertMessageAnnotations, CompileOptions, ExcType, ExtFunctionResult, MontyException, MontyObject, OsFunctionCall,
-    PrintWriter, PrintWriterCallback, ResourceTracker, TypeCheckState, TypeCheckingConfig,
+    PrintWriter, PrintWriterCallback, ResourceLimits, ResourceTracker, TypeCheckState, TypeCheckingConfig,
 };
 
 use super::{
-    FrameError, FrameReader, MAX_FRAME_LEN, WireFunctionCall, check_protocol_version, exceeds_max_frame_len,
-    exceeds_max_value_depth, future_results_from_proto, pb, write_frame,
+    FrameError, FrameReader, MAX_FRAME_LEN, ProtoConvertError, WireFunctionCall, check_protocol_version,
+    exceeds_max_frame_len, exceeds_max_value_depth, future_results_from_proto, pb, write_frame,
 };
+use crate::wire::uuid_to_pb;
 
 /// A sink for framed [`pb::ChildEvent`]s, decoupling the child from its
 /// transport.
@@ -150,15 +151,19 @@ fn dispatch_into(child: &mut Child, request_frame: &[u8], sink: &mut VecEventSin
     }
 }
 
-/// The sandbox budget of the child's current session, as a host outside the
-/// interpreter sees it. Both fields describe how much memory the session may
-/// need: the tracked budget, and whether type checking's untracked caches load.
+/// The current sandbox budget visible to an external host.
+///
+/// Hosts use the memory fields to arm their allocator and `max_suspensions` to
+/// restore their accounting.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SessionBudget {
     /// `max_memory` in bytes; `None` when unlimited, or when no session exists.
     pub max_memory: Option<usize>,
     /// Whether the session type checks each fed snippet.
     pub type_check: bool,
+    /// Maximum suspensions the host may service; enforced outside the child.
+    /// `None` only when no session exists.
+    pub max_suspensions: Option<usize>,
 }
 
 /// REPL session state of the child.
@@ -244,6 +249,7 @@ impl Child {
             pb::parent_request::Kind::ResumeCall(resume) => self.handle_resume_call(resume, sink),
             pb::parent_request::Kind::ResumeNameLookup(resume) => self.handle_resume_name_lookup(resume, sink),
             pb::parent_request::Kind::ResumeFutures(resume) => self.handle_resume_futures(resume, sink),
+            pb::parent_request::Kind::AbortFeed(abort) => self.handle_abort_feed(abort, sink),
             pb::parent_request::Kind::Dump(_) => self.handle_dump(),
             pb::parent_request::Kind::Load(load) => self.handle_load(&load),
             pb::parent_request::Kind::Reset(_) => match self.reset() {
@@ -263,11 +269,52 @@ impl Child {
                 return Ok(HandleOutcome::Shutdown);
             }
         };
-        self.stamp_execution_time(&mut event);
-        if let Err(err) = sink.send(&event) {
+        self.stamp_session_budget(&mut event);
+        let sent = sink.send(&event);
+        // a suspension announcement was *lent* the payload it announces, so
+        // take it back before anything can observe the stored suspension
+        // without it — on the failed-send path too, since the session may yet
+        // be dumped or answered
+        if let Err(err) = self.reclaim_suspension_payload(&mut event) {
+            sink.send(&self.fatal_event(&format!("suspension payload could not be restored: {err}")))?;
+            return Ok(HandleOutcome::Fatal);
+        }
+        if let Err(err) = sent {
             self.recover_send_error(&event, err, sink)?;
         }
         Ok(HandleOutcome::Continue)
+    }
+
+    /// Moves a suspension announcement's payload back into the suspension it
+    /// announces, undoing the loan taken by [`suspension_event_function_call`]
+    /// / [`suspension_event_os_call`]. A no-op for every other event.
+    ///
+    /// The gap this closes is short by construction: the payload is lent as the
+    /// event is built and reclaimed as soon as [`Self::handle`] has sent it,
+    /// with only timing stamps and print draining in between.
+    ///
+    /// `Err` means the wire arms and [`OsFunctionCall`] have drifted apart —
+    /// the conversion back is total for a payload this child just produced, so
+    /// a failure would leave a suspension the parent's answer can no longer be
+    /// applied to. The caller makes that fatal rather than serving on.
+    fn reclaim_suspension_payload(&mut self, event: &mut pb::ChildEvent) -> Result<(), ProtoConvertError> {
+        let SessionState::Suspended(progress) = &mut self.state else {
+            return Ok(());
+        };
+        match (progress.as_mut(), &mut event.kind) {
+            (ReplProgress::FunctionCall(call), Some(pb::child_event::Kind::FunctionCall(announced))) => {
+                call.args = mem::take(&mut announced.args);
+                call.kwargs = mem::take(&mut announced.kwargs);
+            }
+            (ReplProgress::OsCall(call), Some(pb::child_event::Kind::OsCall(announced))) => {
+                if let Some(announced) = announced.call.take() {
+                    call.function_call = announced.try_into()?;
+                }
+            }
+            // any other pairing is an event that borrowed nothing
+            _ => {}
+        }
+        Ok(())
     }
 
     /// What the session the child is *currently* holding would run under.
@@ -287,6 +334,8 @@ impl Child {
                     .and_then(|limits| limits.max_memory_bytes)
                     .map(|v| usize::try_from(v).unwrap_or(usize::MAX)),
                 type_check: config.type_check,
+                // the wire default applies before the repl exists too
+                max_suspensions: Some(ResourceLimits::from(config.limits.unwrap_or_default()).max_suspensions),
             },
             SessionState::Configured(None) => SessionBudget::default(),
             SessionState::Ready(repl) => self.tracker_budget(repl.tracker()),
@@ -299,6 +348,7 @@ impl Child {
         SessionBudget {
             max_memory: tracker.max_memory(),
             type_check: self.type_check.is_some(),
+            max_suspensions: Some(tracker.max_suspensions()),
         }
     }
 
@@ -310,7 +360,7 @@ impl Child {
         let mut event = fatal_error_event(message);
         // fatal paths bypass `handle`, so stamp timing here to keep the
         // "every turn-ending event carries timing" contract intact
-        self.stamp_execution_time(&mut event);
+        self.stamp_session_budget(&mut event);
         event
     }
 
@@ -344,28 +394,25 @@ impl Child {
                     ExcType::RuntimeError,
                     &format!("result frame of {len} bytes exceeds the maximum of {max} bytes"),
                 );
-                self.stamp_execution_time(&mut event);
+                self.stamp_session_budget(&mut event);
                 sink.send(&event)
             }
             other => Err(other),
         }
     }
 
-    /// Stamps cumulative execution time and the `max_duration` budget onto a
-    /// turn-ending event, making the child the single source of truth for
-    /// timing (the parent's watchdog derives its backstop from these fields).
-    /// Left zero/absent when no session exists.
-    fn stamp_execution_time(&self, event: &mut pb::ChildEvent) {
+    /// Stamps session timing and parent-enforced limits onto an event.
+    ///
+    /// Reported timing drives the parent's backstop. Fields are absent without
+    /// a session.
+    fn stamp_session_budget(&self, event: &mut pb::ChildEvent) {
         let tracker = match &self.state {
             SessionState::Ready(repl) => repl.tracker(),
             SessionState::Suspended(progress) => progress.tracker(),
             // no repl materialized yet → no tracker to report
             SessionState::Configured(_) => return,
         };
-        event.total_execution_micros = u64::try_from(tracker.elapsed().as_micros()).unwrap_or(u64::MAX);
-        event.max_duration_micros = tracker
-            .max_duration()
-            .map(|max| u64::try_from(max.as_micros()).unwrap_or(u64::MAX));
+        stamp_budget(event, tracker);
     }
 
     /// Stores the session config; the repl is built lazily by [`ensure_repl`]
@@ -551,6 +598,38 @@ impl Child {
         event
     }
 
+    /// Raises the parent's exception uncatchably at any pending suspension.
+    /// The `Error` reply returns the session to `Ready`.
+    fn handle_abort_feed(&mut self, abort: pb::AbortFeed, sink: &mut dyn EventSink) -> pb::ChildEvent {
+        // Guard against a corrupt `Complete` state instead of crashing.
+        let suspended = matches!(&self.state, SessionState::Suspended(progress)
+            if !matches!(progress.as_ref(), ReplProgress::Complete { .. }));
+        if !suspended {
+            return protocol_violation("AbortFeed without a suspended feed");
+        }
+        let Some(exception) = abort.exception else {
+            return protocol_violation("AbortFeed has no exception");
+        };
+        let exc = match MontyException::try_from(exception) {
+            Ok(exc) => exc,
+            Err(err) => return protocol_violation(&format!("invalid exception: {err}")),
+        };
+        let SessionState::Suspended(progress) = mem::replace(&mut self.state, SessionState::Configured(None)) else {
+            unreachable!("checked above");
+        };
+        let mut print = ProtoPrint::new(sink);
+        let outcome = match *progress {
+            ReplProgress::FunctionCall(call) => call.abort(exc, PrintWriter::Callback(&mut print)),
+            ReplProgress::OsCall(call) => call.abort(exc, PrintWriter::Callback(&mut print)),
+            ReplProgress::NameLookup(lookup) => lookup.abort(exc, PrintWriter::Callback(&mut print)),
+            ReplProgress::ResolveFutures(state) => state.abort(exc, PrintWriter::Callback(&mut print)),
+            ReplProgress::Complete { .. } => unreachable!("checked above"),
+        };
+        let event = self.drive(outcome, &mut print);
+        print.drain();
+        event
+    }
+
     /// Delivers the parent's resolved future results to a suspended
     /// `ResolveFutures` state, then resumes execution.
     fn handle_resume_futures(&mut self, resume: pb::ResumeFutures, sink: &mut dyn EventSink) -> pb::ChildEvent {
@@ -640,11 +719,13 @@ impl Child {
                         complete_event(value)
                     }
                 }
-                progress => {
+                mut progress => {
                     if suspension_args_too_deep(&progress) {
                         protocol_violation("dump suspension arguments exceed the maximum wire depth")
                     } else {
-                        let event = suspension_event(&progress);
+                        let mut event = suspension_event(&mut progress);
+                        // size-checked with the stamps `handle` sends it with
+                        stamp_budget(&mut event, progress.tracker());
                         if let Some(message) = oversize_suspension_error_message(&event) {
                             protocol_violation(&message)
                         } else {
@@ -693,21 +774,25 @@ impl Child {
                     }
                     return complete_event(value);
                 }
-                Ok(ReplProgress::OsCall(call)) => {
+                Ok(ReplProgress::OsCall(mut call)) => {
                     if os_call_args_too_deep(&call) {
                         let err =
                             MontyException::new(ExcType::RuntimeError, Some("Max argument depth exceeded".to_owned()));
                         result = call.resume(ExtFunctionResult::Error(err), PrintWriter::Callback(print));
                         continue;
                     }
-                    let event = suspension_event_os_call(&call);
+                    let mut event = suspension_event_os_call(&mut call);
+                    let progress = ReplProgress::OsCall(call);
+                    // stamped before the size check, so the frame measured is
+                    // the frame `handle` sends
+                    stamp_budget(&mut event, progress.tracker());
                     if let Some(message) = oversize_suspension_error_message(&event) {
-                        return self.abort_feed_with_runtime_error(call.into_repl(), &message);
+                        return self.abort_feed_with_runtime_error(progress.into_repl(), &message);
                     }
-                    self.state = SessionState::Suspended(Box::new(ReplProgress::OsCall(call)));
+                    self.state = SessionState::Suspended(Box::new(progress));
                     return event;
                 }
-                Ok(ReplProgress::FunctionCall(call)) => {
+                Ok(ReplProgress::FunctionCall(mut call)) => {
                     // arguments too deep for the wire resume the call with a
                     // catchable error instead of corrupting the protocol
                     if function_call_args_too_deep(&call) {
@@ -716,15 +801,17 @@ impl Child {
                         result = call.resume(ExtFunctionResult::Error(err), PrintWriter::Callback(print));
                         continue;
                     }
-                    let event = suspension_event_function_call(&call);
+                    let mut event = suspension_event_function_call(&mut call);
+                    let progress = ReplProgress::FunctionCall(call);
+                    stamp_budget(&mut event, progress.tracker());
                     if let Some(message) = oversize_suspension_error_message(&event) {
-                        return self.abort_feed_with_runtime_error(call.into_repl(), &message);
+                        return self.abort_feed_with_runtime_error(progress.into_repl(), &message);
                     }
-                    self.state = SessionState::Suspended(Box::new(ReplProgress::FunctionCall(call)));
+                    self.state = SessionState::Suspended(Box::new(progress));
                     return event;
                 }
-                Ok(progress) => {
-                    let event = suspension_event(&progress);
+                Ok(mut progress) => {
+                    let event = suspension_event(&mut progress);
                     self.state = SessionState::Suspended(Box::new(progress));
                     return event;
                 }
@@ -839,40 +926,58 @@ fn error_event(exc_type: ExcType, message: &str) -> pb::ChildEvent {
     }))
 }
 
+/// Stamps `tracker`'s timing and parent-enforced limits onto an event. Called
+/// again by [`Child::handle`] just before sending, so a suspension announcement
+/// is size-checked with the stamps it will carry.
+fn stamp_budget(event: &mut pb::ChildEvent, tracker: &ResourceTracker) {
+    event.total_execution_micros = u64::try_from(tracker.elapsed().as_micros()).unwrap_or(u64::MAX);
+    event.max_duration_micros = tracker
+        .max_duration()
+        .map(|max| u64::try_from(max.as_micros()).unwrap_or(u64::MAX));
+    event.max_suspensions = Some(tracker.max_suspensions() as u64);
+}
+
 /// Describes a suspension announcement that would exceed the wire frame limit.
 ///
 /// The child turns this into a host-visible error before entering the
 /// suspension, because the parent cannot resume a call it never received.
+/// The event must already carry its session stamps (see [`stamp_budget`]).
 fn oversize_suspension_error_message(event: &pb::ChildEvent) -> Option<String> {
     exceeds_max_frame_len(event)
         .map(|len| format!("argument frame of {len} bytes exceeds the maximum of {MAX_FRAME_LEN} bytes"))
 }
 
 /// Builds the suspension event for a `FunctionCall` (depth-checked by the
-/// caller).
+/// caller), **moving** the arguments into it.
 ///
-/// Clones the argument payload: the suspension keeps its args so a `Dump` of
-/// the suspended state (and its replay on `Load`) stays complete.
-fn suspension_event_function_call(call: &monty::ReplFunctionCall) -> pb::ChildEvent {
+/// The suspension keeps its args — a `Dump` of the suspended state (and its
+/// replay on `Load`) needs them — so they come back via
+/// [`Child::reclaim_suspension_payload`] once the event has been sent. They are
+/// lent rather than copied because they are the largest thing a suspension
+/// carries and are already live twice over here (the interpreter's own values,
+/// plus this converted copy): a third copy for the announcement, on top of the
+/// encode buffer, is what used to push a large host-call argument past the
+/// session's memory limit.
+fn suspension_event_function_call(call: &mut monty::ReplFunctionCall) -> pb::ChildEvent {
     event(pb::child_event::Kind::FunctionCall(WireFunctionCall {
         function_name: call.function_name.clone(),
-        args: call.args.clone(),
-        kwargs: call.kwargs.clone(),
+        args: mem::take(&mut call.args),
+        kwargs: mem::take(&mut call.kwargs),
         call_id: call.call_id,
-        method_call: call.method_call,
+        object_id: call.object_id,
     }))
 }
 
-/// Builds the suspension event for an `OsCall` (depth-checked by the caller).
-///
-/// Clones the call payload: the suspension keeps its args so a `Dump` of the
-/// suspended state (and its re-announcement on `Load`) stays complete — a
-/// restored session's parent can service the call from mounts or its `os`
-/// callback exactly like a fresh one.
-fn suspension_event_os_call(call: &monty::ReplOsCall) -> pb::ChildEvent {
+/// Builds the suspension event for an `OsCall` (depth-checked by the caller),
+/// **moving** the call payload into it — see
+/// [`suspension_event_function_call`] for why, and
+/// [`Child::reclaim_suspension_payload`] for how it comes back. `GetEnviron` is
+/// the placeholder left behind: a unit variant, so the swap allocates nothing.
+fn suspension_event_os_call(call: &mut monty::ReplOsCall) -> pb::ChildEvent {
+    let function_call = mem::replace(&mut call.function_call, OsFunctionCall::GetEnviron);
     event(pb::child_event::Kind::OsCall(pb::OsCall {
         call_id: call.call_id,
-        call: Some(call.function_call.clone().into()),
+        call: Some(function_call.into()),
     }))
 }
 
@@ -915,12 +1020,13 @@ fn os_call_args_too_deep(call: &monty::ReplOsCall) -> bool {
 /// `Load` to re-announce a restored suspension; fresh suspensions go through
 /// `drive`, which adds depth/oversize checks before delegating to the same
 /// per-variant builders.
-fn suspension_event(progress: &ReplProgress) -> pb::ChildEvent {
+fn suspension_event(progress: &mut ReplProgress) -> pb::ChildEvent {
     match progress {
         ReplProgress::FunctionCall(call) => suspension_event_function_call(call),
         ReplProgress::OsCall(call) => suspension_event_os_call(call),
         ReplProgress::NameLookup(lookup) => event(pb::child_event::Kind::NameLookup(pb::NameLookup {
             name: lookup.name.clone(),
+            object_id: lookup.object_id().as_ref().map(uuid_to_pb),
         })),
         ReplProgress::ResolveFutures(state) => event(pb::child_event::Kind::ResolveFutures(pb::ResolveFutures {
             pending_call_ids: state.pending_call_ids().to_vec(),

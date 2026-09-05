@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{StatsigErr, StatsigOptions, hashing::HashUtil};
 
+// Activate only after all readers sharing a data store support both codec keys and
+// the data store returns promptly for a missing key when its sibling exists.
+pub(crate) const ENABLE_DCS_ZSTD_DATASTORE_FLAG: &str = "enable_dcs_zstd_datastore";
+
 pub enum RequestPath {
     RulesetsV2,
     RulesetsV1,
@@ -28,6 +32,7 @@ pub enum CompressFormat {
     PlainText,
     Gzip,
     StatsigBr,
+    StatsigZstd,
 }
 
 impl Display for CompressFormat {
@@ -36,6 +41,7 @@ impl Display for CompressFormat {
             CompressFormat::PlainText => "plain_text",
             CompressFormat::Gzip => "gzip",
             CompressFormat::StatsigBr => "statsig-br",
+            CompressFormat::StatsigZstd => "statsig-zstd",
         };
         write!(f, "{value}")
     }
@@ -67,6 +73,7 @@ pub struct DataStoreGetBytesRequest {
 pub(crate) struct DataStoreCacheKeys {
     pub plain_text: String,
     pub statsig_br: String,
+    pub statsig_zstd: String,
 }
 
 impl DataStoreCacheKeys {
@@ -74,6 +81,7 @@ impl DataStoreCacheKeys {
         Self {
             plain_text: data_store_key_with_compress_format(key, CompressFormat::PlainText),
             statsig_br: data_store_key_with_compress_format(key, CompressFormat::StatsigBr),
+            statsig_zstd: data_store_key_with_compress_format(key, CompressFormat::StatsigZstd),
         }
     }
 }
@@ -154,6 +162,7 @@ fn data_store_key_with_compress_format(key: &str, compress_format: CompressForma
         CompressFormat::PlainText,
         CompressFormat::Gzip,
         CompressFormat::StatsigBr,
+        CompressFormat::StatsigZstd,
     ]
     .into_iter()
     .map(|format| format!("|{format}|"))

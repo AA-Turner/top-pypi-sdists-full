@@ -94,7 +94,9 @@ class TestClaudeSessionId:
         """The assignments table must have a claude_session_id column."""
         from coord.db import get_connection
         conn = get_connection()
-        cols = {row[1] for row in conn.execute("PRAGMA table_info(assignments)").fetchall()}
+        # #3083: PRAGMA has no Postgres equivalent — sql.table_columns is
+        # the seam's portable spelling of "what columns does this table have".
+        cols = {name for name, _type in sql.table_columns(conn, "assignments")}
         assert "claude_session_id" in cols, (
             "assignments table is missing claude_session_id column — "
             "check _migrate_add_columns in coord/db.py"
@@ -164,7 +166,9 @@ class TestStopReason:
         """The assignments table must have a stop_reason column."""
         from coord.db import get_connection
         conn = get_connection()
-        cols = {row[1] for row in conn.execute("PRAGMA table_info(assignments)").fetchall()}
+        # #3083: PRAGMA has no Postgres equivalent — sql.table_columns is
+        # the seam's portable spelling of "what columns does this table have".
+        cols = {name for name, _type in sql.table_columns(conn, "assignments")}
         assert "stop_reason" in cols, (
             "assignments table is missing stop_reason column — "
             "check _migrate_add_columns in coord/db.py"
@@ -265,7 +269,9 @@ class TestDispatchedByAssignmentId:
     def test_schema_has_dispatched_by_assignment_id_column(self, coord_db) -> None:
         from coord.db import get_connection
         conn = get_connection()
-        cols = {row[1] for row in conn.execute("PRAGMA table_info(assignments)").fetchall()}
+        # #3083: PRAGMA has no Postgres equivalent — sql.table_columns is
+        # the seam's portable spelling of "what columns does this table have".
+        cols = {name for name, _type in sql.table_columns(conn, "assignments")}
         assert "dispatched_by_assignment_id" in cols, (
             "assignments table is missing dispatched_by_assignment_id column — "
             "check _migrate_add_columns in coord/db.py"
@@ -1128,6 +1134,121 @@ class TestReconcileBoardWriteHelpers:
         assert remaining == []
 
 
+class TestPromoteAdvisoryWithCommits:
+    """#3099: `coord.smoke.dispatch_pending_smoke` used to skip every
+    ``status='advisory'`` row unconditionally (``if completed.status !=
+    'done': continue``), even the #1357 false-positive shape where the
+    branch demonstrably carries commits — `coord drive --accept-advisory`
+    accepts that row and falls through to Test/Review/Merge, but the daemon
+    never actually dispatched Test for it, so nothing downstream ever
+    moved. `promote_advisory_with_commits` is the DB-level fix: it undoes
+    the mis-classification directly, and this class covers its four
+    contractual guarantees in isolation from the smoke-dispatch call site
+    (covered separately in tests/test_smoke.py)."""
+
+    def _insert_advisory_work(
+        self,
+        *,
+        assignment_id: str,
+        branch: str | None = "issue-3099-x",
+        review_state: str | None = None,
+    ) -> None:
+        from coord.db import get_connection
+        from coord.models import Assignment
+        from coord.state import record_dispatched_assignment
+
+        assignment = Assignment(
+            machine_name="laptop",
+            repo_name="myrepo",
+            issue_number=3099,
+            issue_title="t",
+            assignment_id=assignment_id,
+            status="advisory",
+            branch=branch,
+            type="work",
+            dispatched_at=0.0,
+        )
+        record_dispatched_assignment(assignment=assignment, repo_github="acme/myrepo")
+        conn = get_connection()
+        conn.execute(
+            "UPDATE assignments SET status='advisory' WHERE assignment_id=?",
+            (assignment_id,),
+        )
+        if review_state is not None:
+            conn.execute(
+                "UPDATE assignments SET review_state=? WHERE assignment_id=?",
+                (review_state, assignment_id),
+            )
+        conn.commit()
+
+    def test_promotes_advisory_to_done_and_clears_advisory_review_state(
+        self, coord_db
+    ) -> None:
+        from coord.db import get_connection
+        from coord.state import promote_advisory_with_commits
+
+        self._insert_advisory_work(assignment_id="adv-1", review_state="advisory")
+
+        updated = promote_advisory_with_commits("adv-1")
+
+        assert updated is True
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT status, review_state FROM assignments WHERE assignment_id=?",
+            ("adv-1",),
+        ).fetchone()
+        assert row[0] == "done"
+        assert row[1] is None
+
+    def test_leaves_a_non_advisory_review_state_untouched(self, coord_db) -> None:
+        """Only the specific 'advisory' stamp (reconcile.py's own #448
+        downgrade write) is cleared — a row that had already progressed to
+        review_state='dispatched'/'done' some other way must not be
+        silently reset."""
+        from coord.db import get_connection
+        from coord.state import promote_advisory_with_commits
+
+        self._insert_advisory_work(assignment_id="adv-2", review_state="dispatched")
+
+        promote_advisory_with_commits("adv-2")
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT status, review_state FROM assignments WHERE assignment_id=?",
+            ("adv-2",),
+        ).fetchone()
+        assert row[0] == "done"
+        assert row[1] == "dispatched"
+
+    def test_is_a_noop_when_status_is_not_advisory(self, coord_db) -> None:
+        """Scoped `WHERE status='advisory'` guard: calling this on a row
+        some other writer already resolved a different way (a human's
+        `coord retry`, a race) must not clobber that outcome."""
+        from coord.db import get_connection
+        from coord.state import promote_advisory_with_commits
+
+        self._insert_advisory_work(assignment_id="adv-3")
+        conn = get_connection()
+        conn.execute(
+            "UPDATE assignments SET status='failed' WHERE assignment_id=?",
+            ("adv-3",),
+        )
+        conn.commit()
+
+        updated = promote_advisory_with_commits("adv-3")
+
+        assert updated is False
+        row = conn.execute(
+            "SELECT status FROM assignments WHERE assignment_id=?", ("adv-3",)
+        ).fetchone()
+        assert row[0] == "failed"
+
+    def test_returns_false_for_unknown_assignment_id(self, coord_db) -> None:
+        from coord.state import promote_advisory_with_commits
+
+        assert promote_advisory_with_commits("does-not-exist") is False
+
+
 class TestResetWedgedTestAuthorReview:
     """#1180: repairs a test-author/mock-author row whose review_state was
     stamped 'done' by a pre-#1150 work_is_terminal false positive (tracking-
@@ -1791,7 +1912,9 @@ class TestSetAssignmentFailureReason:
         from coord.db import get_connection
 
         conn = get_connection()
-        cols = {row[1] for row in conn.execute("PRAGMA table_info(assignments)").fetchall()}
+        # #3083: PRAGMA has no Postgres equivalent — sql.table_columns is
+        # the seam's portable spelling of "what columns does this table have".
+        cols = {name for name, _type in sql.table_columns(conn, "assignments")}
         assert "failure_reason" in cols, (
             "assignments table is missing failure_reason column — "
             "check _migrate_add_columns in coord/db.py"
@@ -3875,3 +3998,145 @@ class TestListIssueNumbersWithAssignmentsOnRealPostgres:
         finally:
             monkeypatch.undo()
             session.close()
+
+
+# ── #3113: atomic review-dispatch claim ─────────────────────────────────────
+
+
+class TestReviewDispatchClaim:
+    """`claim_review_dispatch` / `release_review_dispatch_claim`: the
+    DB-level conditional insert that replaced `dispatch_review`'s old
+    board-snapshot dedupe (`coord.claim.has_active_followup`), which raced —
+    two coordinator passes each reading "no review in flight" from their own
+    stale snapshot both dispatched a metered review for the same completed
+    assignment (the vimcode#804 incident)."""
+
+    def test_second_claim_for_the_same_assignment_loses(self, coord_db) -> None:
+        assert state.claim_review_dispatch("w1") is True
+        # Same DB, same key — simulates a second, concurrent dispatch_review
+        # call racing the first: it must lose deterministically.
+        assert state.claim_review_dispatch("w1") is False
+
+    def test_claims_for_different_assignments_both_win(self, coord_db) -> None:
+        assert state.claim_review_dispatch("w1") is True
+        assert state.claim_review_dispatch("w2") is True
+
+    def test_release_then_reclaim_succeeds(self, coord_db) -> None:
+        """A legitimate later re-review of the same work assignment (the
+        `coord review <id>` escape hatch) must not be permanently stranded
+        once the first review concludes and releases its claim."""
+        assert state.claim_review_dispatch("w1") is True
+        state.release_review_dispatch_claim("w1")
+        assert state.claim_review_dispatch("w1") is True
+
+    def test_release_is_idempotent(self, coord_db) -> None:
+        state.release_review_dispatch_claim("never-claimed")  # must not raise
+        assert state.claim_review_dispatch("never-claimed") is True
+
+    def test_empty_assignment_id_always_wins(self, coord_db) -> None:
+        # Mirrors coord.claim.has_active_followup's own `of_assignment_id is
+        # None` short-circuit — nothing to key a claim on, so never block.
+        assert state.claim_review_dispatch("") is True
+        assert state.claim_review_dispatch("") is True
+
+
+# ── #3113: render_issue_context_entries exempts review findings from the
+#    block-level char cap ───────────────────────────────────────────────────
+
+
+class TestRenderIssueContextReviewFindingsExemption:
+    def test_two_full_size_review_sections_both_survive_uncut(self) -> None:
+        """#2466 widened `source="review"` context entries to carry a
+        reviewer's full `## Blocking findings` section verbatim, but left
+        `ISSUE_CONTEXT_MAX_CHARS` (2500) unaware of that — two racing
+        reviews' blocking sections (~1.8KB + ~1.9KB in the vimcode#804
+        incident) together exceeded the cap and the raw `block[:max_chars]`
+        slice cut the second one off mid-word. Both must now survive whole."""
+        first_finding = (
+            "## Blocking findings\n\n"
+            + "- missing RED statement in the acceptance test scaffold. " * 40
+        )
+        second_finding = (
+            "## Blocking findings\n\n"
+            + "- split_insert_undo_group() on every insert-mode arrow key "
+            "makes finish_undo_group do an O(buffer) full-text clone per "
+            "keystroke. " * 40
+        )
+        assert len(first_finding) > 1500
+        assert len(second_finding) > 1500
+        assert len(first_finding) + len(second_finding) > state.ISSUE_CONTEXT_MAX_CHARS
+
+        entries = [
+            {
+                "id": 1, "pinned": False, "source": "review",
+                "body": first_finding, "created_at": 1.0,
+            },
+            {
+                "id": 2, "pinned": False, "source": "review",
+                "body": second_finding, "created_at": 2.0,
+            },
+        ]
+        out = state.render_issue_context_entries(entries)
+        assert first_finding in out
+        assert second_finding in out
+        # Neither survived by accident from raising the cap globally — the
+        # rendered block genuinely exceeds the nominal cap.
+        assert len(out) > state.ISSUE_CONTEXT_MAX_CHARS
+        assert "(truncated" not in out
+
+    def test_non_review_entries_are_trimmed_to_protect_review_entries(self) -> None:
+        """A huge `source="review"` entry must not silently balloon the
+        briefing forever — ordinary (non-review) notes still yield first."""
+        big_review = "## Blocking findings\n\n" + ("x" * (state.ISSUE_CONTEXT_MAX_CHARS + 500))
+        entries = [
+            {"id": 1, "pinned": False, "source": "review", "body": big_review, "created_at": 2.0},
+            {"id": 2, "pinned": False, "source": "work", "body": "an ordinary note", "created_at": 1.0},
+        ]
+        out = state.render_issue_context_entries(entries)
+        assert big_review in out
+        assert "an ordinary note" not in out
+        assert "trimmed" in out
+
+    def test_review_entries_beyond_the_uncapped_limit_can_be_trimmed(self) -> None:
+        """A heavily-iterated issue with MORE than
+        `ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES` review entries must not be
+        allowed to balloon every future briefing with unbounded uncapped
+        review text — only the newest N stay protected; older ones fall back
+        into the normal char-capped/droppable pool."""
+        assert state.ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES == 4
+        num_reviews = state.ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES + 2
+        chunk = state.ISSUE_CONTEXT_MAX_CHARS  # each entry alone exceeds nothing,
+        # but together they blow well past the cap.
+        entries = [
+            {
+                "id": i,
+                "pinned": False,
+                "source": "review",
+                "body": f"## Blocking findings\n\nfinding-{i} " + ("y" * (chunk // 3)),
+                "created_at": float(i),
+            }
+            for i in range(1, num_reviews + 1)
+        ]
+        out = state.render_issue_context_entries(entries)
+        # The newest N (highest created_at / id) survive whole and uncapped.
+        newest_ids = range(num_reviews - state.ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES + 1, num_reviews + 1)
+        for i in newest_ids:
+            assert f"finding-{i} " in out
+        # At least one of the oldest entries beyond the uncapped budget is
+        # dropped/trimmed rather than rendered in full forever.
+        oldest_ids = range(1, num_reviews - state.ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES + 1)
+        assert any(f"finding-{i} " not in out for i in oldest_ids)
+        assert "trimmed" in out
+
+    def test_no_review_entries_behaves_exactly_as_before(self) -> None:
+        """Regression guard: with no `source="review"` entries, ordering and
+        truncation behavior is unchanged from pre-#3113."""
+        entries = [
+            {"id": 1, "pinned": True, "source": "operator", "body": "PIN dep #99", "created_at": 1.0},
+            {"id": 2, "pinned": False, "source": "test", "body": "old note", "created_at": 2.0},
+            {"id": 3, "pinned": False, "source": "work", "body": "new note", "created_at": 3.0},
+        ]
+        out = state.render_issue_context_entries(entries)
+        lines = out.splitlines()
+        assert lines[0].startswith("- 📌 PIN dep #99")
+        assert "new note" in lines[1] and "old note" in lines[2]

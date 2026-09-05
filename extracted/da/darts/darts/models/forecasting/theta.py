@@ -30,6 +30,7 @@ class Theta(LocalForecastingModel):
         theta: int = 2,
         seasonality_period: int | None = None,
         season_mode: SeasonalityMode = SeasonalityMode.MULTIPLICATIVE,
+        min_train_length: int | None = None,
     ):
         """
         An implementation of the Theta method with configurable `theta` parameter. See [1]_.
@@ -53,6 +54,10 @@ class Theta(LocalForecastingModel):
             Type of seasonality.
             Either ``SeasonalityMode.MULTIPLICATIVE``, ``SeasonalityMode.ADDITIVE`` or ``SeasonalityMode.NONE``.
             Defaults to ``SeasonalityMode.MULTIPLICATIVE``.
+        min_train_length
+            Optionally, set a custom minimum required training series length for this model to allow training on
+            shorter input series. By default, Darts sets a conservative minimum length to avoid downstream issues.
+            Changing this value might lead to such downstream issues. Default: ``None`` (keeps the default requirement).
 
         References
         ----------
@@ -76,7 +81,7 @@ class Theta(LocalForecastingModel):
          [545.80068173]]
         """
 
-        super().__init__()
+        super().__init__(min_train_length=min_train_length)
 
         self.model = None
         self.coef = 1
@@ -129,7 +134,10 @@ class Theta(LocalForecastingModel):
             new_ts = remove_from_series(ts, self.seasonality, model=self.season_mode)
 
         # SES part of the decomposition.
-        self.model = hw.SimpleExpSmoothing(new_ts.values(copy=False)).fit()
+        self.model = hw.SimpleExpSmoothing(
+            endog=new_ts.values(copy=False),
+            initialization_method="estimated",
+        ).fit()
 
         # Linear Regression part of the decomposition. We select the degree one coefficient.
         b_theta = np.polyfit(
@@ -195,9 +203,10 @@ class Theta(LocalForecastingModel):
             and self.seasonality_period
             and self.seasonality_period > 1
         ):
-            return 2 * self.seasonality_period, 0
+            input_length_inferred = 2 * self.seasonality_period
         else:
-            return 3, 0
+            input_length_inferred = 3
+        return self._min_train_input_length(input_length_inferred), 0
 
 
 class FourTheta(LocalForecastingModel):
@@ -209,6 +218,7 @@ class FourTheta(LocalForecastingModel):
         model_mode: ModelMode = ModelMode.ADDITIVE,
         trend_mode: TrendMode = TrendMode.LINEAR,
         normalization: bool = True,
+        min_train_length: int | None = None,
     ):
         """
         An implementation of the 4Theta method with configurable `theta` parameter.
@@ -248,6 +258,10 @@ class FourTheta(LocalForecastingModel):
             Defaults to `TrendMode.LINEAR`.
         normalization
             If `True`, the data is normalized so that the mean is 1. Defaults to `True`.
+        min_train_length
+            Optionally, set a custom minimum required training series length for this model to allow training on
+            shorter input series. By default, Darts sets a conservative minimum length to avoid downstream issues.
+            Changing this value might lead to such downstream issues. Default: ``None`` (keeps the default requirement).
 
         Notes
         -----
@@ -271,7 +285,7 @@ class FourTheta(LocalForecastingModel):
          [546.61463773]]
         """
 
-        super().__init__()
+        super().__init__(min_train_length=min_train_length)
 
         self.model = None
         self.drift = None
@@ -371,7 +385,10 @@ class FourTheta(LocalForecastingModel):
             theta_t = self.theta * ts_values + (1 - self.theta) * theta0_in
 
         # SES part of the decomposition.
-        self.model = hw.SimpleExpSmoothing(theta_t).fit()
+        self.model = hw.SimpleExpSmoothing(
+            endog=theta_t,
+            initialization_method="estimated",
+        ).fit()
         theta2_in = self.model.fittedvalues
 
         if (theta2_in > 0).all() and self.model_mode is ModelMode.MULTIPLICATIVE:
@@ -515,6 +532,7 @@ class FourTheta(LocalForecastingModel):
             and self.seasonality_period
             and self.seasonality_period > 1
         ):
-            return 2 * self.seasonality_period, 0
+            input_length_inferred = 2 * self.seasonality_period
         else:
-            return 3, 0
+            input_length_inferred = 3
+        return self._min_train_input_length(input_length_inferred), 0

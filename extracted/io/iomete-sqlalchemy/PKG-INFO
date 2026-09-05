@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: iomete-sqlalchemy
-Version: 1.0.22
+Version: 1.0.23
 Summary: SQLAlchemy dialect for IOMETE via Arrow Flight SQL
 License: Apache-2.0
 Requires-Python: >=3.9

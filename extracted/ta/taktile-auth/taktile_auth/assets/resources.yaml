@@ -123,9 +123,12 @@ jobs:
   # read: can view job definitions
   # write: can create and update jobs
   # delete: can delete jobs
+  # deploy: can activate and deactivate jobs
   org_id: wildcard
   ws_id: wildcard
   flow_folder_id: wildcard
+  additional_actions:
+    - deploy
 job_run:
   # read: can view job runs
   # write: can start a job run

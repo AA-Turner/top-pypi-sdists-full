@@ -277,7 +277,13 @@ async def test_harness_loop_starts_blind_and_attaches_one_frame_per_gui_turn():
     assert final == "All set. [DONE]"
 
 
-async def test_pruned_frames_leave_the_harness_marker_in_place():
+async def test_every_frame_of_the_run_rides_along_with_no_marker():
+    """The request carries the whole history, which is what the replay is built from.
+
+    The server keeps images only in the two newest image-bearing messages before
+    it serves the model, so windowing here would change nothing the model reads
+    while emptying the run's replay of every step but the last two.
+    """
     click = _batch({"name": "left_click", "arguments": {"coordinates": [500, 500]}})
     completions = FakeCompletions(
         [{"content": "", "tool_calls": [click]} for _ in range(3)] + [{"content": "done [DONE]", "tool_calls": []}]
@@ -287,10 +293,11 @@ async def test_pruned_frames_leave_the_harness_marker_in_place():
         pass
     last = completions.requests[-1]["messages"]
     tool_messages = [message for message in last if message["role"] == "tool"]
-    assert [len(_images(message)) for message in tool_messages] == [0, 1, 1]
-    # The marker concatenates into the preceding text part, one merged block —
-    # the reference builder's rendering of a pruned frame.
-    assert tool_messages[0]["content"] == [{"type": "text", "text": "[0:left_click][older image omitted]"}]
+    assert [len(_images(message)) for message in tool_messages] == [1, 1, 1]
+    # Each frame still rides with its own result text, and nothing stands in for
+    # a frame that was never dropped.
+    assert tool_messages[0]["content"][0] == {"type": "text", "text": "[0:left_click]"}
+    assert "omitted" not in json.dumps(last)
 
 
 async def test_harness_loop_sizes_a_blind_start_from_the_handler_dimensions():
@@ -704,3 +711,155 @@ async def test_breaking_at_the_model_turn_keeps_that_turn_in_the_trajectory():
         break  # abandon at the first yielded model turn
     kinds = [item.get("type") or item.get("role") for item in agent.trajectory]
     assert kinds == ["user", "function_call"]  # the yielded turn is already committed
+
+
+# --- caller-declared tools -------------------------------------------------
+
+
+_CUSTOM_TOOL_DEF = {
+    "type": "function",
+    "function": {
+        "name": "goto_url",
+        "description": "Navigate the browser to a URL.",
+        "parameters": {
+            "type": "object",
+            "properties": {"url": {"type": "string"}},
+            "required": ["url"],
+        },
+    },
+}
+
+
+def _custom_call(name: str, arguments: dict[str, Any], call_id: str = "x1") -> dict[str, Any]:
+    return {"id": call_id, "function": {"name": name, "arguments": json.dumps(arguments)}}
+
+
+def test_undeclared_custom_name_still_fails_recoverably():
+    """A name the set does not serve is an error unless the caller declared it."""
+    message = {"content": "", "tool_calls": [_custom_call("goto_url", {"url": "https://x.test"})]}
+    output = parse_n2_tool_calls(message, 1920, 1080, tool_set=TOOL_SET_COMPUTER_USE_LATEST)
+    errors = [item["output"] for item in output if item.get("type") == "function_call_output"]
+    assert len(errors) == 1
+    assert "does not expose goto_url" in errors[0]
+
+
+def test_declared_custom_tool_routes_to_the_adapter_hook():
+    message = {"content": "", "tool_calls": [_custom_call("goto_url", {"url": "https://x.test"})]}
+    output = parse_n2_tool_calls(
+        message,
+        1920,
+        1080,
+        tool_set=TOOL_SET_COMPUTER_USE_LATEST,
+        custom_tool_names=frozenset({"goto_url"}),
+    )
+    assert not [item for item in output if item.get("type") == "function_call_output"]
+    call = next(item for item in output if item.get("type") == "function_call")
+    assert call["_computer_actions"] == [
+        {"type": "run_custom_tool", "tool_name": "goto_url", "tool_arguments": {"url": "https://x.test"}}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_frame_does_not_swallow_the_tool_error():
+    """A custom tool that raises, then a screenshot that also fails, must report both.
+
+    The custom-tool family reaches the post-action screenshot path, so reporting only the
+    capture failure would tell the model the frame broke when the tool call was the cause.
+    """
+
+    class BrokenDesktop(Desktop):
+        async def run_custom_tool(self, name, arguments):
+            raise RuntimeError("navigation refused")
+
+        async def screenshot(self):
+            raise RuntimeError("capture failed")
+
+    completions = FakeCompletions(
+        [
+            {"content": "", "tool_calls": [_custom_call("goto_url", {"url": "https://x.test"})]},
+            {"content": "done", "tool_calls": []},
+        ]
+    )
+    agent = N2ComputerAgent(
+        computer=BrokenDesktop(),
+        completions=completions,
+        tool_set=TOOL_SET_COMPUTER_USE_LATEST,
+        tools=[_CUSTOM_TOOL_DEF],
+        compactor=None,
+    )
+    outputs = [
+        item["output"]
+        async for step in agent.run("go")
+        for item in step.get("output") or []
+        if item.get("type") == "function_call_output"
+    ]
+    assert len(outputs) == 1
+    assert "navigation refused" in outputs[0]
+    assert "capture failed" in outputs[0]
+
+
+async def test_custom_tool_is_served_and_returns_its_text_with_a_frame():
+    class BrowserDesktop(Desktop):
+        def __init__(self):
+            super().__init__()
+            self.custom: list[tuple[str, dict[str, Any]]] = []
+
+        async def run_custom_tool(self, name, arguments):
+            self.custom.append((name, arguments))
+            return f"navigated to {arguments['url']}"
+
+    desktop = BrowserDesktop()
+    completions = FakeCompletions(
+        [
+            {"content": "", "tool_calls": [_custom_call("goto_url", {"url": "https://x.test"})]},
+            {"content": "done", "tool_calls": []},
+        ]
+    )
+    agent = N2ComputerAgent(
+        computer=desktop,
+        completions=completions,
+        tool_set=TOOL_SET_COMPUTER_USE_LATEST,
+        tools=[_CUSTOM_TOOL_DEF],
+        compactor=None,
+    )
+    outputs = [
+        item["output"]
+        async for step in agent.run("go")
+        for item in step.get("output") or []
+        if item.get("type") == "function_call_output"
+    ]
+
+    assert [tool["function"]["name"] for tool in completions.requests[0]["tools"]] == ["goto_url"]
+    assert desktop.custom == [("goto_url", {"url": "https://x.test"})]
+    # A custom tool acts on the machine like a GUI call, so its result carries the
+    # post-action frame alongside the tool's own text. Without the frame the model spends a
+    # whole extra turn asking for one -- measured at 42% of navigations before this.
+    assert len(outputs) == 1
+    assert outputs[0]["type"] == "input_image"
+    assert outputs[0]["result"] == "navigated to https://x.test"
+    assert outputs[0]["image_url"].startswith("data:image/")
+
+
+@pytest.mark.asyncio
+async def test_custom_tool_without_an_adapter_hook_is_recoverable():
+    completions = FakeCompletions(
+        [
+            {"content": "", "tool_calls": [_custom_call("goto_url", {"url": "https://x.test"})]},
+            {"content": "done", "tool_calls": []},
+        ]
+    )
+    agent = N2ComputerAgent(
+        computer=Desktop(),
+        completions=completions,
+        tool_set=TOOL_SET_COMPUTER_USE_LATEST,
+        tools=[_CUSTOM_TOOL_DEF],
+        compactor=None,
+    )
+    outputs = [
+        item["output"]
+        async for step in agent.run("go")
+        for item in step.get("output") or []
+        if item.get("type") == "function_call_output"
+    ]
+    assert len(outputs) == 1
+    assert "run_custom_tool" in outputs[0] and outputs[0].startswith("[ERROR]")

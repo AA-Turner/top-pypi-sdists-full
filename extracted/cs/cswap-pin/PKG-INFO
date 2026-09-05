@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cswap-pin
-Version: 0.1.246
+Version: 0.1.247
 Summary: Keep Claude Code's Remote Control and Artifacts on one account while inference follows cswap's account swap
 Project-URL: Homepage, https://github.com/codeslake/cswap-pin
 Project-URL: Repository, https://github.com/codeslake/cswap-pin

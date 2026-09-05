@@ -8,7 +8,7 @@ from collections.abc import Callable, Sequence
 from enum import Enum
 from functools import wraps
 from inspect import signature
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -155,6 +155,22 @@ def classification_support(func) -> Callable[..., METRIC_OUTPUT_TYPE]:
     return wrapper_classification_support
 
 
+_metric_callbacks: list[Callable] = []
+
+
+def register_metric_callback(callback: Callable) -> None:
+    """Register a callback to be invoked after every top-level metric call."""
+    _metric_callbacks.append(callback)
+
+
+def unregister_metric_callback(callback: Callable) -> None:
+    """Remove a previously registered metric callback, if present."""
+    try:
+        _metric_callbacks.remove(callback)
+    except ValueError:
+        pass
+
+
 def multi_ts_support(func) -> Callable[..., METRIC_OUTPUT_TYPE]:
     """
     This decorator further adapts the metrics that took as input two (or three for scaled metrics with `insample`)
@@ -169,6 +185,9 @@ def multi_ts_support(func) -> Callable[..., METRIC_OUTPUT_TYPE]:
 
     @wraps(func)
     def wrapper_multi_ts_support(*args, **kwargs):
+        original_args = args
+        original_kwargs = dict(kwargs)
+
         actual_series = (
             kwargs["actual_series"] if "actual_series" in kwargs else args[0]
         )
@@ -311,6 +330,10 @@ def multi_ts_support(func) -> Callable[..., METRIC_OUTPUT_TYPE]:
             vals = kwargs[_PARAM_SERIES_REDUCTION](vals, axis=0)
         elif series_seq_type == SeriesType.SINGLE:
             vals = vals[0]
+
+        # invoke registered callbacks (e.g. MLflow autologging)
+        for cb in _metric_callbacks:
+            cb(func=func, result=vals, args=original_args, kwargs=original_kwargs)
 
         # flatten along series axis if n series == 1
         return vals
@@ -643,13 +666,17 @@ def _get_values_or_raise(
     if not remove_nan_union or is_insample:
         return vals_a, vals_b
 
-    isnan_mask = np.expand_dims(
-        np.logical_or(np.isnan(vals_a), np.isnan(vals_b)).any(axis=SMPL_AX), axis=-1
-    )
-    isnan_mask_pred = np.repeat(isnan_mask, vals_b.shape[SMPL_AX], axis=SMPL_AX)
-    return np.where(isnan_mask, np.nan, vals_a), np.where(
-        isnan_mask_pred, np.nan, vals_b
-    )
+    # fast path: most series contain no NaNs
+    nan_a, nan_b = np.isnan(vals_a), np.isnan(vals_b)
+    if not nan_a.any() and not nan_b.any():
+        return vals_a, vals_b
+
+    nan_union = nan_a | nan_b
+    if vals_b.shape[SMPL_AX] > 1:
+        isnan_mask = nan_union.any(axis=SMPL_AX, keepdims=True)
+    else:
+        isnan_mask = nan_union
+    return np.where(isnan_mask, np.nan, vals_a), np.where(isnan_mask, np.nan, vals_b)
 
 
 def _get_quantile_intervals(
@@ -846,39 +873,52 @@ def _get_error_scale(
     return scale
 
 
-def _safe_scaled_divide(
-    errors: np.ndarray,
-    scale: np.ndarray,
+def _safe_divide(
+    numerator: np.ndarray,
+    denominator: np.ndarray,
     zero_division: str = "warn",
+    zero_fill: float = 1.0,
+    strict_zero: bool = False,
+    metric_type: Literal["scaled", "percentage"] = "scaled",
 ) -> np.ndarray:
     """Divides ``errors`` by ``scale``, handling zero-scale entries gracefully.
 
     When ``zero_division`` is ``"warn"`` (default), the behavior depends on
-    whether the *numerator* is also zero:
+    whether the *numerator* is also considered zero:
 
-    * **Case 1** – scale ≈ 0, errors ≠ 0 (non-zero / zero): the scaled error
-      is undefined, so the result is ``np.nan``.
-    * **Case 2** – scale ≈ 0, errors ≈ 0 (zero / zero): the model is on par
-      with the naive baseline, so the result is ``1.0``.
+    * **Case 1** – zero scale, non-zero errors (non-zero / zero): the result is
+      undefined, so the entry is set to ``np.nan``.
+    * **Case 2** – zero scale, zero errors (zero / zero): the entry is set to
+      ``zero_fill``.
 
-    .. note::
-       Returning ``1.0`` for the 0/0 case assumes "model matches naive baseline"
-       since we cannot distinguish whether the model trivially *is* the seasonal
-       naive or made a non-trivial prediction that happens to match. For practical
-       purposes ``1.0`` is the right default.
+    The fill is applied element-wise, so a single zero-scale component (e.g. a
+    constant ``actual_series`` for a range-based metric) does not contaminate
+    the finite entries of the other components.
 
     Parameters
     ----------
-    errors
-        Numerator array of shape ``(t, c)`` or ``(c,)``.
-    scale
-        Denominator array of shape ``(c,)``.
+    numerator
+        Numerator array. Broadcasts against ``scale``.
+    denominator
+        Denominator array. Broadcasts against ``errors``.
     zero_division
         Controls behavior when ``scale`` is (near) zero.
 
         * ``"warn"`` (default) – applies the defaults described above
-          (``np.nan`` for case 1, ``1.0`` for case 2) and emits a ``UserWarning``.
+          (``np.nan`` for case 1, ``zero_fill`` for case 2) and emits a
+          warning.
         * ``"raise"`` – raises a ``ValueError`` (the legacy behavior).
+    zero_fill
+        The value for the ``0 / 0`` case under ``"warn"``. Use ``1.0`` for
+        scaled-error metrics ("on par with the naive baseline") and ``0.0`` for
+        percentage metrics ("a perfect forecast").
+    strict_zero
+        If ``True``, only exact zeros trigger zero-division handling. If
+        ``False`` (default), values close to zero according to ``np.isclose``
+        are also handled as zero. Percentage metrics use exact zeros to avoid
+        treating valid small denominators as zero.
+    metric_type
+        The metric type ('scaled', 'percentage') for logging purposes.
 
     Returns
     -------
@@ -892,30 +932,40 @@ def _safe_scaled_divide(
             ),
         )
 
-    zero_mask = np.isclose(scale, 0.0)
+    zero_mask = denominator == 0.0 if strict_zero else np.isclose(denominator, 0.0)
     if not zero_mask.any():
-        return errors / scale
+        return numerator / denominator
 
-    # --- legacy behavior: raise on zero scale ---
     if zero_division == "raise":
-        raise_log(
-            ValueError("Cannot use scaled metric with periodical signals."),
-        )
+        raise_log(ValueError(_SAFE_DIVIDE_LOGS[metric_type]["exception"]))
 
-    # Determine the fill value for zero-scale entries in a single pass.
-    # For numeric zero_division: use that value everywhere.
-    # For "warn": Case 1 (non-zero / zero) → nan, Case 2 (0 / 0) → 1.0.
-    fill = np.where(np.isclose(errors, 0.0), 1.0, np.nan)
-
-    # Single-pass: where scale ≈ 0 use fill, otherwise normal division
-    result = np.where(zero_mask, fill, errors / np.where(zero_mask, 1.0, scale))
-
-    logger.warning(
-        "The error scale (denominator) is zero for some components. "
-        "Those entries are set to NaN (when numerator is non-zero) or "
-        "1.0 (when numerator is also zero, i.e. on par with naive)."
+    numerator_zero = numerator == 0.0 if strict_zero else np.isclose(numerator, 0.0)
+    fill = np.where(numerator_zero, zero_fill, np.nan)
+    result = np.where(
+        zero_mask, fill, numerator / np.where(zero_mask, 1.0, denominator)
     )
+
+    logger.warning(_SAFE_DIVIDE_LOGS[metric_type]["warning"].format(zero_fill))
     return result
+
+
+_SAFE_DIVIDE_LOGS = {
+    "scaled": {
+        "exception": "Cannot use scaled metric with periodical signals.",
+        "warning": (
+            "The error scale (denominator) is zero for some components. "
+            "Those entries are set to NaN (when numerator is non-zero) or "
+            "{0} (when numerator is also zero, i.e. on par with naive)."
+        ),
+    },
+    "percentage": {
+        "exception": "Cannot compute metric: the denominator is zero for some entries.",
+        "warning": (
+            "The metric denominator is zero for some entries. Those entries are set to "
+            "NaN when the numerator is non-zero and {0} when the numerator is also zero."
+        ),
+    },
+}
 
 
 def _unique_labels(y_true: np.ndarray, y_pred: np.ndarray) -> list[np.ndarray]:

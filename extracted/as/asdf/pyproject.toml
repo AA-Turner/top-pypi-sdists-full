@@ -3,6 +3,7 @@ name = "asdf"
 description = "Python implementation of the ASDF Standard"
 readme = "README.rst"
 requires-python = ">=3.10"
+license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 authors = [{ name = "The ASDF Developers" }]
 classifiers = [
@@ -18,6 +19,7 @@ dependencies = [
   "packaging>=19",
   "pyyaml>=6.0",
   "semantic_version>=2.8",
+  "typing-extensions>=4.16",
 
   # for vendorized jsonschema
   "attrs>=22.2.0",
@@ -27,48 +29,59 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 all = ["asdf[lz4]", "asdf[http]"]
-docs = [
-  "sphinx-asdf>=0.2.2",
-  "graphviz",
-  "sphinx-inline-tabs",
-  'tomli; python_version < "3.11"',
-  "furo",
-]
 http = ["fsspec[http]>=2022.8.2"]
 lz4 = ["lz4>=0.10"]
 tests = ["asdf[all]", "psutil", "pytest>=8", "syrupy>=5.1"]
+typing = ["pyrefly==1.2.0", "types-PyYAML", "types-jmespath", "nox"]
 
 benchmark = ["asdf[tests]", "pytest-benchmark"]
 test = ["asdf[tests]"]
 
 [project.urls]
-'documentation' = "https://asdf.readthedocs.io/en/stable/"
-'repository' = "https://github.com/asdf-format/asdf"
-'tracker' = "https://github.com/asdf-format/asdf/issues"
+"documentation" = "https://asdf.readthedocs.io/en/stable/"
+"repository" = "https://github.com/asdf-format/asdf"
+"tracker" = "https://github.com/asdf-format/asdf/issues"
 
 [project.entry-points]
 asdf_extensions = { builtin = "asdf.extension._legacy:BuiltinExtension" }
-'asdf.extensions' = { asdf = "asdf._core._integration:get_extensions" }
-'asdf.resource_mappings' = { asdf = "asdf._core._integration:get_json_schema_resource_mappings" }
+"asdf.extensions" = { asdf = "asdf._core._integration:get_extensions" }
+"asdf.resource_mappings" = { asdf = "asdf._core._integration:get_json_schema_resource_mappings" }
 
 [project.scripts]
 asdftool = "asdf._commands.main:main"
 
+[dependency-groups]
+# Used for S3 integration testing
+mocks3 = ["boto", "fsspec", "moto[s3,server]", "s3fs>2023.12.1"]
+docs = [
+  "furo",
+  "graphviz",
+  "sphinx-asdf>=0.2.2",
+  "sphinx-inline-tabs",
+  "towncrier",
+]
+
 [build-system]
 requires = ["setuptools>=60", "setuptools_scm[toml]>=8", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.uv.dependency-groups]
+# In sphinx <9.1 autodoc doesn't work with our documentation
+# sphinx >=9.1 is only available on Python >=3.12
+docs = { requires-python = ">=3.12" }
 
 [tool.setuptools.packages.find]
 include = ["asdf*"]
 exclude = ["asdf/_jsonschema/json/*"]
 
 [tool.setuptools.package-data]
-'asdf.commands.tests.data' = ["*"]
-'asdf.tags.core.tests.data' = ["*"]
-'asdf.tests.data' = ["*"]
+"asdf.commands.tests.data" = ["*"]
+"asdf.tags.core.tests.data" = ["*"]
+"asdf.tests.data" = ["*"]
 
 [tool.setuptools_scm]
 version_file = "asdf/_version.py"
+version_scheme = "release-branch-semver"
 
 [tool.black]
 line-length = 120
@@ -78,7 +91,6 @@ force-exclude = '''
       \.eggs
     | \.git
     | \.pytest_cache
-    | \.tox
     | asdf/_extern
     | asdf/_jsonschema
     | build
@@ -137,9 +149,7 @@ omit = [
 ]
 
 [tool.coverage.report]
-exclude_lines = [
-  # Have to re-enable the standard pragma
-  "pragma: no cover",
+exclude_also = [
   # Don't complain about packages we have installed
   "except ImportError",
   # Don't complain if tests don't hit assertions
@@ -161,6 +171,7 @@ docstring-code-format = true
 docstring-code-line-length = 88
 
 [tool.ruff.lint]
+future-annotations = true
 select = [
   # minimal set to match pre-ruff behavior
   "E",  # pycodestyle
@@ -169,6 +180,7 @@ select = [
   "S",  # bandit
   "UP",  # pyupgrade
   "RUF",  # ruff specific, includes yesqa
+  "TC",  # type-checking
 ]
 ignore = [
   "S310",  # URL open for permitted schemes
@@ -185,7 +197,7 @@ ignore = [
 exclude = ["asdf/_extern/*", "asdf/_jsonschema/*"]
 
 [tool.codespell]
-skip = "*.pdf,*.asdf,.tox,asdf/_extern,asdf/_jsonschema,build,./tags,.git,docs/_build"
+skip = "*.pdf,*.asdf,asdf/_extern,asdf/_jsonschema,build,./tags,.git,docs/_build"
 ignore-words-list = """
 fo,afile,
 """
@@ -208,6 +220,15 @@ issue_format = "`#{issue} <https://github.com/asdf-format/asdf/pull/{issue}>`_"
 [tool.towncrier.fragment.removal]
 
 [tool.towncrier.fragment.general]
+
+[tool.pyrefly]
+project-excludes = ["asdf/_jsonschema/"]
+search-path = [".", "integration_tests/compatibility"]
+baseline = ".pyrefly-baseline.json"
+
+[tool.pyrefly.errors]
+bad-override = "warn"
+bad-param-name-override = "warn"
 
 # Disable automatic table sorting for pyproject.toml
 [[tool.tombi.schemas]]

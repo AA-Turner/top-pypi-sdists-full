@@ -10480,7 +10480,7 @@ var require_extend = __commonJS({
     var toStr = Object.prototype.toString;
     var defineProperty = Object.defineProperty;
     var gOPD = Object.getOwnPropertyDescriptor;
-    var isArray = function isArray2(arr) {
+    var isArray2 = function isArray3(arr) {
       if (typeof Array.isArray === "function") {
         return Array.isArray(arr);
       }
@@ -10543,10 +10543,10 @@ var require_extend = __commonJS({
             src = getProperty(target, name50);
             copy = getProperty(options, name50);
             if (target !== copy) {
-              if (deep && copy && (isPlainObject2(copy) || (copyIsArray = isArray(copy)))) {
+              if (deep && copy && (isPlainObject2(copy) || (copyIsArray = isArray2(copy)))) {
                 if (copyIsArray) {
                   copyIsArray = false;
-                  clone = src && isArray(src) ? src : [];
+                  clone = src && isArray2(src) ? src : [];
                 } else {
                   clone = src && isPlainObject2(src) ? src : {};
                 }
@@ -43149,9 +43149,23 @@ function composeContext(modified, warnings, { injectionAlert = "" } = {}) {
 function suppressToolOutput(value, message) {
   return suppressAt(value, message, 0, /* @__PURE__ */ new WeakSet(), depthMemo());
 }
+function isContentBlock(value) {
+  if (Array.isArray(value)) return false;
+  const schema = CONTENT_BLOCK_SCHEMAS.get(value.type);
+  if (schema === void 0 || !Object.hasOwn(value, "type")) return false;
+  const isValidField = (key) => {
+    if (Object.hasOwn(schema.required, key))
+      return schema.required[key](value[key]);
+    if (Object.hasOwn(schema.optional, key))
+      return schema.optional[key](value[key]);
+    return false;
+  };
+  return Object.keys(schema.required).every((key) => Object.hasOwn(value, key)) && Object.keys(value).every((key) => key === "type" || isValidField(key));
+}
 function suppressAt(value, message, depth, seen, memo) {
   if (typeof value === "string") return message;
   if (!isWalkableContainer(value)) return value;
+  if (isContentBlock(value)) return { type: "text", text: message };
   const cached = memo.get(value, depth);
   if (cached !== void 0) return cached;
   if (seen.has(value) || depth >= MAX_DEPTH) return message;
@@ -43178,7 +43192,7 @@ function suppressAt(value, message, depth, seen, memo) {
     seen.delete(value);
   }
 }
-var FILTER_WARNING, FILTER_WARNING_LABELS, REDACTION_DOCTRINE, MAX_DEPTH, DEPTH_PLACEHOLDER, CYCLE_PLACEHOLDER;
+var FILTER_WARNING, FILTER_WARNING_LABELS, REDACTION_DOCTRINE, MAX_DEPTH, DEPTH_PLACEHOLDER, CYCLE_PLACEHOLDER, isString, isRecord, isNullableString, isNullableArray, isNullableRecord, isArray, CONTENT_BLOCK_SCHEMA_ENTRIES, CONTENT_BLOCK_SCHEMAS;
 var init_output = __esm({
   "src/output.mjs"() {
     "use strict";
@@ -43207,6 +43221,59 @@ var init_output = __esm({
     MAX_DEPTH = 200;
     DEPTH_PLACEHOLDER = `[withheld: structured output nested beyond ${MAX_DEPTH} levels]`;
     CYCLE_PLACEHOLDER = "[withheld: circular reference in structured output]";
+    isString = (v) => typeof v === "string";
+    isRecord = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+    isNullableString = (v) => v === null || isString(v);
+    isNullableArray = (v) => v === null || Array.isArray(v);
+    isNullableRecord = (v) => v === null || isRecord(v);
+    isArray = (v) => Array.isArray(v);
+    CONTENT_BLOCK_SCHEMA_ENTRIES = [
+      [
+        "text",
+        {
+          required: { text: isString },
+          // A response's text block carries `citations` as an array (or null); a
+          // request's carries none.
+          optional: { citations: isNullableArray, cache_control: isNullableRecord }
+        }
+      ],
+      [
+        "image",
+        {
+          required: { source: isRecord },
+          optional: { cache_control: isNullableRecord }
+        }
+      ],
+      [
+        "document",
+        {
+          required: { source: isRecord },
+          // A document's `citations` is the `{ enabled }` toggle, not a list.
+          optional: {
+            title: isNullableString,
+            context: isNullableString,
+            citations: isNullableRecord,
+            cache_control: isNullableRecord
+          }
+        }
+      ],
+      [
+        "search_result",
+        {
+          required: { source: isString, title: isString, content: isArray },
+          optional: {
+            citations: isNullableRecord,
+            cache_control: isNullableRecord
+          }
+        }
+      ],
+      [
+        "thinking",
+        { required: { thinking: isString, signature: isString }, optional: {} }
+      ],
+      ["redacted_thinking", { required: { data: isString }, optional: {} }]
+    ];
+    CONTENT_BLOCK_SCHEMAS = new Map(CONTENT_BLOCK_SCHEMA_ENTRIES);
   }
 });
 

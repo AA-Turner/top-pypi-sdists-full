@@ -11,6 +11,7 @@ import math
 import time
 from collections.abc import AsyncIterator, Callable, Sequence
 from datetime import UTC
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -33,9 +34,12 @@ from cwsandbox import (
     ObjectStorageAccess,
     ObjectStoragePermission,
     PlacementMode,
+    PlacementSpillover,
     RegisteredVolumeOptions,
+    ResourceOptions,
     Sandbox,
     SandboxDefaults,
+    SandboxFileType,
     ScratchVolumeOptions,
     Secret,
     SecurityContext,
@@ -43,6 +47,7 @@ from cwsandbox import (
     ServiceProtocol,
     ServiceVisibility,
     StorageMedium,
+    TlsPassthroughEndpointStatus,
 )
 from cwsandbox._sandbox import (
     SandboxStatus,
@@ -57,6 +62,7 @@ from cwsandbox.exceptions import (
     SandboxFileError,
     SandboxNotFoundError,
     SandboxNotRunningError,
+    SandboxProtocolError,
     SandboxResourceExhaustedError,
     SandboxValidationError,
 )
@@ -539,6 +545,133 @@ class TestSandboxRun:
         assert stub.CreateSandbox.call_args.kwargs["timeout"] == 45
         sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
 
+    def test_create_request_maps_tls_passthrough_endpoint(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            "sleep",
+            "infinity",
+            services=[
+                Service(
+                    name="tls",
+                    port=8443,
+                    visibility=ServiceVisibility.PUBLIC,
+                    endpoint=Endpoint(kind=EndpointKind.TLS_PASSTHROUGH),
+                ),
+            ],
+        )
+
+        request = stub.CreateSandbox.call_args.args[0]
+        spec = request.sandbox.spec
+        assert len(spec.services) == 1
+        assert spec.services[0].HasField("endpoint")
+        assert spec.services[0].endpoint.kind == sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH
+        assert spec.services[0].endpoint.auth == sandbox_pb2.ENDPOINT_AUTH_UNSPECIFIED
+        assert spec.services[0].endpoint.request_timeout_seconds == 0
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_tls_passthrough_from_nested_dict(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            "sleep",
+            "infinity",
+            services=[
+                {
+                    "port": 8443,
+                    "visibility": "public",
+                    "endpoint": {"kind": "tls_passthrough"},
+                }
+            ],
+        )
+
+        ep = stub.CreateSandbox.call_args.args[0].sandbox.spec.services[0].endpoint
+        assert ep.kind == sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH
+        assert ep.auth == sandbox_pb2.ENDPOINT_AUTH_UNSPECIFIED
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_request_maps_mixed_https_and_tls(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            "sleep",
+            "infinity",
+            services=[
+                Service(
+                    name="web",
+                    port=8080,
+                    visibility=ServiceVisibility.PUBLIC,
+                    endpoint=Endpoint(kind=EndpointKind.HTTPS, auth=EndpointAuth.OPEN),
+                ),
+                Service(
+                    name="tls",
+                    port=8443,
+                    visibility=ServiceVisibility.PUBLIC,
+                    endpoint=Endpoint(kind=EndpointKind.TLS_PASSTHROUGH),
+                ),
+            ],
+        )
+
+        services = stub.CreateSandbox.call_args.args[0].sandbox.spec.services
+        assert services[0].endpoint.kind == sandbox_pb2.ENDPOINT_KIND_HTTPS
+        assert services[0].endpoint.auth == sandbox_pb2.ENDPOINT_AUTH_OPEN
+        assert services[1].endpoint.kind == sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH
+        assert services[1].endpoint.auth == sandbox_pb2.ENDPOINT_AUTH_UNSPECIFIED
+        sandbox._state = _Terminal(sandbox_id="matrix-id", status=SandboxStatus.COMPLETED)
+
+    def test_create_echoes_tls_address_from_status(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        response = sandbox_pb2.Sandbox(
+            sandbox_id="tls-id",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_CREATING,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        url="https://should-not-appear.example",
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                            url="https://tls-endpoint-url.example",
+                            address="8443-tls-id.example:443",
+                        ),
+                    )
+                ],
+            ),
+        )
+        mock_stub = MagicMock()
+        mock_stub.CreateSandbox = AsyncMock(return_value=response)
+
+        async def ensure_client(sandbox: Sandbox) -> None:
+            sandbox._channel = MagicMock()
+            sandbox._channel.close = AsyncMock()
+            sandbox._stub = mock_stub
+
+        with patch.object(Sandbox, "_ensure_client", ensure_client):
+            sandbox = Sandbox.run(
+                services=[
+                    Service(
+                        port=8443,
+                        visibility=ServiceVisibility.PUBLIC,
+                        endpoint=Endpoint(kind=EndpointKind.TLS_PASSTHROUGH),
+                    )
+                ],
+            )
+
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-tls-id.example:443",
+            ),
+        )
+        assert sandbox.service_urls == ()
+        assert sandbox.service_endpoints == ()
+        sandbox._state = _Terminal(sandbox_id="tls-id", status=SandboxStatus.COMPLETED)
+
     def test_create_request_maps_https_request_timeout_seconds_from_nested_dict(
         self,
     ) -> None:
@@ -875,6 +1008,26 @@ class TestSandboxRun:
         assert stub.CreateSandboxFromTemplate.call_args.kwargs["timeout"] == 45
         sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
 
+    def test_run_from_template_maps_tls_passthrough_endpoint(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_with_mock_stub(
+            template_id="template-123",
+            services=[
+                Service(
+                    port=8443,
+                    visibility=ServiceVisibility.PUBLIC,
+                    endpoint=Endpoint(kind=EndpointKind.TLS_PASSTHROUGH),
+                )
+            ],
+        )
+
+        ep = stub.CreateSandboxFromTemplate.call_args.args[0].overrides.services[0].endpoint
+        assert ep.kind == sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH
+        assert ep.auth == sandbox_pb2.ENDPOINT_AUTH_UNSPECIFIED
+        assert ep.request_timeout_seconds == 0
+        sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
+
     def test_run_from_template_args_without_image_raises(self) -> None:
         with pytest.raises(TypeError, match="require container_image"):
             Sandbox.run_from_template("template-123", "-c", "echo ready")
@@ -963,6 +1116,182 @@ class TestSandboxRun:
         assert credentials.credentials.path == "registry-creds"
         assert credentials.credentials.field == "token"
         sandbox._state = _Terminal(sandbox_id="template-id", status=SandboxStatus.COMPLETED)
+
+    @staticmethod
+    def _run_from_file_with_mock_stub(
+        contents: str | Path | bytes,
+        **kwargs: Any,
+    ) -> tuple[Sandbox, MagicMock]:
+        mock_stub = MagicMock()
+        mock_stub.CreateSandbox = AsyncMock(return_value=_create_sandbox_response())
+        mock_stub.CreateSandboxFromTemplate = AsyncMock(
+            return_value=_create_sandbox_response("template-id")
+        )
+        mock_stub.CreateSandboxFromFile = AsyncMock(
+            return_value=_create_sandbox_response("from-file-id")
+        )
+
+        async def ensure_client(sandbox: Sandbox) -> None:
+            sandbox._channel = MagicMock()
+            sandbox._channel.close = AsyncMock()
+            sandbox._stub = mock_stub
+
+        with patch.object(Sandbox, "_ensure_client", ensure_client):
+            sandbox = Sandbox.run_from_file(contents, **kwargs)
+        return sandbox, mock_stub
+
+    def test_run_from_file_uses_v1_request_shape(self, tmp_path: Path) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        compose = b"services:\n  main:\n    image: python:3.11\n"
+        path = tmp_path / "compose.yaml"
+        path.write_bytes(compose)
+
+        sandbox, stub = self._run_from_file_with_mock_stub(
+            path,
+            primary_service="main",
+            image_overrides={"api": "python:3.12"},
+            default_resources=ResourceOptions(
+                requests={"cpu": "1", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "256Mi"},
+            ),
+            placement_mode=PlacementMode.CKS,
+            runner_ids=["runner-1"],
+            tags=["from-file"],
+            request_id="req-compose-1",
+        )
+
+        stub.CreateSandbox.assert_not_called()
+        stub.CreateSandboxFromTemplate.assert_not_called()
+        request = stub.CreateSandboxFromFile.call_args.args[0]
+        assert request.type == sandbox_pb2.SANDBOX_FILE_TYPE_COMPOSE
+        assert request.contents == compose
+        assert request.primary_service == "main"
+        assert dict(request.image_overrides) == {"api": "python:3.12"}
+        assert request.default_resources.requests.cpu == "1"
+        assert request.default_resources.requests.memory == "256Mi"
+        assert not request.default_resources.requests.HasField("gpu")
+        assert request.mode == sandbox_pb2.SANDBOX_MODE_CKS
+        assert list(request.runner_ids) == ["runner-1"]
+        assert list(request.tags) == ["from-file"]
+        assert request.request_id == "req-compose-1"
+        assert list(request.network_ids) == []
+        assert dict(request.build_contexts) == {}
+        sandbox._state = _Terminal(sandbox_id="from-file-id", status=SandboxStatus.COMPLETED)
+
+    def test_run_from_file_sends_raw_bytes_without_normalizing(self) -> None:
+        compose = b"services:\n  main:\n    image: python:3.11\n  \n"
+        sandbox, stub = self._run_from_file_with_mock_stub(
+            compose,
+            primary_service="main",
+        )
+        request = stub.CreateSandboxFromFile.call_args.args[0]
+        assert request.contents == compose
+        sandbox._state = _Terminal(sandbox_id="from-file-id", status=SandboxStatus.COMPLETED)
+
+    def test_run_from_file_treats_str_as_path(self, tmp_path: Path) -> None:
+        compose = b"services:\n  main:\n    image: python:3.11\n"
+        path = tmp_path / "compose.yaml"
+        path.write_bytes(compose)
+
+        sandbox, stub = self._run_from_file_with_mock_stub(
+            str(path),
+            primary_service="main",
+        )
+        request = stub.CreateSandboxFromFile.call_args.args[0]
+        assert request.contents == compose
+        sandbox._state = _Terminal(sandbox_id="from-file-id", status=SandboxStatus.COMPLETED)
+
+    def test_run_from_file_merges_default_tags_and_network(self) -> None:
+        sandbox, stub = self._run_from_file_with_mock_stub(
+            b"services:\n  main:\n    image: python:3.11\n",
+            primary_service="main",
+            defaults=SandboxDefaults(
+                tags=["session-tag"],
+                network=NetworkOptions(deny_egress=True),
+            ),
+            tags=["extra"],
+        )
+        request = stub.CreateSandboxFromFile.call_args.args[0]
+        assert list(request.tags) == ["session-tag", "extra"]
+        assert request.network.deny_egress is True
+        sandbox._state = _Terminal(sandbox_id="from-file-id", status=SandboxStatus.COMPLETED)
+
+    def test_run_from_file_ignores_container_defaults(self) -> None:
+        sandbox, stub = self._run_from_file_with_mock_stub(
+            b"services:\n  main:\n    image: python:3.11\n",
+            primary_service="main",
+            defaults=SandboxDefaults(
+                container_image="should-not-send",
+                volumes=(ScratchVolumeOptions(name="workspace", mount_path="/workspace"),),
+                services=(Service(port=8080, visibility=ServiceVisibility.PUBLIC),),
+            ),
+        )
+        request = stub.CreateSandboxFromFile.call_args.args[0]
+        assert sandbox._container_image is None
+        assert "volumes" not in sandbox._start_kwargs
+        assert sandbox._services is None
+        assert not request.HasField("default_resources")
+        sandbox._state = _Terminal(sandbox_id="from-file-id", status=SandboxStatus.COMPLETED)
+
+    def test_run_from_file_requires_primary_service(self) -> None:
+        with pytest.raises(ValueError, match="primary_service is required"):
+            Sandbox.run_from_file(b"services: {}\n", primary_service="")
+
+    def test_run_from_file_rejects_gpu_default_resources(self) -> None:
+        with pytest.raises(ValueError, match="must not set GPU"):
+            Sandbox.run_from_file(
+                b"services:\n  main:\n    image: python:3.11\n",
+                primary_service="main",
+                default_resources=ResourceOptions(gpu={"count": 1}),
+            )
+
+    def test_run_from_file_rejects_oversize_contents(self) -> None:
+        from cwsandbox._sandbox import _CREATE_FROM_FILE_CONTENTS_MAX_BYTES
+
+        payload = b"x" * (_CREATE_FROM_FILE_CONTENTS_MAX_BYTES + 1)
+        with pytest.raises(ValueError, match="256 KiB"):
+            Sandbox.run_from_file(payload, primary_service="main")
+
+    def test_run_from_file_rejects_volumes(self) -> None:
+        with pytest.raises(TypeError, match="does not accept volumes"):
+            Sandbox.run_from_file(
+                b"services:\n  main:\n    image: python:3.11\n",
+                primary_service="main",
+                volumes=[ScratchVolumeOptions(name="workspace")],
+            )
+
+    def test_run_from_file_rejects_non_strict_spillover(self) -> None:
+        with pytest.raises(ValueError, match="must be STRICT"):
+            Sandbox.run_from_file(
+                b"services:\n  main:\n    image: python:3.11\n",
+                primary_service="main",
+                placement_spillover=PlacementSpillover.CKS_THEN_SERVERLESS,
+            )
+
+    def test_run_from_file_ignores_non_strict_spillover_on_defaults(self) -> None:
+        sandbox, _stub = self._run_from_file_with_mock_stub(
+            b"services:\n  main:\n    image: python:3.11\n",
+            primary_service="main",
+            defaults=SandboxDefaults(
+                placement_spillover=PlacementSpillover.CKS_THEN_SERVERLESS,
+            ),
+        )
+        assert sandbox._placement_spillover == PlacementSpillover.STRICT
+        sandbox._state = _Terminal(sandbox_id="from-file-id", status=SandboxStatus.COMPLETED)
+
+    def test_run_from_file_defaults_file_type_compose(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox, stub = self._run_from_file_with_mock_stub(
+            b"services:\n  main:\n    image: python:3.11\n",
+            primary_service="main",
+            file_type="compose",
+        )
+        request = stub.CreateSandboxFromFile.call_args.args[0]
+        assert request.type == sandbox_pb2.SANDBOX_FILE_TYPE_COMPOSE
+        assert SandboxFileType.COMPOSE == "compose"
+        sandbox._state = _Terminal(sandbox_id="from-file-id", status=SandboxStatus.COMPLETED)
 
     @pytest.mark.parametrize(
         ("kwargs", "message"),
@@ -3502,6 +3831,40 @@ class TestSandboxWaitForRunning:
 
             assert sandbox.returncode == 0
 
+    def test_wait_polls_through_preparing(self) -> None:
+        """wait() keeps polling while proto state is PREPARING.
+
+        STATE_PREPARING used to map to UNSPECIFIED, which is a stable poll
+        result and made wait() return before the sandbox was ready.
+        """
+        from cwsandbox._proto import sandbox_pb2
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "preparing-id"
+        sandbox._state = _Starting(sandbox_id="preparing-id")
+
+        preparing = sandbox_pb2.Sandbox(
+            sandbox_id="preparing-id",
+            status=sandbox_pb2.SandboxStatus(state=sandbox_pb2.STATE_PREPARING),
+        )
+        running = sandbox_pb2.Sandbox(
+            sandbox_id="preparing-id",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                runner_id="tower-1",
+            ),
+        )
+
+        with patch.object(sandbox, "_ensure_client", new_callable=AsyncMock):
+            sandbox._channel = MagicMock()
+            sandbox._stub = MagicMock()
+            sandbox._stub.GetSandbox = AsyncMock(side_effect=[preparing, running])
+            with patch("cwsandbox._sandbox.asyncio.sleep", new_callable=AsyncMock):
+                sandbox.wait()
+
+        assert sandbox.status == SandboxStatus.RUNNING
+        assert sandbox._stub.GetSandbox.await_count == 2
+
 
 class TestSandboxEnvironmentVariables:
     """Tests for environment variables merging behavior."""
@@ -4596,6 +4959,26 @@ class TestSandboxFromId:
             assert call_kwargs["metadata"] == expected_metadata
 
     @pytest.mark.asyncio
+    async def test_from_id_raises_protocol_error_on_undecodable_response(
+        self, mock_api_key: str
+    ) -> None:
+        """from_id() surfaces a Get that yields no decoded message as SandboxProtocolError."""
+        mock_channel = MagicMock()
+        mock_channel.close = AsyncMock()
+        mock_stub = MagicMock()
+        mock_stub.GetSandbox = AsyncMock(return_value=None)
+
+        with (
+            patch("cwsandbox._sandbox.parse_grpc_target", return_value=("test:443", True)),
+            patch("cwsandbox._sandbox.create_channel", return_value=mock_channel),
+            patch("cwsandbox._sandbox.sandbox_pb2_grpc.SandboxServiceStub", return_value=mock_stub),
+        ):
+            with pytest.raises(SandboxProtocolError, match="test-123"):
+                await Sandbox.from_id("test-123")
+
+        mock_channel.close.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_from_id_raises_not_found(self, mock_api_key: str) -> None:
         """Test from_id() raises SandboxNotFoundError for non-existent sandbox."""
         mock_channel = MagicMock()
@@ -4648,6 +5031,90 @@ class TestSandboxFromId:
 
             assert sandbox._poll_retry_budget_seconds == 12.0
             assert sandbox._poll_rpc_timeout_seconds == 7.0
+
+    @pytest.mark.asyncio
+    async def test_from_id_fills_tls_address(self, mock_api_key: str) -> None:
+        from google.protobuf import timestamp_pb2
+
+        from cwsandbox._proto import sandbox_pb2
+
+        mock_response = sandbox_pb2.Sandbox(
+            sandbox_id="tls-123",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                runner_id="tower-1",
+                start_time=timestamp_pb2.Timestamp(seconds=1234567890),
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                            address="8443-tls-123.example:443",
+                        ),
+                    )
+                ],
+            ),
+        )
+        mock_channel = MagicMock()
+        mock_channel.close = AsyncMock()
+        mock_stub = MagicMock()
+        mock_stub.GetSandbox = AsyncMock(return_value=mock_response)
+
+        with (
+            patch("cwsandbox._sandbox.parse_grpc_target", return_value=("test:443", True)),
+            patch("cwsandbox._sandbox.create_channel", return_value=mock_channel),
+            patch("cwsandbox._sandbox.sandbox_pb2_grpc.SandboxServiceStub", return_value=mock_stub),
+        ):
+            sandbox = await Sandbox.from_id("tls-123")
+
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-tls-123.example:443",
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_from_id_empty_tls_address_does_not_retain(self, mock_api_key: str) -> None:
+        from google.protobuf import timestamp_pb2
+
+        from cwsandbox._proto import sandbox_pb2
+
+        mock_response = sandbox_pb2.Sandbox(
+            sandbox_id="tls-123",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                runner_id="tower-1",
+                start_time=timestamp_pb2.Timestamp(seconds=1234567890),
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                        ),
+                    )
+                ],
+            ),
+        )
+        mock_channel = MagicMock()
+        mock_channel.close = AsyncMock()
+        mock_stub = MagicMock()
+        mock_stub.GetSandbox = AsyncMock(return_value=mock_response)
+
+        with (
+            patch("cwsandbox._sandbox.parse_grpc_target", return_value=("test:443", True)),
+            patch("cwsandbox._sandbox.create_channel", return_value=mock_channel),
+            patch("cwsandbox._sandbox.sandbox_pb2_grpc.SandboxServiceStub", return_value=mock_stub),
+        ):
+            sandbox = await Sandbox.from_id("tls-123")
+
+        assert sandbox.service_addresses == ()
 
 
 class TestSandboxDeleteClassMethod:
@@ -6440,6 +6907,16 @@ class TestTerminatingStatus:
         status = SandboxStatus.from_proto(sandbox_pb2.STATE_TERMINATING)
         assert status == SandboxStatus.TERMINATING
 
+    def test_from_proto_preparing(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _RUNNING_STATUSES, _TERMINAL_STATUSES
+
+        status = SandboxStatus.from_proto(sandbox_pb2.STATE_PREPARING)
+        assert status == SandboxStatus.PREPARING
+        assert status.to_proto() == sandbox_pb2.STATE_PREPARING
+        assert SandboxStatus.PREPARING not in _TERMINAL_STATUSES
+        assert SandboxStatus.PREPARING not in _RUNNING_STATUSES
+
     def test_to_proto_terminating(self) -> None:
         """TERMINATING round-trips through to_proto."""
         from cwsandbox._proto import sandbox_pb2
@@ -6523,7 +7000,10 @@ class TestStoppingStateTransitions:
                         port=9090,
                         name="metrics",
                         visibility=sandbox_pb2.VISIBILITY_UNSPECIFIED,
-                        endpoint=sandbox_pb2.EndpointStatus(url="https://sb.example/9090"),
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_HTTPS,
+                            url="https://sb.example/9090",
+                        ),
                     ),
                     sandbox_pb2.ServiceStatus(
                         port=7070,
@@ -6649,9 +7129,11 @@ class TestStoppingStateTransitions:
                         port=8443,
                         name="tls",
                         visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        url="https://should-not-appear.example",
                         endpoint=sandbox_pb2.EndpointStatus(
                             kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
-                            url="8443-sb-1.example:443",
+                            url="https://tls-endpoint-url.example",
+                            address="8443-sb-1.example:443",
                         ),
                     ),
                 ],
@@ -6659,6 +7141,18 @@ class TestStoppingStateTransitions:
         )
         sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
 
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+        assert sandbox.service_urls == (
+            (8080, "web", "https://8080-sb-1.example"),
+            (9090, "ready", "https://9090-sb-1.example"),
+        )
         assert sandbox.service_endpoints == (
             HttpsEndpointStatus(
                 port=8080,
@@ -6675,6 +7169,46 @@ class TestStoppingStateTransitions:
                 auth=EndpointAuth.OPEN,
                 url="https://9090-sb-1.example",
                 request_timeout_seconds=15,
+            ),
+        )
+
+    def test_apply_sandbox_info_ignores_tls_urls(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        url="https://service-url.example",
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                            url="https://endpoint-url.example",
+                            address="8443-sb-1.example:443",
+                        ),
+                    )
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_urls == ()
+        assert sandbox.service_endpoints == ()
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
             ),
         )
 
@@ -6728,6 +7262,341 @@ class TestStoppingStateTransitions:
                 request_timeout_seconds=120,
             ),
         )
+
+    def test_apply_sandbox_info_retains_tls_address_when_get_omits_it(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_addresses = (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                        ),
+                    )
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+        assert sandbox.service_urls == ()
+
+    def test_apply_sandbox_info_retains_tls_when_get_omits_endpoint(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_addresses = (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                    )
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+        assert sandbox.service_urls == ()
+
+    def test_apply_sandbox_info_retains_tls_when_mixed_get_omits_address(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_urls = ((8080, "web", "https://8080-sb-1.example"),)
+        sandbox._service_endpoints = (
+            HttpsEndpointStatus(
+                port=8080,
+                name="web",
+                kind=EndpointKind.HTTPS,
+                auth=EndpointAuth.OPEN,
+                url="https://8080-sb-1.example",
+                request_timeout_seconds=15,
+            ),
+        )
+        sandbox._service_addresses = (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8080,
+                        name="web",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_HTTPS,
+                            auth=sandbox_pb2.ENDPOINT_AUTH_OPEN,
+                            url="https://8080-sb-1.example",
+                            request_timeout_seconds=15,
+                        ),
+                    ),
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                        ),
+                    ),
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_urls == ((8080, "web", "https://8080-sb-1.example"),)
+        assert sandbox.service_endpoints == (
+            HttpsEndpointStatus(
+                port=8080,
+                name="web",
+                kind=EndpointKind.HTTPS,
+                auth=EndpointAuth.OPEN,
+                url="https://8080-sb-1.example",
+                request_timeout_seconds=15,
+            ),
+        )
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+
+    def test_apply_sandbox_info_merges_partial_two_tls_get(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_addresses = (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls-a",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+            TlsPassthroughEndpointStatus(
+                port=9443,
+                name="tls-b",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="9443-sb-1.example:443",
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_RUNNING,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls-a",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                            address="8443-sb-1-updated.example:443",
+                        ),
+                    ),
+                    sandbox_pb2.ServiceStatus(
+                        port=9443,
+                        name="tls-b",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                        ),
+                    ),
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_addresses == (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls-a",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1-updated.example:443",
+            ),
+            TlsPassthroughEndpointStatus(
+                port=9443,
+                name="tls-b",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="9443-sb-1.example:443",
+            ),
+        )
+
+    def test_apply_sandbox_info_clears_tls_address_when_terminal(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_addresses = (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_COMPLETED,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                        ),
+                    )
+                ],
+            ),
+        )
+        sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_addresses == ()
+
+    def test_apply_sandbox_info_clears_tls_address_when_paused(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_addresses = (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_PAUSED,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                        ),
+                    )
+                ],
+            ),
+        )
+        sandbox._state = sandbox._apply_sandbox_info(_SandboxView(proto), source="query")
+
+        assert sandbox.service_addresses == ()
+        assert sandbox.status == SandboxStatus.PAUSED
+
+    def test_apply_sandbox_info_clears_tls_address_on_poll_unspecified(self) -> None:
+        from cwsandbox._proto import sandbox_pb2
+        from cwsandbox._sandbox import _SandboxView
+
+        sandbox = Sandbox(command="sleep", args=["infinity"])
+        sandbox._sandbox_id = "sb-1"
+        sandbox._state = _Running(sandbox_id="sb-1")
+        sandbox._service_addresses = (
+            TlsPassthroughEndpointStatus(
+                port=8443,
+                name="tls",
+                kind=EndpointKind.TLS_PASSTHROUGH,
+                address="8443-sb-1.example:443",
+            ),
+        )
+
+        proto = sandbox_pb2.Sandbox(
+            sandbox_id="sb-1",
+            status=sandbox_pb2.SandboxStatus(
+                state=sandbox_pb2.STATE_UNSPECIFIED,
+                services=[
+                    sandbox_pb2.ServiceStatus(
+                        port=8443,
+                        name="tls",
+                        visibility=sandbox_pb2.VISIBILITY_PUBLIC,
+                        endpoint=sandbox_pb2.EndpointStatus(
+                            kind=sandbox_pb2.ENDPOINT_KIND_TLS_PASSTHROUGH,
+                        ),
+                    )
+                ],
+            ),
+        )
+        sandbox._state = sandbox._apply_sandbox_info(_SandboxView(proto), source="poll")
+
+        assert sandbox.service_addresses == ()
+        assert sandbox.status == SandboxStatus.COMPLETED
 
     def test_stopping_to_running_rejected(self) -> None:
         """_Stopping -> _Running is rejected (stale poll response)."""

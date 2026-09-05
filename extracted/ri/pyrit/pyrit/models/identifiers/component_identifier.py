@@ -323,7 +323,8 @@ class ComponentIdentifier(BaseModel):
             ``ComponentIdentifier``, in field-definition order.
         """
         base_fields = set(ComponentIdentifier.model_fields)
-        return tuple(name for name in cls.model_fields if name not in base_fields)
+        promoted_fields: tuple[str, ...] = tuple(name for name in cls.model_fields if name not in base_fields)
+        return promoted_fields
 
     @classmethod
     def _promoted_param_fields(cls) -> tuple[str, ...]:
@@ -527,7 +528,7 @@ class ComponentIdentifier(BaseModel):
 
         params_dict = data.get("params")
         if isinstance(params_dict, dict):
-            collisions = set(params_dict) & RESERVED_PARAM_NAMES
+            collisions: set[str] = {str(name) for name in params_dict} & RESERVED_PARAM_NAMES
             if collisions:
                 raise ValueError(f"ComponentIdentifier params must not use reserved names: {sorted(collisions)}")
 

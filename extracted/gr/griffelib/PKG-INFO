@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: griffelib
-Version: 2.2.0
+Version: 2.3.0
 Summary: Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API.
 Author-email: Timothée Mazzucotelli <dev@pawamoy.fr>
 License-Expression: ISC

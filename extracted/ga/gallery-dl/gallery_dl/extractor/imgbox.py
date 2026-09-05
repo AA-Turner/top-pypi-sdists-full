@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2014-2025 Mike Fährmann
+# Copyright 2014-2026 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -8,7 +8,7 @@
 
 """Extractors for https://imgbox.com/"""
 
-from .common import Extractor, Message, AsynchronousMixin
+from .common import Extractor, Message
 from .. import text
 
 
@@ -51,9 +51,10 @@ class ImgboxExtractor(Extractor):
         return text.extr(page, 'property="og:image" content="', '"')
 
 
-class ImgboxGalleryExtractor(AsynchronousMixin, ImgboxExtractor):
+class ImgboxGalleryExtractor(ImgboxExtractor):
     """Extractor for image galleries from imgbox.com"""
     subcategory = "gallery"
+    async_mode = True
     directory_fmt = ("{category}", "{title} - {gallery_key}")
     filename_fmt = "{num:>03}-{filename}.{extension}"
     archive_fmt = "{gallery_key}_{image_key}"

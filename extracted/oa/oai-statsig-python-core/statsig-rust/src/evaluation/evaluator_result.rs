@@ -20,7 +20,7 @@ use crate::evaluation::secondary_exposure_key::SecondaryExposureKey;
 use crate::hashing::{HashAlgorithm, HashUtil};
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
-use crate::specs_response::spec_types::Rule;
+use crate::specs_response::spec_types::{Rule, SharedControlExperiments};
 use crate::specs_response::specs_hash_map::SpecPointer;
 use crate::statsig_types_raw::{
     DynamicConfigRaw, ExperimentRaw, FeatureGateRaw, LayerRaw, SuffixedRuleId,
@@ -50,10 +50,12 @@ pub struct EvaluatorResult {
     pub override_reason: Option<&'static str>,
     pub version: Option<u32>,
     pub sampling_rate: Option<u64>,
+    pub rule_pass_percentage: Option<f64>,
     pub forward_all_exposures: Option<bool>,
     pub override_config_name: Option<InternedString>,
     pub has_seen_analytical_gates: Option<bool>,
     pub parameter_rule_ids: Option<HashMap<InternedString, InternedString>>,
+    pub shared_control_experiments: Option<SharedControlExperiments>,
 }
 
 impl EvaluatorResult {
@@ -76,10 +78,12 @@ impl EvaluatorResult {
         self.override_reason = None;
         self.version = None;
         self.sampling_rate = None;
+        self.rule_pass_percentage = None;
         self.forward_all_exposures = None;
         self.override_config_name = None;
         self.has_seen_analytical_gates = None;
         self.parameter_rule_ids = None;
+        self.shared_control_experiments = None;
     }
 }
 
@@ -330,6 +334,9 @@ pub fn result_to_layer_raw<'a>(
     options: LayerEvaluationOptions,
     eval_details: &'a EvaluationDetails,
     result: Option<&'a EvaluatorResult>,
+    shared_control_exposures: Option<
+        &'a Vec<crate::evaluation::evaluation_types::SharedControlLayerExposure>,
+    >,
 ) -> LayerRaw<'a> {
     match result {
         Some(result) => LayerRaw {
@@ -348,8 +355,13 @@ pub fn result_to_layer_raw<'a>(
             explicit_parameters: result.explicit_parameters.clone(),
             parameter_rule_ids: result.parameter_rule_ids.as_ref(),
             exposure_info: Some(result_to_extra_exposure_info(result)),
+            shared_control_exposures,
         },
-        None => LayerRaw::empty(layer_name, eval_details),
+        None => {
+            let mut raw = LayerRaw::empty(layer_name, eval_details);
+            raw.shared_control_exposures = shared_control_exposures;
+            raw
+        }
     }
 }
 
@@ -389,6 +401,7 @@ pub fn result_to_layer_eval_with_name(
         undelegated_secondary_exposures: Some(undelegated_sec_expos.unwrap_or_default()),
         id_type: Some(id_type),
         parameter_rule_ids: result.parameter_rule_ids.clone(),
+        shared_control_experiments: result.shared_control_experiments.take(),
     }
 }
 
@@ -649,6 +662,7 @@ pub fn result_to_extra_exposure_info(result: &EvaluatorResult) -> ExtraExposureI
         has_seen_analytical_gates: result.has_seen_analytical_gates,
         override_config_name: result.override_config_name.clone(),
         version: result.version,
+        rule_pass_percentage: result.rule_pass_percentage,
     }
 }
 
@@ -790,6 +804,7 @@ mod tests {
             override_reason: Some("override"),
             version: Some(1),
             sampling_rate: Some(10),
+            rule_pass_percentage: Some(50.0),
             forward_all_exposures: Some(true),
             override_config_name: Some(InternedString::from_str_ref("override_config")),
             has_seen_analytical_gates: Some(true),
@@ -797,6 +812,7 @@ mod tests {
                 InternedString::from_str_ref("param"),
                 InternedString::from_str_ref("rule"),
             )])),
+            shared_control_experiments: None,
         };
 
         result.secondary_exposures.push(SecondaryExposure {
@@ -830,6 +846,7 @@ mod tests {
         assert!(result.override_reason.is_none());
         assert!(result.version.is_none());
         assert!(result.sampling_rate.is_none());
+        assert!(result.rule_pass_percentage.is_none());
         assert!(result.forward_all_exposures.is_none());
         assert!(result.override_config_name.is_none());
         assert!(result.has_seen_analytical_gates.is_none());

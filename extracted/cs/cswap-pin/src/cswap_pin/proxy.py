@@ -11231,7 +11231,7 @@ def policy_limits_for(token: "str | None") -> "dict | None":
 
 
 #: Claude Code re-fetches its profile once `oauthAccount.profileFetchedAt` is a
-#: day old (2.1.257 `$An`: 86400000 ms) and writes the answer into the field
+#: day old (2.1.261 `Spe`: 86400000 ms) and writes the answer into the field
 #: WHOLE, account uuid included. That fetch travels as the ACTIVE account, so
 #: on a pinned machine it is the write that moves the field off the pin. A
 #: spliced identity younger than this never opens that gate.
@@ -11250,7 +11250,7 @@ def profile_identity_from(doc, now_ms=None) -> "dict | None":
     """`oauthAccount` as Claude Code writes it from `/api/oauth/profile`.
 
     The same keys and the same absent-vs-null rules as CC's own writer
-    (2.1.257 `D7e`), because its profile gate tests these names: a field
+    (2.1.261 `XQe`), because its profile gate tests these names: a field
     spelled differently here is a field CC finds missing, and a missing one
     re-opens the fetch this exists to keep closed.
     """
@@ -11272,10 +11272,17 @@ def profile_identity_from(doc, now_ms=None) -> "dict | None":
         "seatTier": org.get("seat_tier"),
         "profileFetchedAt": int(time.time() * 1000 if now_ms is None else now_ms),
     }
+    # No `??` on CC's side for `created_at`: a server null is stored as JSON
+    # `null`, not omitted, or CC's gate (`!== void 0`) reads the omission as
+    # unset and re-fetches. But `acct.get(...)` cannot tell that null apart
+    # from an absent key, and an absent key IS what CC's own writer produces
+    # (`JSON.stringify` drops the `undefined` property) -- so the key itself
+    # tracks presence in `acct`, not just its value.
+    if "created_at" in acct:
+        out["accountCreatedAt"] = acct.get("created_at")
     # `?? void 0` on CC's side: absent when the server sends nothing, never null.
     for key, val in (("emailAddress", acct.get("email")),
                      ("organizationUuid", org.get("uuid")),
-                     ("accountCreatedAt", acct.get("created_at")),
                      ("billingType", org.get("billing_type")),
                      ("subscriptionCreatedAt", org.get("subscription_created_at"))):
         if val is not None:

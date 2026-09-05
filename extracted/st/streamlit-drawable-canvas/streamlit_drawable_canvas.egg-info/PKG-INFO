@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streamlit-drawable-canvas
-Version: 0.10.0
+Version: 0.13.0
 Summary: A Streamlit custom component for a free drawing canvas using Fabric.js.
 Author-email: Fanilo Andrianasolo <contact@andfanilo.com>
 License-Expression: MIT
@@ -20,8 +20,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: streamlit>=1.53
 Provides-Extra: image
-Requires-Dist: Pillow; extra == "image"
-Requires-Dist: numpy; extra == "image"
 Dynamic: license-file
 
 # Streamlit - Drawable Canvas
@@ -65,12 +63,6 @@ Streamlit).
 pip install streamlit-drawable-canvas
 ```
 
-`return_image_data=True` additionally requires Pillow and numpy:
-
-```shell
-pip install streamlit-drawable-canvas[image]
-```
-
 ## Example Usage
 
 Copy this code snippet:
@@ -83,7 +75,7 @@ from streamlit_drawable_canvas import st_canvas
 
 # Specify canvas parameters in application
 drawing_mode = st.sidebar.selectbox(
-    "Drawing tool:", ("point", "freedraw", "line", "rect", "circle", "transform")
+    "Drawing tool:", ("point", "freedraw", "line", "rect", "circle", "polygon", "text")
 )
 
 stroke_width = st.sidebar.slider("Stroke width: ", 1, 25, 3)
@@ -143,34 +135,44 @@ st_canvas(
     width: int
     drawing_mode: str
     initial_drawing: dict
-    display_toolbar: bool
     point_display_radius: int
     return_image_data: bool
     key: str
     on_change: callable
     disabled: bool
     background_image_fit: str
+    max_display_height: int
+    font_size: int
+    label: str
 )
 ```
 
-- **fill_color** : Color of fill for Rect in CSS color property. Defaults to "#eee".
+- **fill_color** : Color of fill for Rect/Circle/Polygon in CSS color property. Defaults
+  to "#eee". In `drawing_mode="text"`, defaults to `stroke_color` instead -- "#eee" text
+  on a default canvas would be all but invisible. Passing a value explicitly behaves
+  identically in every mode.
 - **stroke_width** : Width of drawing brush in CSS color property. Defaults to 20.
 - **stroke_color** : Color of drawing brush in hex. Defaults to "black".
 - **background_color** : Color of canvas background in CSS color property. Defaults to "" which is transparent. Overriden by background_image. Changing background_color will reset the drawing.
 - **background_image** : Image to display behind canvas: an http(s) URL, a `data:` URI, a local file path, raw image bytes, or a Pillow Image. Automatically resized to canvas dimensions. Being behind the canvas, it is not sent back to Streamlit on mouse event. Overrides background_color. Changes to this will reset canvas contents.
-- **update_streamlit** : Whenever True, send canvas data to Streamlit when object/selection is updated or mouse up. Forced off for `drawing_mode="polygon"` -- an in-progress multi-click polygon isn't a meaningful intermediate value; the completed polygon still sends once closed with a right-click. When nothing sends automatically, the toolbar stays pinned open instead of appearing on hover, because its send button is then the only discoverable way to commit a drawing. **If what you want is "only give me the finished drawing", prefer an `st.form` over `update_streamlit=False`** -- see [FAQ.md](FAQ.md).
+- **update_streamlit** : Whenever True, send canvas data to Streamlit when object/selection is updated or mouse up. Forced off for `drawing_mode="polygon"` -- an in-progress multi-click polygon isn't a meaningful intermediate value; the completed polygon still sends once closed. When nothing sends automatically, the toolbar stays pinned open instead of appearing on hover, because its send button is then the only discoverable way to commit a drawing. **If what you want is "only give me the finished drawing", prefer an `st.form` over `update_streamlit=False`** -- see [FAQ.md](FAQ.md).
 - **height** : Height of canvas in pixels. Defaults to 400.
 - **width** : Width of canvas in pixels. Defaults to 600.
-- **drawing_mode** : One of `"freedraw"`, `"transform"`, `"line"`, `"rect"`, `"circle"`, `"point"`, `"polygon"`. Enable free drawing when "freedraw", object manipulation when "transform", otherwise create new objects with the rest. Defaults to "freedraw". Any other value raises `ValueError`.
-  - On "polygon" mode, double-clicking will remove the latest point and right-clicking will close the polygon.
+- **drawing_mode** : One of `"freedraw"`, `"line"`, `"rect"`, `"circle"`, `"point"`, `"polygon"`, `"text"`, `"labeled_rect"`. Text placement when "text", a labeled bounding box when "labeled_rect", otherwise create new objects with the rest. Defaults to "freedraw". Any other value raises `ValueError`.
+  - On "polygon" mode, click to add a vertex; every vertex shows a handle. Click the first vertex's handle to close the shape; click any other handle to remove that vertex.
+  - On "text" mode, clicking places an empty text object and starts editing it immediately; click elsewhere (or Escape/blur) to finish. Nothing is sent to Streamlit until editing ends.
+  - On "labeled_rect" mode, click and drag to draw a box the same way "rect" does, stamped with the current `label`. See the `label` parameter below.
+  - Editing (moving, scaling, rotating, click-to-edit existing text, click-to-relabel a box) isn't a drawing mode -- it's the toolbar's edit toggle, available regardless of `drawing_mode`. It has two levels: selecting an object lets you move/scale/rotate it as a whole (level 1); clicking an already-selected polygon, line, rect, circle or labeled box a second time re-enters it -- point editing for a shape, the label field for a box -- instead of acting on the whole object. See [FAQ.md](FAQ.md) for the per-shape gesture table.
 - **initial_drawing** : Initialize canvas with drawings from here. Should be the `json_data` output from another canvas. Beware: if you try to import a drawing from a bigger/smaller canvas, no rescaling is done in the canvas and the import could fail.
 - **point_display_radius** : To make points visible on the canvas, they are drawn as circles. This parameter modifies the radius of the displayed circle.
-- **display_toolbar** : If `False`, don't display the undo/redo/reset toolbar. When shown, it appears on hover as a floating card above the canvas's top-right corner, matching Streamlit's own element toolbars, and takes up no layout space.
-- **return_image_data** : If `True`, populate `image_data` on the result with the canvas's RGBA pixels. `False` by default -- it PNG-encodes the whole canvas on every send. Requires the `image` extra; accessing `image_data` without both raises.
+- **return_image_data** : If `True`, populate `image_data` (RGBA numpy array) and `image_bytes` (raw PNG bytes, for `st.download_button`) on the result. `False` by default -- it PNG-encodes the whole canvas on every send. Accessing either without it raises `RuntimeError`.
 - **key** : An optional string to use as the unique key for the widget. Assign a key so the component is not remounted on every rerun.
 - **on_change** : Optional callback invoked when the component sends a new drawing.
 - **background_image_fit** : One of `"stretch"` (default) or `"contain"`. `"stretch"` scales each axis independently to fill the canvas exactly, distorting the image when the aspect ratios differ -- this is the historical behaviour. `"contain"` preserves the aspect ratio, fitting the image inside the canvas and centring it, so a canvas larger than its background image gets margins instead of a stretched image. Ignored when no `background_image` is set. Any other value raises `ValueError`.
-- **disabled** : If `True`, render the canvas read-only -- drawing, selection and transforms are all inert, nothing is sent back to Streamlit, and the toolbar is hidden regardless of `display_toolbar`. `initial_drawing` still renders, so this is how you show a drawing back to someone without letting them change it. Defaults to `False`.
+- **disabled** : If `True`, render the canvas read-only -- drawing, selection and transforms are all inert, nothing is sent back to Streamlit, and the toolbar is hidden. `initial_drawing` still renders, so this is how you show a drawing back to someone without letting them change it. Defaults to `False`.
+- **max_display_height** : Caps the canvas's displayed height in pixels and makes it scroll vertically inside that box. `height`, canvas pixel dimensions, and `json_data` coordinates are unaffected. `None` (the default) displays the canvas at its full height. Horizontal scrolling is always available, independent of this parameter.
+- **font_size** : Font size in pixels for text placed in `drawing_mode="text"`, and for the label chip on boxes drawn in `drawing_mode="labeled_rect"`. Defaults to 20. Ignored in every other mode.
+- **label** : The label stamped onto every box drawn in `drawing_mode="labeled_rect"`. Defaults to `""`, which draws a box with no label chip. Raises `ValueError` if non-empty and `drawing_mode` is not `"labeled_rect"`. Read labeled boxes back with `CanvasResult.boxes`, or relabel one on the canvas via the toolbar's edit toggle -- see [FAQ.md](FAQ.md).
 
 Example:
 
@@ -188,7 +190,7 @@ st_canvas(initial_drawing=canvas_result.json_data)
 upgrading:
 
 - **`image_data` raises `RuntimeError`** -- it's now opt-in. Pass `return_image_data=True`
-  to `st_canvas()`, and install the extra: `pip install streamlit-drawable-canvas[image]`.
+  to `st_canvas()`.
 - **Old Streamlit or Python** -- 0.10.0 needs Streamlit >= 1.53 and Python >= 3.10. If
   you can't upgrade, pin `streamlit-drawable-canvas==0.9.3`.
 - **Saved drawings from 0.9.x with Circle or Point objects render as a thin sliver, not
@@ -196,7 +198,7 @@ upgrading:
   `Circle.startAngle`/`endAngle` in radians; Fabric 7 reinterprets those same JSON keys
   as degrees, and `loadFromJSON` doesn't consult the JSON's `version` field to tell the
   difference. This is declared breaking, with no migration shim. Line, Rect, freedraw,
-  Polygon, and Transform objects are unaffected -- only objects from `circle`/`point`
+  Polygon, and Edit-mode objects are unaffected -- only objects from `circle`/`point`
   drawing modes carry `startAngle`/`endAngle`.
 
 ## Development

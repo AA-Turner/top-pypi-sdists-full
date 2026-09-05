@@ -17,12 +17,6 @@ def h():
 
 
 def test_axes_basics(h):
-    h = bh.Histogram(
-        bh.axis.Regular(10, 0, 10, metadata=2),
-        bh.axis.Integer(0, 5, metadata="hi"),
-        bh.axis.StrCategory(["HI", "HO"]),
-    )
-
     assert h.axes.bin(1, 2, 0) == ((1.0, 2.0), 2, "HI")
     assert h.axes.value(0, 0, 0) == (0.0, 0, "HI")
     assert h.axes.index(2, 3, "HO") == (2, 3, 1)
@@ -82,6 +76,24 @@ def test_axis_misconstuct():
 
     with pytest.raises(TypeError):
         bh.axis.AxesTuple(inp[0])
+
+
+def test_histogram_axes_do_not_alias_metadata():
+    # Passing the same axis instance twice must not let the two histogram
+    # axes (or the original axis) share one metadata dict.
+    a = bh.axis.Regular(3, 0, 1)
+    h = bh.Histogram(a, a)
+    h.axes[0].label = "x"
+
+    assert a.metadata is None
+    assert h.axes[1].metadata is None
+
+    # The conversion constructor must give its axes their own metadata too.
+    h1 = bh.Histogram(bh.axis.Regular(2, 0, 1))
+    h2 = bh.Histogram(h1)
+    h2.axes[0].label = "y"
+
+    assert h1.axes[0].metadata is None
 
 
 def test_array_tuple_dir(h):

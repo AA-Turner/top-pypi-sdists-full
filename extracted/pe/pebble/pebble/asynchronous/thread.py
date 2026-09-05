@@ -17,22 +17,19 @@
 import asyncio
 
 from functools import wraps
-from typing import Callable, Optional, overload
+from typing import Any, Callable, Mapping, Iterable, overload
 
 from pebble import common
+from pebble.common.types import P, T
 from pebble.pool.thread import ThreadPool
 
 
 @overload
-def thread(func: common.CallableType) -> common.AsyncIODecoratorReturnType:
-    ...
+def thread(func: Callable[P, T]) -> Callable[P, asyncio.Future[T]]: ...
 @overload
 def thread(
-        name: Optional[str] = None,
-        daemon: bool = True,
-        pool: Optional[ThreadPool] = None
-) -> common.AsyncIODecoratorParamsReturnType:
-    ...
+    name: str | None = None, daemon: bool = True, pool: ThreadPool | None = None
+) -> Callable[[Callable[P, T]], Callable[P, asyncio.Future[T]]]: ...
 def thread(*args, **kwargs):
     """Runs the decorated function within a concurrent thread,
     taking care of the result and error management.
@@ -53,29 +50,33 @@ def thread(*args, **kwargs):
 
 
 def _thread_wrapper(
-        function: Callable,
-        name: str,
-        daemon: bool,
-        _timeout: float,
-        _mp_context,
-        pool: ThreadPool
+    function: Callable[P, T],
+    name: str,
+    daemon: bool,
+    _timeout: float,
+    _unused_mp_context: None,
+    pool: ThreadPool | None,
 ) -> Callable:
     if pool is not None:
         if not isinstance(pool, ThreadPool):
-            raise TypeError('Pool expected to be ThreadPool')
+            raise TypeError("Pool expected to be ThreadPool")
 
     @wraps(function)
-    def wrapper(*args, **kwargs) -> asyncio.Future:
-        loop = common.get_asyncio_loop()
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> asyncio.Future[T]:
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
 
         if pool is not None:
-            future = loop.run_in_executor(pool, function, *args, **kwargs)
+            future = loop.run_in_executor(
+                pool,  # type: ignore[arg-type] - Executor compatible API
+                function,
+                *args,  # type: ignore[arg-type] - Unknown error
+            )
         else:
             future = loop.create_future()
 
             common.launch_thread(
-                name, _function_handler, daemon,
-                function, args, kwargs, future)
+                name, _function_handler, daemon, function, args, kwargs, future
+            )
 
         return future
 
@@ -83,10 +84,10 @@ def _thread_wrapper(
 
 
 def _function_handler(
-        function: Callable,
-        args: list,
-        kwargs: dict,
-        future: asyncio.Future
+    function: Callable[..., T],
+    args: Iterable[Any],
+    kwargs: Mapping[str, Any],
+    future: asyncio.Future,
 ):
     """Runs the actual function in separate thread and returns its result."""
     loop = future.get_loop()

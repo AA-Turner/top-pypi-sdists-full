@@ -7,7 +7,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import ConfigDict, Field, RootModel
+
+# defer_build=True base: model validators/serializers are built on first use, not at
+# import time. See plato/_model_base.py (generator must pass base_class=...).
+from plato._model_base import BaseModel
 
 
 class ActiveSessionResponse(BaseModel):

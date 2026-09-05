@@ -11,7 +11,8 @@ use std::{
 };
 
 use monty_proto::{
-    FrameError, FrameReader, MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION, WireObject, pb, write_frame,
+    FrameError, FrameReader, MAX_FRAME_LEN, MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION, WireFunctionCall,
+    WireObject, exceeds_max_frame_len, pb, write_frame,
 };
 use monty_types::MontyObject;
 
@@ -316,11 +317,103 @@ fn external_function_round_trip() {
         panic!("expected FunctionCall, got {event:?}");
     };
     assert_eq!(call.function_name, "add");
-    assert!(!call.method_call);
+    assert_eq!(call.object_id, None);
     assert_eq!(call.args, vec![MontyObject::Int(1), MontyObject::Int(2)]);
 
     let (_, event) = child.resume_call(call.call_id, pb::ext_function_result::Kind::ReturnValue(int_value(3)));
     assert_eq!(expect_complete(event), MontyObject::Int(3));
+    child.shutdown();
+}
+
+/// `AbortFeed` raises the supplied error uncatchably and keeps the session usable.
+#[test]
+fn abort_feed_round_trip() {
+    let mut child = ChildProc::spawn();
+    child.create_repl();
+    let (_, event) =
+        child.feed("while True:\n    try:\n        open('/etc/passwd')\n    except Exception:\n        pass");
+    let pb::child_event::Kind::OsCall(_) = event else {
+        panic!("expected OsCall, got {event:?}");
+    };
+    child.send(pb::parent_request::Kind::AbortFeed(pb::AbortFeed {
+        exception: Some(pb::RaisedException {
+            exc_type: "RuntimeError".to_owned(),
+            message: Some("suspension limit 3 exceeded".to_owned()),
+            traceback: vec![],
+            data: None,
+        }),
+    }));
+    let (_, event) = child.recv_turn();
+    let error = expect_error(event);
+    assert_eq!(error.exc_type, "RuntimeError");
+    assert_eq!(error.message.as_deref(), Some("suspension limit 3 exceeded"));
+    assert_eq!(
+        error
+            .traceback
+            .first()
+            .and_then(|frame| frame.start.map(|loc| loc.line)),
+        Some(3)
+    );
+    assert_eq!(child.feed_complete("1 + 1"), MontyObject::Int(2));
+    child.shutdown();
+}
+
+/// A suspension announcement is size-checked *with* its session stamps: one
+/// that fits `MAX_FRAME_LEN` only before the stamps are added must be refused
+/// as the clean oversized-argument error, not fail at send time and kill the
+/// worker (the parent would never learn the resume point).
+///
+/// Allocates ~256 MiB several times over (sizing here, the sandbox string, its
+/// wire copy), so it is memory-heavy; disable it if it proves flaky in CI.
+#[test]
+fn near_limit_suspension_is_refused_cleanly() {
+    let announcement = |arg_len: usize| pb::ChildEvent {
+        kind: Some(pb::child_event::Kind::FunctionCall(WireFunctionCall {
+            function_name: "f".to_owned(),
+            args: vec![MontyObject::String("x".repeat(arg_len))],
+            kwargs: vec![],
+            call_id: 1,
+            object_id: None,
+        })),
+        ..Default::default()
+    };
+    // Size the argument so the unstamped announcement is exactly
+    // `MAX_FRAME_LEN`: shrink an oversize probe by its excess, then walk up
+    // past the length varints that lose a byte as the sizes they describe
+    // drop below 2^28 (= `MAX_FRAME_LEN`).
+    let probe = MAX_FRAME_LEN as usize + 16;
+    let probe_len = exceeds_max_frame_len(&announcement(probe)).expect("probe exceeds the limit") as usize;
+    let mut arg_len = probe - (probe_len - MAX_FRAME_LEN as usize);
+    while exceeds_max_frame_len(&announcement(arg_len + 1)).is_none() {
+        arg_len += 1;
+    }
+    assert!(exceeds_max_frame_len(&announcement(arg_len)).is_none());
+
+    let mut child = ChildProc::spawn();
+    // a configured limit is stamped on every reply, so the sent frame is
+    // always larger than the unstamped announcement
+    child.create_repl_with(pb::Configure {
+        script_name: "main.py".to_owned(),
+        limits: Some(pb::ResourceLimits {
+            max_suspensions: Some(5),
+            ..Default::default()
+        }),
+        monty_version: env!("CARGO_PKG_VERSION").to_owned(),
+        protocol_version: PROTOCOL_VERSION,
+        ..Default::default()
+    });
+    let (_, event) = child.feed(&format!("f('x' * {arg_len})"));
+    let error = expect_error(event);
+    assert_eq!(error.exc_type, "RuntimeError");
+    assert!(
+        error
+            .message
+            .as_deref()
+            .is_some_and(|m| m.starts_with("argument frame of ") && m.contains("exceeds the maximum of")),
+        "unexpected message: {:?}",
+        error.message
+    );
+    assert_eq!(child.feed_complete("1 + 1"), MontyObject::Int(2));
     child.shutdown();
 }
 
@@ -339,6 +432,50 @@ fn name_lookup_round_trip() {
     }));
     let (_, event) = child.recv_turn();
     assert_eq!(expect_complete(event), MontyObject::Int(42));
+    child.shutdown();
+}
+
+/// An `error` answer to a name lookup is raised inside the sandbox where the
+/// name was read — catchable there, and reported with a sandbox traceback
+/// when it is not — and the session survives it.
+#[test]
+fn name_lookup_error_raises_in_sandbox() {
+    let mut child = ChildProc::spawn();
+    child.create_repl();
+    let (_, event) = child.feed("try:\n    secret\nexcept PermissionError as e:\n    caught = str(e)\ncaught");
+    let pb::child_event::Kind::NameLookup(lookup) = event else {
+        panic!("expected NameLookup, got {event:?}");
+    };
+    assert_eq!(lookup.name, "secret");
+    let exc = pb::RaisedException {
+        exc_type: "PermissionError".to_owned(),
+        message: Some("secret is off limits".to_owned()),
+        traceback: vec![],
+        data: None,
+    };
+    child.send(pb::parent_request::Kind::ResumeNameLookup(pb::ResumeNameLookup {
+        kind: Some(pb::resume_name_lookup::Kind::Error(exc.clone())),
+    }));
+    let (_, event) = child.recv_turn();
+    assert_eq!(
+        expect_complete(event),
+        MontyObject::String("secret is off limits".to_owned())
+    );
+
+    let (_, event) = child.feed("secret");
+    assert!(matches!(event, pb::child_event::Kind::NameLookup(_)));
+    child.send(pb::parent_request::Kind::ResumeNameLookup(pb::ResumeNameLookup {
+        kind: Some(pb::resume_name_lookup::Kind::Error(exc)),
+    }));
+    let (_, event) = child.recv_turn();
+    let error = expect_error(event);
+    assert_eq!(error.exc_type, "PermissionError");
+    assert_eq!(error.message.as_deref(), Some("secret is off limits"));
+    assert!(
+        !error.traceback.is_empty(),
+        "the sandbox frame must be on the traceback"
+    );
+    assert_eq!(child.feed_complete("1 + 1"), MontyObject::Int(2));
     child.shutdown();
 }
 
@@ -377,6 +514,78 @@ fn os_call_bubbles_to_parent_without_mounts() {
     );
     assert_eq!(expect_complete(event), MontyObject::String("hello".to_owned()));
     child.shutdown();
+}
+
+/// A suspension announcement is *lent* its payload rather than given a copy of
+/// it, so the child must have taken it back by the time anything else can see
+/// the suspension. Dumping straight after the announcement is what proves it:
+/// the dump is built from the stored call, so a payload left behind in the
+/// event would come back from `Load` as an argument-less call.
+#[test]
+fn suspended_call_keeps_its_arguments_for_a_dump() {
+    let mut child = ChildProc::spawn();
+    child.create_repl();
+    let (_, event) = child.feed("ext('hello', 1, key='value')");
+    let pb::child_event::Kind::FunctionCall(call) = event else {
+        panic!("expected FunctionCall, got {event:?}");
+    };
+    assert_eq!(
+        call.args,
+        vec![MontyObject::String("hello".to_owned()), MontyObject::Int(1)]
+    );
+
+    child.send(pb::parent_request::Kind::Dump(pb::Dump {}));
+    let pb::child_event::Kind::DumpResult(dump) = child.recv() else {
+        panic!("expected DumpResult");
+    };
+    drop(child);
+
+    let mut fresh = ChildProc::spawn();
+    fresh.send(pb::parent_request::Kind::Load(pb::Load { state: dump.state }));
+    let (_, event) = fresh.recv_turn();
+    let pb::child_event::Kind::FunctionCall(restored) = event else {
+        panic!("expected re-emitted FunctionCall after Load, got {event:?}");
+    };
+    assert_eq!(restored.args, call.args);
+    assert_eq!(restored.kwargs, call.kwargs);
+    assert_eq!(restored.function_name, "ext");
+    fresh.shutdown();
+}
+
+/// The same loan applies to an `OsCall`'s payload, which is swapped out for a
+/// `GetEnviron` placeholder while the announcement is on the wire — a lost
+/// payload would come back from `Load` as that placeholder rather than the
+/// write.
+#[test]
+fn suspended_os_call_keeps_its_payload_for_a_dump() {
+    let mut child = ChildProc::spawn();
+    child.create_repl();
+    let (_, event) = child.feed("from pathlib import Path\nPath('/data.txt').write_text('contents')");
+    let pb::child_event::Kind::OsCall(call) = event else {
+        panic!("expected OsCall, got {event:?}");
+    };
+
+    child.send(pb::parent_request::Kind::Dump(pb::Dump {}));
+    let pb::child_event::Kind::DumpResult(dump) = child.recv() else {
+        panic!("expected DumpResult");
+    };
+    drop(child);
+
+    let mut fresh = ChildProc::spawn();
+    fresh.send(pb::parent_request::Kind::Load(pb::Load { state: dump.state }));
+    let (_, event) = fresh.recv_turn();
+    let pb::child_event::Kind::OsCall(restored) = event else {
+        panic!("expected re-emitted OsCall after Load, got {event:?}");
+    };
+    assert_eq!(restored.call, call.call);
+    assert_eq!(
+        restored.call,
+        Some(pb::os_call::Call::WriteText(pb::os_call::TextWrite {
+            path: "/data.txt".to_owned(),
+            data: "contents".to_owned(),
+        }))
+    );
+    fresh.shutdown();
 }
 
 #[test]
@@ -473,6 +682,55 @@ fn async_accumulation_reaches_the_soft_limit() {
     child.shutdown();
 }
 
+/// Gathers nested as *items* of one another (`g = asyncio.gather(g)`) cost no
+/// Python frames, so nothing but `max_memory` bounds how deep a nest gets built.
+/// Building one too large for the limit must end the run with a `MemoryError`,
+/// and the worker must survive it.
+#[test]
+fn building_a_deep_gather_nest_reaches_the_soft_limit() {
+    let mut child = ChildProc::spawn();
+    child.create_repl_with(configure_with_max_memory(1024 * 1024));
+    // Built inside a function so unwinding releases the partial nest — a nest
+    // left bound at module level keeps the session over its limit.
+    let code = "import asyncio\nasync def leaf():\n    return 1\ndef build():\n    g = leaf()\n    for _ in range(50_000):\n        g = asyncio.gather(g)\n    return g\nbuild()";
+    let (_, event) = child.feed(code);
+    assert_eq!(expect_error(event).exc_type, "MemoryError");
+    assert_eq!(child.feed_complete("1 + 1"), MontyObject::Int(2));
+    child.shutdown();
+}
+
+/// Committing a nest costs a walk frame per level on the way down and a result
+/// list per level on the way back up, none of it between bytecode instructions.
+/// So a nest that *fits* under `max_memory` can still exceed it when awaited,
+/// and that has to arrive as a `MemoryError` rather than as a dead worker: the
+/// walk polls the limit as it goes, and preflights its own reallocations.
+///
+/// Both depths build inside the limit. The small one crosses it during the walk;
+/// the large one is where a single `Vec` growth of the walk's stack used to jump
+/// clear over the allocator's hard ceiling in one allocation.
+#[test]
+fn committing_a_deep_gather_nest_reaches_the_soft_limit() {
+    for (limit, depth) in [(1024 * 1024, 3_500), (32 * 1024 * 1024, 100_000)] {
+        let mut child = ChildProc::spawn();
+        child.create_repl_with(configure_with_max_memory(limit));
+        let build = format!(
+            "import asyncio\nasync def leaf():\n    return 1\ng = leaf()\nfor _ in range({depth}):\n    g = asyncio.gather(g)\n1"
+        );
+        assert_eq!(child.feed_complete(&build), MontyObject::Int(1), "depth {depth}");
+
+        let (_, event) = child.feed("await g");
+        assert_eq!(expect_error(event).exc_type, "MemoryError", "depth {depth}");
+        // Dropping the nest brings the session back under its limit, which it
+        // could not do if the worker had died on the hard ceiling instead.
+        assert_eq!(
+            child.feed_complete("g = None\n1 + 1"),
+            MontyObject::Int(2),
+            "depth {depth}"
+        );
+        child.shutdown();
+    }
+}
+
 /// Known large results are rejected against allocator usage before they can
 /// jump from below the soft limit past the hard ceiling. The reported figure is
 /// what each result really costs, so it pins down that the refusal accounted for
@@ -481,21 +739,37 @@ fn async_accumulation_reaches_the_soft_limit() {
 fn large_allocations_are_rejected_before_the_hard_limit() {
     // each case with the allocator usage it should be refused at
     let cases = [
-        ("'x' * 10_000_000", 10_030_889),
-        ("b'x' * 10_000_000", 10_031_021),
-        ("[None] * 1_000_000", 16_031_143),
-        ("2 ** 10_000_000", 10_030_982),
-        ("1 << 10_000_000", 1_280_983),
-        ("('a' * 1000).replace('a', 'b' * 2000)", 2_034_521),
+        ("'x' * 10_000_000", 10_031_137),
+        ("b'x' * 10_000_000", 10_031_269),
+        ("[None] * 1_000_000", 16_031_391),
+        ("2 ** 10_000_000", 10_031_230),
+        ("1 << 10_000_000", 1_281_231),
+        ("('a' * 1000).replace('a', 'b' * 2000)", 2_034_769),
         // Bulk container clones: `+=` preflights the temp clone plus the target
         // growth, `+` preflights each side's clone.
-        ("x = [None] * 40_000\nx += x", 1_951_587),
-        ("t = (None,) * 40_000\nt + t", 1_311_587),
-        ("x = [None] * 40_000\nx.copy()", 1_311_337),
+        ("x = [None] * 40_000\nx += x", 1_951_835),
+        ("t = (None,) * 40_000\nt + t", 1_311_835),
+        ("x = [None] * 40_000\nx.copy()", 1_311_585),
+        // A partial re-clones its bound arguments on every call, so that clone
+        // is preflighted like any other bulk container copy.
+        (
+            "import functools\ndef f(*a):\n    return 0\np = functools.partial(f, *range(20_000))\njunk = [None] * 40_000\np()",
+            1_314_563,
+        ),
+        // Reading `p.args` / `p.keywords` rebuilds them in full, so both are
+        // preflighted like any other bulk container copy.
+        (
+            "import functools\ndef f(*a):\n    return 0\np = functools.partial(f, *range(20_000))\njunk = [0] * 40_000\np.args",
+            1_314_563,
+        ),
+        (
+            "import functools\ndef f(**k):\n    return 0\np = functools.partial(f, **{str(i): i for i in range(6_000)})\njunk = [0] * 30_000\np.keywords",
+            1_071_419,
+        ),
         // `deque.extend` preflights exact-hint iterators up front.
         (
             "from collections import deque\nd = deque()\nd.extend(range(1_000_000))",
-            16_031_723,
+            16_031_971,
         ),
     ];
 
@@ -510,6 +784,109 @@ fn large_allocations_are_rejected_before_the_hard_limit() {
         assert_eq!(child.feed_complete("1 + 1"), MontyObject::Int(2), "{code}");
         child.shutdown();
     }
+}
+
+/// Announcing a suspension must not cost extra copies of the value being
+/// announced. A host-call argument sized as a *fraction of the limit* is what
+/// makes this a regression test for that amplification rather than for one
+/// absolute number: at three copies (interpreter value, converted args, encode
+/// buffer) a 3/8 argument fits, at four it crossed the allocator's hard ceiling
+/// and the worker was killed mid-announcement.
+#[test]
+fn large_host_call_arguments_survive_being_announced() {
+    const LIMIT: usize = 8 * 1024 * 1024;
+    const ARG: usize = LIMIT * 3 / 8;
+
+    let mut child = ChildProc::spawn();
+    child.create_repl_with(configure_with_max_memory(LIMIT as u64));
+    let (_, event) = child.feed(&format!("s = 'A' * {ARG}\nfoobar(s)"));
+    let pb::child_event::Kind::FunctionCall(call) = event else {
+        panic!("expected FunctionCall, got {event:?}");
+    };
+    assert_eq!(call.args.len(), 1);
+    assert_eq!(call.args[0], MontyObject::String("A".repeat(ARG)));
+
+    // the session is still usable afterwards, i.e. nothing overshot into a
+    // soft-limit `MemoryError` on the next checkpoint either
+    let (_, event) = child.resume_call(call.call_id, pb::ext_function_result::Kind::ReturnValue(int_value(7)));
+    assert_eq!(expect_complete(event), MontyObject::Int(7));
+    assert_eq!(
+        child.feed_complete("len(s)"),
+        MontyObject::Int(i64::try_from(ARG).unwrap())
+    );
+    child.shutdown();
+}
+
+/// The asymmetry the amplification produced: a value small enough to *return*
+/// to the host was not necessarily small enough to *pass* to a host function,
+/// because only the announcement path cloned it. Both directions now cost the
+/// same, so one limit governs both.
+#[test]
+fn a_returnable_value_can_also_be_passed_to_a_host_function() {
+    const LIMIT: usize = 8 * 1024 * 1024;
+    const ARG: usize = LIMIT * 3 / 8;
+
+    let mut child = ChildProc::spawn();
+    child.create_repl_with(configure_with_max_memory(LIMIT as u64));
+    child.feed_complete(&format!("s = 'A' * {ARG}"));
+    // the same binding, first returned to the host...
+    assert_eq!(string_len(&child.feed_complete("s")), ARG);
+
+    // ...then passed to a host function, which must cost no more
+    let (_, event) = child.feed("foobar(s)");
+    let pb::child_event::Kind::FunctionCall(call) = event else {
+        panic!("expected FunctionCall, got {event:?}");
+    };
+    assert_eq!(string_len(&call.args[0]), ARG);
+    child.shutdown();
+}
+
+/// The length of a `str` value, for assertions that care only about its size —
+/// printing a multi-megabyte string on failure helps nobody.
+#[track_caller]
+fn string_len(value: &MontyObject) -> usize {
+    match value {
+        MontyObject::String(s) => s.len(),
+        other => panic!("expected a string, got {other:?}"),
+    }
+}
+
+/// The fix must not have quietly stopped enforcing: an argument that genuinely
+/// does not fit still fails as a recoverable session error rather than taking
+/// the worker with it.
+#[test]
+fn host_call_arguments_over_the_limit_still_fail_gracefully() {
+    let mut child = ChildProc::spawn();
+    child.create_repl_with(configure_with_max_memory(8 * 1024 * 1024));
+    let (_, event) = child.feed("foobar('A' * (16 * 1024 * 1024))");
+    assert_eq!(expect_error(event).exc_type, "MemoryError");
+    assert_eq!(child.feed_complete("1 + 1"), MontyObject::Int(2));
+    child.shutdown();
+}
+
+/// Reading `p.args` off a widely bound partial must raise `MemoryError` and
+/// leave the session usable, not kill the worker.
+///
+/// The materialization is a single 16 MiB burst, four times the allocator's
+/// hard-limit headroom, so before the preflight in `check_clone_slots` this
+/// exited with `OOM_EXIT_CODE` mid-turn and the pool had to replace the child.
+#[test]
+fn reading_partial_args_cannot_kill_the_worker() {
+    let mut child = ChildProc::spawn();
+    child.create_repl_with(configure_with_max_memory(64 * 1024 * 1024));
+    // Sized to sit just under the soft limit, so the burst would cross the hard
+    // ceiling rather than merely exceeding what a checkpoint would have caught.
+    let build = "import functools\n\
+                 def f(*a):\n    return 0\n\
+                 p = functools.partial(f, *range(1_000_000))\n\
+                 junk = [0] * 2_800_000";
+    assert_eq!(child.feed_complete(build), MontyObject::None);
+
+    let (_, event) = child.feed("p.args");
+    let error = expect_error(event);
+    assert_eq!(error.exc_type, "MemoryError");
+    assert_eq!(child.feed_complete("1 + 1"), MontyObject::Int(2));
+    child.shutdown();
 }
 
 /// A bounded deque retains at most `maxlen` items, so extending it from a huge
@@ -1069,13 +1446,18 @@ fn unsupported_protocol_version_on_create_is_a_fatal_error() {
     // Spelled out rather than taken from `check_protocol_version`, so rewording
     // the refusal a parent actually reads fails here.
     let supported = if MIN_SUPPORTED_PROTOCOL_VERSION == PROTOCOL_VERSION {
-        format!("this build supports protocol version {PROTOCOL_VERSION}")
+        format!("server supports protocol version {PROTOCOL_VERSION}")
     } else {
-        format!("this build supports protocol versions {MIN_SUPPORTED_PROTOCOL_VERSION} to {PROTOCOL_VERSION}")
+        format!("server supports protocol versions {MIN_SUPPORTED_PROTOCOL_VERSION} to {PROTOCOL_VERSION}")
     };
     assert!(
         message.contains(&supported),
         "message should name the supported range: {message}"
+    );
+    // Ahead of the range, so the client is on the wrong version rather than behind.
+    assert!(
+        message.contains("make sure you are using the correct client version"),
+        "message should point at the client version: {message}"
     );
 }
 
@@ -1092,6 +1474,11 @@ fn undeclared_protocol_version_is_a_fatal_error() {
     assert!(
         message.contains("unsupported protocol version 0"),
         "message should name the rejected version: {message}"
+    );
+    // Below the range, so the client needs to move forward.
+    assert!(
+        message.contains("try updating to a newer client version"),
+        "message should tell the client to update: {message}"
     );
 }
 

@@ -15,3 +15,11 @@ pub struct LogEventRequest {
     pub event_count: u64,
     pub retries: u32,
 }
+
+#[derive(Clone)]
+pub struct SerializedLogEventRequest {
+    pub payload: Vec<u8>,
+    pub event_count: u64,
+    pub retries: u32,
+    pub flush_type: String,
+}

@@ -25,6 +25,8 @@ class PawchiveExtractor(Extractor):
     filename_fmt = "{id}_{title[:180]}_{num:>02}_{filename[:180]}.{extension}"
     archive_fmt = "{service}_{user}_{id}_{num}"
     cookies_domain = ".pawchive.pw"
+    useragent = util.USERAGENT_GALLERYDL
+    request_interval = 1.0
 
     def _init(self):
         if domain := self.config("domain"):
@@ -54,15 +56,12 @@ class PawchiveExtractor(Extractor):
         archives_type = dict if self.config("archives-format") in {
             "dict", "object"} else list
         comments = True if self.config("comments") else False
+        previews = True if self.config("previews") else False
+        original = True if self.config("original", True) else False
         creator_info = {} if self.config("metadata", True) else None
         exts_archive = util.EXTS_ARCHIVE
-
-        if self.config("original", True):
-            original = True
-        else:
-            original = False
-            root_thmb = self.root.replace("://", "://img.") + "/thumbnail/data"
-            exts_thmb = util.EXTS_IMAGE
+        root_thmb = self.root.replace("://", "://img.") + "/thumbnail/data"
+        exts_thmb = util.EXTS_IMAGE
 
         if duplicates := self.config("duplicates"):
             if isinstance(duplicates, str):
@@ -196,8 +195,19 @@ class PawchiveExtractor(Extractor):
                 for post["num"], file in enumerate(files, 1):
                     if "id" in file:
                         del file["id"]
+                    if not file.get("preview_only"):
+                        url = file["url"]
+                        file["original"] = True
+                    elif previews:
+                        url = root_thmb + file["path"]
+                        file["extension"] = "webp"
+                        file["original"] = False
+                    else:
+                        self.log.info("%s: Skipping %s ('preview only')",
+                                      post["id"], file["path"][7:])
+                        continue
                     post.update(file)
-                    yield Message.Url, file["url"], post
+                    yield Message.Url, url, post
             else:
                 for post["num"], file in enumerate(files, 1):
                     if file["extension"] in exts_thmb:
@@ -205,6 +215,7 @@ class PawchiveExtractor(Extractor):
                         if "id" in file:
                             del file["id"]
                         post.update(file)
+                        post["original"] = False
                         yield Message.Url, root_thmb + file["path"], post
                     else:
                         self.log.warning("%s: Skipping %s",
@@ -331,9 +342,13 @@ class PawchiveUserExtractor(PawchiveExtractor):
         service, creator_id, query = self.groups
         params = text.parse_query(query)
 
-        return self.api.creator_posts(
-            service, creator_id,
-            params.get("o"), params.get("q"), params.get("tag"))
+        if self.config("endpoint") in {"posts+", "legacy+"}:
+            endpoint = self.api.creator_posts_expand
+        else:
+            endpoint = self.api.creator_posts
+
+        return endpoint(service, creator_id,
+                        params.get("o"), params.get("q"), params.get("tag"))
 
 
 class PawchivePostExtractor(PawchiveExtractor):
@@ -497,6 +512,12 @@ class PawchiveAPI():
         endpoint = f"/v1/{service}/user/{creator_id}"
         params = {"o": offset, "tag": tags, "q": query}
         return self._pagination(endpoint, params, 50)
+
+    def creator_posts_expand(self, service, creator_id,
+                             offset=0, query=None, tags=None):
+        for post in self.creator_posts(
+                service, creator_id, offset, query, tags):
+            yield self.creator_post(service, creator_id, post["id"])
 
     def creator_announcements(self, service, creator_id):
         endpoint = f"/v1/{service}/user/{creator_id}/announcements"

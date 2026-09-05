@@ -251,10 +251,12 @@ impl PersistentValuesManager {
             rule_id_suffix: None,
             override_reason: None,
             sampling_rate: curr_result.sampling_rate,
+            rule_pass_percentage: None,
             forward_all_exposures: curr_result.forward_all_exposures,
             override_config_name: curr_result.override_config_name,
             has_seen_analytical_gates: curr_result.has_seen_analytical_gates,
             parameter_rule_ids: None,
+            shared_control_experiments: None,
         }
     }
 
@@ -592,6 +594,7 @@ fn make_layer_from_sticky_value(curr_layer: Layer, sticky_value: &StickyValues) 
         __user: curr_layer.__user,
         __event_logger_ptr: curr_layer.__event_logger_ptr,
         __disable_exposure: curr_layer.__disable_exposure,
+        __shared_control_exposures: Vec::new(),
 
         // clone from sticky
         rule_id: sticky_rule_id_string,
@@ -655,6 +658,7 @@ fn sticky_value_to_layer_evaluation(
 
         // not yet supported
         parameter_rule_ids: None,
+        shared_control_experiments: None,
     }
 }
 

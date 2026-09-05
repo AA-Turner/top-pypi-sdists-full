@@ -1,8 +1,49 @@
 """Shared pytest fixtures for jcodemunch-mcp tests."""
 
 import os
+import sys
+from pathlib import Path
 
 import pytest
+
+# `harness/` (thresholds, tiers) is a root-level dev package, deliberately
+# outside src/ and the wheel. Tests reach it through the repo root, which
+# pytest's prepend import mode does not put on sys.path by itself.
+_REPO_ROOT = str(Path(__file__).resolve().parent.parent)
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_network():
+    """No test reaches the network (STANDARD N5).
+
+    Before 2026-09-03 this was established by inspection only. Any outbound
+    `socket.connect` to a non-loopback address raises; the in-process ASGI
+    transports the HTTP tests use never touch a socket. A test that genuinely
+    needs the network opts out with `@pytest.mark.network` (zero users today)
+    and is excluded from every harness tier by that marker.
+    """
+    import socket
+
+    real_connect = socket.socket.connect
+
+    def guarded_connect(self, address, *a, **kw):
+        host = address[0] if isinstance(address, tuple) else address
+        if isinstance(host, str) and host not in ("127.0.0.1", "::1", "localhost", ""):
+            raise RuntimeError(
+                f"test attempted a network connection to {host!r}; tests are offline "
+                "(STANDARD N5). Mark it @pytest.mark.network if it must reach out. "
+                "If this is tiktoken fetching its BPE asset on a cold box, run "
+                "`uv run python -m harness warm` once before pytest (FINDINGS F-14)."
+            )
+        return real_connect(self, address, *a, **kw)
+
+    socket.socket.connect = guarded_connect
+    try:
+        yield
+    finally:
+        socket.socket.connect = real_connect
 
 
 @pytest.fixture(autouse=True, scope="session")

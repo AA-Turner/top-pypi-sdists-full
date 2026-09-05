@@ -1,4 +1,8 @@
-use std::{collections::HashMap, io::Cursor};
+use std::{
+    collections::HashMap,
+    io::{Cursor, Write},
+    sync::Arc,
+};
 
 use prost::Message;
 use serde_json::json;
@@ -7,11 +11,11 @@ use crate::{
     StatsigErr,
     evaluation::{
         dynamic_returnable::DynamicReturnable, dynamic_string::DynamicString,
-        evaluator_value::EvaluatorValue,
+        evaluation_data::ReturnableRef, evaluator_value::EvaluatorValue,
     },
     interned_str,
     interned_string::InternedString,
-    interned_values::InternedStore,
+    interned_values::{InternedStore, interned_store::MmapProjectId},
     log_error_to_statsig_and_console,
     networking::ResponseData,
     observability::{ops_stats::OpsStatsForInstance, sdk_errors_observer::ErrorBoundaryEvent},
@@ -19,17 +23,33 @@ use crate::{
         explicit_params::ExplicitParameters,
         param_store_types::ParameterStore,
         parse_options::SpecsResponseParseOptions,
-        proto_stream_reader::ProtoStreamReader,
+        proto_compression::ProtoCompression,
+        proto_stream_reader::{BUFFER_SIZE, ProtoStreamReader},
         spec_types::{
-            Condition, ConditionOperator, ConditionType, Rule, Spec, SpecsResponseFull,
-            SpecsResponsePartial,
+            Condition, ConditionOperator, ConditionType, Rule, SharedControlExperiment, Spec,
+            SpecsResponseFull, SpecsResponsePartial,
         },
         specs_hash_map::{SpecDecodeStats, SpecPointer, SpecsHashMap, seed_spec_decode_stats},
         statsig_config_specs::{self as pb, any_value},
     },
 };
 
+use crate::specs_adapter::remote_config_value_hydrator::{
+    ProtobufHydrationSession, RemoteConfigValueHydrator,
+    protobuf_top_level_has_hydrated_sidecar_provenance,
+    remote_metadata_marker_without_metadata_error, rewrite_decoded_dynamic_config_envelope,
+    rewrite_top_level_envelope,
+};
+
 const TAG: &str = "ProtoSpecs";
+const UNHYDRATED_REMOTE_CONFIG_METADATA_TAG: &str = "proto::RemoteConfigMetadata";
+const UNHYDRATED_REMOTE_CONFIG_METADATA_MESSAGE: &str =
+    "Remote config metadata reached the protobuf decoder before hydration";
+// Keep decoded entity envelopes bounded while the hydrator's sliding download
+// window keeps the global fanout full without turning the parser back into a
+// response-sized buffer.
+const MAX_PENDING_HYDRATION_ENVELOPES: usize = 128;
+const MAX_PENDING_HYDRATION_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone, PartialEq, Message)]
 struct SessionUpdateModeField {
@@ -41,6 +61,148 @@ struct SessionUpdateModeField {
 pub(crate) enum ProtobufUpdate {
     Materialized { is_delta: bool },
     CursorOnly { lcut: u64, checksum: String },
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct ProtobufHydrationContext<'a> {
+    pub(crate) hydrator: &'a RemoteConfigValueHydrator,
+    pub(crate) source_url: &'a str,
+    pub(crate) mmap_project_id: MmapProjectId,
+    pub(crate) capture_hydrated_data_store_bytes: bool,
+    pub(crate) preserve_session_update_mode: bool,
+}
+
+/// Streams a hydrated protobuf copy while the main parser consumes the
+/// original compressed body. The copy keeps the original compression format
+/// so the codec-specific datastore key and bytes agree; it is discarded when no
+/// remote metadata was actually hydrated.
+struct HydratedProtobufDataStoreCapture {
+    writer: HydratedProtobufDataStoreWriter,
+    saw_remote_metadata: bool,
+}
+
+enum HydratedProtobufDataStoreWriter {
+    Brotli(Box<brotli::CompressorWriter<Vec<u8>>>),
+    Zstd(zstd::stream::write::Encoder<'static, Vec<u8>>),
+}
+
+impl HydratedProtobufDataStoreCapture {
+    fn new(compression: ProtoCompression) -> Result<Self, StatsigErr> {
+        let writer = match compression {
+            ProtoCompression::Brotli => HydratedProtobufDataStoreWriter::Brotli(Box::new(
+                brotli::CompressorWriter::new(Vec::new(), BUFFER_SIZE, 5, 22),
+            )),
+            ProtoCompression::Zstd => HydratedProtobufDataStoreWriter::Zstd(
+                zstd::stream::write::Encoder::new(Vec::new(), 3)
+                    .map_err(|error| StatsigErr::SerializationError(error.to_string()))?,
+            ),
+        };
+
+        Ok(Self {
+            writer,
+            saw_remote_metadata: false,
+        })
+    }
+
+    fn write_frame(&mut self, frame: &[u8]) -> Result<(), StatsigErr> {
+        let result = match &mut self.writer {
+            HydratedProtobufDataStoreWriter::Brotli(writer) => writer.write_all(frame),
+            HydratedProtobufDataStoreWriter::Zstd(writer) => writer.write_all(frame),
+        };
+        result.map_err(|error| StatsigErr::SerializationError(error.to_string()))
+    }
+
+    fn mark_remote_metadata(&mut self) {
+        self.saw_remote_metadata = true;
+    }
+
+    fn finish(self) -> Result<Option<Vec<u8>>, StatsigErr> {
+        if !self.saw_remote_metadata {
+            return Ok(None);
+        }
+
+        let bytes = match self.writer {
+            HydratedProtobufDataStoreWriter::Brotli(writer) => writer.into_inner(),
+            HydratedProtobufDataStoreWriter::Zstd(writer) => writer
+                .finish()
+                .map_err(|error| StatsigErr::SerializationError(error.to_string()))?,
+        };
+
+        Ok(Some(bytes))
+    }
+}
+
+/// One bounded, ordered parser entry waiting for a shared remote-value
+/// download batch. Non-dynamic entities are queued too, so dynamic configs
+/// separated by other entity kinds still share the same download fanout while
+/// every mutation and datastore frame remains in wire order.
+enum PendingEntityUpdate {
+    Dynamic(Box<PendingDynamicConfigUpdate>),
+    Other {
+        kind: pb::SpecsEnvelopeKind,
+        envelope: pb::SpecsEnvelope,
+        tolerates_malformed_entity: bool,
+        raw_frame: Option<Vec<u8>>,
+    },
+}
+
+/// Response-wide state shared by pending-entity preparation and publication.
+///
+/// Keeping this state together makes the queueing helpers describe only the
+/// envelope they are handling; the parser still owns `data_store_capture`
+/// separately because that writer spans every envelope in the response.
+struct PendingEntityParserContext<'a, 'h> {
+    ops_stats: &'a OpsStatsForInstance,
+    current_specs: &'a SpecsResponseFull,
+    previous_spec_decode_stats: SpecDecodeStats,
+    next_specs: &'a mut SpecsResponseFull,
+    state: ParseState,
+    remote_metadata_hint: Option<bool>,
+    hydrated_sidecar_provenance: bool,
+    hydration: &'a mut ProtobufHydrationSession<'h>,
+    mmap_project_id: MmapProjectId,
+    preserve_session_update_mode: bool,
+    spec_decode_stats: SpecDecodeStats,
+}
+
+/// Bounded, ordered entity work waiting for the next shared hydration batch.
+#[derive(Default)]
+struct PendingEntityBatch {
+    updates: Vec<PendingEntityUpdate>,
+    bytes: usize,
+}
+
+impl PendingEntityBatch {
+    fn push(&mut self, update: PendingEntityUpdate, raw_envelope_len: usize) {
+        self.updates.push(update);
+        self.bytes = self.bytes.saturating_add(raw_envelope_len);
+    }
+
+    fn should_flush(&self, context: &PendingEntityParserContext<'_, '_>) -> bool {
+        context.remote_metadata_hint != Some(true)
+            || self.updates.len() >= MAX_PENDING_HYDRATION_ENVELOPES
+            || self.bytes >= MAX_PENDING_HYDRATION_BYTES
+    }
+}
+
+enum PendingDynamicConfigUpdate {
+    // A matching mmap/current value needs no decode or download when there is
+    // no datastore sidecar to rewrite.
+    Reused {
+        name: InternedString,
+        spec_pointer: SpecPointer,
+    },
+    Decoded(Box<PendingDecodedDynamicConfigUpdate>),
+}
+
+struct PendingDecodedDynamicConfigUpdate {
+    envelope: pb::SpecsEnvelope,
+    spec: pb::Spec,
+    reused: Option<(InternedString, SpecPointer)>,
+    verify_reused_against_decoded: bool,
+    tolerates_malformed_entity: bool,
+    has_remote_metadata: bool,
+    raw_frame: Option<Vec<u8>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -140,7 +302,824 @@ pub(crate) fn deserialize_protobuf_for_store(
     )
 }
 
-fn deserialize_protobuf_for_store_with_options(
+/// Parses and hydrates one compressed protobuf response in the same envelope
+/// loop. The reader stays on the original compressed body; only the synchronous
+/// mutation steps enter mmap/decode-stat thread-local scopes, so no
+/// thread-local state survives a remote-value await.
+pub(crate) async fn deserialize_protobuf_for_store_with_hydration(
+    ops_stats: &OpsStatsForInstance,
+    current_specs: &SpecsResponseFull,
+    previous_spec_decode_stats: SpecDecodeStats,
+    next_specs: &mut SpecsResponseFull,
+    data: &mut ResponseData,
+    context: ProtobufHydrationContext<'_>,
+) -> Result<(ProtobufUpdate, SpecDecodeStats, Option<Vec<u8>>), StatsigErr> {
+    let mut hydration = context
+        .hydrator
+        .begin_protobuf_hydration(context.source_url);
+    let result = deserialize_protobuf_for_store_with_hydration_inner(
+        ops_stats,
+        current_specs,
+        previous_spec_decode_stats,
+        next_specs,
+        data,
+        &mut hydration,
+        context,
+    )
+    .await;
+    hydration.finish(result.is_ok());
+    result
+}
+
+async fn deserialize_protobuf_for_store_with_hydration_inner(
+    ops_stats: &OpsStatsForInstance,
+    current_specs: &SpecsResponseFull,
+    previous_spec_decode_stats: SpecDecodeStats,
+    next_specs: &mut SpecsResponseFull,
+    data: &mut ResponseData,
+    hydration: &mut ProtobufHydrationSession<'_>,
+    context: ProtobufHydrationContext<'_>,
+) -> Result<(ProtobufUpdate, SpecDecodeStats, Option<Vec<u8>>), StatsigErr> {
+    let ProtobufHydrationContext {
+        mmap_project_id,
+        capture_hydrated_data_store_bytes,
+        preserve_session_update_mode,
+        ..
+    } = context;
+    let mut parsed_envelopes_count = 0;
+    let mut data_store_capture: Option<HydratedProtobufDataStoreCapture> = None;
+    let mut pending_entity_batch = PendingEntityBatch::default();
+    let data_store_compression =
+        ProtoCompression::from_response(data).unwrap_or(ProtoCompression::Brotli);
+
+    if !next_specs.is_empty() {
+        return Err(StatsigErr::ProtobufParseError(
+            "SpecsResponseFull".to_string(),
+            "Next specs are not empty".to_string(),
+        ));
+    }
+
+    let mut parser_context = PendingEntityParserContext {
+        ops_stats,
+        current_specs,
+        previous_spec_decode_stats,
+        next_specs,
+        state: ParseState::Initial,
+        remote_metadata_hint: None,
+        hydrated_sidecar_provenance: false,
+        hydration,
+        mmap_project_id,
+        preserve_session_update_mode,
+        spec_decode_stats: SpecDecodeStats::default(),
+    };
+
+    data.rewind()?;
+    let mut reader = ProtoStreamReader::new_for_response(data)?;
+
+    loop {
+        let proto_msg_bytes = reader.read_next_delimited_proto().map_err(|e| {
+            let sample = reader.sample_current_buf();
+            let err = StatsigErr::ProtobufParseError(
+                "SpecsEnvelope".to_string(),
+                format!(
+                    "Error reading next delimited proto: {e}
+                    \n Previous Parsed Envelope Count: {parsed_envelopes_count}
+                    \n Current Buffer Sample: {sample}"
+                ),
+            );
+            log_error_to_statsig_and_console!(parser_context.ops_stats, TAG, err);
+            err
+        })?;
+
+        parsed_envelopes_count += 1;
+
+        let env: pb::SpecsEnvelope =
+            match prost::Message::decode_length_delimited(proto_msg_bytes.as_ref()) {
+                Ok(env) => env,
+                Err(e) => {
+                    let err: StatsigErr = map_decode_err("SpecsEnvelope", e);
+                    log_error_to_statsig_and_console!(parser_context.ops_stats, TAG, err);
+                    if parser_context.state.is_delta() {
+                        return Err(err);
+                    }
+                    flush_pending_entity_updates(
+                        &mut parser_context,
+                        &mut pending_entity_batch,
+                        &mut data_store_capture,
+                    )
+                    .await?;
+                    if let Some(capture) = data_store_capture.as_mut() {
+                        capture.write_frame(proto_msg_bytes.as_ref())?;
+                    }
+                    continue;
+                }
+            };
+
+        let envelope_kind = match pb::SpecsEnvelopeKind::try_from(env.kind) {
+            Ok(kind) => kind,
+            Err(e) => {
+                let err: StatsigErr = map_unknown_enum_value("SpecsEnvelopeKind", e);
+                log_error_to_statsig_and_console!(parser_context.ops_stats, TAG, err);
+                if parser_context.state.is_delta() {
+                    return Err(err);
+                }
+                flush_pending_entity_updates(
+                    &mut parser_context,
+                    &mut pending_entity_batch,
+                    &mut data_store_capture,
+                )
+                .await?;
+                if let Some(capture) = data_store_capture.as_mut() {
+                    capture.write_frame(proto_msg_bytes.as_ref())?;
+                }
+                continue;
+            }
+        };
+
+        let mut data_store_frame = None;
+        let is_entity_envelope = matches!(
+            envelope_kind,
+            pb::SpecsEnvelopeKind::FeatureGate
+                | pb::SpecsEnvelopeKind::DynamicConfig
+                | pb::SpecsEnvelopeKind::LayerConfig
+                | pb::SpecsEnvelopeKind::ParamStore
+                | pb::SpecsEnvelopeKind::Condition
+        );
+
+        if !is_entity_envelope {
+            // Entity updates batch remote-value downloads for concurrency.
+            // Flush before control envelopes so deletions, checksums, and
+            // completion observe every preceding entity update.
+            flush_pending_entity_updates(
+                &mut parser_context,
+                &mut pending_entity_batch,
+                &mut data_store_capture,
+            )
+            .await?;
+        }
+
+        match envelope_kind {
+            pb::SpecsEnvelopeKind::Done => {
+                // The producer only sets the marker when this response
+                // actually carries remote metadata. Reject a mismatched
+                // response before the candidate snapshot can be published.
+                if parser_context.remote_metadata_hint == Some(true)
+                    && !parser_context.hydration.saw_remote_metadata()
+                {
+                    return Err(remote_metadata_marker_without_metadata_error());
+                }
+                let update = parser_context.spec_decode_stats.with_mmap_project(
+                    parser_context.mmap_project_id,
+                    || {
+                        finish_protobuf_update_at_done(
+                            parser_context.current_specs,
+                            parser_context.next_specs,
+                            parser_context.previous_spec_decode_stats,
+                            parser_context.state,
+                        )
+                    },
+                )?;
+                if let Some(capture) = data_store_capture.as_mut() {
+                    capture.write_frame(proto_msg_bytes.as_ref())?;
+                }
+                let hydrated_data_store_bytes = data_store_capture
+                    .map(HydratedProtobufDataStoreCapture::finish)
+                    .transpose()?
+                    .flatten();
+                return Ok((
+                    update,
+                    parser_context.spec_decode_stats,
+                    hydrated_data_store_bytes,
+                ));
+            }
+            pb::SpecsEnvelopeKind::TopLevel => {
+                let top_level_hydrated_sidecar_provenance = env
+                    .data
+                    .as_deref()
+                    .map(protobuf_top_level_has_hydrated_sidecar_provenance)
+                    .transpose()?
+                    .unwrap_or(false);
+                let rewritten_top_level = (capture_hydrated_data_store_bytes
+                    && matches!(parser_context.state, ParseState::Initial | ParseState::Full))
+                .then(|| rewrite_top_level_envelope(proto_msg_bytes.as_ref(), &env));
+
+                match parser_context.state {
+                    ParseState::Initial | ParseState::Full => {
+                        let result = parser_context.spec_decode_stats.with_mmap_project(
+                            parser_context.mmap_project_id,
+                            || {
+                                log_parse_result(
+                                    parser_context.ops_stats,
+                                    parser_context.next_specs.handle_top_level_update(env),
+                                )
+                            },
+                        );
+                        if let Ok(hint) = result {
+                            parser_context.remote_metadata_hint = hint;
+                            parser_context.hydrated_sidecar_provenance =
+                                top_level_hydrated_sidecar_provenance;
+                            parser_context.state = ParseState::Full;
+                            if capture_hydrated_data_store_bytes && hint == Some(true) {
+                                if data_store_capture.is_none() {
+                                    data_store_capture =
+                                        Some(HydratedProtobufDataStoreCapture::new(
+                                            data_store_compression,
+                                        )?);
+                                }
+                                data_store_frame = Some(
+                                    rewritten_top_level
+                                        .expect("full top-level capture was prepared")?,
+                                );
+                            }
+                        }
+                    }
+                    ParseState::DeltaAwaitingTopLevel => {
+                        parser_context.remote_metadata_hint = parser_context
+                            .spec_decode_stats
+                            .with_mmap_project(parser_context.mmap_project_id, || {
+                                log_parse_result(
+                                    parser_context.ops_stats,
+                                    parser_context.next_specs.handle_top_level_update(env),
+                                )
+                            })?;
+                        parser_context.hydrated_sidecar_provenance =
+                            top_level_hydrated_sidecar_provenance;
+                        parser_context.state = ParseState::DeltaDeferred;
+                    }
+                    _ => {
+                        return make_proto_parse_error(
+                            "SpecsEnvelope",
+                            "Unexpected top-level envelope in delta response",
+                        );
+                    }
+                }
+            }
+            kind @ (pb::SpecsEnvelopeKind::FeatureGate
+            | pb::SpecsEnvelopeKind::DynamicConfig
+            | pb::SpecsEnvelopeKind::LayerConfig
+            | pb::SpecsEnvelopeKind::ParamStore
+            | pb::SpecsEnvelopeKind::Condition) => {
+                let pending = prepare_pending_entity_update(
+                    &mut parser_context,
+                    kind,
+                    env,
+                    proto_msg_bytes.as_ref(),
+                    data_store_capture.is_some(),
+                )?;
+
+                let Some(pending) = pending else {
+                    // A malformed full-response entity is tolerated, but any
+                    // earlier queued entities still need to publish first.
+                    flush_pending_entity_updates(
+                        &mut parser_context,
+                        &mut pending_entity_batch,
+                        &mut data_store_capture,
+                    )
+                    .await?;
+                    if let Some(capture) = data_store_capture.as_mut() {
+                        capture.write_frame(proto_msg_bytes.as_ref())?;
+                    }
+                    continue;
+                };
+
+                pending_entity_batch.push(pending, proto_msg_bytes.as_ref().len());
+                if pending_entity_batch.should_flush(&parser_context) {
+                    flush_pending_entity_updates(
+                        &mut parser_context,
+                        &mut pending_entity_batch,
+                        &mut data_store_capture,
+                    )
+                    .await?;
+                } else {
+                    // Keep newly discovered remote values moving without
+                    // treating a full download window as a parser boundary.
+                    parser_context.hydration.advance_download_window().await?;
+                }
+
+                // Queued entity frames are written by the ordered flush, not
+                // by the generic bottom-of-loop capture path below.
+                continue;
+            }
+            pb::SpecsEnvelopeKind::Deletions => match parser_context.state {
+                ParseState::Full => {
+                    let result = parser_context
+                        .spec_decode_stats
+                        .with_mmap_project(parser_context.mmap_project_id, || {
+                            log_parse_result(parser_context.ops_stats, decode_deletions_update(env))
+                        });
+                    if let Ok(deletions) = result {
+                        parser_context
+                            .spec_decode_stats
+                            .with_mmap_project(parser_context.mmap_project_id, || {
+                                parser_context.next_specs.apply_deletions(deletions)
+                            });
+                    }
+                }
+                ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
+                    let deletions = parser_context
+                        .spec_decode_stats
+                        .with_mmap_project(parser_context.mmap_project_id, || {
+                            log_parse_result(parser_context.ops_stats, decode_deletions_update(env))
+                        })?;
+                    if !deletions_are_empty(&deletions) {
+                        parser_context.spec_decode_stats.with_mmap_project(
+                            parser_context.mmap_project_id,
+                            || {
+                                parser_context.state.materialize(
+                                    parser_context.current_specs,
+                                    parser_context.next_specs,
+                                    parser_context.previous_spec_decode_stats,
+                                );
+                                parser_context.next_specs.apply_deletions(deletions);
+                            },
+                        );
+                    }
+                }
+                _ => {
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Unexpected deletions envelope",
+                    );
+                }
+            },
+            pb::SpecsEnvelopeKind::Checksums => {
+                let (target, next_state): (&SpecsResponseFull, ParseState) =
+                    match parser_context.state {
+                        ParseState::Full => (parser_context.next_specs, ParseState::Full),
+                        ParseState::DeltaDeferred => (
+                            parser_context.current_specs,
+                            ParseState::DeltaDeferredValidated,
+                        ),
+                        ParseState::DeltaMaterialized => (
+                            parser_context.next_specs,
+                            ParseState::DeltaMaterializedValidated,
+                        ),
+                        _ => {
+                            return make_proto_parse_error(
+                                "SpecsEnvelope",
+                                "Unexpected checksums envelope",
+                            );
+                        }
+                    };
+
+                let checksum_result = parser_context
+                    .spec_decode_stats
+                    .with_mmap_project(parser_context.mmap_project_id, || {
+                        target.handle_checksums_update(env)
+                    });
+                match checksum_result {
+                    Ok(()) => {
+                        parser_context.state = next_state;
+                        parser_context
+                            .ops_stats
+                            .log_checksum_validation_result(true);
+                    }
+                    Err(e) => {
+                        parser_context
+                            .ops_stats
+                            .log_checksum_validation_result(false);
+                        return Err(StatsigErr::ChecksumFailure(format!(
+                            "Failed to apply protobuf checksums update: {e}"
+                        )));
+                    }
+                }
+            }
+            pb::SpecsEnvelopeKind::CopyPrev => {
+                if parser_context.state != ParseState::Initial || parsed_envelopes_count != 1 {
+                    return make_proto_parse_error(
+                        "SpecsEnvelope",
+                        "Duplicate or misplaced copy-prev envelope",
+                    );
+                }
+                parser_context.state = ParseState::DeltaAwaitingTopLevel;
+            }
+            pb::SpecsEnvelopeKind::Unknown => {
+                return make_proto_parse_error("SpecsEnvelope", "Unknown envelope kind");
+            }
+        };
+
+        if let Some(capture) = data_store_capture.as_mut() {
+            capture.write_frame(
+                data_store_frame
+                    .as_deref()
+                    .unwrap_or_else(|| proto_msg_bytes.as_ref()),
+            )?;
+        }
+    }
+}
+
+fn prepare_pending_entity_update(
+    context: &mut PendingEntityParserContext<'_, '_>,
+    kind: pb::SpecsEnvelopeKind,
+    envelope: pb::SpecsEnvelope,
+    raw_envelope: &[u8],
+    capture_hydrated_frame: bool,
+) -> Result<Option<PendingEntityUpdate>, StatsigErr> {
+    let tolerates_malformed_entity = prepare_entity_update_state(context)?;
+    let raw_frame = capture_hydrated_frame.then(|| raw_envelope.to_vec());
+
+    if kind != pb::SpecsEnvelopeKind::DynamicConfig {
+        return Ok(Some(PendingEntityUpdate::Other {
+            kind,
+            envelope,
+            tolerates_malformed_entity,
+            raw_frame,
+        }));
+    }
+
+    let reused = context
+        .spec_decode_stats
+        .with_mmap_project(context.mmap_project_id, || {
+            context
+                .next_specs
+                .find_reusable_dynamic_config_update(&envelope, context.current_specs)
+        });
+    // Hydrated sidecars decode as marker=false after their metadata is
+    // stripped, but retain a true-then-false marker history. Their envelope
+    // checksum is still the producer checksum, so checksum alone cannot prove
+    // that an older mmap pointer contains the hydrated value.
+    let reused = match reused {
+        Some((name, spec_pointer))
+            if !capture_hydrated_frame
+                && context.remote_metadata_hint != Some(true)
+                && !context.hydrated_sidecar_provenance =>
+        {
+            return Ok(Some(PendingEntityUpdate::Dynamic(Box::new(
+                PendingDynamicConfigUpdate::Reused { name, spec_pointer },
+            ))));
+        }
+        reused => reused,
+    };
+
+    let envelope_data = match validate_envelope_data("DynamicConfig", envelope.data.clone()) {
+        Ok(data) => data,
+        Err(error) => {
+            finish_entity_parse_result(context.ops_stats, Err(error), tolerates_malformed_entity)?;
+            return Ok(None);
+        }
+    };
+    let spec = match pb::Spec::decode(envelope_data) {
+        Ok(spec) => spec,
+        Err(error) => {
+            finish_entity_parse_result(
+                context.ops_stats,
+                Err(map_decode_err("DynamicConfig", error)),
+                tolerates_malformed_entity,
+            )?;
+            return Ok(None);
+        }
+    };
+    let reused = if context.preserve_session_update_mode {
+        reused.and_then(|(name, spec_pointer)| {
+            spec_pointer
+                .with_session_update_mode(spec.session_update_mode.as_deref())
+                .map(|spec_pointer| (name, spec_pointer))
+        })
+    } else {
+        reused
+    };
+
+    let has_remote_metadata = protobuf_spec_has_remote_metadata(&spec);
+    let mut reuse_verified_remote_values = false;
+    if has_remote_metadata {
+        // Remote hydration is an explicit producer opt-in. A missing or false
+        // top-level marker must not make a markerless response hydrate.
+        if context.remote_metadata_hint != Some(true) {
+            return Err(unhydrated_remote_config_metadata_error());
+        }
+        context.hydration.register_spec_references(&spec)?;
+        if let Some(candidate_values) = reused.as_ref().and_then(|(_, spec_pointer)| {
+            context
+                .spec_decode_stats
+                .with_mmap_project(context.mmap_project_id, || {
+                    existing_hydrated_values(spec_pointer, &spec)
+                })
+        }) {
+            reuse_verified_remote_values = context.hydration.seed_verified_values(candidate_values);
+        }
+    }
+    // A matching pointer may be an older artifact that still contains the
+    // placeholder. Reuse it only when every existing remote-backed value can
+    // be reconstructed and independently verified against its full SHA-256.
+    let reused = if has_remote_metadata && !reuse_verified_remote_values {
+        None
+    } else {
+        reused
+    };
+
+    Ok(Some(PendingEntityUpdate::Dynamic(Box::new(
+        PendingDynamicConfigUpdate::Decoded(Box::new(PendingDecodedDynamicConfigUpdate {
+            envelope,
+            spec,
+            reused,
+            verify_reused_against_decoded: context.hydrated_sidecar_provenance,
+            tolerates_malformed_entity,
+            has_remote_metadata,
+            raw_frame,
+        })),
+    ))))
+}
+
+fn existing_hydrated_values(
+    existing: &SpecPointer,
+    incoming: &pb::Spec,
+) -> Option<HashMap<String, Arc<Vec<u8>>>> {
+    let existing = existing.view();
+    if existing.rules_len() != incoming.rules.len() {
+        return None;
+    }
+
+    let mut verified = HashMap::new();
+    if let Some(metadata) = incoming.remote_config_metadata.as_ref() {
+        insert_existing_hydrated_value(&mut verified, existing.default_value(), metadata)?;
+    }
+
+    for (index, rule) in incoming.rules.iter().enumerate() {
+        let existing_rule = existing.rule(index);
+        if existing_rule.id().as_str() != rule.id {
+            return None;
+        }
+        if let Some(metadata) = rule.remote_config_metadata.as_ref() {
+            insert_existing_hydrated_value(&mut verified, existing_rule.return_value(), metadata)?;
+        }
+    }
+
+    Some(verified)
+}
+
+fn insert_existing_hydrated_value(
+    verified: &mut HashMap<String, Arc<Vec<u8>>>,
+    value: ReturnableRef<'_>,
+    metadata: &pb::RemoteConfigValueMetadata,
+) -> Option<()> {
+    // Archived returnables retain parsed JSON, not its original wire bytes.
+    // Reuse only when serialization exactly reconstructs the producer's
+    // authenticated bytes; whitespace, key-order, or numeric-lexeme changes
+    // safely fall back to the normal verified download path.
+    let bytes = serde_json::to_vec(&value.to_owned()).ok()?;
+    if bytes.len() as u64 != metadata.byte_length {
+        return None;
+    }
+
+    if let Some(existing) = verified.get(&metadata.sha256) {
+        return (existing.as_slice() == bytes.as_slice()).then_some(());
+    }
+
+    verified.insert(metadata.sha256.clone(), Arc::new(bytes));
+    Some(())
+}
+
+fn prepare_entity_update_state(
+    context: &mut PendingEntityParserContext<'_, '_>,
+) -> Result<bool, StatsigErr> {
+    let tolerates_malformed_entity = match context.state {
+        ParseState::Full => true,
+        ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
+            context
+                .spec_decode_stats
+                .with_mmap_project(context.mmap_project_id, || {
+                    context.state.materialize(
+                        context.current_specs,
+                        context.next_specs,
+                        context.previous_spec_decode_stats,
+                    );
+                });
+            false
+        }
+        ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
+            return make_proto_parse_error(
+                "SpecsEnvelope",
+                "Entity envelope before top-level envelope",
+            );
+        }
+        ParseState::DeltaDeferredValidated | ParseState::DeltaMaterializedValidated => {
+            return make_proto_parse_error(
+                "SpecsEnvelope",
+                "Unexpected entity envelope after delta checksums",
+            );
+        }
+    };
+    Ok(tolerates_malformed_entity)
+}
+
+async fn flush_pending_entity_updates(
+    context: &mut PendingEntityParserContext<'_, '_>,
+    batch: &mut PendingEntityBatch,
+    data_store_capture: &mut Option<HydratedProtobufDataStoreCapture>,
+) -> Result<(), StatsigErr> {
+    if batch.updates.is_empty() {
+        return Ok(());
+    }
+
+    context.hydration.download_registered_references().await?;
+
+    for pending in batch.updates.drain(..) {
+        match pending {
+            PendingEntityUpdate::Other {
+                kind,
+                envelope,
+                tolerates_malformed_entity,
+                raw_frame,
+            } => {
+                let result =
+                    context
+                        .spec_decode_stats
+                        .with_mmap_project(context.mmap_project_id, || {
+                            apply_entity_update(
+                                kind,
+                                envelope,
+                                context.current_specs,
+                                context.next_specs,
+                                context.preserve_session_update_mode,
+                            )
+                        });
+                finish_entity_parse_result(context.ops_stats, result, tolerates_malformed_entity)?;
+                if let Some(capture) = data_store_capture.as_mut() {
+                    capture.write_frame(
+                        raw_frame
+                            .as_deref()
+                            .expect("captured entity frame must retain wire bytes"),
+                    )?;
+                }
+            }
+            PendingEntityUpdate::Dynamic(pending) => match *pending {
+                PendingDynamicConfigUpdate::Reused { name, spec_pointer } => {
+                    context
+                        .spec_decode_stats
+                        .with_mmap_project(context.mmap_project_id, || {
+                            context
+                                .next_specs
+                                .insert_reused_dynamic_config_update(name, spec_pointer);
+                        });
+                }
+                PendingDynamicConfigUpdate::Decoded(decoded) => {
+                    let PendingDecodedDynamicConfigUpdate {
+                        envelope,
+                        mut spec,
+                        reused,
+                        verify_reused_against_decoded,
+                        tolerates_malformed_entity,
+                        has_remote_metadata,
+                        raw_frame,
+                    } = *decoded;
+                    let mut hydrated_frame = None;
+                    if has_remote_metadata {
+                        let raw_spec = data_store_capture.is_some().then(|| spec.clone());
+                        context.hydration.apply_registered_spec(&mut spec)?;
+                        if let (Some(raw_frame), Some(raw_spec)) =
+                            (raw_frame.as_deref(), raw_spec.as_ref())
+                        {
+                            hydrated_frame = Some(rewrite_decoded_dynamic_config_envelope(
+                                raw_frame,
+                                envelope
+                                    .data
+                                    .as_deref()
+                                    .expect("decoded dynamic config must retain spec bytes"),
+                                raw_spec,
+                                context.hydration.hydrated_values(),
+                            )?);
+                        }
+                    }
+
+                    // A hydrated sidecar may share an envelope checksum with
+                    // an older placeholder-backed mmap artifact. Compare its
+                    // decoded content before reusing that pointer; untouched
+                    // configs still keep their mmap sharing when they match.
+                    if let Some((name, spec_pointer)) = reused {
+                        if verify_reused_against_decoded {
+                            let decoded_spec = spec_from_pb(envelope.checksum, spec)?;
+                            if spec_pointer.matches_owned_spec(&decoded_spec) {
+                                context.spec_decode_stats.with_mmap_project(
+                                    context.mmap_project_id,
+                                    || {
+                                        context.next_specs.insert_reused_dynamic_config_update(
+                                            name,
+                                            spec_pointer,
+                                        );
+                                    },
+                                );
+                            } else {
+                                context.spec_decode_stats.with_mmap_project(
+                                    context.mmap_project_id,
+                                    || {
+                                        context
+                                            .next_specs
+                                            .insert_owned_dynamic_config_update(name, decoded_spec);
+                                    },
+                                );
+                            }
+                        } else {
+                            context.spec_decode_stats.with_mmap_project(
+                                context.mmap_project_id,
+                                || {
+                                    context
+                                        .next_specs
+                                        .insert_reused_dynamic_config_update(name, spec_pointer);
+                                },
+                            );
+                        }
+                    } else {
+                        let result = context.spec_decode_stats.with_mmap_project(
+                            context.mmap_project_id,
+                            || {
+                                context
+                                    .next_specs
+                                    .handle_decoded_dynamic_config_update(envelope, spec)
+                            },
+                        );
+                        finish_entity_parse_result(
+                            context.ops_stats,
+                            result,
+                            tolerates_malformed_entity,
+                        )?;
+                    }
+
+                    if let Some(capture) = data_store_capture.as_mut() {
+                        if hydrated_frame.is_some() {
+                            capture.mark_remote_metadata();
+                        }
+                        capture.write_frame(
+                            hydrated_frame
+                                .as_deref()
+                                .or(raw_frame.as_deref())
+                                .expect("captured dynamic config frame must retain wire bytes"),
+                        )?;
+                    }
+                }
+            },
+        }
+    }
+
+    batch.bytes = 0;
+
+    Ok(())
+}
+
+fn finish_entity_parse_result(
+    ops_stats: &OpsStatsForInstance,
+    result: Result<(), StatsigErr>,
+    tolerates_malformed_entity: bool,
+) -> Result<(), StatsigErr> {
+    match log_parse_result(ops_stats, result) {
+        Ok(()) => Ok(()),
+        Err(error)
+            if tolerates_malformed_entity
+                && !is_unhydrated_remote_config_metadata_error(&error) =>
+        {
+            Ok(())
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn finish_protobuf_update_at_done(
+    current_specs: &SpecsResponseFull,
+    next_specs: &mut SpecsResponseFull,
+    previous_spec_decode_stats: SpecDecodeStats,
+    state: ParseState,
+) -> Result<ProtobufUpdate, StatsigErr> {
+    match state {
+        ParseState::Full => Ok(ProtobufUpdate::Materialized { is_delta: false }),
+        ParseState::DeltaMaterializedValidated => {
+            Ok(ProtobufUpdate::Materialized { is_delta: true })
+        }
+        ParseState::DeltaDeferredValidated => {
+            if next_specs.has_same_semantic_values_as(current_specs) && next_specs.time > 0 {
+                if let Some(checksum) = next_specs
+                    .checksum
+                    .as_ref()
+                    .filter(|checksum| !checksum.is_empty())
+                {
+                    return Ok(ProtobufUpdate::CursorOnly {
+                        lcut: next_specs.time,
+                        checksum: checksum.clone(),
+                    });
+                }
+            }
+
+            seed_spec_decode_stats(previous_spec_decode_stats);
+            next_specs.copy_previous_values_from(current_specs);
+            Ok(ProtobufUpdate::Materialized { is_delta: true })
+        }
+        ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
+            make_proto_parse_error("SpecsEnvelope", "Missing top-level envelope")
+        }
+        ParseState::DeltaDeferred | ParseState::DeltaMaterialized => make_proto_parse_error(
+            "SpecsEnvelope",
+            "Missing checksums envelope for delta response",
+        ),
+    }
+}
+
+fn protobuf_spec_has_remote_metadata(spec: &pb::Spec) -> bool {
+    spec.remote_config_metadata.is_some()
+        || spec
+            .rules
+            .iter()
+            .any(|rule| rule.remote_config_metadata.is_some())
+}
+
+pub(crate) fn deserialize_protobuf_for_store_with_options(
     ops_stats: &OpsStatsForInstance,
     current_specs: &SpecsResponseFull, /* Intentionally immutable so we can continue using it if parsing fails */
     previous_spec_decode_stats: SpecDecodeStats,
@@ -151,7 +1130,7 @@ fn deserialize_protobuf_for_store_with_options(
     let mut parsed_envelopes_count = 0;
     let mut state = ParseState::Initial;
 
-    let mut reader = ProtoStreamReader::new(data);
+    let mut reader = ProtoStreamReader::new_for_response(data)?;
 
     if !next_specs.is_empty() {
         // We just verify, rather than doing the reset here. The SpecStore is responsible for resetting the next_specs.
@@ -204,40 +1183,14 @@ fn deserialize_protobuf_for_store_with_options(
         };
 
         match envelope_kind {
-            pb::SpecsEnvelopeKind::Done => match state {
-                ParseState::Full => return Ok(ProtobufUpdate::Materialized { is_delta: false }),
-                ParseState::DeltaMaterializedValidated => {
-                    return Ok(ProtobufUpdate::Materialized { is_delta: true });
-                }
-                ParseState::DeltaDeferredValidated => {
-                    if next_specs.has_same_semantic_values_as(current_specs) && next_specs.time > 0
-                    {
-                        if let Some(checksum) = next_specs
-                            .checksum
-                            .as_ref()
-                            .filter(|checksum| !checksum.is_empty())
-                        {
-                            return Ok(ProtobufUpdate::CursorOnly {
-                                lcut: next_specs.time,
-                                checksum: checksum.clone(),
-                            });
-                        }
-                    }
-
-                    seed_spec_decode_stats(previous_spec_decode_stats);
-                    next_specs.copy_previous_values_from(current_specs);
-                    return Ok(ProtobufUpdate::Materialized { is_delta: true });
-                }
-                ParseState::Initial | ParseState::DeltaAwaitingTopLevel => {
-                    return make_proto_parse_error("SpecsEnvelope", "Missing top-level envelope");
-                }
-                ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
-                    return make_proto_parse_error(
-                        "SpecsEnvelope",
-                        "Missing checksums envelope for delta response",
-                    );
-                }
-            },
+            pb::SpecsEnvelopeKind::Done => {
+                return finish_protobuf_update_at_done(
+                    current_specs,
+                    next_specs,
+                    previous_spec_decode_stats,
+                    state,
+                );
+            }
             pb::SpecsEnvelopeKind::TopLevel => match state {
                 ParseState::Initial | ParseState::Full => {
                     if log_parse_result(ops_stats, next_specs.handle_top_level_update(env)).is_ok()
@@ -262,7 +1215,7 @@ fn deserialize_protobuf_for_store_with_options(
             | pb::SpecsEnvelopeKind::ParamStore
             | pb::SpecsEnvelopeKind::Condition) => match state {
                 ParseState::Full => {
-                    let _ = log_parse_result(
+                    if let Err(error) = log_parse_result(
                         ops_stats,
                         apply_entity_update(
                             kind,
@@ -271,7 +1224,16 @@ fn deserialize_protobuf_for_store_with_options(
                             next_specs,
                             preserve_session_update_mode,
                         ),
-                    );
+                    ) {
+                        // Full protobuf responses intentionally tolerate malformed
+                        // individual entities for backwards compatibility. Remote
+                        // metadata is different: continuing would publish a
+                        // placeholder URL as the config value when hydration was
+                        // skipped, so make this one decoder error response-fatal.
+                        if is_unhydrated_remote_config_metadata_error(&error) {
+                            return Err(error);
+                        }
+                    }
                 }
                 ParseState::DeltaDeferred | ParseState::DeltaMaterialized => {
                     state.materialize(current_specs, next_specs, previous_spec_decode_stats);
@@ -411,14 +1373,19 @@ fn log_parse_result<T>(
 }
 
 impl SpecsResponseFull {
-    fn handle_top_level_update(&mut self, envelope: pb::SpecsEnvelope) -> Result<(), StatsigErr> {
+    fn handle_top_level_update(
+        &mut self,
+        envelope: pb::SpecsEnvelope,
+    ) -> Result<Option<bool>, StatsigErr> {
         let envelope_data = validate_envelope_data("TopLevel", envelope.data)?;
         let top_level = pb::SpecsTopLevel::decode(envelope_data)
             .map_err(|e| map_decode_err("SpecsTopLevel", e))?;
 
+        let may_have_remote_config_metadata = top_level.may_have_remote_config_metadata;
+
         self.populate_top_level_from_envelope(top_level)?;
 
-        Ok(())
+        Ok(may_have_remote_config_metadata)
     }
 
     fn handle_feature_gate_update(
@@ -451,6 +1418,60 @@ impl SpecsResponseFull {
             InternedStore::try_get_preloaded_dynamic_config,
             preserve_session_update_mode,
         )
+    }
+
+    /// Return a matching mmap/current pointer without mutating next_specs; the
+    /// bounded async parser queue publishes it later in envelope order. Callers
+    /// still decode responses that advertise remote metadata because an older
+    /// artifact with the same checksum may contain a placeholder.
+    fn find_reusable_dynamic_config_update(
+        &self,
+        envelope: &pb::SpecsEnvelope,
+        existing: &SpecsResponseFull,
+    ) -> Option<(InternedString, SpecPointer)> {
+        let name = InternedString::from_string(envelope.name.clone());
+
+        if let Some(preloaded) = InternedStore::try_get_preloaded_dynamic_config(&name) {
+            if preloaded.view().checksum().map(|value| value.as_str())
+                == Some(envelope.checksum.as_str())
+            {
+                return Some((name, preloaded));
+            }
+        }
+
+        if let Some(spec_ptr) = existing.dynamic_configs.get(&name) {
+            if spec_ptr.view().checksum().map(|value| value.as_str())
+                == Some(envelope.checksum.as_str())
+            {
+                return Some((name, spec_ptr.clone()));
+            }
+        }
+
+        None
+    }
+
+    fn insert_reused_dynamic_config_update(
+        &mut self,
+        name: InternedString,
+        spec_pointer: SpecPointer,
+    ) {
+        self.dynamic_configs.insert(name, spec_pointer);
+    }
+
+    fn handle_decoded_dynamic_config_update(
+        &mut self,
+        envelope: pb::SpecsEnvelope,
+        spec: pb::Spec,
+    ) -> Result<(), StatsigErr> {
+        let name = InternedString::from_string(envelope.name);
+        let spec = spec_from_pb(envelope.checksum, spec)?;
+        self.insert_owned_dynamic_config_update(name, spec);
+        Ok(())
+    }
+
+    fn insert_owned_dynamic_config_update(&mut self, name: InternedString, spec: Spec) {
+        self.dynamic_configs
+            .insert(name, SpecPointer::from_spec(spec));
     }
 
     fn handle_layer_config_update(
@@ -986,6 +2007,7 @@ fn condition_type_from_pb(condition_type: pb::ConditionType) -> Result<InternedS
         pb::ConditionType::Public => Ok(interned_str!("public")),
         pb::ConditionType::FailGate => Ok(interned_str!("fail_gate")),
         pb::ConditionType::PassGate => Ok(interned_str!("pass_gate")),
+        pb::ConditionType::ExperimentGroup => Ok(interned_str!("experiment_group")),
         pb::ConditionType::UaBased => Ok(interned_str!("ua_based")),
         pb::ConditionType::IpBased => Ok(interned_str!("ip_based")),
         pb::ConditionType::UserField => Ok(interned_str!("user_field")),
@@ -997,6 +2019,15 @@ fn condition_type_from_pb(condition_type: pb::ConditionType) -> Result<InternedS
 }
 
 fn spec_from_pb(checksum: String, spec: pb::Spec) -> Result<Spec, StatsigErr> {
+    if spec.remote_config_metadata.is_some()
+        || spec
+            .rules
+            .iter()
+            .any(|rule| rule.remote_config_metadata.is_some())
+    {
+        return Err(unhydrated_remote_config_metadata_error());
+    }
+
     let checksum = InternedString::from_string(checksum);
     let entity_type = pb::EntityType::try_from(spec.entity)
         .map_err(|e| map_unknown_enum_value("EntityType", e))?;
@@ -1049,6 +2080,22 @@ fn spec_from_pb(checksum: String, spec: pb::Spec) -> Result<Spec, StatsigErr> {
     Ok(spec)
 }
 
+fn unhydrated_remote_config_metadata_error() -> StatsigErr {
+    StatsigErr::ProtobufParseError(
+        UNHYDRATED_REMOTE_CONFIG_METADATA_TAG.to_string(),
+        UNHYDRATED_REMOTE_CONFIG_METADATA_MESSAGE.to_string(),
+    )
+}
+
+fn is_unhydrated_remote_config_metadata_error(error: &StatsigErr) -> bool {
+    matches!(
+        error,
+        StatsigErr::ProtobufParseError(tag, message)
+            if tag == UNHYDRATED_REMOTE_CONFIG_METADATA_TAG
+                && message == UNHYDRATED_REMOTE_CONFIG_METADATA_MESSAGE
+    )
+}
+
 fn rules_from_pb(rules: Vec<pb::Rule>) -> Result<Vec<Rule>, StatsigErr> {
     rules
         .into_iter()
@@ -1075,11 +2122,28 @@ fn rules_from_pb(rules: Vec<pb::Rule>) -> Result<Vec<Rule>, StatsigErr> {
 
                 sampling_rate: sampling_rate_from_pb(pb_rule.sampling_rate)?,
                 return_value: return_value_from_pb(pb_rule.return_value)?,
+                shared_control_experiments: (!pb_rule.shared_control_experiments.is_empty()).then(
+                    || {
+                        pb_rule
+                            .shared_control_experiments
+                            .into_iter()
+                            .map(shared_control_exp_from_pb)
+                            .collect::<Vec<_>>()
+                            .into()
+                    },
+                ),
             };
 
             Ok(rule)
         })
         .collect::<Result<Vec<Rule>, StatsigErr>>()
+}
+
+fn shared_control_exp_from_pb(experiment: pb::SharedControlExperiment) -> SharedControlExperiment {
+    SharedControlExperiment {
+        name: InternedString::from_string(experiment.name),
+        control_group_id: InternedString::from_string(experiment.control_group_id),
+    }
 }
 
 fn sampling_rate_from_pb(sampling_rate: Option<f32>) -> Result<Option<u64>, StatsigErr> {
@@ -1240,16 +2304,20 @@ fn make_proto_parse_error<T>(tag: &str, message: &str) -> Result<T, StatsigErr> 
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, io::Write, sync::Arc};
+    use std::{
+        collections::HashMap,
+        io::{Read, Write},
+        sync::Arc,
+    };
 
     use brotli::enc::BrotliEncoderParams;
     use prost::Message;
 
     use super::{
-        ProtobufUpdate, SpecDecodeStats, SpecsResponseFull, checksum_for_condition,
-        checksum_for_param_store, checksum_for_spec, condition_from_pb, deserialize_protobuf,
-        deserialize_protobuf_for_store, deserialize_protobuf_with_options, pb, rules_from_pb,
-        spec_from_pb, sum_checksums,
+        HydratedProtobufDataStoreCapture, ProtobufUpdate, SpecDecodeStats, SpecsResponseFull,
+        checksum_for_condition, checksum_for_param_store, checksum_for_spec, condition_from_pb,
+        deserialize_protobuf, deserialize_protobuf_for_store, deserialize_protobuf_with_options,
+        pb, rules_from_pb, spec_from_pb, sum_checksums,
     };
     use crate::{
         interned_string::InternedString,
@@ -1257,11 +2325,28 @@ mod tests {
         observability::ops_stats::OpsStatsForInstance,
         specs_response::{
             parse_options::SpecsResponseParseOptions,
+            proto_compression::ProtoCompression,
             proto_stream_reader::BUFFER_SIZE,
             spec_types::{ConditionOperator, ConditionType},
             specs_hash_map::{SpecPointer, SpecsHashMap},
         },
     };
+
+    #[test]
+    fn hydrated_data_store_capture_preserves_zstd_compression() {
+        let mut capture = HydratedProtobufDataStoreCapture::new(ProtoCompression::Zstd).unwrap();
+        capture.mark_remote_metadata();
+        capture.write_frame(b"hydrated-protobuf").unwrap();
+
+        let compressed = capture.finish().unwrap().unwrap();
+        let mut decoded = Vec::new();
+        zstd::stream::Decoder::new(compressed.as_slice())
+            .unwrap()
+            .read_to_end(&mut decoded)
+            .unwrap();
+
+        assert_eq!(decoded, b"hydrated-protobuf");
+    }
 
     fn checksum_only_delta(current: &SpecsResponseFull, lcut: u64, checksum: &str) -> ResponseData {
         let mut common_fields = serde_json::to_value(current).unwrap();
@@ -1342,6 +2427,47 @@ mod tests {
             },
         ];
 
+        compressed_response(envelopes)
+    }
+
+    fn full_response_with_unhydrated_remote_config_metadata() -> ResponseData {
+        let envelopes = [
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::TopLevel as i32,
+                data: Some(
+                    pb::SpecsTopLevel {
+                        has_updates: true,
+                        time: 1,
+                        rest: br#"{"experiment_to_layer":{}}"#.to_vec(),
+                        ..pb::SpecsTopLevel::default()
+                    }
+                    .encode_to_vec(),
+                ),
+                ..pb::SpecsEnvelope::default()
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
+                name: "remote_config".to_string(),
+                checksum: "checksum".to_string(),
+                data: Some(
+                    pb::Spec {
+                        entity: pb::EntityType::EntityDynamicConfig as i32,
+                        remote_config_metadata: Some(pb::RemoteConfigValueMetadata::default()),
+                        ..pb::Spec::default()
+                    }
+                    .encode_to_vec(),
+                ),
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Done as i32,
+                ..pb::SpecsEnvelope::default()
+            },
+        ];
+
+        compressed_response(envelopes)
+    }
+
+    fn compressed_response(envelopes: impl IntoIterator<Item = pb::SpecsEnvelope>) -> ResponseData {
         let mut encoded = Vec::new();
         for envelope in envelopes {
             envelope.encode_length_delimited(&mut encoded).unwrap();
@@ -1406,6 +2532,43 @@ mod tests {
         .unwrap();
 
         assert_eq!(spec.session_update_mode.as_deref(), Some("live"));
+    }
+
+    #[test]
+    fn spec_from_pb_rejects_unhydrated_remote_config_metadata() {
+        let result = spec_from_pb(
+            "checksum".to_string(),
+            pb::Spec {
+                entity: pb::EntityType::EntityDynamicConfig as i32,
+                remote_config_metadata: Some(pb::RemoteConfigValueMetadata::default()),
+                ..pb::Spec::default()
+            },
+        );
+
+        assert!(matches!(
+            result,
+            Err(crate::StatsigErr::ProtobufParseError(tag, message))
+                if tag == "proto::RemoteConfigMetadata"
+                    && message.contains("before hydration")
+        ));
+    }
+
+    #[test]
+    fn full_protobuf_response_rejects_unhydrated_remote_config_metadata() {
+        let current = SpecsResponseFull::default();
+        let mut next = SpecsResponseFull::default();
+        let mut data = full_response_with_unhydrated_remote_config_metadata();
+
+        let result =
+            deserialize_protobuf(&OpsStatsForInstance::new(), &current, &mut next, &mut data);
+
+        assert!(matches!(
+            result,
+            Err(crate::StatsigErr::ProtobufParseError(tag, message))
+                if tag == "proto::RemoteConfigMetadata"
+                    && message.contains("before hydration")
+        ));
+        assert!(next.dynamic_configs.is_empty());
     }
 
     #[test]
@@ -1586,6 +2749,41 @@ mod tests {
     }
 
     #[test]
+    fn rules_from_pb_preserves_shared_control_experiments() {
+        let encoded = pb::Rule {
+            shared_control_experiments: vec![
+                pb::SharedControlExperiment {
+                    name: "ranking_experiment".to_string(),
+                    control_group_id: "ranking_control".to_string(),
+                },
+                pb::SharedControlExperiment {
+                    name: "pipeline_experiment".to_string(),
+                    control_group_id: "pipeline_control".to_string(),
+                },
+            ],
+            ..pb::Rule::default()
+        }
+        .encode_to_vec();
+
+        let rules = rules_from_pb(vec![
+            pb::Rule::decode(encoded.as_slice()).expect("protobuf rule should decode"),
+            pb::Rule::default(),
+        ])
+        .expect("protobuf rules should parse");
+
+        let experiments = rules[0]
+            .shared_control_experiments
+            .as_ref()
+            .expect("shared-control experiments should survive protobuf decoding");
+        assert_eq!(experiments.len(), 2);
+        assert_eq!(experiments[0].name.as_str(), "ranking_experiment");
+        assert_eq!(experiments[0].control_group_id.as_str(), "ranking_control");
+        assert_eq!(experiments[1].name.as_str(), "pipeline_experiment");
+        assert_eq!(experiments[1].control_group_id.as_str(), "pipeline_control");
+        assert!(rules[1].shared_control_experiments.is_none());
+    }
+
+    #[test]
     fn rules_from_pb_preserves_sampling_rate() {
         let rules = rules_from_pb(vec![pb::Rule {
             name: "rule".to_string(),
@@ -1601,7 +2799,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: Some(201.0),
             pass_percentage_float: None,
-            remote_config_metadata: None,
+            ..pb::Rule::default()
         }])
         .expect("protobuf rule should parse");
 
@@ -1623,6 +2821,21 @@ mod tests {
     }
 
     #[test]
+    fn condition_from_pb_maps_experiment_group_semantics() {
+        let condition = condition_from_pb(pb::Condition {
+            condition_type: pb::ConditionType::ExperimentGroup as i32,
+            ..pb::Condition::default()
+        })
+        .expect("experiment group protobuf conditions should parse");
+
+        assert_eq!(condition.condition_type, "experiment_group");
+        assert_eq!(
+            condition.compiled_condition_type,
+            ConditionType::ExperimentGroup
+        );
+    }
+
+    #[test]
     fn rules_from_pb_prefers_float_pass_percentage() {
         let rules = rules_from_pb(vec![pb::Rule {
             name: "rule".to_string(),
@@ -1638,7 +2851,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: None,
             pass_percentage_float: Some(0.5),
-            remote_config_metadata: None,
+            ..pb::Rule::default()
         }])
         .expect("protobuf rule should parse");
 
@@ -1661,7 +2874,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: None,
             pass_percentage_float: Some(0.0),
-            remote_config_metadata: None,
+            ..pb::Rule::default()
         }])
         .expect("protobuf rule should parse");
 
@@ -1684,7 +2897,7 @@ mod tests {
             is_control_group: None,
             sampling_rate: None,
             pass_percentage_float: None,
-            remote_config_metadata: None,
+            ..pb::Rule::default()
         }])
         .expect("protobuf rule should parse");
 

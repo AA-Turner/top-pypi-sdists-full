@@ -77,10 +77,10 @@ def statsig_setup(httpserver: HTTPServer):
     repaired_json_data["checksum"] = "equal-lcut-repair-checksum"
 
     httpserver.expect_ordered_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(json_data)
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(repaired_json_data)
 
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})

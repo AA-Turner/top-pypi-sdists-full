@@ -28,6 +28,14 @@ impl StatsigCustomizedSpecsAdapter {
         options: &StatsigOptions,
     ) -> Self {
         let mut adapters: Vec<Arc<dyn SpecsAdapter>> = Vec::new();
+        // DataStore can replay raw protobuf written by a configured HTTP
+        // adapter. Prefer its own source, then the first configured HTTP
+        // source, instead of silently falling back to global options.
+        let configured_http_specs_url =
+            configs.iter().find_map(|config| match config.adapter_type {
+                SpecsAdapterType::NetworkHttp => config.specs_url.as_deref(),
+                _ => None,
+            });
         for config in &configs {
             match config.adapter_type {
                 SpecsAdapterType::NetworkGrpcWebsocket => {
@@ -45,11 +53,14 @@ impl StatsigCustomizedSpecsAdapter {
                 }
                 SpecsAdapterType::DataStore => match options.data_store.clone() {
                     Some(data_store) => {
+                        let hydration_specs_url =
+                            config.specs_url.as_deref().or(configured_http_specs_url);
                         adapters.push(Arc::new(StatsigDataStoreSpecsAdapter::new(
                             sdk_key,
                             data_store_key,
                             data_store,
                             Some(options),
+                            hydration_specs_url,
                         )));
                     }
                     None => log_w!(TAG, "Datastore is not present for syncing spec"),
@@ -66,8 +77,13 @@ impl StatsigCustomizedSpecsAdapter {
         data_store: Arc<dyn DataStoreTrait>,
         options: &StatsigOptions,
     ) -> Self {
-        let data_store_spec_adapter =
-            StatsigDataStoreSpecsAdapter::new(sdk_key, data_store_key, data_store, Some(options));
+        let data_store_spec_adapter = StatsigDataStoreSpecsAdapter::new(
+            sdk_key,
+            data_store_key,
+            data_store,
+            Some(options),
+            None,
+        );
         let http_adapter = StatsigHttpSpecsAdapter::new(sdk_key, Some(options), None);
         let adapters: Vec<Arc<dyn SpecsAdapter>> =
             vec![Arc::new(data_store_spec_adapter), Arc::new(http_adapter)];

@@ -7,11 +7,10 @@ use std::{
 };
 
 use ahash::AHashSet;
-use lazy_static::lazy_static;
-use parking_lot::Mutex;
 use rkyv::ser::{Positional, allocator::Arena, writer::IoWriter};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{
     StatsigErr,
@@ -37,23 +36,35 @@ use super::{try_parse_as_json, try_parse_as_proto};
 
 const MMAP_WRITE_BUFFER_CAPACITY: usize = 1024 * 1024;
 
-lazy_static! {
-    static ref MMAP_WRITE_LOCK: Mutex<()> = Mutex::new(());
+static MMAP_WRITE_LOCK: Mutex<()> = Mutex::const_new(());
+
+/// Parsing specs populates process-global intern tables that are drained while
+/// building the mmap graph. Keep those two phases under one async-compatible
+/// lock so a remote-value await cannot let another writer steal the entries.
+pub(super) async fn acquire_mmap_graph_write_lock() -> MutexGuard<'static, ()> {
+    MMAP_WRITE_LOCK.lock().await
 }
 
 pub(super) fn write_mmap_artifacts(
+    write_guard: &MutexGuard<'_, ()>,
     response_data: &mut ResponseData,
     previous: Option<&MmapSyncCursor>,
     v2_path: &Path,
     manifest_path: &Path,
 ) -> Result<MmapWriteOutcome, StatsigErr> {
-    let _write_guard = MMAP_WRITE_LOCK.lock();
-    let Some(MmapResolvedUpdate { specs, cursor }) =
-        MmapConfigResponse::new(response_data)?.resolve(previous)?
-    else {
+    let Some(resolved) = MmapConfigResponse::new(response_data)?.resolve(previous)? else {
         return Ok(MmapWriteOutcome::NoUpdate);
     };
 
+    write_resolved_mmap_artifacts(write_guard, resolved, v2_path, manifest_path)
+}
+
+pub(super) fn write_resolved_mmap_artifacts(
+    _write_guard: &MutexGuard<'_, ()>,
+    MmapResolvedUpdate { specs, cursor }: MmapResolvedUpdate,
+    v2_path: &Path,
+    manifest_path: &Path,
+) -> Result<MmapWriteOutcome, StatsigErr> {
     let mmap_v2 = mutable_to_mmap_data_v2(vec![specs])?;
     let (v2_file, v2_bytes_written) = publish_mmap_v2_data(mmap_v2, v2_path, |data, file| {
         serialize_mmap_v2_data(data, file)
@@ -283,11 +294,17 @@ fn detached_mutable_to_mmap_data_v2(
         let SpecsResponseFull {
             feature_gates,
             dynamic_configs,
-            layer_configs,
+            mut layer_configs,
             ..
         } = response;
         insert_mmap_specs(feature_gates, &mut mmap_data.feature_gates);
         insert_mmap_specs(dynamic_configs, &mut mmap_data.dynamic_configs);
+        layer_configs.0.retain(|_, spec| {
+            spec.as_spec_ref()
+                .rules
+                .iter()
+                .all(|rule| rule.shared_control_experiments.is_none())
+        });
         insert_mmap_specs(layer_configs, &mut mmap_data.layer_configs);
     }
 

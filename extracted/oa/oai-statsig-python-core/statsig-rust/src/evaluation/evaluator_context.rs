@@ -11,13 +11,19 @@ use crate::id_lists_adapter::IdList;
 use crate::interned_string::InternedString;
 use crate::specs_response::spec_types::{Rule, Spec, SpecsResponseFull};
 use crate::user::StatsigUserInternal;
-use crate::{OverrideAdapter, SecondaryExposure, Statsig, StatsigErr};
+use crate::{OverrideAdapter, SecondaryExposure, StatsigErr};
 
 const MAX_RECURSIVE_DEPTH: u16 = 300;
 
 // (gate_name, (bool_value, rule_id, secondary_exposures))
 type NestedGateMemo =
     AHashMap<InternedString, (bool, Option<InternedString>, Vec<SecondaryExposure>)>;
+
+pub(crate) struct NestedExperimentExposure {
+    pub(crate) experiment_name: InternedString,
+    pub(crate) recognized: bool,
+    pub(crate) result: EvaluatorResult,
+}
 
 pub enum IdListResolution<'a> {
     MapLookup(&'a HashMap<String, IdList>),
@@ -35,8 +41,8 @@ pub struct EvaluatorContext<'a> {
     pub override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
     pub nested_gate_memo: NestedGateMemo,
     pub should_user_third_party_parser: bool,
-    pub statsig: Option<&'a Statsig>,
-    pub disable_exposure_logging: bool,
+    pub(crate) capture_nested_experiment_exposures: bool,
+    pub(crate) nested_experiment_exposures: Vec<NestedExperimentExposure>,
     pub gcir_hashes: Vec<u64>,
 }
 
@@ -50,8 +56,7 @@ impl<'a> EvaluatorContext<'a> {
         app_id: Option<&'a DynamicValue>,
         override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
         should_user_third_party_parser: bool,
-        statsig: Option<&'a Statsig>,
-        disable_exposure_logging: bool,
+        capture_nested_experiment_exposures: bool,
     ) -> Self {
         let result = EvaluatorResult::default();
 
@@ -66,8 +71,8 @@ impl<'a> EvaluatorContext<'a> {
             nested_count: 0,
             nested_gate_memo: AHashMap::new(),
             should_user_third_party_parser,
-            statsig,
-            disable_exposure_logging,
+            capture_nested_experiment_exposures,
+            nested_experiment_exposures: Vec::new(),
             gcir_hashes: Vec::new(),
         }
     }

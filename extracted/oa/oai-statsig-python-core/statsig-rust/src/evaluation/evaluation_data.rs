@@ -7,7 +7,7 @@ use crate::{
     },
     specs_response::{
         explicit_params::ExplicitParameters,
-        spec_types::{Rule, Spec},
+        spec_types::{Rule, SharedControlExperiments, Spec},
     },
 };
 use serde_json::Value;
@@ -409,6 +409,13 @@ impl<'a> RuleRef<'a> {
         match self {
             Self::Owned(rule) => rule.sampling_rate,
             Self::Mmap(rule) => rule.sampling_rate.as_ref().map(|value| value.to_native()),
+        }
+    }
+
+    pub(crate) fn shared_control_experiments(self) -> Option<SharedControlExperiments> {
+        match self {
+            Self::Owned(rule) => rule.shared_control_experiments.clone(),
+            Self::Mmap(_) => None,
         }
     }
 }

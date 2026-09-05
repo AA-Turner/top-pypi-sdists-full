@@ -7,7 +7,20 @@ from __future__ import annotations
 
 import asyncio
 import time
+from typing import Any
 
+from amazon_creatorsapi.core.constants import DEFAULT_TIMEOUT, HTTP_OK
+from amazon_creatorsapi.core.oauth import (
+    COGNITO_SCOPE,
+    DEFAULT_EXPIRATION,
+    GRANT_TYPE,
+    LWA_SCOPE,
+    TOKEN_EXPIRATION_BUFFER,
+    VERSION_ENDPOINTS,
+    get_auth_endpoint,
+    get_scope,
+    is_lwa,
+)
 from amazon_creatorsapi.errors import AuthenticationError
 
 try:
@@ -20,25 +33,18 @@ except ImportError as exc:  # pragma: no cover
     raise ImportError(msg) from exc
 
 
-# OAuth2 constants
-COGNITO_SCOPE = "creatorsapi/default"
-LWA_SCOPE = "creatorsapi::default"
 # Backward-compatible alias for existing v2.x users.
 SCOPE = COGNITO_SCOPE
-GRANT_TYPE = "client_credentials"
 
-# Token expiration buffer in seconds (refresh 30s before actual expiration)
-TOKEN_EXPIRATION_BUFFER = 30
-
-# Version to auth endpoint mapping
-VERSION_ENDPOINTS = {
-    "2.1": "https://creatorsapi.auth.us-east-1.amazoncognito.com/oauth2/token",
-    "2.2": "https://creatorsapi.auth.eu-south-2.amazoncognito.com/oauth2/token",
-    "2.3": "https://creatorsapi.auth.us-west-2.amazoncognito.com/oauth2/token",
-    "3.1": "https://api.amazon.com/auth/o2/token",
-    "3.2": "https://api.amazon.co.uk/auth/o2/token",
-    "3.3": "https://api.amazon.co.jp/auth/o2/token",
-}
+__all__ = [
+    "COGNITO_SCOPE",
+    "GRANT_TYPE",
+    "LWA_SCOPE",
+    "SCOPE",
+    "TOKEN_EXPIRATION_BUFFER",
+    "VERSION_ENDPOINTS",
+    "AsyncOAuth2TokenManager",
+]
 
 
 class AsyncOAuth2TokenManager:
@@ -55,6 +61,8 @@ class AsyncOAuth2TokenManager:
         credential_secret: OAuth2 credential secret.
         version: API version (determines auth endpoint).
         auth_endpoint: Optional custom auth endpoint URL.
+        timeout: Token request timeout in seconds, or None to wait
+            indefinitely. Defaults to 30 seconds.
 
     """
 
@@ -64,12 +72,14 @@ class AsyncOAuth2TokenManager:
         credential_secret: str,
         version: str,
         auth_endpoint: str | None = None,
+        timeout: float | None = DEFAULT_TIMEOUT,
     ) -> None:
         """Initialize the async OAuth2 token manager."""
         self._credential_id = credential_id
         self._credential_secret = credential_secret
         self._version = version
         self._auth_endpoint = self._determine_auth_endpoint(version, auth_endpoint)
+        self._timeout = timeout
 
         self._access_token: str | None = None
         self._expires_at: float | None = None
@@ -90,26 +100,19 @@ class AsyncOAuth2TokenManager:
             The OAuth2 token endpoint URL.
 
         Raises:
-            ValueError: If version is not supported and no custom endpoint provided.
+            InvalidArgumentError: If version is not supported and no custom
+                endpoint provided.
 
         """
-        if auth_endpoint and auth_endpoint.strip():
-            return auth_endpoint
-
-        if version not in VERSION_ENDPOINTS:
-            supported = ", ".join(VERSION_ENDPOINTS.keys())
-            msg = f"Unsupported version: {version}. Supported versions are: {supported}"
-            raise ValueError(msg)
-
-        return VERSION_ENDPOINTS[version]
+        return get_auth_endpoint(version, auth_endpoint)
 
     def is_lwa(self) -> bool:
         """Return whether this token manager uses the LWA auth flow."""
-        return self._version.startswith("3.")
+        return is_lwa(self._version)
 
     def get_scope(self) -> str:
         """Return the version-appropriate OAuth2 scope."""
-        return LWA_SCOPE if self.is_lwa() else COGNITO_SCOPE
+        return get_scope(self._version)
 
     @property
     def lock(self) -> asyncio.Lock:
@@ -186,7 +189,7 @@ class AsyncOAuth2TokenManager:
         }
 
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
                 if self.is_lwa():
                     response = await client.post(
                         self._auth_endpoint,
@@ -200,7 +203,7 @@ class AsyncOAuth2TokenManager:
                         headers={"Content-Type": "application/x-www-form-urlencoded"},
                     )
 
-            if response.status_code != 200:  # noqa: PLR2004
+            if response.status_code != HTTP_OK:
                 self.clear_token()
                 msg = (
                     f"OAuth2 token request failed with status {response.status_code}: "
@@ -208,7 +211,7 @@ class AsyncOAuth2TokenManager:
                 )
                 raise AuthenticationError(msg)
 
-            data = response.json()
+            data = self._parse_token_response(response)
 
             if "access_token" not in data:
                 self.clear_token()
@@ -217,7 +220,7 @@ class AsyncOAuth2TokenManager:
 
             self._access_token = data["access_token"]
             # Set expiration time with buffer to avoid edge cases
-            expires_in = data.get("expires_in", 3600)
+            expires_in = data.get("expires_in", DEFAULT_EXPIRATION)
             self._expires_at = time.time() + expires_in - TOKEN_EXPIRATION_BUFFER
 
         except httpx.RequestError as exc:
@@ -230,6 +233,27 @@ class AsyncOAuth2TokenManager:
             msg = "Token should be set at this point"
             raise AuthenticationError(msg)
         return self._access_token
+
+    def _parse_token_response(self, response: httpx.Response) -> dict[str, Any]:
+        """Parse the token response as JSON.
+
+        Args:
+            response: Response from the auth endpoint.
+
+        Returns:
+            The parsed response body.
+
+        Raises:
+            AuthenticationError: If the response is not valid JSON.
+
+        """
+        try:
+            data: dict[str, Any] = response.json()
+        except ValueError as error:
+            self.clear_token()
+            msg = f"Failed to parse OAuth2 token response: {error}"
+            raise AuthenticationError(msg) from error
+        return data
 
     def clear_token(self) -> None:
         """Clear the cached token, forcing a refresh on the next get_token() call."""

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ubi-reader"
-version = "0.8.15"
+version = "0.8.16"
 description = "Extract files from UBI and UBIFS images."
 authors = ["ONEKEY <support@onekey.com>", "Jason Pruitt <jrspruitt@gmail.com>"]
 license = "GNU GPL"
@@ -42,3 +42,9 @@ ubireader_extract_files = "ubireader.scripts.ubireader_extract_files:main"
 ubireader_extract_images = "ubireader.scripts.ubireader_extract_images:main"
 ubireader_list_files = "ubireader.scripts.ubireader_list_files:main"
 ubireader_utils_info = "ubireader.scripts.ubireader_utils_info:main"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.1.1,<10.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)"
+]

@@ -23,7 +23,7 @@ static ALLOC: monty_alloc::LimitedAllocator = monty_alloc::LimitedAllocator;
 #[derive(Parser)]
 #[command(version)]
 pub(crate) struct Cli {
-    /// Start interactive REPL mode.
+    /// Start interactive REPL mode, this is the default if no file or command is provided.
     #[arg(short = 'i', long = "interactive")]
     interactive: bool,
 
@@ -50,6 +50,9 @@ pub(crate) struct Cli {
     /// Uses `::` as separator to avoid ambiguity with Windows drive letters.
     /// Modes: `ro` (read-only, default), `rw` (read-write), `overlay` (in-memory overlay).
     /// `write_limit_bytes` is optional and applies to all write modes.
+    ///
+    /// WARNING: with `rw`, files written by sandboxed code persist on the
+    /// host, where your own tools may later execute them. Prefer `overlay`.
     #[arg(short = 'm', long = "mount")]
     mounts: Vec<String>,
 
@@ -68,6 +71,10 @@ pub(crate) struct Cli {
     /// Maximum call-stack depth (defaults to 1000 when any limit is set).
     #[arg(long)]
     max_recursion_depth: Option<usize>,
+
+    /// Maximum suspensions serviced in one CLI session (defaults to 1000).
+    #[arg(long)]
+    max_suspensions: Option<usize>,
 
     #[command(subcommand)]
     subcommand: Option<Command>,
@@ -115,6 +122,7 @@ impl Cli {
             || self.max_memory.is_some()
             || self.gc_interval.is_some()
             || self.max_recursion_depth.is_some()
+            || self.max_suspensions.is_some()
     }
 
     /// Builds `ResourceLimits` from the parsed CLI arguments.
@@ -139,6 +147,9 @@ impl Cli {
         }
         if let Some(depth) = self.max_recursion_depth {
             limits = limits.max_recursion_depth(depth);
+        }
+        if let Some(max) = self.max_suspensions {
+            limits = limits.max_suspensions(max);
         }
         Ok(limits)
     }

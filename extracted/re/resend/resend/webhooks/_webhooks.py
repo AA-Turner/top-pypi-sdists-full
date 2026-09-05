@@ -107,6 +107,16 @@ class Webhooks:
         The webhook event payload.
         """
 
+    class ReplayEventResponse(BaseResponse):
+        object: str
+        """
+        The object type, always "webhook_event".
+        """
+        id: str
+        """
+        The webhook event ID.
+        """
+
     class WebhookEventAttempt(TypedDict):
         id: str
         """
@@ -363,6 +373,17 @@ class Webhooks:
     def list_events(
         cls, webhook_id: str, params: Optional[ListEventsParams] = None
     ) -> ListEventsResponse:
+        """
+        Retrieve a list of events delivered to a webhook.
+        see more: https://resend.com/docs/api-reference/webhooks/list-events
+
+        Args:
+            webhook_id (str): The webhook ID
+            params (Optional[ListEventsParams]): Optional pagination parameters
+
+        Returns:
+            ListEventsResponse: A list of webhook events
+        """
         base_path = f"/webhooks/{webhook_id}/events"
         query_params = cast(Dict[Any, Any], params) if params else None
         path = PaginationHelper.build_paginated_path(base_path, query_params)
@@ -372,9 +393,38 @@ class Webhooks:
 
     @classmethod
     def get_event(cls, webhook_id: str, event_id: str) -> GetEventResponse:
+        """
+        Retrieve a single event delivered to a webhook.
+        see more: https://resend.com/docs/api-reference/webhooks/get-event
+
+        Args:
+            webhook_id (str): The webhook ID
+            event_id (str): The webhook event ID
+
+        Returns:
+            GetEventResponse: The webhook event
+        """
         path = f"/webhooks/{webhook_id}/events/{event_id}"
         return request.Request[Webhooks.GetEventResponse](
             path=path, params={}, verb="get"
+        ).perform_with_content()
+
+    @classmethod
+    def replay_event(cls, webhook_id: str, event_id: str) -> ReplayEventResponse:
+        """
+        Queue one more delivery of a webhook event to its webhook.
+        see more: https://resend.com/docs/api-reference/webhooks/replay-event
+
+        Args:
+            webhook_id (str): The webhook ID
+            event_id (str): The webhook event ID
+
+        Returns:
+            ReplayEventResponse: The replayed webhook event
+        """
+        path = f"/webhooks/{webhook_id}/events/{event_id}/replay"
+        return request.Request[Webhooks.ReplayEventResponse](
+            path=path, params={}, verb="post"
         ).perform_with_content()
 
     @classmethod
@@ -384,6 +434,18 @@ class Webhooks:
         event_id: str,
         params: Optional[ListEventAttemptsParams] = None,
     ) -> ListEventAttemptsResponse:
+        """
+        Retrieve the delivery attempts for a webhook event.
+        see more: https://resend.com/docs/api-reference/webhooks/list-event-attempts
+
+        Args:
+            webhook_id (str): The webhook ID
+            event_id (str): The webhook event ID
+            params (Optional[ListEventAttemptsParams]): Optional pagination parameters
+
+        Returns:
+            ListEventAttemptsResponse: A list of delivery attempts
+        """
         base_path = f"/webhooks/{webhook_id}/events/{event_id}/attempts"
         query_params = cast(Dict[Any, Any], params) if params else None
         path = PaginationHelper.build_paginated_path(base_path, query_params)
@@ -588,6 +650,17 @@ class Webhooks:
     async def list_events_async(
         cls, webhook_id: str, params: Optional[ListEventsParams] = None
     ) -> ListEventsResponse:
+        """
+        Retrieve a list of events delivered to a webhook (async).
+        see more: https://resend.com/docs/api-reference/webhooks/list-events
+
+        Args:
+            webhook_id (str): The webhook ID
+            params (Optional[ListEventsParams]): Optional pagination parameters
+
+        Returns:
+            ListEventsResponse: A list of webhook events
+        """
         base_path = f"/webhooks/{webhook_id}/events"
         query_params = cast(Dict[Any, Any], params) if params else None
         path = PaginationHelper.build_paginated_path(base_path, query_params)
@@ -597,9 +670,40 @@ class Webhooks:
 
     @classmethod
     async def get_event_async(cls, webhook_id: str, event_id: str) -> GetEventResponse:
+        """
+        Retrieve a single event delivered to a webhook (async).
+        see more: https://resend.com/docs/api-reference/webhooks/get-event
+
+        Args:
+            webhook_id (str): The webhook ID
+            event_id (str): The webhook event ID
+
+        Returns:
+            GetEventResponse: The webhook event
+        """
         path = f"/webhooks/{webhook_id}/events/{event_id}"
         return await AsyncRequest[Webhooks.GetEventResponse](
             path=path, params={}, verb="get"
+        ).perform_with_content()
+
+    @classmethod
+    async def replay_event_async(
+        cls, webhook_id: str, event_id: str
+    ) -> ReplayEventResponse:
+        """
+        Queue one more delivery of a webhook event to its webhook (async).
+        see more: https://resend.com/docs/api-reference/webhooks/replay-event
+
+        Args:
+            webhook_id (str): The webhook ID
+            event_id (str): The webhook event ID
+
+        Returns:
+            ReplayEventResponse: The replayed webhook event
+        """
+        path = f"/webhooks/{webhook_id}/events/{event_id}/replay"
+        return await AsyncRequest[Webhooks.ReplayEventResponse](
+            path=path, params={}, verb="post"
         ).perform_with_content()
 
     @classmethod
@@ -609,6 +713,18 @@ class Webhooks:
         event_id: str,
         params: Optional[ListEventAttemptsParams] = None,
     ) -> ListEventAttemptsResponse:
+        """
+        Retrieve the delivery attempts for a webhook event (async).
+        see more: https://resend.com/docs/api-reference/webhooks/list-event-attempts
+
+        Args:
+            webhook_id (str): The webhook ID
+            event_id (str): The webhook event ID
+            params (Optional[ListEventAttemptsParams]): Optional pagination parameters
+
+        Returns:
+            ListEventAttemptsResponse: A list of delivery attempts
+        """
         base_path = f"/webhooks/{webhook_id}/events/{event_id}/attempts"
         query_params = cast(Dict[Any, Any], params) if params else None
         path = PaginationHelper.build_paginated_path(base_path, query_params)

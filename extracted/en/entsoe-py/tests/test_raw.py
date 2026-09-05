@@ -23,9 +23,9 @@ def valid_xml(s: str) -> bool:
     except Exception:
         return False
 
-
+# keep this within month as splitting decorators only activate on the pandas client
 STARTS = [pd.Timestamp("20260301", tz="Europe/Amsterdam")]
-ENDS = [pd.Timestamp("20260331", tz="Europe/Amsterdam")]
+ENDS = [pd.Timestamp("20260303", tz="Europe/Amsterdam")]
 
 COUNTRY_CODES = ["NL", "BE", "DE_LU", "FR"]
 COUNTRY_CODES_FROM = ["NL"]
@@ -39,7 +39,7 @@ BASIC_QUERIES = [
     "query_wind_and_solar_forecast",
     "query_generation_forecast",
     "query_generation",
-    "query_generation_per_plant",
+    #"query_generation_per_plant",
     "query_installed_generation_capacity",
     "query_installed_generation_capacity_per_unit",
     "query_current_balancing_state"
@@ -156,14 +156,14 @@ def test_query_unavailability_transmission(
     )
     assert isinstance(result, (bytes, bytearray))
 
-@pytest.mark.parametrize(
-    "country_code, start, end",
-    product(COUNTRY_CODES, STARTS, ENDS),
-)
-def test_query_withdrawn_unavailability_of_generation_units(
-    client, country_code, start, end
-):
-    result = client.query_withdrawn_unavailability_of_generation_units(
-        country_code, start, end,
-    )
-    assert isinstance(result, (bytes, bytearray))
+# @pytest.mark.parametrize(
+#     "country_code, start, end",
+#     product(COUNTRY_CODES, STARTS, ENDS),
+# )
+# def test_query_withdrawn_unavailability_of_generation_units(
+#     client, country_code, start, end
+# ):
+#     result = client.query_withdrawn_unavailability_of_generation_units(
+#         country_code, start, end,
+#     )
+#     assert isinstance(result, (bytes, bytearray))

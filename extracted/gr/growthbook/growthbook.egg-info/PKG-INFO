@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: growthbook
-Version: 3.0.0
+Version: 3.1.0
 Summary: Powerful Feature flagging and A/B testing for Python apps
 Home-page: https://github.com/growthbook/growthbook-python
 Author: GrowthBook
@@ -529,6 +529,46 @@ is_enabled = gb.is_on("my-feature")  # -> Tracked automatically
 
 The tracking plugin provides batching, error handling, and works alongside your existing tracking callbacks. See the [plugin documentation](https://docs.growthbook.io/lib/python#tracking-plugins) for more details.
 
+#### Deferred Tracking
+
+When your server evaluates features but the analytics context lives on the client (server-side rendering, an API returning evaluated flags), buffer the exposures instead of tracking them server-side and forward them to a client SDK, which fires them through its own tracking callback.
+
+On the sync client, opt in with `defer_tracking=True`:
+
+```python
+gb = GrowthBook(attributes={"id": "user-1"}, features=features, defer_tracking=True)
+gb.is_on("my-feature")
+
+# JSON-ready entries in the JS SDK's TrackingData shape:
+# [{"experiment": {...}, "result": {...}, "user": {"attributes": {...}, "url": ""}}]
+calls = gb.get_deferred_tracking_calls()
+# ...send json.dumps(calls) to the client...
+gb.clear_deferred_tracking_calls()
+```
+
+The buffer lives as long as the instance: when one instance serves many users, read and clear it per request (or use one instance per request) so exposures are never forwarded to the wrong client.
+
+The receiving JavaScript SDK hydrates and fires them:
+
+```js
+gb.setDeferredTrackingCalls(callsFromServer);
+gb.fireDeferredTrackingCalls();
+```
+
+Forwarding the exposure-time `user` context to the tracking callback requires JS SDK 1.7.0+; older SDKs fire the exposures without the user argument.
+
+On the async client, pass a per-request `TrackingBuffer` — the explicit buffer is the opt-in, and because the caller owns it, concurrent requests never mix exposures:
+
+```python
+from growthbook import TrackingBuffer
+
+buffer = TrackingBuffer()
+await client.eval_feature("my-feature", user_context, tracking_buffer=buffer)
+calls = buffer.get_calls()
+```
+
+Buffering is independent of `on_experiment_viewed`: when both are configured, the buffer records first and the callback still fires. Entries are deduped per unique assignment and snapshotted at exposure time, and include prerequisite and passthrough exposures.
+
 ## Using Features
 
 There are 3 main methods for interacting with features.
@@ -641,6 +681,34 @@ Behaviors to be aware of:
 ### Async Callbacks (GrowthBookClient)
 
 With `GrowthBookClient`, the `on_experiment_viewed` and `on_feature_usage` options — and callbacks registered via `client.subscribe()` — may be either regular functions or coroutines. Coroutine callbacks are scheduled on the event loop without blocking evaluation, and a tracking callback that raises is retried on the next evaluation of the same experiment/user pair.
+
+## Contextual Bandits
+
+Contextual bandit experiments (GrowthBook Enterprise) learn which variation works best for each kind of user. All learning happens server-side: GrowthBook trains a model that partitions users into leaves and computes per-leaf variation weights. The SDK routes each user to the first leaf whose condition matches their attributes and buckets them with that leaf's weights — there is no model or sampling client-side.
+
+Support is automatic once features are loaded from the GrowthBook API. Payloads for contextual bandit experiments contain:
+
+- A top-level `contextualBandits` map (or `encryptedContextualBandits`, decrypted with your `decryption_key` like the other encrypted sections) holding each bandit's `banditVersion` and its per-leaf `condition`/`weights`.
+- Feature rules carrying `contextualBanditRef` (which bandit to use) and `contextualVariations` (the variation values).
+
+Payloads can also be seeded or updated manually. `set_payload` (both clients) overwrites only the sections present, so a payload without `contextualBandits` preserves the current map — the same semantics background refreshes use:
+
+```python
+gb.set_payload({
+    "features": {...},
+    "contextualBandits": {...},  # omitted sections are preserved
+})
+```
+
+When a user is exposed through a contextual bandit rule, the experiment `Result` (including the result passed to `on_experiment_viewed`) carries three extra fields:
+
+- **leafId** — the matched leaf (`-1` when no leaf matched and the rule's aggregate weights were used)
+- **variationWeights** — the weight vector actually used for bucketing (the assignment propensities)
+- **banditVersion** — the version of the bandit model that produced the weights
+
+Log these to your data warehouse in your tracking callback — along with the `user_context` attributes used at exposure time — so GrowthBook can train the bandit and attribute exposures to the right model version. Because weights change as the bandit learns, users may be re-bucketed during the experiment; sticky bucketing is disabled server-side for these rules and analysis attributes each user to their first exposure.
+
+Older SDK versions ignore contextual bandit rules entirely and serve the feature's default value.
 
 ## Inline Experiments
 

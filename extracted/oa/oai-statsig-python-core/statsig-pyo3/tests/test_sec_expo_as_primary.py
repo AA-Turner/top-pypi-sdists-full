@@ -20,7 +20,7 @@ def _create_statsig(
         dcs_content.setdefault("sdk_configs", {})["sec_expo_number"] = sec_expo_number
 
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json",
+        "/v2/download_config_specs",
         response=json.dumps(dcs_content),
         method="GET",
     )

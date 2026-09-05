@@ -1,26 +1,46 @@
 [project]
 name = "pagerduty"
-version = "7.0.0"
+version = "7.0.1"
 description = "Clients for PagerDuty's Public APIs"
 requires-python = ">=3.10"
 dependencies = ["httpx2"]
-maintainers = [
-  {name = "Demitri Morgan", email = "demitri@pagerduty.com"},
-  {name = "Mandi Walls", email = "mwalls@pagerduty.com"},
-  {name = "PagerDuty Customer Support", email = "support@pagerduty.com"}
-]
+
+[[project.maintainers]]
+name = "Demitri Morgan"
+email = "demitri@pagerduty.com"
+
+[[project.maintainers]]
+name = "PagerDuty Community Team"
+email = "community-team@pagerduty.com"
 
 [project.scripts]
 pagerduty = "pagerduty.cli:main"
+
+[project.urls]
+Documentation = "https://pagerduty.github.io/python-pagerduty"
+Repository = "https://github.com/PagerDuty/python-pagerduty"
+PyPI = "https://pypi.org/project/pagerduty"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pagerduty"]
 
-[project.urls]
-Documentation = "https://pagerduty.github.io/python-pagerduty"
-Repository =  "https://github.com/PagerDuty/python-pagerduty"
-PyPI = "https://pypi.org/project/pagerduty"
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+ignore = [
+    "E731",
+    "TRY004",
+    "RUF012",
+    "UP031",
+    "DTZ007",
+    "YTT204",
+]
+
+[tool.uv.build-backend]
+module-name = "pagerduty"
+module-root = ""
 
 [build-system]
 requires = ["uv_build"]
@@ -35,16 +55,3 @@ dev = [
     "twine",
     "virtualenv",
 ]
-
-[tool.ruff]
-# Set the maximum line length to 79
-line-length = 79
-
-[tool.ruff.lint]
-ignore = [
-  "E731" # In the author's opinion it is sometimes clearer to assign lambdas to variables than define nested functions
-]
-
-[tool.uv.build-backend]
-module-name="pagerduty"
-module-root=""

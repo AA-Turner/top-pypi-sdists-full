@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmed
-Version: 2.2.0
+Version: 2.3.0
 Summary: Local-first SDK for clinical extraction and de-identification workflows on hardware you control.
 Author: Maziyar Panahi
 License: Apache-2.0
@@ -16,9 +16,11 @@ Provides-Extra: agents
 Requires-Dist: langchain-core<2,>=0.2; extra == 'agents'
 Requires-Dist: langgraph<2,>=0.2; extra == 'agents'
 Requires-Dist: llama-index-core<1,>=0.10; extra == 'agents'
+Provides-Extra: airflow
+Requires-Dist: apache-airflow<4,>=3.2.2; extra == 'airflow'
 Provides-Extra: awq
 Requires-Dist: autoawq==0.2.9; (sys_platform == 'linux') and extra == 'awq'
-Requires-Dist: transformers==5.5.0; (sys_platform == 'linux') and extra == 'awq'
+Requires-Dist: transformers==5.12.1; (sys_platform == 'linux') and extra == 'awq'
 Provides-Extra: beam
 Requires-Dist: apache-beam<3,>=2.73; extra == 'beam'
 Provides-Extra: cli
@@ -93,6 +95,12 @@ Requires-Dist: pymdown-extensions<12,>=11.0.1; extra == 'docs'
 Provides-Extra: duckdb
 Requires-Dist: duckdb<2,>=1.0; extra == 'duckdb'
 Requires-Dist: numpy>=1.26; extra == 'duckdb'
+Provides-Extra: edge-sbc
+Requires-Dist: numpy>=1.26; extra == 'edge-sbc'
+Requires-Dist: onnxruntime>=1.16; extra == 'edge-sbc'
+Requires-Dist: tokenizers>=0.15; extra == 'edge-sbc'
+Provides-Extra: email-msg-gpl
+Requires-Dist: extract-msg<0.57,>=0.56; extra == 'email-msg-gpl'
 Provides-Extra: fhir
 Requires-Dist: httpx>=0.27; extra == 'fhir'
 Provides-Extra: gliner
@@ -152,6 +160,8 @@ Requires-Dist: pytesseract>=0.3.10; extra == 'multimodal'
 Requires-Dist: python-doctr>=1.0; extra == 'multimodal'
 Requires-Dist: python-docx>=1.1; extra == 'multimodal'
 Requires-Dist: python-pptx>=1.0; extra == 'multimodal'
+Provides-Extra: notebook
+Requires-Dist: nbformat>=5.9.0; extra == 'notebook'
 Provides-Extra: ocr-paddle
 Requires-Dist: paddleocr>=2.7; extra == 'ocr-paddle'
 Provides-Extra: onnx
@@ -172,6 +182,11 @@ Requires-Dist: nncf>=2.10; extra == 'openvino'
 Requires-Dist: onnxruntime>=1.16; extra == 'openvino'
 Requires-Dist: openvino>=2024.0; extra == 'openvino'
 Requires-Dist: transformers>=4.50; extra == 'openvino'
+Provides-Extra: operator
+Requires-Dist: kopf<2,>=1.44.6; extra == 'operator'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api<2,>=1.26; extra == 'otel'
+Requires-Dist: opentelemetry-sdk<2,>=1.26; extra == 'otel'
 Provides-Extra: pandas
 Requires-Dist: pandas>=2.0; extra == 'pandas'
 Provides-Extra: philter
@@ -212,8 +227,14 @@ Requires-Dist: pyarrow>=16; extra == 'spark'
 Requires-Dist: pyspark<4,>=3.5; extra == 'spark'
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy<3,>=2.0; extra == 'sqlalchemy'
+Provides-Extra: triton
+Requires-Dist: grpcio>=1.64; extra == 'triton'
+Requires-Dist: httpx>=0.27; extra == 'triton'
+Requires-Dist: numpy>=1.26; extra == 'triton'
+Requires-Dist: protobuf<7,>=5.26; extra == 'triton'
+Requires-Dist: transformers>=4.50; extra == 'triton'
 Provides-Extra: yasbd
-Requires-Dist: yasbd-lib<0.14,>=0.13.1; extra == 'yasbd'
+Requires-Dist: yasbd-lib<0.15,>=0.14.0; extra == 'yasbd'
 Provides-Extra: zh
 Requires-Dist: jieba>=0.42; extra == 'zh'
 Requires-Dist: opencc<2,>=1.4.1; extra == 'zh'
@@ -350,7 +371,7 @@ On supported Apple hardware, OpenMed can use **MLX** and **[OpenMedKit](swift/Op
 ```swift
 // Add OpenMedKit to your app
 dependencies: [
-    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "2.2.0"),
+    .package(url: "https://github.com/maziyarpanahi/openmed.git", from: "2.3.0"),
 ]
 ```
 
@@ -394,11 +415,11 @@ dependencyResolutionManagement {
 }
 ```
 
-Then use the immutable OpenMed `v2.2.0` release:
+Then use the immutable OpenMed `v2.3.0` release:
 
 ```kotlin
 dependencies {
-    implementation("com.github.maziyarpanahi:openmed:v2.2.0")
+    implementation("com.github.maziyarpanahi:openmed:v2.3.0")
 }
 ```
 
@@ -882,7 +903,7 @@ MkDocs build.
 | [FAQ](docs/faq.md) | [Anonymization](docs/anonymization.md) | [Batch Processing](https://openmed.life/docs/batch-processing) |
 | [Configuration Profiles](https://openmed.life/docs/profiles) | [REST Service](docs/rest-service.md) | [MLX Backend](docs/mlx-backend.md) |
 | [Transformers.js Export](docs/export-transformersjs.md) | [FHIR Interop](docs/fhir-interop.md) | [HL7 v2 De-identification](docs/hl7v2-deidentification.md) |
-| [OpenMed 2.2.0 Release Notes](docs/release/v2.2.0.md) | [OpenMed 2.1.0 Release Notes](docs/release/v2.1.0.md) | [Examples](docs/examples.md) |
+| [OpenMed 2.3.0 Release Notes](docs/release/v2.3.0.md) | [OpenMed 2.2.0 Release Notes](docs/release/v2.2.0.md) | [Examples](docs/examples.md) |
 | [Release Streams](docs/release/semver-and-channels.md) | [Generative Model Policy](docs/generative-model-policy.md) | [Contributing](docs/contributing.md) |
 | [Security Policy](SECURITY.md) | [Compliance Posture](docs/compliance.md) | [Extension Plugin SDK](docs/plugin-sdk.md) |
 | [v1 to v2 Migration](docs/migration.md) | [MCP Client Connections](docs/mcp-clients.md) | [African Developer Onboarding](docs/africa-onboarding.md) |
@@ -907,7 +928,7 @@ a local-first guardian for your most private data.
 Contributions welcome: bug reports, feature requests, and PRs alike. Please read the [Contributing guide](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md) first.
 
 - [Open an issue](https://github.com/maziyarpanahi/openmed/issues)
-- [Contributing guide](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Security policy](SECURITY.md)
+- [Contributing guide](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Maintainers](MAINTAINERS.md) · [Security policy](SECURITY.md)
 - **Translations welcome**: help complete the other-language READMEs linked in the switcher at the top.
 
 ---
@@ -953,7 +974,7 @@ papers, posters, and derived documentation.
 
 If OpenMed is useful to you, a star helps others discover it.
 
-[4,700+ GitHub stars · 29 Jul 2026 snapshot](https://github.com/maziyarpanahi/openmed/stargazers)
+[5,100+ GitHub stars · 30 Aug 2026 snapshot](https://github.com/maziyarpanahi/openmed/stargazers)
 
 ---
 

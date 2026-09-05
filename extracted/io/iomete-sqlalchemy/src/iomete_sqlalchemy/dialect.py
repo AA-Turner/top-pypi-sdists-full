@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Optional
 from urllib.parse import unquote_plus
 
 from sqlalchemy import pool, text
@@ -271,18 +270,22 @@ class IOMETEDialect(DefaultDialect):
         if is_write and parameters:
             # Parameterized DML — DoPut write path, synchronous.
             cursor.executemany(statement, [parameters])
-        elif is_write:
-            # TODO: investigate DML/DDL failure on dev cluster for parameterless DDL/DML statements.
-            # Works fine against my locally running Flight SQL server 3.5.5, but fails on the dev cluster.
-            # Not investigated deeply — may be caused by an unknown deployment difference from
-            # another team member. Draining the cursor is a workaround for now.
-            cursor.execute(statement, parameters)
-            try:
-                cursor.fetchall()
-            except Exception as e:
-                logger.debug("Ignoring error while draining cursor: %s", e)
-        else:
-            cursor.execute(statement, parameters)
+            return
+
+        cursor.execute(statement, parameters)
+        if not cursor.description:
+            # Row-less statement (USE, DDL, output-less DML). The ADBC driver fetches its result
+            # stream in the background and cancels that fetch as soon as the cursor is closed
+            # unread, and the server runs a prepared command only while that stream is read.
+            # Draining here makes the statement actually run, and any error surface, before
+            # execute() returns. Commands that return rows (e.g. Spark `SET key = value`, which
+            # echoes a key/value row) are left for the caller to read; draining them here would
+            # consume the caller's result.
+            cursor.fetchall()
+
+    def do_execute_no_params(self, cursor, statement, context=None):
+        # Same path as do_execute so parameterless statements are drained as well.
+        self.do_execute(cursor, statement, None, context)
 
     def do_rollback(self, dbapi_connection):
         pass
@@ -300,12 +303,12 @@ class IOMETEDialect(DefaultDialect):
         return 0, 0, 0
 
     # ── schema / table listing ──────────────────────────────────────────────
-    def get_schema_names(self, connection, **kw) -> List[str]:
+    def get_schema_names(self, connection, **kw) -> list[str]:
         """Return all schemas visible in the current catalog."""
         rows = connection.execute(text("SHOW SCHEMAS")).fetchall()
         return [row[0].strip("`") for row in rows]
 
-    def get_table_names(self, connection, schema: str | None = None, **kw) -> List[str]:
+    def get_table_names(self, connection, schema: str | None = None, **kw) -> list[str]:
         qualifier = self._schema_qualifier(schema)
         sql = f"SHOW TABLES{' IN ' + qualifier if qualifier else ''}"
         rows = connection.execute(text(sql)).fetchall()
@@ -318,7 +321,7 @@ class IOMETEDialect(DefaultDialect):
         view_name: str,
         schema: str | None = None,
         **kw,
-    ) -> Optional[str]:
+    ) -> str | None:
         full_name = self._full_name(schema, view_name)
         try:
             rows = connection.execute(text(f"SHOW CREATE TABLE {full_name}")).fetchall()
@@ -334,7 +337,7 @@ class IOMETEDialect(DefaultDialect):
             )
             return None
 
-    def get_view_names(self, connection, schema: str | None = None, **kw) -> List[str]:
+    def get_view_names(self, connection, schema: str | None = None, **kw) -> list[str]:
         qualifier = self._schema_qualifier(schema)
         sql = f"SHOW VIEWS{' IN ' + qualifier if qualifier else ''}"
         try:
@@ -351,10 +354,10 @@ class IOMETEDialect(DefaultDialect):
         table_name: str,
         schema: str | None = None,
         **kw,
-    ) -> List[ReflectedColumn]:
+    ) -> list[ReflectedColumn]:
         full_name = self._full_name(schema, table_name)
         rows = connection.execute(text(f"DESCRIBE TABLE {full_name}")).fetchall()
-        columns: List[ReflectedColumn] = []
+        columns: list[ReflectedColumn] = []
         for row in rows:
             col_name = row[0]
             type_str = row[1] if len(row) > 1 else "string"

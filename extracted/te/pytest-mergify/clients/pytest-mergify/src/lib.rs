@@ -9,13 +9,18 @@
 use std::collections::BTreeMap;
 
 use mergify_ci_api::{
-    ApiConfig, AttrValue, Client, FlakyDetectionContext, Mode, Outcome, SpanData, SpanStatus,
-    TestSelection, budget,
+    ApiConfig, AttrValue, Client, ClientInfo, FlakyDetectionContext, Mode, Outcome, SpanData,
+    SpanStatus, TestSelection, budget,
 };
 use mergify_ci_core::{AttrValue as CoreAttrValue, CiContext};
 use pyo3::exceptions::{PyKeyError, PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict};
+
+/// The distribution this binding ships inside, as reported in the `User-Agent`.
+/// Its *version* comes from Python (`importlib.metadata`): the crate version is
+/// the build-time `0.0.0` placeholder, while the wheel carries the real one.
+const CLIENT_NAME: &str = "pytest-mergify";
 
 /// Detect from the current process environment and working directory.
 fn context() -> CiContext {
@@ -65,10 +70,23 @@ struct CiApiClient {
 #[pymethods]
 impl CiApiClient {
     #[new]
-    fn new(api_url: String, token: String, owner: String, repo: String) -> PyResult<Self> {
-        let client = Client::new(ApiConfig::new(api_url, token, owner, repo)).map_err(|error| {
-            PyRuntimeError::new_err(format!("failed to build HTTP client: {error}"))
-        })?;
+    fn new(
+        py: Python<'_>,
+        api_url: String,
+        token: String,
+        owner: String,
+        repo: String,
+        client_version: &str,
+    ) -> PyResult<Self> {
+        let python = py.version_info();
+        let client_info = ClientInfo::new(CLIENT_NAME, client_version).with_runtime(
+            "python",
+            &format!("{}.{}.{}", python.major, python.minor, python.patch),
+        );
+        let client = Client::new(ApiConfig::new(api_url, token, owner, repo), &client_info)
+            .map_err(|error| {
+                PyRuntimeError::new_err(format!("failed to build HTTP client: {error}"))
+            })?;
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -147,7 +165,12 @@ impl CiApiClient {
 }
 
 /// Marshal a [`FlakyDetectionContext`] into the dict shape pytest-mergify feeds
-/// to its own dataclass (`_FlakyDetectionContext(**dict)`).
+/// to its own dataclass (`RunContext(**dict)`).
+///
+/// Every field of the model has to be set here. A forgotten one does not fail
+/// to compile and does not fail the Python suite either -- those tests replace
+/// this client wholesale -- it just makes the field arrive as its dataclass
+/// default, which for `flaky_test_names` means test retry is silently off.
 fn flaky_context_dict(py: Python<'_>, context: &FlakyDetectionContext) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
     dict.set_item("budget_ratio_for_new_tests", context.budget_ratio_for_new_tests)?;
@@ -155,6 +178,9 @@ fn flaky_context_dict(py: Python<'_>, context: &FlakyDetectionContext) -> PyResu
     dict.set_item("existing_test_names", context.existing_test_names.clone())?;
     dict.set_item("existing_tests_mean_duration_ms", context.existing_tests_mean_duration_ms)?;
     dict.set_item("unhealthy_test_names", context.unhealthy_test_names.clone())?;
+    dict.set_item("budget_ratio_for_test_retries", context.budget_ratio_for_test_retries)?;
+    dict.set_item("flaky_test_names", context.flaky_test_names.clone())?;
+    dict.set_item("broken_test_names", context.broken_test_names.clone())?;
     dict.set_item("max_test_execution_count", context.max_test_execution_count)?;
     dict.set_item("max_test_name_length", context.max_test_name_length)?;
     dict.set_item("min_budget_duration_ms", context.min_budget_duration_ms)?;
@@ -169,8 +195,12 @@ fn test_selection_dict(py: Python<'_>, selection: &TestSelection) -> PyResult<Py
     let dict = PyDict::new(py);
     dict.set_item("selection", &selection.selection)?;
     dict.set_item("reason", &selection.reason)?;
-    // `tests` is `None` only for a `full` answer (a subset without it is
-    // rejected upstream), so an empty list is the right value for the plugin.
+    // `tests` is `None` for any answer that carries no subset -- `full`, and
+    // any variant this client predates -- since a `subset` without it is
+    // rejected upstream. An empty list is the right value for the plugin: it
+    // keeps the key present, so `TestSelection(**dict)` never raises, and the
+    // Python-side normalisation reads it as "nothing to select" and runs
+    // everything.
     dict.set_item("tests", selection.tests.clone().unwrap_or_default())?;
     Ok(dict.into())
 }
@@ -238,6 +268,20 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<FlakyDetectionContext
         existing_tests_mean_duration_ms: req_item(dict, "existing_tests_mean_duration_ms")?
             .extract()?,
         unhealthy_test_names: req_item(dict, "unhealthy_test_names")?.extract()?,
+        // Optional, matching the wire model's serde defaults: a context dict
+        // built before test retry existed is still a valid one to plan from.
+        budget_ratio_for_test_retries: opt_item(dict, "budget_ratio_for_test_retries")?
+            .map(|value| value.extract())
+            .transpose()?
+            .unwrap_or_default(),
+        flaky_test_names: opt_item(dict, "flaky_test_names")?
+            .map(|value| value.extract())
+            .transpose()?
+            .unwrap_or_default(),
+        broken_test_names: opt_item(dict, "broken_test_names")?
+            .map(|value| value.extract())
+            .transpose()?
+            .unwrap_or_default(),
         max_test_execution_count: req_item(dict, "max_test_execution_count")?.extract()?,
         max_test_name_length: req_item(dict, "max_test_name_length")?.extract()?,
         min_budget_duration_ms: req_item(dict, "min_budget_duration_ms")?.extract()?,

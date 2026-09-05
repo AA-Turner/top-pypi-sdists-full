@@ -28,6 +28,7 @@ from .literals import (
     AdsInteractionExcludeEventTypeType,
     AdsInteractionPublishOptInEventTypeType,
     AlertCategoryType,
+    ApsRegionType,
     ChannelStateType,
     CompressionMethodType,
     EventNameType,
@@ -256,8 +257,12 @@ __all__ = (
     "UpdateSourceLocationResponseTypeDef",
     "UpdateVodSourceRequestTypeDef",
     "UpdateVodSourceResponseTypeDef",
+    "VastRequestConfigurationOutputTypeDef",
+    "VastRequestConfigurationTypeDef",
+    "VastRequestConfigurationUnionTypeDef",
     "VastResponseTypeDef",
     "VodSourceTypeDef",
+    "YieldOptimizationConfigurationTypeDef",
 )
 
 
@@ -531,6 +536,18 @@ HttpRequestConfigurationOutputTypeDef = TypedDict(
         "Headers": NotRequired[dict[str, str]],
     },
 )
+VastRequestConfigurationOutputTypeDef = TypedDict(
+    "VastRequestConfigurationOutputTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[dict[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[dict[str, str]],
+    },
+)
 
 
 class GetChannelPolicyRequestTypeDef(TypedDict):
@@ -562,6 +579,13 @@ class GetPlaybackConfigurationRequestTypeDef(TypedDict):
 class HlsConfigurationTypeDef(TypedDict):
     ManifestEndpointPrefix: NotRequired[str]
     DualStackManifestEndpointPrefix: NotRequired[str]
+
+
+class YieldOptimizationConfigurationTypeDef(TypedDict):
+    MinimumUnfilledDuration: int
+    PublisherId: str
+    Region: ApsRegionType
+    OpenRtbTemplate: str
 
 
 class GetPrefetchScheduleRequestTypeDef(TypedDict):
@@ -720,6 +744,20 @@ class UntagResourceRequestTypeDef(TypedDict):
 class UpdateProgramTransitionTypeDef(TypedDict):
     ScheduledStartTimeMillis: NotRequired[int]
     DurationMillis: NotRequired[int]
+
+
+VastRequestConfigurationTypeDef = TypedDict(
+    "VastRequestConfigurationTypeDef",
+    {
+        "Runtime": Literal["JSONATA"],
+        "MethodType": MethodTypeType,
+        "RequestTimeoutMilliseconds": int,
+        "Url": str,
+        "Output": NotRequired[Mapping[str, str]],
+        "Body": NotRequired[str],
+        "Headers": NotRequired[Mapping[str, str]],
+    },
+)
 
 
 class AccessConfigurationTypeDef(TypedDict):
@@ -1093,6 +1131,11 @@ class UpdateProgramScheduleConfigurationTypeDef(TypedDict):
     ClipRange: NotRequired[ClipRangeTypeDef]
 
 
+VastRequestConfigurationUnionTypeDef = Union[
+    VastRequestConfigurationTypeDef, VastRequestConfigurationOutputTypeDef
+]
+
+
 class CreateSourceLocationRequestTypeDef(TypedDict):
     HttpConfiguration: HttpConfigurationTypeDef
     SourceLocationName: str
@@ -1177,6 +1220,7 @@ class FunctionTypeDef(TypedDict):
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationOutputTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
+    VastRequestConfiguration: NotRequired[VastRequestConfigurationOutputTypeDef]
     Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
 
@@ -1189,6 +1233,7 @@ class GetFunctionResponseTypeDef(TypedDict):
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    VastRequestConfiguration: VastRequestConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1202,6 +1247,7 @@ class PutFunctionResponseTypeDef(TypedDict):
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
     ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    VastRequestConfiguration: VastRequestConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1367,6 +1413,7 @@ class PutFunctionRequestTypeDef(TypedDict):
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
     ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationUnionTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationUnionTypeDef]
+    VastRequestConfiguration: NotRequired[VastRequestConfigurationUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]
 
 
@@ -1420,6 +1467,7 @@ class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    YieldOptimizationConfiguration: YieldOptimizationConfigurationTypeDef
     FunctionMapping: dict[EventNameType, str]
     AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
     AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
@@ -1451,6 +1499,7 @@ class PlaybackConfigurationTypeDef(TypedDict):
     VideoContentSourceUrl: NotRequired[str]
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationOutputTypeDef]
+    YieldOptimizationConfiguration: NotRequired[YieldOptimizationConfigurationTypeDef]
     FunctionMapping: NotRequired[dict[EventNameType, str]]
     AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
     AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
@@ -1474,6 +1523,7 @@ class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     VideoContentSourceUrl: NotRequired[str]
     AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
     AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationUnionTypeDef]
+    YieldOptimizationConfiguration: NotRequired[YieldOptimizationConfigurationTypeDef]
     FunctionMapping: NotRequired[Mapping[EventNameType, str]]
     AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
     AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
@@ -1504,6 +1554,7 @@ class PutPlaybackConfigurationResponseTypeDef(TypedDict):
     VideoContentSourceUrl: str
     AdConditioningConfiguration: AdConditioningConfigurationTypeDef
     AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    YieldOptimizationConfiguration: YieldOptimizationConfigurationTypeDef
     FunctionMapping: dict[EventNameType, str]
     AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
     AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef

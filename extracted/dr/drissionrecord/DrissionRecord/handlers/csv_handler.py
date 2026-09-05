@@ -242,7 +242,8 @@ def get_and_set_csv_header(handler, new_csv, file, writer):
 
 def get_csv_rows(handler, header, cols, begin_row, end_row, sign_col, sign, deny_sign, count):
     sign = ['' if i is None else str(i) for i in sign]
-    begin_row -= 1
+    if begin_row>1:
+        begin_row -= 1
     res = []
     with open(handler.path, 'r', encoding=handler.encoding) as f:
         try:
@@ -265,7 +266,8 @@ def get_csv_rows(handler, header, cols, begin_row, end_row, sign_col, sign, deny
                 method(line, res, header, ind, cols, header_len)
 
         else:  # 获取符合条件的行
-            sign_col -= 1
+            if sign_col > 1:
+                sign_col -= 1
             get_csv_rows_with_count(reader, begin_row, end_row, sign_col, sign, deny_sign,
                                     cols, res, header, count)
 

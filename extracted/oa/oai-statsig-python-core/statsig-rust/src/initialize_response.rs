@@ -1,5 +1,8 @@
 use crate::{
-    evaluation::evaluation_types::{AnyConfigEvaluation, GateEvaluation, LayerEvaluation},
+    evaluation::{
+        dynamic_value::DynamicValue,
+        evaluation_types::{AnyConfigEvaluation, GateEvaluation, LayerEvaluation},
+    },
     gcir::gcir_formatter::EvaluatedKeys,
     interned_string::InternedString,
     specs_response::{
@@ -27,6 +30,7 @@ pub struct InitializeResponse {
     pub sdk_info: HashMap<String, String>,
     #[serde(rename = "sdkParams")]
     pub sdk_params: HashMap<String, String>,
+    pub sdk_configs: Option<HashMap<String, DynamicValue>>,
     pub evaluated_keys: EvaluatedKeys,
     pub param_stores: HashMap<String, HashMap<String, Parameter>>,
     pub can_record_session: Option<bool>,
@@ -51,6 +55,7 @@ impl InitializeResponse {
             hash_used: Default::default(),
             user: user.to_loggable(),
             sdk_params: Default::default(),
+            sdk_configs: Default::default(),
             evaluated_keys: EvaluatedKeys::default(),
             sdk_info: Default::default(),
             param_stores: Default::default(),
@@ -76,6 +81,7 @@ impl InitializeResponse {
             hash_used: Default::default(),
             user: StatsigUserLoggable::default(),
             sdk_params: Default::default(),
+            sdk_configs: Default::default(),
             evaluated_keys: Default::default(),
             sdk_info: Default::default(),
             param_stores: Default::default(),

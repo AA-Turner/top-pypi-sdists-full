@@ -295,15 +295,18 @@ class Client:
         # `label_id` is repeatable: a sequence matches tables carrying any of the ids
         label_id: int | Sequence[int] | None = None,
         without_access_groups: bool | None = None,
+        domain_id: int | None = None,
     ):
         """List tables. Pass label_id to filter by label; use UNLABELED_LABEL_ID
-        to match tables with no labels."""
+        to match tables with no labels. Pass domain_id to filter to tables that
+        belong to a given data domain."""
         params = {
             "limit": limit,
             "offset": offset,
             "warehouse_id": warehouse_id,
             "label_id": label_id,
             "without_access_groups": without_access_groups,
+            "domain_id": domain_id,
         }
         return self._api_call(
             "tables", **{k: v for k, v in params.items() if v is not None}
@@ -1137,6 +1140,65 @@ class Client:
             if datetime.now() > timeout_time:  # noqa: DTZ005 (call-datetime-now-without-tzinfo)
                 raise Exception("Timeout exceeded")  # noqa: TRY002 (raise-vanilla-class)
             sleep(interval)
+
+    def list_data_domains(self, limit: int | None = None, offset: int | None = None):
+        return self._api_call(
+            "data_domains",
+            limit=limit,
+            offset=offset,
+            method="GET",
+        )
+
+    def get_data_domain(self, data_domain_id: int):
+        return self._api_call(f"data_domains/{data_domain_id}", method="GET")
+
+    def create_data_domain(
+        self,
+        name: str,
+        description: str | NotSet = NOT_SET,
+        context_document: str | None | NotSet = NOT_SET,
+        add_table_ids: list[int] | None = None,
+    ):
+        kwargs: dict[str, Any] = {"name": name, "add_table_ids": add_table_ids or []}
+        if description is not NOT_SET:
+            kwargs["description"] = description
+        if context_document is not NOT_SET:
+            kwargs["context_document"] = context_document
+        return self._api_call("data_domains", method="POST", **kwargs)
+
+    def update_data_domain(
+        self,
+        data_domain_id: int,
+        name: str | NotSet = NOT_SET,
+        description: str | NotSet = NOT_SET,
+        context_document: str | None | NotSet = NOT_SET,
+        add_table_ids: list[int] | None = None,
+        remove_table_ids: list[int] | None = None,
+    ):
+        """Update a data domain. Only fields passed are changed.
+
+        Only the domain's creator or an org admin may update it, unless it's
+        system-managed — any other caller gets a `BadRequestException` (403).
+        """
+        # name/description/context_document use NOT_SET (rather than None) as their
+        # "not passed" default: the server's PATCH is a partial update where an
+        # omitted field is left unchanged. name and description don't allow_null,
+        # so an explicit `None` for either is a 400, not a no-op; context_document
+        # is nullable, but NOT_SET keeps all three fields consistent here so an
+        # omitted kwarg never appears in the request body at all.
+        kwargs: dict[str, Any] = {
+            "add_table_ids": add_table_ids or [],
+            "remove_table_ids": remove_table_ids or [],
+        }
+        if name is not NOT_SET:
+            kwargs["name"] = name
+        if description is not NOT_SET:
+            kwargs["description"] = description
+        if context_document is not NOT_SET:
+            kwargs["context_document"] = context_document
+        return self._api_call(
+            f"data_domains/{data_domain_id}", method="PATCH", **kwargs
+        )
 
     def get_notification_channel(self, channel_id):
         return self._api_call(

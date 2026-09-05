@@ -17,6 +17,14 @@ class WebmshareExtractor(Extractor):
     category = "webmshare"
     root = "https://webmshare.com"
 
+    def _init(self):
+        if not self.cookies.get("is_adult", domain="webmshare.com"):
+            self.cookies.set(
+                "is_adult", "eyJpdiI6Iis4UmlSK1wvM3ZRTVwvQ0lEVmtaU3hFdz09Iiwid"
+                "mFsdWUiOiJKR0tRUytMeHh1ekhZRTN2STg3VEV3PT0iLCJtYWMiOiI5OTE0N2"
+                "VhMGNmOTM3ZDc5OTZkNzNiOWI2NzI2YWExOTRhYjBkNDlkZTJhMjk5YzVlZDc"
+                "xOTRmNGM2NThmNzM2In0%3D", domain="webmshare.com")
+
 
 class WebmshareSearchExtractor(WebmshareExtractor):
     """Extractor for webmshare search results"""
@@ -26,10 +34,17 @@ class WebmshareSearchExtractor(WebmshareExtractor):
 
     def items(self):
         query = self.groups[0]
+        tags = text.unquote(query)
         page = self.request(f"{self.root}/results?q={query}").text
-        self.kwdict["search_tags"] = text.unquote(query)
 
-        data = {"_extractor": WebmshareVideoExtractor}
+        if not tags.strip():
+            self.log.warning("Empty search query")
+
+        data = {
+            "_extractor" : WebmshareVideoExtractor,
+            "search_tags": tags,
+        }
+
         base = self.root + "/"
         for video_id in text.extract_iter(page, '<a href="/', '"'):
             yield Message.Queue, base + video_id, data

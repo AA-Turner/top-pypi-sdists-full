@@ -2,17 +2,28 @@
 Low-level input/output routines for AsdfFile instances
 """
 
+from __future__ import annotations
+
 import contextlib
 import io
 import pathlib
+from typing import TYPE_CHECKING, Any, overload
 
 from . import _version, constants, generic_io, versioning, yamlutil
 from ._block.manager import Manager as BlockManager
 from .exceptions import DelimiterNotFoundError
 from .tags.core import Software
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
-def get_asdf_library_info():
+    from asdf.generic_io import GenericFile
+    from asdf.tagged import TaggedDict
+    from asdf.typing import FileLike, FileMode, TreeKey
+    from asdf.versioning import AsdfVersion
+
+
+def get_asdf_library_info() -> Software:
     """
     Get information about asdf to include in the asdf_library entry
     in the Tree.
@@ -27,7 +38,7 @@ def get_asdf_library_info():
     )
 
 
-def parse_header_line(line):
+def parse_header_line(line: str) -> AsdfVersion:
     """
     Parses the header line in a ASDF file to obtain the ASDF version.
     """
@@ -59,7 +70,7 @@ def read_header_line(gf):
     return parse_header_line(header_line)
 
 
-def read_comment_section(fd):
+def read_comment_section(fd: GenericFile) -> list[bytes]:
     """
     Reads the comment section, between the header line and the
     Tree or first block.
@@ -84,7 +95,14 @@ def read_comment_section(fd):
     return comments
 
 
-def find_asdf_version_in_comments(comments, default=None):
+# Overloads provide type narrowing so `AsdfVersion` is always returned if `default` isn't `None`
+@overload
+def find_asdf_version_in_comments(comments: list[bytes], default: AsdfVersion) -> AsdfVersion: ...
+@overload
+def find_asdf_version_in_comments(comments: list[bytes], default: None = ...) -> AsdfVersion | None: ...
+
+
+def find_asdf_version_in_comments(comments: list[bytes], default: AsdfVersion | None = None) -> AsdfVersion | None:
     for comment in comments:
         parts = comment.split()
         if len(parts) == 2 and parts[0] == constants.ASDF_STANDARD_COMMENT:
@@ -99,7 +117,7 @@ def find_asdf_version_in_comments(comments, default=None):
 
 
 @contextlib.contextmanager
-def maybe_close(fd, mode=None, uri=None):
+def maybe_close(fd: FileLike, mode: FileMode | None = None, uri: str | None = None) -> Generator[GenericFile]:
     if mode not in [None, "r", "rw"]:
         msg = f"Unrecognized asdf mode '{mode}'. Must be either 'r' or 'rw'"
         raise ValueError(msg)
@@ -124,7 +142,9 @@ def maybe_close(fd, mode=None, uri=None):
         yield generic_io.get_file(fd, mode=mode, uri=uri)
 
 
-def read_tree_and_blocks(gf, lazy_load, memmap, validate_checksums):
+def read_tree_and_blocks(
+    gf: GenericFile, lazy_load: bool, memmap: bool, validate_checksums: bool
+) -> tuple[TaggedDict[TreeKey, Any] | None, BlockManager]:
     token = gf.read(4)
     tree = None
     blocks = BlockManager(uri=gf.uri, lazy_load=lazy_load, memmap=memmap, validate_checksums=validate_checksums)
@@ -147,7 +167,14 @@ def read_tree_and_blocks(gf, lazy_load, memmap, validate_checksums):
     return tree, blocks
 
 
-def open_asdf(fd, uri=None, mode=None, lazy_load=True, memmap=False, validate_checksums=False):
+def open_asdf(
+    fd: FileLike,
+    uri: str | None = None,
+    mode: FileMode | None = None,
+    lazy_load: bool = True,
+    memmap: bool = False,
+    validate_checksums: bool = False,
+) -> tuple[AsdfVersion, list[bytes], TaggedDict[TreeKey, Any] | None, BlockManager]:
     with maybe_close(fd, mode, uri) as generic_file:
         file_format_version = read_header_line(generic_file)
         comments = read_comment_section(generic_file)

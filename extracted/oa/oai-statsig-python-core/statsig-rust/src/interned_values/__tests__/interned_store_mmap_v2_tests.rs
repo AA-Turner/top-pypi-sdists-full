@@ -690,6 +690,79 @@ rusty_fork_test! {
     }
 
     #[test]
+    fn v2_shared_control_layers_fall_back_to_owned_specs() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory
+            .path()
+            .join("interned-store-v2-shared-control-owned.mmap");
+        let mut payload: serde_json::Value = serde_json::from_slice(EVAL_PROJ_JSON).unwrap();
+        payload["layer_configs"]["test_layer_with_holdout"]["rules"][0]
+            ["sharedControlExperiments"] = json!([{
+                "name": "test_experiment_no_targeting",
+                "controlGroupID": "control_group"
+            }]);
+        let payload = serde_json::to_vec(&payload).unwrap();
+
+        write_mmap_v2_for_test(&payload, &path).unwrap();
+        preload_mmap_v2_for_test(&path).unwrap();
+
+        let specs: SpecsResponseFull = serde_json::from_slice(&payload).unwrap();
+        let shared_control_layer =
+            crate::interned_string::InternedString::from_str_ref("test_layer_with_holdout");
+        let conventional_layer =
+            crate::interned_string::InternedString::from_str_ref("Basic_test_layer");
+        let shared_control_spec = specs.layer_configs.get(&shared_control_layer).unwrap();
+
+        assert!(!shared_control_spec.is_mmap());
+        assert!(specs.layer_configs.get(&conventional_layer).unwrap().is_mmap());
+        assert_eq!(
+            shared_control_spec.as_spec_ref().rules[0]
+                .shared_control_experiments
+                .as_ref()
+                .unwrap()[0]
+                .control_group_id
+                .as_str(),
+            "control_group"
+        );
+    }
+
+    #[test]
+    fn v2_shared_control_updates_do_not_reuse_stale_mmap_layers() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory
+            .path()
+            .join("interned-store-v2-stale-shared-control.mmap");
+        write_mmap_v2_for_test(EVAL_PROJ_JSON, &path).unwrap();
+        preload_mmap_v2_for_test(&path).unwrap();
+
+        let mut payload: serde_json::Value = serde_json::from_slice(EVAL_PROJ_JSON).unwrap();
+        payload["layer_configs"]["test_layer_with_holdout"]["rules"][0]
+            ["sharedControlExperiments"] = json!([{
+                "name": "test_experiment_no_targeting",
+                "controlGroupID": "control_group"
+            }]);
+
+        let specs: SpecsResponseFull = serde_json::from_value(payload).unwrap();
+        let shared_control_layer =
+            crate::interned_string::InternedString::from_str_ref("test_layer_with_holdout");
+        let conventional_layer =
+            crate::interned_string::InternedString::from_str_ref("Basic_test_layer");
+        let shared_control_spec = specs.layer_configs.get(&shared_control_layer).unwrap();
+
+        assert!(!shared_control_spec.is_mmap());
+        assert!(specs.layer_configs.get(&conventional_layer).unwrap().is_mmap());
+        assert_eq!(
+            shared_control_spec.as_spec_ref().rules[0]
+                .shared_control_experiments
+                .as_ref()
+                .unwrap()[0]
+                .control_group_id
+                .as_str(),
+            "control_group"
+        );
+    }
+
+    #[test]
     fn v2_protobuf_specs_reuse_mmap_graph() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("interned-store-v2-protobuf.mmap");
@@ -1320,8 +1393,7 @@ rusty_fork_test! {
             None,
             Some(&adapter),
             false,
-            None,
-            true,
+            false,
         );
 
         assert_eq!(
@@ -1564,8 +1636,7 @@ fn evaluate(
         None,
         None,
         false,
-        None,
-        true,
+        false,
     );
     assert_eq!(
         Evaluator::evaluate(&mut context, name, &spec_type).unwrap(),

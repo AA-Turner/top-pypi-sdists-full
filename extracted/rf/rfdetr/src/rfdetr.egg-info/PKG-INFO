@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfdetr
-Version: 1.9.4
+Version: 1.10.0
 Summary: RF-DETR
 Author-email: "Roboflow, Inc" <develop@roboflow.com>
 License: Apache License 2.0
@@ -41,12 +41,12 @@ Requires-Dist: peft; extra == "lora"
 Provides-Extra: train
 Requires-Dist: peft; extra == "train"
 Requires-Dist: pytorch_lightning!=2.6.2,!=2.6.3,<3,>=2.6; extra == "train"
-Requires-Dist: torchmetrics[detection]>=1.2; extra == "train"
+Requires-Dist: torchmetrics[detection]<1.9.0,>=1.8.2; extra == "train"
 Requires-Dist: faster-coco-eval>=1.7.2; extra == "train"
 Requires-Dist: pycocotools; extra == "train"
 Requires-Dist: scipy; extra == "train"
+Requires-Dist: torch-hungarian==0.1.0rc0; extra == "train"
 Requires-Dist: roboflow; extra == "train"
-Requires-Dist: rf100vl; extra == "train"
 Provides-Extra: augment
 Requires-Dist: albumentations<3.0.0,>=1.4.24; extra == "augment"
 Requires-Dist: kornia<1,>=0.7; extra == "augment"
@@ -91,6 +91,9 @@ Provides-Extra: cli
 Requires-Dist: jsonargparse[signatures]>=4.27.7; extra == "cli"
 Provides-Extra: plus
 Requires-Dist: rfdetr_plus<2.0.0,>=1.0.1; extra == "plus"
+Provides-Extra: xla
+Requires-Dist: torch==2.9.*; sys_platform == "linux" and extra == "xla"
+Requires-Dist: torch_xla==2.9.*; sys_platform == "linux" and extra == "xla"
 Dynamic: license-file
 
 # RF-DETR: Real-Time SOTA Object Detection, Instance Segmentation, and Keypoint Detection

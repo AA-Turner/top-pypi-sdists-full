@@ -74,7 +74,6 @@ def test_check_estimator_nilearn(estimator, check, name):  # noqa: ARG001
     check(estimator)
 
 
-@pytest.mark.slow
 def test_nifti_labels_masker(
     affine_eye, shape_3d_default, n_regions, length, img_labels
 ):
@@ -121,9 +120,7 @@ def test_nifti_labels_masker(
     assert signals.shape == (length, n_regions - 1)
 
 
-def test_nifti_labels_masker_errors(
-    affine_eye, shape_3d_default, n_regions, length
-):
+def test_errors(affine_eye, shape_3d_default, n_regions, length):
     """Check working of shape/affine checks."""
     masker = NiftiLabelsMasker(standardize=None)
     with pytest.raises(TypeError, match="input should be a NiftiLike object"):
@@ -180,14 +177,14 @@ def test_nifti_labels_masker_errors(
         masker11.fit()
 
 
-def test_nifti_labels_masker_no_label_errors(img_3d_zeros_eye):
+def test_no_label_errors(img_3d_zeros_eye):
     """Raise an error at fit time if the image has no label."""
     masker = NiftiLabelsMasker(img_3d_zeros_eye)
     with pytest.raises(ValueError, match="Image has no label"):
         masker.fit()
 
 
-def test_nifti_labels_masker_mask_img_masks_all_labels_error(
+def test_mask_img_masks_all_labels_error(
     affine_eye, shape_3d_default, img_4d_rand_eye
 ):
     """Raise error if mask_img excludes all voxels with label value.
@@ -268,7 +265,7 @@ def test_no_label_after_resampling_error(
         estimator.fit_transform(input_img)
 
 
-def test_nifti_labels_masker_with_nans_and_infs(
+def test_with_nans_and_infs(
     affine_eye, n_regions, length, img_labels, img_fmri
 ):
     """Deal with NaNs and infs in label image.
@@ -300,7 +297,7 @@ def test_nifti_labels_masker_with_nans_and_infs(
     assert sig.shape == (length, n_regions)
 
 
-def test_nifti_labels_masker_with_nans_and_infs_in_data(
+def test_with_nans_and_infs_in_data(
     affine_eye, img_fmri, n_regions, length, img_labels
 ):
     """Apply a NiftiLabelsMasker to 4D data containing NaNs and infs.
@@ -338,9 +335,7 @@ def test_nifti_labels_masker_with_nans_and_infs_in_data(
         ("variance", np.var),
     ],
 )
-def test_nifti_labels_masker_reduction_strategies(
-    affine_eye, strategy, function
-):
+def test_reduction_strategies(affine_eye, strategy, function):
     """Tests NiftiLabelsMasker strategies.
 
     1. whether the usage of different reduction strategies work.
@@ -370,7 +365,7 @@ def test_nifti_labels_masker_reduction_strategies(
     assert default_masker.strategy == "mean"
 
 
-def test_nifti_labels_masker_reduction_strategies_error(affine_eye):
+def test_reduction_strategies_error(affine_eye):
     """Tests NiftiLabelsMasker invalid strategy."""
     labels_data = np.array([[[0, 0, 0, 0, 0], [1, 1, 1, 1, 1]]], dtype=np.int8)
 
@@ -381,7 +376,7 @@ def test_nifti_labels_masker_reduction_strategies_error(affine_eye):
         masker.fit()
 
 
-def test_nifti_labels_masker_resampling_errors(img_labels):
+def test_resampling_errors(img_labels):
     """Test errors of resampling in NiftiLabelsMasker."""
     with pytest.raises(
         ValueError,
@@ -401,7 +396,7 @@ def test_nifti_labels_masker_resampling_errors(img_labels):
         masker.fit()
 
 
-def test_nifti_labels_masker_resampling_to_data(affine_eye, n_regions, length):
+def test_resampling_to_data(affine_eye, n_regions, length):
     """Test resampling to data in NiftiLabelsMasker."""
     # mask
     shape2 = (8, 9, 10, length)
@@ -431,9 +426,8 @@ def test_nifti_labels_masker_resampling_to_data(affine_eye, n_regions, length):
     assert_array_equal(masker.labels_img_.affine, affine2)
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize("resampling_target", ["data", "labels"])
-def test_nifti_labels_masker_resampling(
+def test_resampling(
     affine_eye,
     shape_3d_default,
     resampling_target,
@@ -483,10 +477,7 @@ def test_nifti_labels_masker_resampling(
     assert_array_equal(get_data(compressed_img), get_data(compressed_img2))
 
 
-@pytest.mark.slow
-def test_nifti_labels_masker_resampling_to_labels(
-    affine_eye, shape_3d_default, n_regions, length
-):
+def test_resampling_to_labels(affine_eye, shape_3d_default, n_regions, length):
     """Test resampling to labels in NiftiLabelsMasker."""
     # fmri
     shape1 = (*shape_3d_default, length)
@@ -526,8 +517,7 @@ def test_nifti_labels_masker_resampling_to_labels(
     assert fmri11_img_r.shape == ((*masker.labels_img_.shape[:3], length))
 
 
-@pytest.mark.slow
-def test_nifti_labels_masker_resampling_to_clipped_labels(
+def test_resampling_to_clipped_labels(
     affine_eye, shape_3d_default, n_regions, length
 ):
     """Test with clipped labels.
@@ -584,10 +574,7 @@ def test_nifti_labels_masker_resampling_to_clipped_labels(
     assert fmri11_img_r.shape == ((*masker.labels_img_.shape[:3], length))
 
 
-@pytest.mark.slow
-def test_nifti_labels_masker_resampling_to_none(
-    affine_eye, length, shape_3d_default, img_labels
-):
+def test_resampling_to_none(affine_eye, length, shape_3d_default, img_labels):
     """Test resampling to None in NiftiLabelsMasker.
 
     All inputs must have same affine to avoid errors.
@@ -615,10 +602,7 @@ def test_nifti_labels_masker_resampling_to_none(
         masker.fit_transform(fmri_img)
 
 
-@pytest.mark.slow
-def test_nifti_labels_masker_with_mask(
-    shape_3d_default, affine_eye, length, img_labels
-):
+def test_with_mask(shape_3d_default, affine_eye, length, img_labels):
     """Test NiftiLabelsMasker with a separate mask_img parameter."""
     shape = (*shape_3d_default, length)
     fmri_img, mask_img = generate_random_img(shape, affine=affine_eye)
@@ -681,7 +665,7 @@ def check_region_names_after_fit(
         masker: NiftiLabelsMasker
 
         signals: np.ndarray
-            output of fit_transfrom from the masker
+            output of fit_transform from the masker
 
         region_names: list[str]
             list of regions names expected after fit
@@ -909,7 +893,6 @@ def test_regions_id_names_lut(affine_eye, shape_3d_default):
     check_lut(masker, expected_lut)
 
 
-@pytest.mark.slow
 def test_regions_id_names_lut_too_few(affine_eye, shape_3d_default):
     """Check passing LUT with too few entries."""
     atlas = np.zeros((8, 8, 8))
@@ -1028,7 +1011,6 @@ def test_check_labels_errors(shape_3d_default, affine_eye):
         masker.fit()
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize(
     "background",
     [
@@ -1092,7 +1074,6 @@ def test_region_names(
     )
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize(
     "background",
     [None, "background", "Background"],
@@ -1250,7 +1231,6 @@ def test_more_labels_than_actual_region_in_atlas(
     assert len(masker.lut_) == n_regions + 1
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize("background", [None, "Background"])
 def test_pass_lut(
     shape_3d_default, affine_eye, n_regions, img_labels, tmp_path, background
@@ -1301,7 +1281,6 @@ def test_pass_lut_error(n_regions, img_labels):
         NiftiLabelsMasker(img_labels, lut=lut, labels=region_names).fit()
 
 
-@pytest.mark.slow
 def test_no_background(n_regions, img_labels, shape_3d_default, affine_eye):
     """Test label image with no background."""
     region_names = generate_labels(n_regions + 1, background=None)

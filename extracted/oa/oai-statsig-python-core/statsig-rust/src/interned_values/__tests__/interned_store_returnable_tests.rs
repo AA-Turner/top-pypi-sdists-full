@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use rusty_fork::rusty_fork_test;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{method, path},
+    matchers::{header, method, path},
 };
 
 use crate::{
@@ -25,7 +25,8 @@ fn fetch_mmap_from_mock_specs(sdk_key: &'static str) {
         .block_on(async move {
             let server = MockServer::start().await;
             Mock::given(method("GET"))
-                .and(path(format!("/v2/download_config_specs/{sdk_key}.json")))
+                .and(path("/v2/download_config_specs"))
+                .and(header("statsig-api-key", sdk_key))
                 .respond_with(
                     ResponseTemplate::new(200)
                         .insert_header("content-type", "application/json")

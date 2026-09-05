@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: nilearn
-Version: 0.14.0
+Version: 0.14.1
 Summary: Statistical learning for neuroimaging in Python
 Project-URL: Changelog, https://nilearn.github.io/stable/changes/whats_new.html
 Project-URL: Development, https://github.com/nilearn/nilearn

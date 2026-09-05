@@ -11,6 +11,7 @@ import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal, cast, get_args, get_origin
 
@@ -99,6 +100,23 @@ def get_registered_worlds() -> dict[str, type[BaseWorld]]:
 def get_world(name: str) -> type[BaseWorld] | None:
     """Get a world by name."""
     return _WORLD_REGISTRY.get(name)
+
+
+@cache
+def _version_for_top_package(top_package: str) -> str:
+    """Version of the distribution that provides ``top_package``, or "0.0.0".
+
+    ``importlib.metadata.packages_distributions()`` walks the file list of every
+    installed distribution (~0.3s in a full env) and is re-scanned on every call.
+    The installed set cannot change inside a running interpreter, so cache it —
+    ``BaseWorld.get_version()`` is called three times per ``run()``.
+    """
+    for dist_name in importlib.metadata.packages_distributions().get(top_package, []):
+        try:
+            return importlib.metadata.version(dist_name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return "0.0.0"
 
 
 class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[ConfigT, StateT]):
@@ -192,14 +210,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
     @classmethod
     def get_version(cls) -> str:
         """Get version from package metadata."""
-        top_package = cls.__module__.split(".")[0]
-        dist_names = importlib.metadata.packages_distributions().get(top_package, [])
-        for dist_name in dist_names:
-            try:
-                return importlib.metadata.version(dist_name)
-            except importlib.metadata.PackageNotFoundError:
-                continue
-        return "0.0.0"
+        return _version_for_top_package(cls.__module__.split(".")[0])
 
     @classmethod
     def get_schema(cls) -> dict:

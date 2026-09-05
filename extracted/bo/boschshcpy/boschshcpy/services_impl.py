@@ -992,13 +992,24 @@ class ShutterControlService(SHCDeviceService):
     async def async_reset_calibration_and_open(self) -> None:
         """Async: trigger the shutter's end-position (re)calibration run.
 
-        Confirmed via APK decompile: the app's
-        ShutterControlInteractor.RESET_CALIBRATION_AND_OPEN_COMMAND =
-        "resetCalibrationAndOpen", called as
-        `deviceService.executeOperation(RESET_CALIBRATION_AND_OPEN_COMMAND,
-        listener)` with no params — same operation/{name} bare-array
-        mechanism as PowerMeterService.async_reset_energy_summation, so the
-        wire body is an empty array `[]`.
+        hass#396 follow-up: the previous "priming" PUT (a fake
+        `referenceMovingTimes`/`level: 0.0` write before calling this
+        operation, meant to replicate an app-observed "initial test drive"
+        step) turned out to be actively counterproductive, confirmed via a
+        real debug-log capture. The device accepts the fake
+        `referenceMovingTimes` as literal calibration data and immediately
+        reports `calibrated: true` WITHOUT moving at all — then
+        `resetCalibrationAndOpen` itself resets that fake state straight
+        back to `false` anyway, so priming it first accomplishes nothing.
+        Worse, our own follow-up write (`level: 0.0`) triggers an ordinary
+        close move unrelated to calibration, which the old code then
+        forcibly interrupted with a hard-coded 5s-sleep-then-STOP — wasting
+        time and leaving the shutter in an arbitrary position before the
+        real calibration drive even started. Removed entirely; this now
+        just triggers the operation and lets the device run its own
+        sequence uninterrupted, same as the official app's actual command
+        (RESET_CALIBRATION_AND_OPEN_COMMAND, an empty-array
+        `operation/{name}` call).
         """
         await self.async_post_operation("resetCalibrationAndOpen", [])
 

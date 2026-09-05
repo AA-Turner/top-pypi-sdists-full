@@ -4,7 +4,7 @@
 # it under the terms of the GNU General Public License version 2 as
 # published by the Free Software Foundation.
 
-"""Extractors for https://www.boosty.to/"""
+"""Extractors for https://boosty.to/"""
 
 from .common import Extractor, Message
 from .. import text, util

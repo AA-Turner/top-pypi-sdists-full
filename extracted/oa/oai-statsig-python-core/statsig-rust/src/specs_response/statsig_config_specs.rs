@@ -24,6 +24,11 @@ pub struct SpecsTopLevel {
     pub checksum: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "7")]
     pub rest: ::prost::alloc::vec::Vec<u8>,
+    /// Whether emitted dynamic-config envelopes may still contain unhydrated
+    /// remote_config_metadata. False is authoritative and lets SDKs skip
+    /// response-wide detection; true may be conservative when intermediaries
+    /// combine legacy payloads. Absence means the producer predates this marker
+    /// and callers must fall back to detection.
     #[prost(bool, optional, tag = "8")]
     pub may_have_remote_config_metadata: ::core::option::Option<bool>,
 }
@@ -93,6 +98,15 @@ pub struct Rule {
     pub pass_percentage_float: ::core::option::Option<f64>,
     #[prost(message, optional, tag = "14")]
     pub remote_config_metadata: ::core::option::Option<RemoteConfigValueMetadata>,
+    #[prost(message, repeated, tag = "15")]
+    pub shared_control_experiments: ::prost::alloc::vec::Vec<SharedControlExperiment>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SharedControlExperiment {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub control_group_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RemoteConfigValueMetadata {
@@ -290,6 +304,7 @@ pub enum ConditionType {
     UserBucket = 9,
     TargetApp = 10,
     UnitId = 11,
+    ExperimentGroup = 12,
 }
 impl ConditionType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -310,6 +325,7 @@ impl ConditionType {
             Self::UserBucket => "CONDITION_TYPE_USER_BUCKET",
             Self::TargetApp => "CONDITION_TYPE_TARGET_APP",
             Self::UnitId => "CONDITION_TYPE_UNIT_ID",
+            Self::ExperimentGroup => "CONDITION_TYPE_EXPERIMENT_GROUP",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -327,6 +343,7 @@ impl ConditionType {
             "CONDITION_TYPE_USER_BUCKET" => Some(Self::UserBucket),
             "CONDITION_TYPE_TARGET_APP" => Some(Self::TargetApp),
             "CONDITION_TYPE_UNIT_ID" => Some(Self::UnitId),
+            "CONDITION_TYPE_EXPERIMENT_GROUP" => Some(Self::ExperimentGroup),
             _ => None,
         }
     }

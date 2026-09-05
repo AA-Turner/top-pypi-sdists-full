@@ -148,8 +148,7 @@ fn generate_response(
         None,
         None,
         false,
-        None,
-        true,
+        false,
     );
 
     let options = ClientInitResponseOptions {
@@ -183,8 +182,7 @@ fn generate_fast_response(
         None,
         None,
         false,
-        None,
-        true,
+        false,
     );
 
     let options = ClientInitResponseOptions {

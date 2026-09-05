@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.64
+Version: 0.2.65
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -100,7 +100,7 @@ caching, and editor integration in a single tool.
 It offers:
 
 - ⚡️ **Built for fast feedback** with a native Rust binary and result caching
-- 🔍 **<!-- RULE_COUNT -->83<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
+- 🔍 **<!-- RULE_COUNT -->84<!-- /RULE_COUNT --> lint rules** covering common Markdown issues
 - 🛠️ **Automatic formatting** with `--fix` for files and stdin/stdout
 - 📦 **Zero dependencies** - single binary with no runtime requirements
 - 🔧 **Highly configurable** with TOML-based config files
@@ -256,7 +256,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.64
+mise use rumdl@0.2.65
 ```
 
 ### Using Nix (macOS/Linux)
@@ -488,7 +488,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.64
+    rev: v0.2.65
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, always exits 0
@@ -504,7 +504,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.64
+    rev: v0.2.65
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -521,7 +521,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.64
+    rev: v0.2.65
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -621,7 +621,7 @@ rumdl is also embedded out of the box in [MegaLinter](https://megalinter.io/), a
 
 ## Rules
 
-rumdl implements <!-- RULE_COUNT -->83<!-- /RULE_COUNT --> lint rules for Markdown files. Here are some key rule categories:
+rumdl implements <!-- RULE_COUNT -->84<!-- /RULE_COUNT --> lint rules for Markdown files. Here are some key rule categories:
 
 | Category       | Description                              | Example Rules       |
 | -------------- | ---------------------------------------- | ------------------- |
@@ -717,6 +717,8 @@ Lint Markdown files and print warnings/errors (main subcommand)
 - `--statistics`: Show rule violation statistics summary
 - `-q, --quiet`: Print diagnostics, but suppress summary lines
 - `--output-format <format>`: Output format for diagnostics
+- `--no-code-block-tools`: Skip configured code-block tools while checking the outer Markdown
+- `--only-code-block-tools`: Run configured code-block tools without checking the outer Markdown
 - `--stdin`: Read from stdin instead of files
 - `--stdin-batch`: Read repeated UTF-8 `path\0content\0` pairs from stdin
 - `--stdin-batch-closed-world`: Resolve relative links only within the supplied batch
@@ -734,6 +736,8 @@ Format Markdown files and apply fixes. Unlike `check --fix`, `fmt` keeps formatt
 All the same options as `check` are available (except `--fix` which is always enabled), including:
 
 - `--stdin`: Format content from stdin and output to stdout
+- `--no-code-block-tools`: Format the outer Markdown without running configured code-block tools
+- `--only-code-block-tools`: Format configured fenced blocks without formatting the outer Markdown
 - `-d, --disable <rules>`: Disable specific rules during formatting
 - `-e, --enable <rules>`: Format using only specific rules
 - `--exclude/--include`: Control which files to format

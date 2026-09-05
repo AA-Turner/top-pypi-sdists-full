@@ -13,6 +13,7 @@ from ..types import (
     legal_entity_list_params,
     legal_entity_create_params,
     legal_entity_update_params,
+    legal_entity_update_status_params,
 )
 from .._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
@@ -60,6 +61,7 @@ class LegalEntities(SyncAPIResource):
         addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
         bank_settings: Optional[BankSettingsParam] | Omit = omit,
         business_description: Optional[str] | Omit = omit,
+        business_designation: Optional[Literal["exempt_financial_institution", "non_operating_business"]] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
         compliance_details: Optional[object] | Omit = omit,
@@ -119,6 +121,8 @@ class LegalEntities(SyncAPIResource):
           addresses: A list of addresses for the entity.
 
           business_description: A description of the business.
+
+          business_designation: Legal designation associated with the business.
 
           business_name: The business's legal business name.
 
@@ -214,6 +218,7 @@ class LegalEntities(SyncAPIResource):
                     "addresses": addresses,
                     "bank_settings": bank_settings,
                     "business_description": business_description,
+                    "business_designation": business_designation,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "compliance_details": compliance_details,
@@ -305,6 +310,7 @@ class LegalEntities(SyncAPIResource):
         addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
         bank_settings: Optional[BankSettingsParam] | Omit = omit,
         business_description: Optional[str] | Omit = omit,
+        business_designation: Optional[Literal["exempt_financial_institution", "non_operating_business"]] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
         country_of_incorporation: Optional[str] | Omit = omit,
@@ -357,6 +363,8 @@ class LegalEntities(SyncAPIResource):
           addresses: A list of addresses for the entity.
 
           business_description: A description of the business.
+
+          business_designation: Legal designation associated with the business.
 
           business_name: The business's legal business name.
 
@@ -442,6 +450,7 @@ class LegalEntities(SyncAPIResource):
                     "addresses": addresses,
                     "bank_settings": bank_settings,
                     "business_description": business_description,
+                    "business_designation": business_designation,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "country_of_incorporation": country_of_incorporation,
@@ -548,6 +557,51 @@ class LegalEntities(SyncAPIResource):
             model=LegalEntity,
         )
 
+    def update_status(
+        self,
+        id: str,
+        *,
+        status: Literal["active", "suspended", "denied"],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> LegalEntity:
+        """
+        Update Legal Entity Status (sandbox only)
+
+        Args:
+          status: The target status for the legal entity. One of `active`, `suspended`, or
+              `denied`. Valid transitions depend on the current status.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._patch(
+            path_template("/api/simulations/legal_entities/{id}/update_status", id=id),
+            body=maybe_transform({"status": status}, legal_entity_update_status_params.LegalEntityUpdateStatusParams),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=LegalEntity,
+        )
+
 
 class AsyncLegalEntities(AsyncAPIResource):
     @cached_property
@@ -576,6 +630,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
         bank_settings: Optional[BankSettingsParam] | Omit = omit,
         business_description: Optional[str] | Omit = omit,
+        business_designation: Optional[Literal["exempt_financial_institution", "non_operating_business"]] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
         compliance_details: Optional[object] | Omit = omit,
@@ -635,6 +690,8 @@ class AsyncLegalEntities(AsyncAPIResource):
           addresses: A list of addresses for the entity.
 
           business_description: A description of the business.
+
+          business_designation: Legal designation associated with the business.
 
           business_name: The business's legal business name.
 
@@ -730,6 +787,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "addresses": addresses,
                     "bank_settings": bank_settings,
                     "business_description": business_description,
+                    "business_designation": business_designation,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "compliance_details": compliance_details,
@@ -821,6 +879,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         addresses: Iterable[LegalEntityAddressCreateRequest] | Omit = omit,
         bank_settings: Optional[BankSettingsParam] | Omit = omit,
         business_description: Optional[str] | Omit = omit,
+        business_designation: Optional[Literal["exempt_financial_institution", "non_operating_business"]] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
         country_of_incorporation: Optional[str] | Omit = omit,
@@ -873,6 +932,8 @@ class AsyncLegalEntities(AsyncAPIResource):
           addresses: A list of addresses for the entity.
 
           business_description: A description of the business.
+
+          business_designation: Legal designation associated with the business.
 
           business_name: The business's legal business name.
 
@@ -958,6 +1019,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "addresses": addresses,
                     "bank_settings": bank_settings,
                     "business_description": business_description,
+                    "business_designation": business_designation,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
                     "country_of_incorporation": country_of_incorporation,
@@ -1064,6 +1126,53 @@ class AsyncLegalEntities(AsyncAPIResource):
             model=LegalEntity,
         )
 
+    async def update_status(
+        self,
+        id: str,
+        *,
+        status: Literal["active", "suspended", "denied"],
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> LegalEntity:
+        """
+        Update Legal Entity Status (sandbox only)
+
+        Args:
+          status: The target status for the legal entity. One of `active`, `suspended`, or
+              `denied`. Valid transitions depend on the current status.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+
+          idempotency_key: Specify a custom idempotency key for this request
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._patch(
+            path_template("/api/simulations/legal_entities/{id}/update_status", id=id),
+            body=await async_maybe_transform(
+                {"status": status}, legal_entity_update_status_params.LegalEntityUpdateStatusParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                idempotency_key=idempotency_key,
+            ),
+            cast_to=LegalEntity,
+        )
+
 
 class LegalEntitiesWithRawResponse:
     def __init__(self, legal_entities: LegalEntities) -> None:
@@ -1080,6 +1189,9 @@ class LegalEntitiesWithRawResponse:
         )
         self.list = _legacy_response.to_raw_response_wrapper(
             legal_entities.list,
+        )
+        self.update_status = _legacy_response.to_raw_response_wrapper(
+            legal_entities.update_status,
         )
 
 
@@ -1099,6 +1211,9 @@ class AsyncLegalEntitiesWithRawResponse:
         self.list = _legacy_response.async_to_raw_response_wrapper(
             legal_entities.list,
         )
+        self.update_status = _legacy_response.async_to_raw_response_wrapper(
+            legal_entities.update_status,
+        )
 
 
 class LegalEntitiesWithStreamingResponse:
@@ -1117,6 +1232,9 @@ class LegalEntitiesWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             legal_entities.list,
         )
+        self.update_status = to_streamed_response_wrapper(
+            legal_entities.update_status,
+        )
 
 
 class AsyncLegalEntitiesWithStreamingResponse:
@@ -1134,4 +1252,7 @@ class AsyncLegalEntitiesWithStreamingResponse:
         )
         self.list = async_to_streamed_response_wrapper(
             legal_entities.list,
+        )
+        self.update_status = async_to_streamed_response_wrapper(
+            legal_entities.update_status,
         )

@@ -77,9 +77,10 @@ impl Error for ResourceError {}
 /// Configuration for resource limits.
 ///
 /// The time/memory/GC limits are optional — set to `None` to disable — but
-/// recursion depth is always bounded (default
-/// [`DEFAULT_MAX_RECURSION_DEPTH`]): unbounded recursion would let sandboxed
-/// code overflow the native stack and abort the process. Use
+/// recursion depth and the suspension budget are always bounded (defaults
+/// [`DEFAULT_MAX_RECURSION_DEPTH`] and [`DEFAULT_MAX_SUSPENSIONS`]): unbounded
+/// recursion would let sandboxed code overflow the native stack and abort the
+/// process, and unbounded suspensions would let it loop on host calls. Use
 /// `ResourceLimits::default()` for the recursion-only defaults, or build
 /// custom limits with the builder pattern.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -94,12 +95,22 @@ pub struct ResourceLimits {
     pub gc_interval: Option<usize>,
     /// Maximum recursion depth (function call stack depth).
     pub max_recursion_depth: usize,
+    /// Maximum suspensions the host may service (default
+    /// [`DEFAULT_MAX_SUSPENSIONS`]; always bounded, like recursion depth).
+    /// The interpreter only stores this limit; hosts must enforce it.
+    pub max_suspensions: usize,
 }
 
 /// Recommended maximum recursion depth if not otherwise specified.
 pub const DEFAULT_MAX_RECURSION_DEPTH: usize = 1000;
 
-/// Creates a new ResourceLimits with all limits disabled, except max recursion which is set to 1000.
+/// Maximum suspensions a host services per session if not otherwise
+/// specified: a backstop against a sandbox looping on host calls while
+/// `max_duration` is paused.
+pub const DEFAULT_MAX_SUSPENSIONS: usize = 1000;
+
+/// Creates a new ResourceLimits with all limits disabled, except max recursion
+/// depth and max suspensions, which are set to 1000.
 impl Default for ResourceLimits {
     fn default() -> Self {
         Self {
@@ -107,6 +118,7 @@ impl Default for ResourceLimits {
             max_memory: None,
             gc_interval: None,
             max_recursion_depth: DEFAULT_MAX_RECURSION_DEPTH,
+            max_suspensions: DEFAULT_MAX_SUSPENSIONS,
         }
     }
 }
@@ -142,15 +154,14 @@ impl ResourceLimits {
         self.max_recursion_depth = limit;
         self
     }
-}
 
-/// How often to actually check `Instant::elapsed()` in `check_time`.
-///
-/// Calling `Instant::elapsed()` on every `check_time` invocation adds measurable
-/// overhead in tight loops (the VM calls `check_time` on every instruction).
-/// By only checking every N calls, we reduce this overhead while still catching
-/// timeouts promptly.
-const TIME_CHECK_INTERVAL: u16 = 10;
+    /// Sets the host-enforced maximum number of suspensions.
+    #[must_use]
+    pub fn max_suspensions(mut self, limit: usize) -> Self {
+        self.max_suspensions = limit;
+        self
+    }
+}
 
 /// A resource tracker that enforces configurable limits.
 ///
@@ -180,8 +191,6 @@ pub struct ResourceTracker {
     /// executing.
     #[serde(skip)]
     running_since: Cell<Option<Instant>>,
-    /// Counter for rate-limiting `Instant::elapsed()` calls in `check_time`.
-    check_counter: Cell<u16>,
     /// Optional override applied on top of `limits.max_recursion_depth`.
     ///
     /// `None` (the default — also the value any pre-`test-hooks` snapshot
@@ -220,7 +229,6 @@ impl ResourceTracker {
             limits,
             total_execution_time: Cell::new(Duration::ZERO),
             running_since: Cell::new(None),
-            check_counter: Cell::new(0),
             recursion_limit_override: Cell::new(None),
         }
     }
@@ -257,6 +265,19 @@ impl ResourceTracker {
         self.limits.max_memory
     }
 
+    /// Returns the host-enforced suspension budget (default
+    /// [`DEFAULT_MAX_SUSPENSIONS`]; never unlimited).
+    #[must_use]
+    pub fn max_suspensions(&self) -> usize {
+        self.limits.max_suspensions
+    }
+
+    /// Returns whether the VM has a memory or time limit configured.
+    #[must_use]
+    pub fn has_memory_time_limit(&self) -> bool {
+        self.limits.max_memory.is_some() || self.limits.max_duration.is_some()
+    }
+
     /// Sets the maximum execution duration as a fresh budget from now,
     /// resetting the accumulated execution time to zero.
     ///
@@ -284,7 +305,7 @@ impl ResourceTracker {
         Ok(())
     }
 
-    /// Called periodically to check time and allocator-backed memory limits.
+    /// Called periodically to check allocator-backed memory and time limits.
     ///
     /// Returns `Ok(())` while configured limits are respected, or the relevant
     /// resource error once either limit is exceeded.
@@ -293,7 +314,7 @@ impl ResourceTracker {
     /// read-only operation. This allows time checks in contexts that only have
     /// an immutable heap reference, such as `py_repr_fmt`.
     #[inline]
-    pub fn check_time(&self) -> Result<(), ResourceError> {
+    pub fn check_memory_time(&self) -> Result<(), ResourceError> {
         if let Some(limit) = self.limits.max_memory {
             let used = probe_memory();
             if used > limit {
@@ -301,22 +322,55 @@ impl ResourceTracker {
             }
         }
 
+        self.check_time()
+    }
+
+    /// Called periodically to check the time limit. Elapsed execution time is
+    /// monotonic, so once the budget is exceeded every later call fails too.
+    #[inline]
+    pub fn check_time(&self) -> Result<(), ResourceError> {
         if let Some(max) = self.limits.max_duration {
-            self.check_counter.update(|c| c.wrapping_add(1));
-            if self.check_counter.get().is_multiple_of(TIME_CHECK_INTERVAL) {
-                // Only call Instant::elapsed() every TIME_CHECK_INTERVAL calls
-                let elapsed = self.elapsed();
-                if elapsed > max {
-                    // Reset counter so the very next check_time call also triggers
-                    // an elapsed check. This is important because some callers
-                    // (e.g. repr_sequence_fmt) catch the error and return normally,
-                    // and we need the VM loop's next check_time to re-detect timeout.
-                    self.check_counter.set(TIME_CHECK_INTERVAL.wrapping_sub(1));
-                    return Err(ResourceError::Time { limit: max, elapsed });
-                }
+            let elapsed = self.elapsed();
+            if elapsed > max {
+                return Err(ResourceError::Time { limit: max, elapsed });
             }
         }
         Ok(())
+    }
+
+    /// Items processed between full checks in amortized per-item Rust loops
+    /// (see [`check_time_every`](Self::check_time_every)). A limit can be
+    /// overshot by up to this many items' work before the next check — an
+    /// accepted trade for cheap loops; the process-level hard limits backstop
+    /// pathological cases.
+    pub const LOOP_CHECK_INTERVAL: usize = 64;
+
+    /// Amortized per-item time check for Rust-side loops: a full clock read
+    /// once per [`LOOP_CHECK_INTERVAL`](Self::LOOP_CHECK_INTERVAL) calls,
+    /// free otherwise. Key `i` on the loop's index or a monotonically
+    /// increasing counter. Fires at the *end* of each block (`i % N == N-1`)
+    /// so loops shorter than the interval pay no clock read at all — the VM
+    /// dispatch checkpoint covers cadence between short calls.
+    #[inline]
+    pub fn check_time_every(&self, i: usize) -> Result<(), ResourceError> {
+        if i % Self::LOOP_CHECK_INTERVAL == Self::LOOP_CHECK_INTERVAL - 1 {
+            self.check_time()
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Amortized per-item memory + time check; the memory-probing sibling of
+    /// [`check_time_every`](Self::check_time_every), for loops that allocate
+    /// per item. Between full checks the allocator's hard limit still bounds
+    /// runaway growth.
+    #[inline]
+    pub fn check_memory_time_every(&self, i: usize) -> Result<(), ResourceError> {
+        if i % Self::LOOP_CHECK_INTERVAL == Self::LOOP_CHECK_INTERVAL - 1 {
+            self.check_memory_time()
+        } else {
+            Ok(())
+        }
     }
 
     /// Called before pushing a new call frame to check recursion depth.
@@ -341,7 +395,7 @@ impl ResourceTracker {
     ///
     /// This allows pre-emptive rejection of operations like `2 ** 10_000_000`
     /// before the memory is actually allocated. The check only happens for
-    /// estimated result sizes above `LARGE_RESULT_THRESHOLD` to avoid overhead
+    /// estimated result sizes above [`LARGE_RESULT_THRESHOLD`] to avoid overhead
     /// on small operations.
     #[inline]
     pub fn check_large_result(&self, estimated_bytes: usize) -> Result<(), ResourceError> {

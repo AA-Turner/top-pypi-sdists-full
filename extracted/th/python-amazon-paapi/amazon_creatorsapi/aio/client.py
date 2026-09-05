@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 from typing_extensions import Self
 
+from amazon_creatorsapi.core.constants import DEFAULT_TIMEOUT
+
 if TYPE_CHECKING:
     from types import TracebackType
 
@@ -26,7 +28,6 @@ except ImportError as exc:  # pragma: no cover
 
 
 DEFAULT_HOST = "https://creatorsapi.amazon"
-DEFAULT_TIMEOUT = 30.0
 VERSION = version("python-amazon-paapi")
 USER_AGENT = f"python-amazon-paapi/{VERSION} (async)"
 
@@ -64,14 +65,15 @@ class AsyncHttpClient:
 
     Args:
         host: Base URL for API requests. Defaults to Amazon Creators API.
-        timeout: Request timeout in seconds. Defaults to 30.
+        timeout: Request timeout in seconds, or None to wait indefinitely.
+            Defaults to 30.
 
     """
 
     def __init__(
         self,
         host: str = DEFAULT_HOST,
-        timeout: float = DEFAULT_TIMEOUT,
+        timeout: float | None = DEFAULT_TIMEOUT,
     ) -> None:
         """Initialize the async HTTP client."""
         self._host = host
@@ -105,14 +107,15 @@ class AsyncHttpClient:
         self,
         path: str,
         headers: dict[str, str],
-        body: dict[str, Any],
+        body: dict[str, Any] | None = None,
     ) -> AsyncHttpResponse:
         """Make a POST request to the API.
 
         Args:
             path: API endpoint path (e.g., "/catalog/v1/getItems").
             headers: Request headers.
-            body: Request body as a dictionary.
+            body: Request body as a dictionary. When omitted, the request is
+                sent without a payload, as operations like listFeeds expect.
 
         Returns:
             AsyncHttpResponse with status, headers, and body.

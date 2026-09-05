@@ -55,6 +55,7 @@ class Extractor():
     request_interval_min = 0.0
     request_interval_429 = 60.0
     request_timestamp = 0.0
+    async_mode = False
     exc = exception
     finalize = skip_files = skip_posts = skip_children = skip_date = \
         import_blacklist = None
@@ -838,6 +839,36 @@ class Extractor():
         return self.utils("/nuxt").resolve(util.json_loads(
             page[page.find(">", pos)+1:page.find("</script>", pos)]))
 
+    def _async_items_main(self):
+        messages = queue.Queue(self._async_queue)
+        thread = threading.Thread(
+            target=self._async_items_thread,
+            args=(messages,),
+            daemon=True,
+        )
+
+        self._async_exception = None
+        self.log.debug("Starting background thread")
+
+        thread.start()
+        while True:
+            msg = messages.get()
+            if msg is None:
+                thread.join()
+                if self._async_exception:
+                    raise self._async_exception
+                return
+            yield msg
+            messages.task_done()
+
+    def _async_items_thread(self, messages):
+        try:
+            for msg in self._async_items():
+                messages.put(msg)
+        except Exception as exc:
+            self._async_exception = exc
+        messages.put(None)
+
     def _get_date_min_max(self, dmin=None, dmax=None):
         """Retrieve and parse 'date-min' and 'date-max' config values"""
         def get(key, default):
@@ -1074,40 +1105,6 @@ class Dispatch():
             else:
                 results.append((Message.Queue, url, {"_extractor": extr}))
         return iter(results)
-
-
-class AsynchronousMixin():
-    """Run info extraction in a separate thread"""
-
-    def __iter__(self):
-        self.initialize()
-
-        messages = queue.Queue(5)
-        thread = threading.Thread(
-            target=self.async_items,
-            args=(messages,),
-            daemon=True,
-        )
-
-        thread.start()
-        while True:
-            msg = messages.get()
-            if msg is None:
-                thread.join()
-                return
-            if isinstance(msg, Exception):
-                thread.join()
-                raise msg
-            yield msg
-            messages.task_done()
-
-    def async_items(self, messages):
-        try:
-            for msg in self.items():
-                messages.put(msg)
-        except Exception as exc:
-            messages.put(exc)
-        messages.put(None)
 
 
 class BaseExtractor(Extractor):

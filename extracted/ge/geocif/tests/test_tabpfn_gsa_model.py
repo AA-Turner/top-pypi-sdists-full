@@ -166,12 +166,12 @@ def test_wrapper_prefix_regex_leaves_tabpfn_gsa_alone():
 
 def test_geocif_wiring_for_tabpfn_gsa():
     src = (ROOT / "geocif.py").read_text(encoding="utf-8")
-    assert '"exaone", "tabpfn_gsa"]' in src  # tabular flags dispatch
+    assert '"exaone", "tabpfn_gsa", "tabfm_gsa"]' in src  # tabular flags dispatch
     assert '"tabpfn_gsa": TabPFNFitter(self.obj)' in src
     assert "self.gsa_params" in src
     assert "tabpfn_gsa_K" in src and "tabpfn_gsa_s" in src
     assert 'gsa_params=getattr(self.obj, "gsa_params"' in src
     # do_xai has no explainer path for GSAModel — must be forced off with a
     # warning inside _setup_tabular_flags (review finding)
-    assert 'self.dispatch_name == "tabpfn_gsa"' in src
+    assert 'self.dispatch_name in ("tabpfn_gsa", "tabfm_gsa")' in src
     assert "disabling XAI for this model" in src

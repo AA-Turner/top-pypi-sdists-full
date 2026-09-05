@@ -276,6 +276,32 @@ async fn test_custom_event() {
     assert_eq!(event["eventName"], "test_event");
 }
 
+#[cfg(feature = "pyo3_event_zstd")]
+#[tokio::test]
+async fn test_event_compression_zstd_flag_preserves_custom_event_logging_adapter() {
+    let experimental_flags = Some(HashSet::from(["event_compression_zstd".to_string()]));
+    let (statsig, logging_adapter) =
+        setup_with_sdk_configs_and_flags(DCS_EVAL_PROJ, None, experimental_flags).await;
+
+    let user = StatsigUser::with_user_id("a_user".to_string());
+    statsig.log_event(&user, "first_event", Some("one".to_string()), None);
+    statsig.log_event(&user, "second_event", Some("two".to_string()), None);
+    statsig.shutdown().await.unwrap();
+
+    assert_eq!(
+        logging_adapter
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        2
+    );
+    let first = logging_adapter.force_get_event_at(0);
+    let second = logging_adapter.force_get_event_at(1);
+    assert_eq!(first["eventName"], "first_event");
+    assert_eq!(first["value"], "one");
+    assert_eq!(second["eventName"], "second_event");
+    assert_eq!(second["value"], "two");
+}
+
 #[tokio::test]
 async fn test_non_exposed_checks() {
     let (statsig, logging_adapter) = setup(DCS_EVAL_PROJ).await;
@@ -317,6 +343,38 @@ async fn test_exposure_dedupe() {
         .no_diagnostics_logged_event_count
         .load(Ordering::SeqCst);
     assert_eq!(event_count, 1);
+}
+
+#[tokio::test]
+async fn test_exposure_dedupe_applies_server_ttl_immediately_without_background_flush() {
+    let sdk_configs =
+        Map::<String, Value>::from_iter([("exposure_dedupe_ttl_ms".to_string(), json!(0))]);
+    let logging_adapter = Arc::new(MockEventLoggingAdapter::new_with_background_flush(false));
+    let dcs_path = format!("tests/data/{DCS_EVAL_PROJ}.json");
+    let mut options = StatsigOptions::new();
+    options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_data_and_sdk_configs(
+        &dcs_path,
+        sdk_configs,
+    )));
+    options.event_logging_adapter = Some(logging_adapter.clone());
+
+    let uuid = uuid::Uuid::new_v4();
+    let statsig = Statsig::new(&format!("secret-{uuid}"), Some(Arc::new(options)));
+    statsig.initialize().await.unwrap();
+
+    let user = StatsigUser::with_user_id("immediate_exposure_user");
+    let _ = statsig.check_gate(&user, "test_public");
+    let _ = statsig.check_gate(&user, "test_public");
+
+    statsig.shutdown().await.unwrap();
+
+    assert_eq!(
+        logging_adapter
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        2,
+        "the server-delivered TTL must apply immediately without background flushing"
+    );
 }
 
 #[tokio::test]
@@ -555,6 +613,11 @@ async fn test_layer_json_exposure_uses_serialized_sampling_info() {
     assert_eq!(
         analytic_layer_json["__exposure_info"]["has_seen_analytical_gates"],
         json!(true)
+    );
+    assert!(
+        analytic_layer_json["__exposure_info"]
+            .get("rule_pass_percentage")
+            .is_none()
     );
 
     for i in 0..80 {

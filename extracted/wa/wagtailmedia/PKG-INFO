@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: wagtailmedia
-Version: 0.18.1
+Version: 0.19.0
 Summary: A Wagtail module for audio and video files.
 Keywords: Wagtail,Django,media
 Author-email: Mikalai Radchuk  <hello@torchbox.com>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Wagtail
 Classifier: Framework :: Wagtail :: 7
+Classifier: Framework :: Wagtail :: 8
 License-File: LICENSE
 Requires-Dist: Wagtail>=7.0
 Requires-Dist: Django>=5.2
@@ -28,6 +29,7 @@ Requires-Dist: pre-commit>=4.6.0 ; extra == "linting"
 Requires-Dist: coverage>=7.14.0 ; extra == "testing"
 Requires-Dist: tox>=4.54.0 ; extra == "testing"
 Requires-Dist: psycopg ; extra == "testing"
+Requires-Dist: wagtail-factories ; extra == "testing"
 Project-URL: Changelog, https://github.com/torchbox/wagtailmedia/blob/main/CHANGELOG.md
 Project-URL: Issues, https://github.com/torchbox/wagtailmedia/issues
 Project-URL: Repository, https://github.com/torchbox/wagtailmedia
@@ -51,8 +53,8 @@ but for audio and video files.
 wagtailmedia requires the following:
 
 - Python (3.10, 3.11, 3.12, 3.13, 3.14)
-- Django (5.2, 6.0)
-- Wagtail (7.0, 7.1, 7.2, 7.3, 7.4)
+- Django (5.2, 6.0, 6.1)
+- Wagtail (7.0, 7.1, 7.2, 7.3, 7.4, 8.0)
 
 ## Install
 
@@ -107,6 +109,7 @@ WAGTAILMEDIA = {
         "ogv",
         "webm",
     ],  # list of extensions
+    "ENABLE_API_V3": False,  # Wagtail 8.0+ - enable the v3 API endpoints
 }
 ```
 
@@ -119,9 +122,12 @@ Your Django project may already have this in place, but if not, add the followin
 from django.conf import settings
 from django.conf.urls.static import static
 
-urlpatterns = [
-    # ... the rest of your URLconf goes here ...
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns = (
+    [
+        # ... the rest of your URLconf goes here ...
+    ]
+    + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+)
 ```
 
 Note that this only works in development mode (`DEBUG = True`);
@@ -322,6 +328,8 @@ class BlogPage(Page):
 
 ### API
 
+#### v2
+
 To expose media items in the API, you can follow the [Wagtail documentation guide](https://docs.wagtail.org/en/stable/advanced_topics/api/v2/configuration.html#api-v2-configuration)
 for API configuration with wagtailmedia specifics:
 
@@ -337,9 +345,16 @@ api_router = WagtailAPIRouter("wagtailapi")
 api_router.register_endpoint("media", MediaAPIViewSet)
 ```
 
+#### v3 (preview)
+
+Starting with version 8.0, Wagtail provides an [experimental API v3](https://docs.wagtail.org/en/stable/advanced_topics/api/v3/index.html), powered by [django-ninja](https://github.com/vitalik/django-ninja).
+To opt-in, set `ENABLE_API_V3` to `True` in the `WAGTAILMEDIA` setting. The wagtailmedia endpoint will be available under the `<v3 API root>/media/`.
+
+For further details, explore the [Wagtail API v3 documentation](https://docs.wagtail.org/en/stable/advanced_topics/api/v3/index.html).
+
 ## Translations
 
-wagtailmedia has translations in French and Chinese. More translations welcome!
+wagtailmedia has translations in Chinese, French, German, Romanian, Ukrainian. More translations welcome!
 
 ## Contributing
 

@@ -943,11 +943,15 @@ class CIDs:
         Extract a single country name from the provided DataFrame and set it as 'self.country'.
 
         Args:
-            df (pd.DataFrame): If None, uses self.df_harvest_year.
+            df (pd.DataFrame): If None, uses self.df_harvest_year, falling
+                back to self.df_country_crop when the harvest-year frame is
+                empty (pre-season mode for a season that has not started).
             col (str): The column name containing the country name.
         """
         if df is None:
             df = self.df_harvest_year
+            if df.empty:
+                df = self.df_country_crop
         if df.empty:
             raise ValueError("Dataframe is empty. Cannot extract country name.")
         self.country = df[col].unique()[0].lower().replace(" ", "_")
@@ -1281,13 +1285,32 @@ class CIDs:
             return pd.DataFrame()
 
         # Determine the correct calendar year for this init month.
-        # Walk the pre-season month list chronologically, starting at
-        # harvest_year-1 and incrementing when crossing Dec→Jan.
-        # This handles both same-year (Togo: Sep-Feb → Mar) and
-        # cross-year (Malawi: Apr-Sep → Oct) seasons correctly.
+        # Walk the pre-season month list chronologically, incrementing when
+        # crossing Dec→Jan. The walk's SEED year comes from the season's
+        # actual start (planting) date when derivable from the data: seeding
+        # a flat harvest_year-1 mapped every pre-season month one year early
+        # for within-year seasons planted Jul-Dec (planting Nov Southern
+        # Hemisphere and planting Jan-Jun seasons were unaffected).
         import arrow as ar
         pre_months = self._get_pre_season_months(ar.utcnow().month)
-        year = self.harvest_year - 1
+
+        seed_year = None
+        if pre_months and "Season" in df_region.columns:
+            in_season = df_region[df_region["Season"] == self.harvest_year]
+            if not in_season.empty and "time" in in_season.columns:
+                t0 = in_season["time"].min()
+                planting = self._get_planting_month()
+                # Planting calendar year: the earliest in-season row is at or
+                # after planting; if its month precedes the planting month the
+                # season started the year before (data gap at season start).
+                s_y = t0.year if t0.month >= planting else t0.year - 1
+                # First pre-season month sits (planting - first) % 12 months
+                # before the planting anchor.
+                back = (planting - pre_months[0]) % 12
+                anchor = pd.Timestamp(year=s_y, month=planting, day=1)
+                seed_year = (anchor - pd.DateOffset(months=back)).year
+
+        year = seed_year if seed_year is not None else self.harvest_year - 1
         prev_m = pre_months[0] if pre_months else init_month
         month_to_year = {}
         for m in pre_months:
@@ -1302,9 +1325,11 @@ class CIDs:
             (df_region["time"].dt.year == target_year)
         ]
         if df_init.empty:
-            # Fallback: try without year filter
-            df_init = df_region[df_region["Month"] == init_month]
-        if df_init.empty:
+            # No row for this init month in the TARGET calendar year — e.g. a
+            # future init whose forecast has not been issued yet. Skip rather
+            # than fall back to a year-less Month match: that silently
+            # substituted a STALE forecast (last year's same-month init) for
+            # the new season.
             logger.debug(
                 f"Pre-season: no data for month {init_month} "
                 f"(year {target_year}) in {key[1]}, harvest_year {self.harvest_year}"
@@ -1313,7 +1338,14 @@ class CIDs:
 
         # Read previous init month's row for revision features
         prev_init = (init_month - 2) % 12 + 1  # month before init_month
-        prev_year = month_to_year.get(prev_init, target_year)
+        # When prev_init falls before the walk's first month it is absent
+        # from month_to_year; the month BEFORE init_month is in the prior
+        # calendar year iff its number is larger (Dec before Jan). The old
+        # target_year fallback fetched a row 11 months in the FUTURE there.
+        prev_year = month_to_year.get(
+            prev_init,
+            target_year - 1 if prev_init > init_month else target_year,
+        )
         df_prev = df_region[
             (df_region["Month"] == prev_init) &
             (df_region["time"].dt.year == prev_year)
@@ -1360,6 +1392,12 @@ class CIDs:
                 col_name = _fam_map.get(iname)
                 if col_name and col_name in row.index:
                     val = float(row[col_name])
+                    if not np.isfinite(val):
+                        # NaN = forecast not issued for this init month yet
+                        # (future season scaffold row) or missing region-month;
+                        # inf = bad upstream multi-model means (NOAA S2S
+                        # early-2026 files). Never emit either as a feature.
+                        continue
                     rows.append({
                         "Description": idesc,
                         "CID": val,
@@ -2186,7 +2224,9 @@ def _run_one_year(obj: "CIDs") -> None:
     result caching across many years for one file.
     """
     obj.df_harvest_year = obj.filter_data_for_harvest_year()
-    if obj.df_harvest_year.empty:
+    # Pre-season mode still extracts PS_ features for a season that has not
+    # started yet (no in-season rows) — see process_task for the rationale.
+    if obj.df_harvest_year.empty and not obj.pre_season_mode:
         logger.warning(
             f"No data for harvest year {obj.harvest_year}. Skipping."
         )
@@ -2225,8 +2265,9 @@ def _run_one_year(obj: "CIDs") -> None:
         for init_month in init_months:
             regions_written += obj.process_data_pre_season(init_month)
 
-    # In-season CIDs: always extract unless run_time_steps is pre_season only
-    if rts != "pre_season":
+    # In-season CIDs: always extract unless run_time_steps is pre_season only.
+    # Skip when the harvest year has no in-season rows yet (future season).
+    if rts != "pre_season" and not obj.df_harvest_year.empty:
         regions_written += obj.process_data_by_region_and_stage()
     if regions_written:
         logger.info(f"Saved CID results to {out_path} ({regions_written} regions)")
@@ -2305,7 +2346,11 @@ def process_task(args: ProcessTaskArgs) -> tuple:
 
     # Year-level setup
     obj.df_harvest_year = obj.filter_data_for_harvest_year()
-    if obj.df_harvest_year.empty:
+    # Pre-season mode: an empty harvest-year frame is NOT terminal. A season
+    # that has not started yet (forecast_seasons includes next year) has no
+    # in-season rows, but its pre-season init months live in df_country_crop
+    # under calendar year harvest_year - 1 and still yield PS_ features.
+    if obj.df_harvest_year.empty and not obj.pre_season_mode:
         return ("", pd.DataFrame(), task_desc)
 
     obj.crop, obj.season = utils.get_crop_season(obj.file_name)
@@ -2333,8 +2378,10 @@ def process_task(args: ProcessTaskArgs) -> tuple:
                 if not df_ps.empty:
                     frames.append(df_ps)
 
-        # In-season CIDs: always extract unless pre_season only
-        if rts != "pre_season":
+        # In-season CIDs: always extract unless run_time_steps is pre_season
+        # only. Skip when the harvest year has no in-season rows yet (future
+        # season): process_group derives its stage set from df_harvest_year.
+        if rts != "pre_season" and not obj.df_harvest_year.empty:
             df_insn = obj.process_group(df_group, args.region)
             if not df_insn.empty:
                 frames.append(df_insn)

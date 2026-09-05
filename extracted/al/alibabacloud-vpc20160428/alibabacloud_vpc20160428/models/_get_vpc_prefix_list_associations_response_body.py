@@ -18,9 +18,9 @@ class GetVpcPrefixListAssociationsResponseBody(DaraModel):
     ):
         # The number of entries returned.
         self.count = count
-        # The pagination token. Valid values:
-        # - If **NextToken** is empty, no subsequent query is required.
-        # - If **NextToken** is returned, the value indicates the token for the next query.
+        # The token for the next query. Valid values:
+        # - If **NextToken** is empty, no next query exists.
+        # - If **NextToken** has a return value, the value is the token for the next query.
         self.next_token = next_token
         # The association information of the prefix list.
         self.prefix_list_association = prefix_list_association
@@ -115,12 +115,12 @@ class GetVpcPrefixListAssociationsResponseBodyPrefixListAssociation(DaraModel):
         self.resource_uid = resource_uid
         # The association status of the prefix list. Valid values:
         # 
-        # - **Created**: succeeded.
-        # - **ModifyFailed**: not associated with the latest version.
-        # - **Creating**: being created.
-        # - **Modifying**: being modified.
-        # - **Deleting**: being deleted.
-        # - **Deleted**: deleted.
+        # - **Created**: Succeeded.
+        # - **ModifyFailed**: Not associated with the latest version.
+        # - **Creating**: Being created.
+        # - **Modifying**: Being modified.
+        # - **Deleting**: Being deleted.
+        # - **Deleted**: Deleted.
         self.status = status
 
     def validate(self):

@@ -25,14 +25,20 @@ from ..client.websocket_client import get_websocket_client
 from ..config import get_global_settings
 from ..errors import create_validation_error
 from ..transforms.categorized_search import DEFAULT_PINNED_TOOLS
+from ..utils.device_registry_semantics import (
+    build_device_registry_snapshot,
+    effective_entity_area_id,
+)
 from ..utils.entity_membership import normalize_member_entity_ids
 from ..utils.fuzzy_search import apply_hidden_penalty
+from ..visibility.model import VisibilityWire, wire_has_allowlist_dimensions
 from ..visibility.resolver import (
     device_registry_needed_for_visibility,
     load_hidden_set,
     visibility_state_and_wire,
 )
 from .component_api import (
+    DEVICE_REGISTRY_CHILD_SEMANTICS,
     component_supports,
     get_component_caps,
     invalidate_caps,
@@ -868,6 +874,15 @@ def _ws_result_map(resp: Any) -> dict[str, dict[str, Any]]:
     return {}
 
 
+def _ws_registry_rows(resp: Any) -> list[Any]:
+    """Return rows from a successful registry-list response, else an empty list."""
+    if isinstance(resp, dict) and resp.get("success"):
+        result = resp.get("result")
+        if isinstance(result, list):
+            return result
+    return []
+
+
 def _ws_registry_index(resp: Any, key: str) -> dict[str, dict[str, Any]]:
     """Index a ``config/*_registry/list`` reply by its id field (area_id/floor_id/…).
 
@@ -876,10 +891,9 @@ def _ws_registry_index(resp: Any, key: str) -> dict[str, dict[str, Any]]:
     empty rather than raising.
     """
     out: dict[str, dict[str, Any]] = {}
-    if isinstance(resp, dict) and resp.get("success"):
-        for item in resp.get("result") or []:
-            if isinstance(item, dict) and item.get(key):
-                out[item[key]] = item
+    for item in _ws_registry_rows(resp):
+        if isinstance(item, dict) and item.get(key):
+            out[item[key]] = item
     return out
 
 
@@ -901,13 +915,15 @@ def _entity_enrichment_fields(
     floors: dict[str, dict[str, Any]],
     labels: dict[str, dict[str, Any]],
     devices: dict[str, dict[str, Any]],
+    device_areas: dict[str, str | None],
     requested: tuple[str, ...],
 ) -> dict[str, Any]:
     """Compute the requested enrichment fields for one entity from registry data.
 
     Mirrors the component's ``_registry_enrichment`` so the legacy and
     component-served ``result_fields`` values agree: device-inherited area/labels
-    (the entity's own value wins, else the device's), area→floor resolution, and
+    (the entity's own value wins, else the device's direct-or-parent effective
+    area), area→floor resolution, and
     label id→name (falling back to the id when a label has no name). ``aliases``
     pass through from the registry entry. Only the requested keys are returned.
 
@@ -918,13 +934,11 @@ def _entity_enrichment_fields(
     the sentinel stands for is already matched via the friendly name).
     """
     aliases = sorted(a for a in (entry.get("aliases") or []) if isinstance(a, str))
-    area_id = entry.get("area_id")
+    area_id = effective_entity_area_id(entry, device_areas)
     label_ids = set(entry.get("labels") or [])
     device_id = entry.get("device_id")
     device = devices.get(device_id) if device_id else None
     if device:
-        if area_id is None:
-            area_id = device.get("area_id")
         label_ids |= set(device.get("labels") or [])
     area = areas.get(area_id) if area_id else None
     area_name = area.get("name") if area else None
@@ -1320,6 +1334,11 @@ def _merge_component_visibility_warnings(
         merge_visibility_warnings(
             response,
             [w for w in component_visibility_warnings if isinstance(w, str)],
+        )
+    elif component_visibility_warnings is not None:
+        logger.warning(
+            "component visibility_warnings ignored: expected a list, got %s",
+            type(component_visibility_warnings).__name__,
         )
 
 
@@ -2220,7 +2239,13 @@ class SearchTools:
             float | None,
             Field(
                 default=None,
-                gt=0,
+                # Inclusive floor, not gt=0. Home Assistant re-emits this
+                # schema for a conversation agent through an OpenAPI 3.0
+                # codec, which turns an exclusive bound into a form Anthropic
+                # rejects as an invalid input_schema — failing every turn, not
+                # just calls to this tool. See tests/src/unit/
+                # test_tool_schema_exclusive_bounds.py (issue #2361).
+                ge=0.001,
                 le=300,
                 description=(
                     "Per-call override for the per-id config-fetch wall-clock "
@@ -2396,13 +2421,15 @@ class SearchTools:
         # hidden entities through the fast path. The ``search_visibility``
         # capability closes that: a component that advertises it accepts the raw
         # hide config (``VisibilityConfig.to_wire``) as the ``visibility`` param
-        # and excludes hidden entities before its own counts/pagination, exactly
-        # as the legacy path does — so a visibility-active install can still take
-        # the fast path. Without the capability an active filter stays on the
-        # legacy path; with no active filter the plain ``search`` route runs with
-        # no ``visibility`` param (old components keep working). ``ha_get_overview``
-        # needs no analogous gate — it re-applies the filter server-side over the
-        # component's raw slices. Checked only when the component would otherwise
+        # and excludes hidden entities before its own counts/pagination. The
+        # ``search_visibility_allowlist_authorization`` capability adds the
+        # ``allowlist_authorization`` wire key, which opts the component into the
+        # revised allowlist precedence; without it an active allowlist falls back
+        # to legacy (see ``_resolve_component_search_visibility``). With no active
+        # filter, the plain ``search`` route runs without a ``visibility`` param,
+        # so old components
+        # keep working. ``ha_get_overview`` needs no analogous gate — it reapplies
+        # the filter over the component's raw slices. Checked only when it would
         # serve, so the common (no-component / filter-off) install pays nothing.
         if (
             req.query_text
@@ -2410,9 +2437,13 @@ class SearchTools:
             and _component_serves_search_types(req)
         ):
             caps = await get_component_caps(self._client)
-            if component_supports(caps, "search") and (
-                not _requested_membership(parsed_result_fields)
-                or component_supports(caps, "search_entity_membership")
+            if (
+                component_supports(caps, "search")
+                and component_supports(caps, DEVICE_REGISTRY_CHILD_SEMANTICS)
+                and (
+                    not _requested_membership(parsed_result_fields)
+                    or component_supports(caps, "search_entity_membership")
+                )
             ):
                 (
                     route_component,
@@ -2429,7 +2460,7 @@ class SearchTools:
 
     async def _resolve_component_search_visibility(
         self, caps: Any
-    ) -> tuple[bool, dict[str, Any] | None]:
+    ) -> tuple[bool, VisibilityWire | None]:
         """Decide the ha_search route under the entity-visibility gate.
 
         Returns ``(route_component, visibility_param)`` for a caller that has
@@ -2437,13 +2468,21 @@ class SearchTools:
 
         - filter inactive → ``(True, None)``: the plain component search, no
           ``visibility`` param (parity with a pre-``search_visibility`` component).
-        - filter active + ``search_visibility`` capability + config serialized →
-          ``(True, <wire dict>)``: the component applies the hide dimensions
-          in-process.
-        - filter active without the capability, or the config could not be loaded
-          → ``(False, None)``: the legacy path applies the filter server-side
-          before the counts/pagination (fail-closed to legacy on a bad config,
-          matching ``visibility_state_and_wire``'s fail-closed pairing).
+        - filter active + ``search_visibility`` + config serialized:
+          - component also advertises ``search_visibility_allowlist_authorization``
+            → ``(True, <wire dict + allowlist_authorization: True>)``. The key opts
+            the component into the revised rule (an allow match authorizes past
+            category, HA-hidden, and Assist filters). It is never sent to a
+            component lacking the capability: that component's strict schema would
+            reject it, and the key's absence is what keeps a newer component on the
+            legacy precedence the released server still applies in its own
+            outbound scan.
+          - no allowlist dimensions → ``(True, <wire dict>)``: the nine-key wire;
+            with no allow dimensions the two precedences agree.
+          - allowlist active without the capability → ``(False, None)``.
+        - config could not be loaded → ``(False, None)``: the legacy path applies
+          the filter server-side before the counts/pagination (fail-closed to
+          legacy, matching ``visibility_state_and_wire``'s fail-closed pairing).
 
         ``visibility_state_and_wire`` loads the config once for both the active
         gate and its wire form, instead of the active check and the wire fetch
@@ -2452,16 +2491,21 @@ class SearchTools:
         active, visibility = await visibility_state_and_wire()
         if not active:
             return True, None
-        if component_supports(caps, "search_visibility") and visibility is not None:
-            return True, visibility
-        return False, None
+        if not component_supports(caps, "search_visibility") or visibility is None:
+            return False, None
+        if component_supports(caps, "search_visibility_allowlist_authorization"):
+            authorized: VisibilityWire = {**visibility, "allowlist_authorization": True}
+            return True, authorized
+        if wire_has_allowlist_dimensions(visibility):
+            return False, None
+        return True, visibility
 
     async def _ha_search_via_component(
         self,
         req: _ResolvedSearch,
         ctx: Context | None,
         *,
-        visibility: dict[str, Any] | None = None,
+        visibility: VisibilityWire | None = None,
         caps: Any = None,
     ) -> dict[str, Any] | None:
         """Serve ha_search from the component; ``None`` ⇒ run the legacy path.
@@ -2540,7 +2584,7 @@ class SearchTools:
         req: _ResolvedSearch,
         ctx: Context | None,
         *,
-        visibility: dict[str, Any] | None,
+        visibility: VisibilityWire | None,
     ) -> dict[str, Any] | None:
         """Serve a ``dashboard``-including request from both legs (issue #2289).
 
@@ -2636,7 +2680,7 @@ class SearchTools:
     async def _send_component_search(
         self,
         req: _ResolvedSearch,
-        visibility: dict[str, Any] | None = None,
+        visibility: VisibilityWire | None = None,
         *,
         dashboard_split: bool = False,
     ) -> dict[str, Any]:
@@ -3126,10 +3170,19 @@ class SearchTools:
         areas = _ws_registry_index(names[0], "area_id") if need_names else {}
         floors = _ws_registry_index(names[1], "floor_id") if need_names else {}
         labels = _ws_registry_index(names[2], "label_id") if need_names else {}
-        devices = _ws_registry_index(names[3], "id") if need_names else {}
+        device_rows = _ws_registry_rows(names[3]) if need_names else []
+        device_snapshot = build_device_registry_snapshot(device_rows)
+        devices = device_snapshot.by_id
+        device_areas = device_snapshot.effective_area_by_id
         enrichment = {
             eid: _entity_enrichment_fields(
-                entries.get(eid) or {}, areas, floors, labels, devices, requested
+                entries.get(eid) or {},
+                areas,
+                floors,
+                labels,
+                devices,
+                device_areas,
+                requested,
             )
             for eid in entity_ids
         }
@@ -4352,7 +4405,9 @@ class SearchTools:
         applied by ``ha_get_overview`` after this, identically on both paths.
         """
         caps = await get_component_caps(self._client)
-        if component_supports(caps, "overview"):
+        if component_supports(caps, "overview") and component_supports(
+            caps, DEVICE_REGISTRY_CHILD_SEMANTICS
+        ):
             component_result = await self._overview_via_component(inputs)
             if component_result is not None:
                 return component_result
@@ -4530,7 +4585,10 @@ class SearchTools:
             float | None,
             Field(
                 default=None,
-                gt=0,
+                # Keep this identical to the ha_search parameter feeding it.
+                # Undecorated helper, so this Field never reaches an advertised
+                # schema and no guard can see it.
+                ge=0.001,
                 le=300,
                 description=(
                     "Per-call override for the per-id config-fetch wall-clock "

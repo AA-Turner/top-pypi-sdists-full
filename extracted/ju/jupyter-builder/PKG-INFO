@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: jupyter_builder
-Version: 1.2.2
+Version: 1.2.3
 Summary: JupyterLab build tools
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Source, https://github.com/jupyterlab/jupyter-builder
@@ -8,16 +8,16 @@ Project-URL: Issues, https://github.com/jupyterlab/jupyter-builder/issues/new/ch
 Project-URL: Zulip, https://jupyter.zulipchat.com/#narrow/channel/469762-jupyterlab
 Project-URL: Pypi, https://pypi.org/project/jupyter-builder
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>
-License-Expression: BSD-3-Clause AND MIT AND ISC
+License-Expression: Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND ISC AND MIT
 License-File: LICENSE
 License-File: THIRD_PARTY_LICENSES/semver.LICENSE.txt
 License-File: THIRD_PARTY_LICENSES/yarn.js.LICENSE.txt
+License-File: THIRD_PARTY_LICENSES/yarn.js.third-party-licenses.json
 Keywords: ipython,jupyter
 Classifier: Framework :: Jupyter
 Classifier: Framework :: Jupyter :: JupyterLab
 Classifier: Framework :: Jupyter :: JupyterLab :: 4
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10

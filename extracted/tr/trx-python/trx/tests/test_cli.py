@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Tests for CLI commands and workflow functions."""
 
+from contextlib import nullcontext
 import os
-import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from deepdiff import DeepDiff
 import numpy as np
@@ -19,6 +21,7 @@ except ImportError:
 from trx.fetcher import fetch_data, get_home, get_testing_files_dict
 import trx.trx_file_memmap as tmm
 from trx.workflows import (
+    _create_temp_memmap,
     convert_dsi_studio,
     convert_tractogram,
     generate_trx_from_scratch,
@@ -31,6 +34,70 @@ fetch_data(
     get_testing_files_dict(),
     keys=["DSI.zip", "trx_from_scratch.zip", "gold_standard.zip"],
 )
+
+
+def test_create_temp_memmap_uses_reopenable_path(tmp_path):
+    with patch("trx.workflows.np.memmap") as mock_memmap:
+        _create_temp_memmap(tmp_path, np.dtype("float32"), (10,))
+
+    filename = mock_memmap.call_args.args[0]
+    assert isinstance(filename, (str, os.PathLike))
+    assert os.path.dirname(os.fspath(filename)) == os.fspath(tmp_path)
+
+
+def test_manipulate_trx_datatype_uses_reopenable_memmaps(tmp_path):
+    trx = SimpleNamespace(
+        streamlines=SimpleNamespace(
+            _data=np.arange(6, dtype=np.float16).reshape((2, 3)),
+            _offsets=np.array([0, 3], dtype=np.uint64),
+        ),
+        data_per_vertex={
+            "mock_dpv": SimpleNamespace(
+                _data=np.arange(6, dtype=np.uint8).reshape((2, 3))
+            )
+        },
+        data_per_streamline={"mock_dps": np.array([1, 2], dtype=np.uint8)},
+        data_per_group={
+            "mock_group": {"mock_dpg": np.array([1.0, 2.0], dtype=np.float32)}
+        },
+        groups={"mock_group": np.array([0, 1], dtype=np.int32)},
+    )
+    trx.close = lambda: None
+
+    with (
+        patch(
+            "trx.workflows.get_trx_tmp_dir",
+            return_value=nullcontext(os.fspath(tmp_path)),
+        ),
+        patch("trx.workflows.tmm.load", return_value=trx),
+        patch("trx.workflows.tmm.save") as mock_save,
+        patch(
+            "trx.workflows.tempfile.NamedTemporaryFile",
+            side_effect=AssertionError(
+                "NamedTemporaryFile should not be used for writable memmaps"
+            ),
+        ),
+    ):
+        manipulate_trx_datatype(
+            "in.trx",
+            "out.trx",
+            {
+                "positions": np.dtype("float32"),
+                "offsets": np.dtype("uint32"),
+                "dpv": {"mock_dpv": np.dtype("uint16")},
+                "dps": {"mock_dps": np.dtype("float32")},
+                "dpg": {"mock_group": {"mock_dpg": np.dtype("float64")}},
+                "groups": {"mock_group": np.dtype("uint16")},
+            },
+        )
+
+    assert trx.streamlines._data.dtype == np.dtype("float32")
+    assert trx.streamlines._offsets.dtype == np.dtype("uint32")
+    assert trx.data_per_vertex["mock_dpv"]._data.dtype == np.dtype("uint16")
+    assert trx.data_per_streamline["mock_dps"].dtype == np.dtype("float32")
+    assert trx.data_per_group["mock_group"]["mock_dpg"].dtype == np.dtype("float64")
+    assert trx.groups["mock_group"].dtype == np.dtype("uint16")
+    mock_save.assert_called_once_with(trx, "out.trx")
 
 
 def _normalize_dtype_dict(dtype_dict):
@@ -90,10 +157,6 @@ class TestStandaloneCommands:
         ret = script_runner.run(["trx_verify_header_compatibility", "--help"])
         assert ret.success
 
-    def test_help_option_visualize(self, script_runner):
-        ret = script_runner.run(["trx_visualize_overlap", "--help"])
-        assert ret.success
-
     def test_help_option_info(self, script_runner):
         ret = script_runner.run(["trx_info", "--help"])
         assert ret.success
@@ -139,10 +202,6 @@ class TestUnifiedCLI:
         ret = script_runner.run(["trx", "verify-header", "--help"])
         assert ret.success
 
-    def test_trx_visualize_help(self, script_runner):
-        ret = script_runner.run(["trx", "visualize", "--help"])
-        assert ret.success
-
     def test_trx_info_help(self, script_runner):
         ret = script_runner.run(["trx", "info", "--help"])
         assert ret.success
@@ -178,312 +237,310 @@ class TestWorkflowFunctions:
     """Tests for workflow functions."""
 
     @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
-    def test_execution_convert_dsi(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            in_trk = os.path.join(get_home(), "DSI", "CC.trk.gz")
-            in_nii = os.path.join(get_home(), "DSI", "CC.nii.gz")
-            exp_data = os.path.join(get_home(), "DSI", "CC_fix_data.npy")
-            exp_offsets = os.path.join(get_home(), "DSI", "CC_fix_offsets.npy")
-            out_fix_path = os.path.join(tmp_dir, "fixed.trk")
-            convert_dsi_studio(
-                in_trk, in_nii, out_fix_path, remove_invalid=False, keep_invalid=True
-            )
+    def test_execution_convert_dsi(self, tmp_path):
+        in_trk = os.path.join(get_home(), "DSI", "CC.trk.gz")
+        in_nii = os.path.join(get_home(), "DSI", "CC.nii.gz")
+        exp_data = os.path.join(get_home(), "DSI", "CC_fix_data.npy")
+        exp_offsets = os.path.join(get_home(), "DSI", "CC_fix_offsets.npy")
+        out_fix_path = os.path.join(tmp_path, "fixed.trk")
+        convert_dsi_studio(
+            in_trk, in_nii, out_fix_path, remove_invalid=False, keep_invalid=True
+        )
 
-            data_fix = np.load(exp_data)
-            offsets_fix = np.load(exp_offsets)
+        data_fix = np.load(exp_data)
+        offsets_fix = np.load(exp_offsets)
 
-            sft = load_tractogram(out_fix_path, "same")
-            assert_equal(sft.streamlines._data, data_fix)
-            assert_equal(sft.streamlines._offsets, offsets_fix)
-
-    @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
-    def test_execution_convert_to_trx(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
-            exp_data = os.path.join(get_home(), "DSI", "CC_fix_data.npy")
-            exp_offsets = os.path.join(get_home(), "DSI", "CC_fix_offsets.npy")
-            out_trx_path = os.path.join(tmp_dir, "CC_fix.trx")
-            convert_tractogram(in_trk, out_trx_path, None)
-
-            data_fix = np.load(exp_data)
-            offsets_fix = np.load(exp_offsets)
-
-            trx = tmm.load(out_trx_path)
-            assert_equal(trx.streamlines._data.dtype, np.float32)
-            assert_equal(trx.streamlines._offsets.dtype, np.uint32)
-            assert_array_equal(trx.streamlines._data, data_fix)
-            assert_array_equal(trx.streamlines._offsets, offsets_fix)
-            trx.close()
+        sft = load_tractogram(out_fix_path, "same")
+        assert_equal(sft.streamlines._data, data_fix)
+        assert_equal(sft.streamlines._offsets, offsets_fix)
 
     @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
-    def test_execution_convert_from_trx(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
-            in_nii = os.path.join(get_home(), "DSI", "CC.nii.gz")
-            exp_data = os.path.join(get_home(), "DSI", "CC_fix_data.npy")
-            exp_offsets = os.path.join(get_home(), "DSI", "CC_fix_offsets.npy")
+    def test_execution_convert_to_trx(self, tmp_path):
+        in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
+        exp_data = os.path.join(get_home(), "DSI", "CC_fix_data.npy")
+        exp_offsets = os.path.join(get_home(), "DSI", "CC_fix_offsets.npy")
+        out_trx_path = os.path.join(tmp_path, "CC_fix.trx")
+        convert_tractogram(in_trk, out_trx_path, None)
 
-            # Sequential conversions
-            out_trx_path = os.path.join(tmp_dir, "CC_fix.trx")
-            out_trk_path = os.path.join(tmp_dir, "CC_fix.trk")
-            out_tck_path = os.path.join(tmp_dir, "CC_fix.tck")
-            convert_tractogram(in_trk, out_trx_path, None)
-            convert_tractogram(out_trx_path, out_tck_path, None)
-            convert_tractogram(out_trx_path, out_trk_path, None)
+        data_fix = np.load(exp_data)
+        offsets_fix = np.load(exp_offsets)
 
-            data_fix = np.load(exp_data)
-            offsets_fix = np.load(exp_offsets)
-
-            sft = load_tractogram(out_trk_path, "same")
-            assert_equal(sft.streamlines._data, data_fix)
-            assert_equal(sft.streamlines._offsets, offsets_fix)
-
-            sft = load_tractogram(out_tck_path, in_nii)
-            assert_equal(sft.streamlines._data, data_fix)
-            assert_equal(sft.streamlines._offsets, offsets_fix)
+        trx = tmm.load(out_trx_path)
+        assert_equal(trx.streamlines._data.dtype, np.float32)
+        assert_equal(trx.streamlines._offsets.dtype, np.uint32)
+        assert_array_equal(trx.streamlines._data, data_fix)
+        assert_array_equal(trx.streamlines._offsets, offsets_fix)
+        trx.close()
 
     @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
-    def test_execution_convert_dtype_p16_o64(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
-            out_convert_path = os.path.join(tmp_dir, "CC_fix_p16_o64.trx")
-            convert_tractogram(
-                in_trk,
-                out_convert_path,
-                None,
-                pos_dtype="float16",
-                offsets_dtype="uint64",
-            )
+    def test_execution_convert_from_trx(self, tmp_path):
+        in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
+        in_nii = os.path.join(get_home(), "DSI", "CC.nii.gz")
+        exp_data = os.path.join(get_home(), "DSI", "CC_fix_data.npy")
+        exp_offsets = os.path.join(get_home(), "DSI", "CC_fix_offsets.npy")
 
-            trx = tmm.load(out_convert_path)
-            assert_equal(trx.streamlines._data.dtype, np.float16)
-            assert_equal(trx.streamlines._offsets.dtype, np.uint64)
-            trx.close()
+        # Sequential conversions
+        out_trx_path = os.path.join(tmp_path, "CC_fix.trx")
+        out_trk_path = os.path.join(tmp_path, "CC_fix.trk")
+        out_tck_path = os.path.join(tmp_path, "CC_fix.tck")
+        convert_tractogram(in_trk, out_trx_path, None)
+        convert_tractogram(out_trx_path, out_tck_path, None)
+        convert_tractogram(out_trx_path, out_trk_path, None)
 
-    @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
-    def test_execution_convert_dtype_p64_o32(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
-            out_convert_path = os.path.join(tmp_dir, "CC_fix_p16_o64.trx")
-            convert_tractogram(
-                in_trk,
-                out_convert_path,
-                None,
-                pos_dtype="float64",
-                offsets_dtype="uint32",
-            )
+        data_fix = np.load(exp_data)
+        offsets_fix = np.load(exp_offsets)
 
-            trx = tmm.load(out_convert_path)
-            assert_equal(trx.streamlines._data.dtype, np.float64)
-            assert_equal(trx.streamlines._offsets.dtype, np.uint32)
-            trx.close()
+        sft = load_tractogram(out_trk_path, "same")
+        assert_equal(sft.streamlines._data, data_fix)
+        assert_equal(sft.streamlines._offsets, offsets_fix)
 
-    def test_execution_generate_trx_from_scratch(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            reference_fa = os.path.join(get_home(), "trx_from_scratch", "fa.nii.gz")
-            raw_arr_dir = os.path.join(get_home(), "trx_from_scratch", "test_npy")
-            expected_trx = os.path.join(get_home(), "trx_from_scratch", "expected.trx")
-
-            dpv = [
-                (os.path.join(raw_arr_dir, "dpv_cx.npy"), "uint8"),
-                (os.path.join(raw_arr_dir, "dpv_cy.npy"), "uint8"),
-                (os.path.join(raw_arr_dir, "dpv_cz.npy"), "uint8"),
-            ]
-            dps = [
-                (os.path.join(raw_arr_dir, "dps_algo.npy"), "uint8"),
-                (os.path.join(raw_arr_dir, "dps_cw.npy"), "float64"),
-            ]
-            dpg = [
-                (
-                    "g_AF_L",
-                    os.path.join(raw_arr_dir, "dpg_AF_L_mean_fa.npy"),
-                    "float32",
-                ),
-                (
-                    "g_AF_R",
-                    os.path.join(raw_arr_dir, "dpg_AF_R_mean_fa.npy"),
-                    "float32",
-                ),
-                ("g_AF_L", os.path.join(raw_arr_dir, "dpg_AF_L_volume.npy"), "float32"),
-            ]
-            groups = [
-                (os.path.join(raw_arr_dir, "g_AF_L.npy"), "int32"),
-                (os.path.join(raw_arr_dir, "g_AF_R.npy"), "int32"),
-                (os.path.join(raw_arr_dir, "g_CST_L.npy"), "int32"),
-            ]
-
-            out_gen_path = os.path.join(tmp_dir, "generated.trx")
-            generate_trx_from_scratch(
-                reference_fa,
-                out_gen_path,
-                positions=os.path.join(raw_arr_dir, "positions.npy"),
-                offsets=os.path.join(raw_arr_dir, "offsets.npy"),
-                positions_dtype="float16",
-                offsets_dtype="uint64",
-                space_str="rasmm",
-                origin_str="nifti",
-                verify_invalid=False,
-                dpv=dpv,
-                dps=dps,
-                groups=groups,
-                dpg=dpg,
-            )
-            exp_trx = tmm.load(expected_trx)
-            gen_trx = tmm.load(out_gen_path)
-
-            assert DeepDiff(exp_trx.get_dtype_dict(), gen_trx.get_dtype_dict()) == {}
-
-            assert_allclose(
-                exp_trx.streamlines._data, gen_trx.streamlines._data, atol=0.1, rtol=0.1
-            )
-            assert_equal(exp_trx.streamlines._offsets, gen_trx.streamlines._offsets)
-
-            for key in exp_trx.data_per_vertex.keys():
-                assert_equal(
-                    exp_trx.data_per_vertex[key]._data,
-                    gen_trx.data_per_vertex[key]._data,
-                )
-                assert_equal(
-                    exp_trx.data_per_vertex[key]._offsets,
-                    gen_trx.data_per_vertex[key]._offsets,
-                )
-            for key in exp_trx.data_per_streamline.keys():
-                assert_equal(
-                    exp_trx.data_per_streamline[key], gen_trx.data_per_streamline[key]
-                )
-            for key in exp_trx.groups.keys():
-                assert_equal(exp_trx.groups[key], gen_trx.groups[key])
-
-            for group in exp_trx.groups.keys():
-                if group in exp_trx.data_per_group:
-                    for key in exp_trx.data_per_group[group].keys():
-                        assert_equal(
-                            exp_trx.data_per_group[group][key],
-                            gen_trx.data_per_group[group][key],
-                        )
-            exp_trx.close()
-            gen_trx.close()
+        sft = load_tractogram(out_tck_path, in_nii)
+        assert_equal(sft.streamlines._data, data_fix)
+        assert_equal(sft.streamlines._offsets, offsets_fix)
 
     @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
-    def test_execution_concatenate_validate_trx(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            trx1 = tmm.load(os.path.join(get_home(), "gold_standard", "gs.trx"))
-            trx2 = tmm.load(os.path.join(get_home(), "gold_standard", "gs.trx"))
-            trx = tmm.concatenate([trx1, trx2], preallocation=False)
+    def test_execution_convert_dtype_p16_o64(self, tmp_path):
+        in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
+        out_convert_path = os.path.join(tmp_path, "CC_fix_p16_o64.trx")
+        convert_tractogram(
+            in_trk,
+            out_convert_path,
+            None,
+            pos_dtype="float16",
+            offsets_dtype="uint64",
+        )
 
-            # Right size
-            assert_equal(len(trx.streamlines), 2 * len(trx1.streamlines))
-
-            # Right data
-            end_idx = trx1.header["NB_VERTICES"]
-            assert_allclose(trx.streamlines._data[:end_idx], trx1.streamlines._data)
-            assert_allclose(trx.streamlines._data[end_idx:], trx2.streamlines._data)
-
-            # Right data_per_*
-            for key in trx.data_per_vertex.keys():
-                assert_equal(
-                    trx.data_per_vertex[key]._data[:end_idx],
-                    trx1.data_per_vertex[key]._data,
-                )
-                assert_equal(
-                    trx.data_per_vertex[key]._data[end_idx:],
-                    trx2.data_per_vertex[key]._data,
-                )
-
-            end_idx = trx1.header["NB_STREAMLINES"]
-            for key in trx.data_per_streamline.keys():
-                assert_equal(
-                    trx.data_per_streamline[key][:end_idx],
-                    trx1.data_per_streamline[key],
-                )
-                assert_equal(
-                    trx.data_per_streamline[key][end_idx:],
-                    trx2.data_per_streamline[key],
-                )
-
-            # Validate
-            out_concat_path = os.path.join(tmp_dir, "concat.trx")
-            out_valid_path = os.path.join(tmp_dir, "valid.trx")
-            tmm.save(trx, out_concat_path)
-            validate_tractogram(
-                out_concat_path,
-                None,
-                out_valid_path,
-                remove_identical_streamlines=True,
-                precision=0,
-            )
-            trx_val = tmm.load(out_valid_path)
-
-            # Right dtype and size
-            assert DeepDiff(trx.get_dtype_dict(), trx_val.get_dtype_dict()) == {}
-            assert_equal(len(trx1.streamlines), len(trx_val.streamlines))
-
-            trx.close()
-            trx1.close()
-            trx2.close()
-            trx_val.close()
+        trx = tmm.load(out_convert_path)
+        assert_equal(trx.streamlines._data.dtype, np.float16)
+        assert_equal(trx.streamlines._offsets.dtype, np.uint64)
+        trx.close()
 
     @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
-    def test_execution_manipulate_trx_datatype(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            expected_trx = os.path.join(get_home(), "trx_from_scratch", "expected.trx")
-            trx = tmm.load(expected_trx)
+    def test_execution_convert_dtype_p64_o32(self, tmp_path):
+        in_trk = os.path.join(get_home(), "DSI", "CC_fix.trk")
+        out_convert_path = os.path.join(tmp_path, "CC_fix_p16_o64.trx")
+        convert_tractogram(
+            in_trk,
+            out_convert_path,
+            None,
+            pos_dtype="float64",
+            offsets_dtype="uint32",
+        )
 
-            expected_dtype = {
-                "positions": np.dtype("float16"),
-                "offsets": np.dtype("uint64"),
-                "dpv": {
-                    "dpv_cx": np.dtype("uint8"),
-                    "dpv_cy": np.dtype("uint8"),
-                    "dpv_cz": np.dtype("uint8"),
+        trx = tmm.load(out_convert_path)
+        assert_equal(trx.streamlines._data.dtype, np.float64)
+        assert_equal(trx.streamlines._offsets.dtype, np.uint32)
+        trx.close()
+
+    def test_execution_generate_trx_from_scratch(self, tmp_path):
+        reference_fa = os.path.join(get_home(), "trx_from_scratch", "fa.nii.gz")
+        raw_arr_dir = os.path.join(get_home(), "trx_from_scratch", "test_npy")
+        expected_trx = os.path.join(get_home(), "trx_from_scratch", "expected.trx")
+
+        dpv = [
+            (os.path.join(raw_arr_dir, "dpv_cx.npy"), "uint8"),
+            (os.path.join(raw_arr_dir, "dpv_cy.npy"), "uint8"),
+            (os.path.join(raw_arr_dir, "dpv_cz.npy"), "uint8"),
+        ]
+        dps = [
+            (os.path.join(raw_arr_dir, "dps_algo.npy"), "uint8"),
+            (os.path.join(raw_arr_dir, "dps_cw.npy"), "float64"),
+        ]
+        dpg = [
+            (
+                "g_AF_L",
+                os.path.join(raw_arr_dir, "dpg_AF_L_mean_fa.npy"),
+                "float32",
+            ),
+            (
+                "g_AF_R",
+                os.path.join(raw_arr_dir, "dpg_AF_R_mean_fa.npy"),
+                "float32",
+            ),
+            ("g_AF_L", os.path.join(raw_arr_dir, "dpg_AF_L_volume.npy"), "float32"),
+        ]
+        groups = [
+            (os.path.join(raw_arr_dir, "g_AF_L.npy"), "int32"),
+            (os.path.join(raw_arr_dir, "g_AF_R.npy"), "int32"),
+            (os.path.join(raw_arr_dir, "g_CST_L.npy"), "int32"),
+        ]
+
+        out_gen_path = os.path.join(tmp_path, "generated.trx")
+        generate_trx_from_scratch(
+            reference_fa,
+            out_gen_path,
+            positions=os.path.join(raw_arr_dir, "positions.npy"),
+            offsets=os.path.join(raw_arr_dir, "offsets.npy"),
+            positions_dtype="float16",
+            offsets_dtype="uint64",
+            space_str="rasmm",
+            origin_str="nifti",
+            verify_invalid=False,
+            dpv=dpv,
+            dps=dps,
+            groups=groups,
+            dpg=dpg,
+        )
+        exp_trx = tmm.load(expected_trx)
+        gen_trx = tmm.load(out_gen_path)
+
+        assert DeepDiff(exp_trx.get_dtype_dict(), gen_trx.get_dtype_dict()) == {}
+
+        assert_allclose(
+            exp_trx.streamlines._data, gen_trx.streamlines._data, atol=0.1, rtol=0.1
+        )
+        assert_equal(exp_trx.streamlines._offsets, gen_trx.streamlines._offsets)
+
+        for key in exp_trx.data_per_vertex.keys():
+            assert_equal(
+                exp_trx.data_per_vertex[key]._data,
+                gen_trx.data_per_vertex[key]._data,
+            )
+            assert_equal(
+                exp_trx.data_per_vertex[key]._offsets,
+                gen_trx.data_per_vertex[key]._offsets,
+            )
+        for key in exp_trx.data_per_streamline.keys():
+            assert_equal(
+                exp_trx.data_per_streamline[key], gen_trx.data_per_streamline[key]
+            )
+        for key in exp_trx.groups.keys():
+            assert_equal(exp_trx.groups[key], gen_trx.groups[key])
+
+        for group in exp_trx.groups.keys():
+            if group in exp_trx.data_per_group:
+                for key in exp_trx.data_per_group[group].keys():
+                    assert_equal(
+                        exp_trx.data_per_group[group][key],
+                        gen_trx.data_per_group[group][key],
+                    )
+        exp_trx.close()
+        gen_trx.close()
+
+    @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
+    def test_execution_concatenate_validate_trx(self, tmp_path):
+        trx1 = tmm.load(os.path.join(get_home(), "gold_standard", "gs.trx"))
+        trx2 = tmm.load(os.path.join(get_home(), "gold_standard", "gs.trx"))
+        trx = tmm.concatenate([trx1, trx2], preallocation=False)
+
+        # Right size
+        assert_equal(len(trx.streamlines), 2 * len(trx1.streamlines))
+
+        # Right data
+        end_idx = trx1.header["NB_VERTICES"]
+        assert_allclose(trx.streamlines._data[:end_idx], trx1.streamlines._data)
+        assert_allclose(trx.streamlines._data[end_idx:], trx2.streamlines._data)
+
+        # Right data_per_*
+        for key in trx.data_per_vertex.keys():
+            assert_equal(
+                trx.data_per_vertex[key]._data[:end_idx],
+                trx1.data_per_vertex[key]._data,
+            )
+            assert_equal(
+                trx.data_per_vertex[key]._data[end_idx:],
+                trx2.data_per_vertex[key]._data,
+            )
+
+        end_idx = trx1.header["NB_STREAMLINES"]
+        for key in trx.data_per_streamline.keys():
+            assert_equal(
+                trx.data_per_streamline[key][:end_idx],
+                trx1.data_per_streamline[key],
+            )
+            assert_equal(
+                trx.data_per_streamline[key][end_idx:],
+                trx2.data_per_streamline[key],
+            )
+
+        # Validate
+        out_concat_path = os.path.join(tmp_path, "concat.trx")
+        out_valid_path = os.path.join(tmp_path, "valid.trx")
+        tmm.save(trx, out_concat_path)
+        validate_tractogram(
+            out_concat_path,
+            None,
+            out_valid_path,
+            remove_identical_streamlines=True,
+            precision=0,
+        )
+        trx_val = tmm.load(out_valid_path)
+
+        # Right dtype and size
+        assert DeepDiff(trx.get_dtype_dict(), trx_val.get_dtype_dict()) == {}
+        assert_equal(len(trx1.streamlines), len(trx_val.streamlines))
+
+        trx.close()
+        trx1.close()
+        trx2.close()
+        trx_val.close()
+
+    @pytest.mark.skipif(not dipy_available, reason="Dipy is not installed.")
+    def test_execution_manipulate_trx_datatype(self, tmp_path):
+        expected_trx = os.path.join(get_home(), "trx_from_scratch", "expected.trx")
+        trx = tmm.load(expected_trx)
+
+        expected_dtype = {
+            "positions": np.dtype("float16"),
+            "offsets": np.dtype("uint64"),
+            "dpv": {
+                "dpv_cx": np.dtype("uint8"),
+                "dpv_cy": np.dtype("uint8"),
+                "dpv_cz": np.dtype("uint8"),
+            },
+            "dps": {"dps_algo": np.dtype("uint8"), "dps_cw": np.dtype("float64")},
+            "dpg": {
+                "g_AF_L": {
+                    "dpg_AF_L_mean_fa": np.dtype("float32"),
+                    "dpg_AF_L_volume": np.dtype("float32"),
                 },
-                "dps": {"dps_algo": np.dtype("uint8"), "dps_cw": np.dtype("float64")},
-                "dpg": {
-                    "g_AF_L": {
-                        "dpg_AF_L_mean_fa": np.dtype("float32"),
-                        "dpg_AF_L_volume": np.dtype("float32"),
-                    },
-                    "g_AF_R": {"dpg_AF_R_mean_fa": np.dtype("float32")},
-                },
-                "groups": {"g_AF_L": np.dtype("int32"), "g_AF_R": np.dtype("int32")},
-            }
+                "g_AF_R": {"dpg_AF_R_mean_fa": np.dtype("float32")},
+            },
+            "groups": {"g_AF_L": np.dtype("int32"), "g_AF_R": np.dtype("int32")},
+        }
 
-            assert (
-                DeepDiff(
-                    trx.get_dtype_dict(),
-                    _normalize_dtype_dict(expected_dtype),
-                )
-                == {}
+        assert (
+            DeepDiff(
+                trx.get_dtype_dict(),
+                _normalize_dtype_dict(expected_dtype),
             )
-            trx.close()
+            == {}
+        )
+        trx.close()
 
-            generated_dtype = {
-                "positions": np.dtype("float32"),
-                "offsets": np.dtype("uint32"),
-                "dpv": {
-                    "dpv_cx": np.dtype("uint16"),
-                    "dpv_cy": np.dtype("uint16"),
-                    "dpv_cz": np.dtype("uint16"),
+        generated_dtype = {
+            "positions": np.dtype("float32"),
+            "offsets": np.dtype("uint32"),
+            "dpv": {
+                "dpv_cx": np.dtype("uint16"),
+                "dpv_cy": np.dtype("uint16"),
+                "dpv_cz": np.dtype("uint16"),
+            },
+            "dps": {"dps_algo": np.dtype("uint8"), "dps_cw": np.dtype("float32")},
+            "dpg": {
+                "g_AF_L": {
+                    "dpg_AF_L_mean_fa": np.dtype("float64"),
+                    "dpg_AF_L_volume": np.dtype("float32"),
                 },
-                "dps": {"dps_algo": np.dtype("uint8"), "dps_cw": np.dtype("float32")},
-                "dpg": {
-                    "g_AF_L": {
-                        "dpg_AF_L_mean_fa": np.dtype("float64"),
-                        "dpg_AF_L_volume": np.dtype("float32"),
-                    },
-                    "g_AF_R": {"dpg_AF_R_mean_fa": np.dtype("float64")},
-                },
-                "groups": {"g_AF_L": np.dtype("uint16"), "g_AF_R": np.dtype("uint16")},
-            }
+                "g_AF_R": {"dpg_AF_R_mean_fa": np.dtype("float64")},
+            },
+            "groups": {"g_AF_L": np.dtype("uint16"), "g_AF_R": np.dtype("uint16")},
+        }
 
-            out_gen_path = os.path.join(tmp_dir, "generated.trx")
+        out_gen_path = os.path.join(tmp_path, "generated.trx")
+        with patch(
+            "trx.workflows.tempfile.NamedTemporaryFile",
+            side_effect=AssertionError(
+                "NamedTemporaryFile should not be used for writable memmaps"
+            ),
+        ):
             manipulate_trx_datatype(expected_trx, out_gen_path, generated_dtype)
-            trx = tmm.load(out_gen_path)
-            assert (
-                DeepDiff(
-                    trx.get_dtype_dict(),
-                    _normalize_dtype_dict(generated_dtype),
-                )
-                == {}
+        trx = tmm.load(out_gen_path)
+        assert (
+            DeepDiff(
+                trx.get_dtype_dict(),
+                _normalize_dtype_dict(generated_dtype),
             )
-            trx.close()
+            == {}
+        )
+        trx.close()

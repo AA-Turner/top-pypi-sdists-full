@@ -5,6 +5,7 @@ Base HTTP client with sync/async support.
 from __future__ import annotations
 
 import time
+import uuid
 from contextlib import asynccontextmanager, contextmanager
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
@@ -35,6 +36,28 @@ def _resolve_sdk_version() -> str:
     return "0.0.0+unknown"
 
 
+def _parse_error_body(response: httpx.Response) -> dict[str, Any]:
+    """Best-effort parse of an error response body.
+
+    Returns {} when the body is empty, when it isn't valid JSON (e.g. an
+    HTML 401 from a proxy in front of the API), or when the parsed value
+    isn't a dict.
+    """
+    if not response.content:
+        return {}
+    try:
+        data = response.json()
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _with_request_id(headers: dict[str, str] | None) -> dict[str, str]:
+    merged = dict(headers or {})
+    merged.setdefault("x-request-id", str(uuid.uuid4()))
+    return merged
+
+
 class BaseClient:
     """
     Base HTTP client supporting both sync and async operations.
@@ -45,6 +68,12 @@ class BaseClient:
 
     DEFAULT_BASE_URL = "https://zernio.com/api"
     DEFAULT_TIMEOUT = 30.0
+    # A publishNow create runs the whole cross-platform publish inside the
+    # request. One measured Threads publish took 222s against DEFAULT_TIMEOUT's
+    # 30s, so httpx aborted while the server was still working and the retry
+    # loop replayed the POST - two live posts, and a 409 for the one that
+    # actually published. Crisp session_8e5d3e6e-1e10-4a33-95f1-0b1e33d119da.
+    DEFAULT_PUBLISH_TIMEOUT = 300.0
     DEFAULT_MAX_RETRIES = 3
     SDK_VERSION = _resolve_sdk_version()
 
@@ -55,6 +84,7 @@ class BaseClient:
         base_url: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = DEFAULT_MAX_RETRIES,
+        publish_timeout: float = DEFAULT_PUBLISH_TIMEOUT,
     ) -> None:
         """
         Initialize the base client.
@@ -64,6 +94,9 @@ class BaseClient:
             base_url: Base URL for the API (default: https://zernio.com/api)
             timeout: Request timeout in seconds (default: 30)
             max_retries: Maximum retries for failed requests (default: 3)
+            publish_timeout: Timeout in seconds for publishNow creates, which
+                              publish synchronously and can outlast `timeout`
+                              (default: 300)
         """
         if not api_key:
             raise ValueError("API key is required")
@@ -72,6 +105,7 @@ class BaseClient:
         self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
+        self.publish_timeout = publish_timeout
         self._rate_limiter = RateLimiter()
 
         self._headers = {
@@ -80,6 +114,20 @@ class BaseClient:
             "Accept": "application/json",
             "User-Agent": f"late-python-sdk/{self.SDK_VERSION}",
         }
+
+    def _resolve_timeout(self, data: dict[str, Any] | None) -> float:
+        """
+        Pick the request timeout by sniffing publishNow out of the JSON body.
+
+        Sniffing a domain field in the transport layer is a deliberate stopgap.
+        It is the only place that covers all three publish callers at once - the
+        hand-written posts.create, the generated create_post, and the MCP server -
+        and it survives regeneration, which base.py does and _generated/ does not.
+        The proper fix is for scripts/generate_resources.py to emit an explicit
+        timeout= on publish-capable operations; that needs a 58-file regen and is
+        deliberately out of scope here.
+        """
+        return self.publish_timeout if (data or {}).get("publishNow") else self.timeout
 
     @property
     def rate_limit_info(self) -> dict[str, Any]:
@@ -115,17 +163,23 @@ class BaseClient:
 
         # Handle errors
         if response.status_code == 401:
-            raise LateAuthenticationError("Invalid API key")
+            error_data = _parse_error_body(response)
+            raise LateAuthenticationError(
+                error_data.get("error", "Invalid API key"), details=error_data
+            )
 
         if response.status_code == 403:
-            error_data = response.json() if response.content else {}
+            error_data = _parse_error_body(response)
             raise LateForbiddenError(
-                error_data.get("error", "Access forbidden - check your plan")
+                error_data.get("error", "Access forbidden - check your plan"),
+                details=error_data,
             )
 
         if response.status_code == 404:
-            error_data = response.json() if response.content else {}
-            raise LateNotFoundError(error_data.get("error", "Resource not found"))
+            error_data = _parse_error_body(response)
+            raise LateNotFoundError(
+                error_data.get("error", "Resource not found"), details=error_data
+            )
 
         if response.status_code == 429:
             raise LateRateLimitError(
@@ -136,7 +190,7 @@ class BaseClient:
             )
 
         if response.status_code >= 400:
-            error_data = response.json() if response.content else {}
+            error_data = _parse_error_body(response)
             # Pass the entire response body through as `details` so callers
             # (and __str__) can surface the field name (`param`), the stable
             # error code (`code`), and platform-specific context. The API
@@ -146,7 +200,7 @@ class BaseClient:
             raise LateAPIError(
                 message=error_data.get("error", f"HTTP {response.status_code}"),
                 status_code=response.status_code,
-                details=error_data if isinstance(error_data, dict) else None,
+                details=error_data,
             )
 
         # Return parsed JSON or empty dict
@@ -164,6 +218,12 @@ class BaseClient:
         """Make a request with automatic retry on transient errors."""
         last_error: Exception | None = None
 
+        # Mint the id once, outside the loop: every attempt must carry the SAME
+        # x-request-id or the server cannot match a replay to the original. httpx
+        # copies this dict per attempt rather than mutating it, so one assignment
+        # here is genuinely reused. setdefault keeps a caller-supplied id.
+        kwargs["headers"] = _with_request_id(kwargs.get("headers"))
+
         for attempt in range(self.max_retries):
             try:
                 response = client.request(method, path, **kwargs)
@@ -178,6 +238,18 @@ class BaseClient:
                 raise
 
             except httpx.TimeoutException as e:
+                if method.upper() == "POST":
+                    last_error = LateTimeoutError(
+                        f"POST {path} timed out and was NOT retried: the request may have "
+                        f"completed server-side. Check before retrying; retrying may create "
+                        f"a duplicate. ({e})"
+                    )
+                    # A POST that timed out client-side may have fully succeeded server-side:
+                    # replaying it creates a second live post. The server keys idempotency on
+                    # x-request-id, but its content-hash dedup runs first and answers 409 while
+                    # the original is still publishing, so the window is unreachable. PUT,
+                    # PATCH and DELETE stay retryable - they are idempotent by contract.
+                    raise last_error from e
                 last_error = LateTimeoutError(f"Request timed out: {e}")
 
             except httpx.ConnectError as e:
@@ -200,10 +272,13 @@ class BaseClient:
         self,
         path: str,
         params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Make a sync GET request."""
         with self._sync_client() as client:
-            return self._request_with_retry(client, "GET", path, params=params)
+            return self._request_with_retry(
+                client, "GET", path, params=params, headers=headers
+            )
 
     def _post(
         self,
@@ -211,24 +286,33 @@ class BaseClient:
         data: dict[str, Any] | None = None,
         files: dict[str, Any] | list[tuple[str, Any]] | None = None,
         params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Make a sync POST request."""
         if files:
             # For file uploads, create a fresh client without Content-Type
             # (httpx sets the correct multipart Content-Type automatically)
-            headers = {k: v for k, v in self._headers.items() if k != "Content-Type"}
+            client_headers = {
+                k: v for k, v in self._headers.items() if k != "Content-Type"
+            }
             with httpx.Client(
                 base_url=self.base_url,
-                headers=headers,
+                headers=client_headers,
                 timeout=self.timeout,
             ) as client:
                 return self._request_with_retry(
-                    client, "POST", path, files=files, params=params
+                    client, "POST", path, files=files, params=params, headers=headers
                 )
 
         with self._sync_client() as client:
             return self._request_with_retry(
-                client, "POST", path, json=data, params=params
+                client,
+                "POST",
+                path,
+                json=data,
+                params=params,
+                headers=headers,
+                timeout=self._resolve_timeout(data),
             )
 
     def _put(
@@ -305,6 +389,12 @@ class BaseClient:
 
         last_error: Exception | None = None
 
+        # Mint the id once, outside the loop: every attempt must carry the SAME
+        # x-request-id or the server cannot match a replay to the original. httpx
+        # copies this dict per attempt rather than mutating it, so one assignment
+        # here is genuinely reused. setdefault keeps a caller-supplied id.
+        kwargs["headers"] = _with_request_id(kwargs.get("headers"))
+
         for attempt in range(self.max_retries):
             try:
                 response = await client.request(method, path, **kwargs)
@@ -317,6 +407,18 @@ class BaseClient:
                 raise
 
             except httpx.TimeoutException as e:
+                if method.upper() == "POST":
+                    last_error = LateTimeoutError(
+                        f"POST {path} timed out and was NOT retried: the request may have "
+                        f"completed server-side. Check before retrying; retrying may create "
+                        f"a duplicate. ({e})"
+                    )
+                    # A POST that timed out client-side may have fully succeeded server-side:
+                    # replaying it creates a second live post. The server keys idempotency on
+                    # x-request-id, but its content-hash dedup runs first and answers 409 while
+                    # the original is still publishing, so the window is unreachable. PUT,
+                    # PATCH and DELETE stay retryable - they are idempotent by contract.
+                    raise last_error from e
                 last_error = LateTimeoutError(f"Request timed out: {e}")
 
             except httpx.ConnectError as e:
@@ -338,10 +440,13 @@ class BaseClient:
         self,
         path: str,
         params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Make an async GET request."""
         async with self._async_client() as client:
-            return await self._arequest_with_retry(client, "GET", path, params=params)
+            return await self._arequest_with_retry(
+                client, "GET", path, params=params, headers=headers
+            )
 
     async def _apost(
         self,
@@ -349,23 +454,32 @@ class BaseClient:
         data: dict[str, Any] | None = None,
         files: dict[str, Any] | list[tuple[str, Any]] | None = None,
         params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Make an async POST request."""
         if files:
             # For file uploads, create a fresh client without Content-Type
-            headers = {k: v for k, v in self._headers.items() if k != "Content-Type"}
+            client_headers = {
+                k: v for k, v in self._headers.items() if k != "Content-Type"
+            }
             async with httpx.AsyncClient(
                 base_url=self.base_url,
-                headers=headers,
+                headers=client_headers,
                 timeout=self.timeout,
             ) as client:
                 return await self._arequest_with_retry(
-                    client, "POST", path, files=files, params=params
+                    client, "POST", path, files=files, params=params, headers=headers
                 )
 
         async with self._async_client() as client:
             return await self._arequest_with_retry(
-                client, "POST", path, json=data, params=params
+                client,
+                "POST",
+                path,
+                json=data,
+                params=params,
+                headers=headers,
+                timeout=self._resolve_timeout(data),
             )
 
     async def _aput(

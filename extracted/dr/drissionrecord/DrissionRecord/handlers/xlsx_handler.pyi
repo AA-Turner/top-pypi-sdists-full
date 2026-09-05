@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+from pathlib import Path
 from typing import Dict, Optional, Callable, Tuple, Literal, Union, Any, List, Iterable
 
 from openpyxl import Workbook
@@ -275,6 +276,6 @@ def get_xlsx_rows_without_count(cols: Union[list, True], deny_sign: bool, header
     ...
 
 
-def get_tables(path: str) -> List[str]:
+def get_tables(path: Path) -> List[str]:
     """获取所有表格名称"""
     ...

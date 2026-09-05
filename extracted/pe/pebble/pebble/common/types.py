@@ -14,33 +14,26 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with Pebble.  If not, see <http://www.gnu.org/licenses/>.
 
-import asyncio
-
 from enum import Enum, IntEnum
 from dataclasses import dataclass
 from concurrent.futures import Future
-from typing import Any, TypeVar, Callable
+from typing import Any, ParamSpec, Generic, TypeVar
 
 
-P = TypeVar("P")
 T = TypeVar("T")
-
-
-try:
-    FutureType = Future[T]
-except TypeError:
-    FutureType = Future
+P = ParamSpec("P")
 
 
 class ProcessExpired(OSError):
     """Raised when process dies unexpectedly."""
+
     def __init__(self, msg, code=0, pid=None):
         super(ProcessExpired, self).__init__(msg)
         self.exitcode = code
         self.pid = pid
 
 
-class PebbleFuture(FutureType):
+class ProcessFuture(Future[T]):
     # Same as base class, removed logline
     def set_running_or_notify_cancel(self):
         """Mark the future as running or process any cancel notifications.
@@ -76,16 +69,8 @@ class PebbleFuture(FutureType):
 
                 return True
             else:
-                raise RuntimeError('Future in unexpected state')
+                raise RuntimeError("Future in unexpected state")
 
-
-try:
-    PebbleFutureType = PebbleFuture[T]
-except TypeError:
-    PebbleFutureType = PebbleFuture
-
-
-class ProcessFuture(PebbleFutureType):
     def cancel(self):
         """Cancel the future.
 
@@ -96,14 +81,16 @@ class ProcessFuture(PebbleFutureType):
             if self._state == FutureStatus.FINISHED:
                 return False
 
-            if self._state in (FutureStatus.CANCELLED,
-                               FutureStatus.CANCELLED_AND_NOTIFIED):
+            if self._state in (
+                FutureStatus.CANCELLED,
+                FutureStatus.CANCELLED_AND_NOTIFIED,
+            ):
                 return True
 
             self._state = FutureStatus.CANCELLED
             self._condition.notify_all()
 
-        self._invoke_callbacks()
+        self._invoke_callbacks()  # type: ignore[attr-defined]
 
         return True
 
@@ -145,25 +132,28 @@ class RemoteException:
 
 class ResultStatus(IntEnum):
     """Status of results of a function execution."""
+
     SUCCESS = 0
     FAILURE = 1
     ERROR = 2
 
 
 @dataclass
-class Result:
+class Result(Generic[T]):
     """Result of a function execution."""
+
     status: ResultStatus
     value: Any
 
 
 class FutureStatus(str, Enum):
     """Borrowed from concurrent.futures."""
-    PENDING = 'PENDING'
-    RUNNING = 'RUNNING'
-    FINISHED = 'FINISHED'
-    CANCELLED = 'CANCELLED'
-    CANCELLED_AND_NOTIFIED = 'CANCELLED_AND_NOTIFIED'
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    FINISHED = "FINISHED"
+    CANCELLED = "CANCELLED"
+    CANCELLED_AND_NOTIFIED = "CANCELLED_AND_NOTIFIED"
 
 
 @dataclass
@@ -174,6 +164,7 @@ class Consts:
     of Pools and decorators.
 
     """
+
     sleep_unit: float = 0.1
     """Any cycle which needs to periodically assess the state."""
     term_timeout: float = 3
@@ -182,27 +173,6 @@ class Consts:
     channel_lock_timeout: float = 60
     """The process pool relies on a pipe protected by a lock.
     The timeout when attempting to acquire the lock."""
-
-
-try:
-    CallableType = Callable[[P], T]
-    AsyncIODecoratorReturnType = Callable[[P], asyncio.Future[T]]
-    AsyncIODecoratorParamsReturnType = Callable[[Callable[[P], T]],
-                                                Callable[[P], asyncio.Future[T]]]
-    ThreadDecoratorReturnType = Callable[[P], Future[T]]
-    ThreadDecoratorParamsReturnType = Callable[[Callable[[P], T]],
-                                               Callable[[P], Future[T]]]
-    ProcessDecoratorReturnType = Callable[[P], ProcessFuture[T]]
-    ProcessDecoratorParamsReturnType = Callable[[Callable[[P], T]],
-                                                Callable[[P], ProcessFuture[T]]]
-except TypeError:
-    ReturnType = Callable
-    AsyncIODecoratorReturnType = Callable
-    AsyncIODecoratorParamsReturnType = Callable
-    ThreadDecoratorReturnType = Callable
-    ThreadDecoratorParamsReturnType = Callable
-    ProcessDecoratorReturnType = Callable
-    ProcessDecoratorParamsReturnType = Callable
 
 
 CONSTS = Consts()

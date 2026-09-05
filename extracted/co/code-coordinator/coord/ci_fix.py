@@ -37,6 +37,7 @@ import logging
 
 import httpx
 
+from coord.ci_store import CIFailureDetail
 from coord.config import Config
 from coord.merge_queue import QueuedMerge, _chain_work_ids
 from coord.models import Assignment, Board
@@ -69,13 +70,74 @@ MAX_CI_FIX_NOOP_STREAK = 2
 CI_FIX_TITLE_PREFIX = "[ci-fix]"
 
 
+def _detail_has_content(detail: CIFailureDetail) -> bool:
+    """True when *detail* carries anything :func:`_format_ci_failure_detail`
+    would actually render (#3114 review nit).
+
+    ``build_ci_failure_detail`` can return a non-``None`` ``CIFailureDetail``
+    with only ``check_name`` populated — e.g. a failed check whose ``run_id``
+    was empty, or whose job name never matched any job on the run (see
+    ``test_no_matching_job_leaves_job_and_step_empty``). ``check_name`` alone
+    isn't rendered by ``_format_ci_failure_detail`` (the plain
+    ``checks_summary`` line right above it already names the check), so
+    without this check the briefing would grow a "## CI failure detail"
+    section containing nothing but its own header — harmless, but pointless
+    noise. Treated identically to ``detail is None``.
+    """
+    return bool(
+        detail.job_name or detail.step_name or detail.run_url or detail.log_excerpt
+    )
+
+
+def _format_ci_failure_detail(detail: CIFailureDetail) -> list[str]:
+    """Render *detail* into briefing lines (#3114).
+
+    ``checks_summary`` alone is a one-line rollup (e.g. "checks failed:
+    Test (Linux, headless) (failure)") — no job name, no failing test, no
+    log. This is the section that fills that gap with what
+    ``list_jobs_for_run``/the failing step's log already told the
+    coordinator, so a ci-fix worker doesn't have to spend a whole session
+    rediscovering it from scratch (see the issue's evidence: 82 turns/$2.55
+    to re-find a one-line fix this data already pointed at).
+    """
+    lines: list[str] = ["## CI failure detail", ""]
+    if detail.job_name:
+        lines.append(f"Failing job: {detail.job_name}")
+    if detail.step_name:
+        lines.append(f"Failing step: {detail.step_name}")
+    if detail.run_url:
+        lines.append(f"Run: {detail.run_url}")
+    if detail.log_excerpt:
+        lines.append("")
+        # #3114 acceptance: truncation must be visible in the text itself,
+        # never a silent cut.
+        lines.append(
+            "Log excerpt (truncated — showing the tail only):"
+            if detail.truncated else "Log excerpt:"
+        )
+        lines.append("```")
+        lines.append(detail.log_excerpt)
+        lines.append("```")
+    lines.append("")
+    return lines
+
+
 def build_ci_fix_briefing(
     *,
     entry: QueuedMerge,
     checks_summary: str,
     attempt: int,
+    detail: CIFailureDetail | None = None,
 ) -> str:
-    """Assemble the CI-fix worker's briefing. Pure function — testable."""
+    """Assemble the CI-fix worker's briefing. Pure function — testable.
+
+    *detail* (#3114) is the structured failing-job/step/log-excerpt data
+    :func:`coord.ci_github.build_ci_failure_detail` fetches at dispatch
+    time — optional and additive: when it's ``None``, or non-``None`` but
+    empty of anything beyond the check name (see :func:`_detail_has_content`),
+    the briefing is byte-identical to before #3114, still carrying
+    ``checks_summary``.
+    """
     lines: list[str] = [
         f"# CI failure fix: {entry.repo_github} branch `{entry.branch}`",
         "",
@@ -87,6 +149,10 @@ def build_ci_fix_briefing(
         "",
         f"    {checks_summary}",
         "",
+    ]
+    if detail is not None and _detail_has_content(detail):
+        lines.extend(_format_ci_failure_detail(detail))
+    lines += [
         f"This is fix attempt {attempt}/{MAX_CI_FIX_DISPATCHES} for this "
         "failure streak — the coordinator will escalate to a human if this "
         "many attempts don't produce a green run.",
@@ -176,15 +242,67 @@ def refund_noop_ci_fix(entry: QueuedMerge) -> None:
     entry.ci_fix_head_sha = ""
 
 
+def dispatch_precheck(
+    entry: QueuedMerge, board: Board, *, log: bool = True,
+) -> Assignment | None:
+    """Return the originating work :class:`Assignment` when *entry* is
+    otherwise eligible for a fresh ci-fix dispatch — ``None`` when the retry
+    cap is already spent, a fix for this chain is already in flight, or the
+    original work assignment can't be found on *board*.
+
+    Extracted out of :func:`dispatch_ci_fix` (#3114 review fix) so a caller
+    that wants to fetch expensive CI-failure detail (:func:`coord.ci_github.
+    build_ci_failure_detail` — a network call, `gh api .../actions/jobs/{id}
+    /logs`) can check these conditions FIRST and skip the fetch entirely for
+    an entry that is going to be declined for one of these reasons anyway —
+    without duplicating this logic. Does not cover every way
+    :func:`dispatch_ci_fix` can still return ``None`` afterward (the
+    underlying ``_dispatch_fix`` HTTP dispatch itself can still decline: no
+    capable machine, agent unreachable, the #2538 DB-lock-contention case)
+    — those aren't knowable without actually attempting the dispatch, so a
+    ``True``-ish return here is necessary, not sufficient, for a dispatch to
+    succeed.
+
+    *log* controls whether a "work assignment not found" outcome is logged
+    — the caller doing the up-front eligibility check should pass ``False``
+    to avoid double-logging the same warning that :func:`dispatch_ci_fix`
+    itself will also emit when it re-derives the same ``None`` a moment
+    later.
+    """
+    if entry.ci_fix_dispatches >= MAX_CI_FIX_DISPATCHES:
+        return None
+    if _has_active_fix(board, entry):
+        return None
+    if entry.assignment_id is None:
+        return None
+    work = board.find_by_id(entry.assignment_id)
+    if work is None:
+        if log:
+            _log.warning(
+                "ci_fix: cannot find original work assignment %s for %s#%d — "
+                "no fix dispatched",
+                entry.assignment_id, entry.repo_name, entry.issue_number,
+            )
+        return None
+    return work
+
+
 def dispatch_ci_fix(
     entry: QueuedMerge,
     board: Board,
     config: Config,
     *,
     checks_summary: str | None = None,
+    detail: CIFailureDetail | None = None,
     http_client: httpx.Client | None = None,
 ) -> Assignment | None:
     """Dispatch a fix worker for *entry*'s confirmed CI failure.
+
+    *detail* (#3114): structured failing-job/step/log-excerpt data the
+    caller (``coord.commands.merge._dispatch_ci_fixes``) fetched via
+    ``coord.ci_github.build_ci_failure_detail`` — threaded straight into
+    :func:`build_ci_fix_briefing`. Optional; ``None`` produces the same
+    briefing this function always has.
 
     Returns the new ``Assignment``, or ``None`` when dispatch couldn't
     proceed: the retry cap (:data:`MAX_CI_FIX_DISPATCHES`) is already spent,
@@ -208,24 +326,14 @@ def dispatch_ci_fix(
     BEFORE calling this function again for the same entry, so a worker
     that pushed nothing doesn't silently spend a second real attempt.
     """
-    if entry.ci_fix_dispatches >= MAX_CI_FIX_DISPATCHES:
-        return None
-    if _has_active_fix(board, entry):
-        return None
-    if entry.assignment_id is None:
-        return None
-    work = board.find_by_id(entry.assignment_id)
+    work = dispatch_precheck(entry, board)
     if work is None:
-        _log.warning(
-            "ci_fix: cannot find original work assignment %s for %s#%d — "
-            "no fix dispatched",
-            entry.assignment_id, entry.repo_name, entry.issue_number,
-        )
         return None
 
     summary = checks_summary or entry.error or "CI checks failed"
     briefing = build_ci_fix_briefing(
         entry=entry, checks_summary=summary, attempt=entry.ci_fix_dispatches + 1,
+        detail=detail,
     )
 
     from coord.auto_loop import _dispatch_fix  # noqa: PLC0415
@@ -287,6 +395,8 @@ def dispatch_ci_fix(
             "merge_entry_id": entry.assignment_id,
             "ci_fix_dispatches": entry.ci_fix_dispatches,
             "checks_summary": summary,
+            "ci_fix_job": detail.job_name if detail else None,
+            "ci_fix_step": detail.step_name if detail else None,
         },
     )
 

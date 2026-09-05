@@ -29,6 +29,7 @@ __all__ = (
     "AdsInteractionExcludeEventTypeType",
     "AdsInteractionPublishOptInEventTypeType",
     "AlertCategoryType",
+    "ApsRegionType",
     "ChannelStateType",
     "CompressionMethodType",
     "EventNameType",
@@ -114,8 +115,12 @@ AdsInteractionExcludeEventTypeType = Literal[
     "MAKING_ADS_REQUEST",
     "MODIFIED_TARGET_URL",
     "NON_AD_MARKER_FOUND",
+    "POST_ADS_RESPONSE_FUNCTION_ERROR",
+    "POST_ADS_RESPONSE_HOOK_ERROR",
     "PRE_ADS_REQUEST_FUNCTION_ERROR",
     "PRE_ADS_REQUEST_HOOK_ERROR",
+    "PRE_MANIFEST_INSERTION_FUNCTION_ERROR",
+    "PRE_MANIFEST_INSERTION_HOOK_ERROR",
     "REDIRECTED_VAST_RESPONSE",
     "VAST_REDIRECT",
     "VAST_RESPONSE",
@@ -127,18 +132,27 @@ AdsInteractionExcludeEventTypeType = Literal[
     "WARNING_VPAID_AD_DROPPED",
 ]
 AdsInteractionPublishOptInEventTypeType = Literal[
+    "POST_ADS_RESPONSE_FUNCTION_COMPLETED",
+    "POST_ADS_RESPONSE_HOOK_SUMMARY",
     "PRE_ADS_REQUEST_FUNCTION_COMPLETED",
     "PRE_ADS_REQUEST_HOOK_SUMMARY",
+    "PRE_MANIFEST_INSERTION_FUNCTION_COMPLETED",
+    "PRE_MANIFEST_INSERTION_HOOK_SUMMARY",
     "RAW_ADS_REQUEST",
     "RAW_ADS_RESPONSE",
+    "RAW_BID_REQUEST",
+    "RAW_BID_RESPONSE",
 ]
 AlertCategoryType = Literal["INFO", "PLAYBACK_WARNING", "SCHEDULING_ERROR"]
+ApsRegionType = Literal["AMERICAS", "ASIA_PACIFIC", "EUROPE"]
 ChannelStateType = Literal["RUNNING", "STOPPED"]
 CompressionMethodType = Literal["GZIP", "NONE"]
-EventNameType = Literal["PRE_ADS_REQUEST", "PRE_SESSION_INITIALIZATION"]
+EventNameType = Literal[
+    "POST_ADS_RESPONSE", "PRE_ADS_REQUEST", "PRE_MANIFEST_INSERTION", "PRE_SESSION_INITIALIZATION"
+]
 FillPolicyType = Literal["FULL_AVAIL_ONLY", "PARTIAL_AVAIL"]
 FunctionTypeType = Literal[
-    "CONCURRENT_EXECUTOR", "CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR"
+    "CONCURRENT_EXECUTOR", "CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR", "VAST_REQUEST"
 ]
 GetChannelSchedulePaginatorName = Literal["get_channel_schedule"]
 InsertionModeType = Literal["PLAYER_SELECT", "STITCHED_ONLY"]

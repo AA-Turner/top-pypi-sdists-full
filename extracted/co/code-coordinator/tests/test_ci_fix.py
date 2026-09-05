@@ -25,6 +25,7 @@ from coord.ci_fix import (
     dispatch_was_noop,
     refund_noop_ci_fix,
 )
+from coord.ci_store import CheckRun, CIFailureDetail, JobRun, JobStep
 from coord.config import Config, ReviewsConfig
 from coord.merge_queue import HUMAN_REQUIRED, PENDING, MergeEvent, QueuedMerge
 from coord.models import Assignment, Board, Machine, Repo
@@ -134,6 +135,71 @@ class TestBuildBriefing:
         )
         assert "gh" in briefing
         assert "workflow config" in briefing
+
+    def test_no_detail_is_byte_identical_to_pre_3114(self) -> None:
+        """`detail=None` (the default) must not change the briefing at all —
+        every pre-#3114 caller (and every un-updated call site) keeps
+        getting exactly what it always got."""
+        without_kw = build_ci_fix_briefing(
+            entry=_entry(), checks_summary="x", attempt=1,
+        )
+        with_explicit_none = build_ci_fix_briefing(
+            entry=_entry(), checks_summary="x", attempt=1, detail=None,
+        )
+        assert without_kw == with_explicit_none
+
+
+class TestBuildBriefingWithDetail:
+    """#3114: a fixture failed-run's `CIFailureDetail` — job name, failing
+    step, and a bounded log excerpt — must show up in the built briefing,
+    not just the one-line `checks_summary` rollup."""
+
+    def test_names_failing_job_step_and_carries_log_excerpt(self) -> None:
+        detail = CIFailureDetail(
+            check_name="Test (Linux, headless)",
+            job_name="Test (Linux, headless)",
+            step_name="Run tests",
+            log_excerpt=(
+                "running suite...\n"
+                "FAIL: test_i_0_ctrl_d_keys_off_last_keystroke\n"
+                "AssertionError: expected buffer flush, got no-op"
+            ),
+            run_url="https://github.com/acme/api/actions/runs/999",
+        )
+        briefing = build_ci_fix_briefing(
+            entry=_entry(), checks_summary="checks failed: Test (Linux, headless) (failure)",
+            attempt=1, detail=detail,
+        )
+        assert "Test (Linux, headless)" in briefing
+        assert "Run tests" in briefing
+        assert "https://github.com/acme/api/actions/runs/999" in briefing
+        assert "test_i_0_ctrl_d_keys_off_last_keystroke" in briefing
+
+    def test_truncation_is_visible_in_the_text(self) -> None:
+        detail = CIFailureDetail(
+            check_name="Test (Linux, headless)",
+            job_name="Test (Linux, headless)",
+            step_name="Run tests",
+            log_excerpt="...tail of a much longer log...",
+            run_url="https://github.com/acme/api/actions/runs/999",
+            truncated=True,
+        )
+        briefing = build_ci_fix_briefing(
+            entry=_entry(), checks_summary="x", attempt=1, detail=detail,
+        )
+        assert "truncated" in briefing.lower()
+
+    def test_no_truncation_marker_when_not_truncated(self) -> None:
+        detail = CIFailureDetail(
+            check_name="lint", job_name="lint", step_name="Run lint",
+            log_excerpt="all fine, just short",
+            run_url="https://github.com/acme/api/actions/runs/1",
+            truncated=False,
+        )
+        briefing = build_ci_fix_briefing(
+            entry=_entry(), checks_summary="x", attempt=1, detail=detail,
+        )
+        assert "truncated" not in briefing.lower()
 
 
 # ── #3011: no-op leg detection/refund ────────────────────────────────────────
@@ -669,3 +735,193 @@ class TestNoopCiFixRefund:
         out = capsys.readouterr().out
         assert "already in flight" in out
         assert f"#{entry.issue_number}" in out
+
+
+# ── #3114: structured CI failure detail threaded into the ci-fix briefing ───
+
+
+class _StubCiStoreForDetail:
+    """Minimal duck-typed CiStore stand-in — only the two methods
+    `build_ci_failure_detail` actually calls."""
+
+    def __init__(self, checks: list, jobs_by_run: dict) -> None:
+        self._checks = checks
+        self._jobs_by_run = jobs_by_run
+
+    def list_checks_for_pr(self, repo: str, number: int) -> list:
+        return self._checks
+
+    def list_jobs_for_run(self, repo: str, run_id: str) -> list:
+        return self._jobs_by_run.get(run_id, [])
+
+
+def _failed_check(*, name: str = "Test (Linux, headless)", run_id: str = "999") -> CheckRun:
+    return CheckRun(
+        name=name, status="completed", conclusion="failure",
+        url=f"https://github.com/acme/api/actions/runs/{run_id}",
+        run_id=run_id, started_at=None, completed_at=None,
+    )
+
+
+class TestDispatchCiFixesWithCiStore:
+    """`_dispatch_ci_fixes` fetches `CIFailureDetail` at dispatch time when a
+    `ci_store` is given, and passes it straight into `dispatch_ci_fix` —
+    the wiring that closes #3114 (a ci-fix worker used to get only the
+    one-line `checks_summary`, never the failing job/step/log)."""
+
+    def test_fetches_and_forwards_detail_when_ci_store_given(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        from coord.commands import merge as merge_cmd
+        from coord.state import save_board
+
+        board = Board()
+        # #3114 review fix: `_dispatch_ci_fixes` now only fetches CI-failure
+        # detail once `coord.ci_fix.dispatch_precheck` confirms the entry is
+        # otherwise dispatch-eligible — which requires the originating work
+        # assignment to actually resolve on the board (see
+        # `dispatch_precheck`'s docstring). An empty board made every entry
+        # ineligible and this test's fetch assertion below would never fire.
+        board.completed.append(_work_assignment())
+        save_board(board)
+        entry = _entry()
+        events = [MergeEvent(entry, "checks_failed", entry.error or "")]
+        check = _failed_check()
+        job = JobRun(
+            name=check.name, conclusion="failure", runner_name="GitHub Actions 1",
+            steps=[
+                JobStep(name="Set up job", conclusion="success"),
+                JobStep(name="Run tests", conclusion="failure"),
+            ],
+            job_id="456",
+        )
+        ci_store = _StubCiStoreForDetail(checks=[check], jobs_by_run={"999": [job]})
+
+        with patch(
+            "coord.ci_github.github_ops.get_job_log",
+            return_value="line1\nAssertionError: boom\n",
+        ), patch("coord.ci_fix.dispatch_ci_fix") as dispatch:
+            merge_cmd._dispatch_ci_fixes(
+                events, two_machine_config, ci_store, dry_run=False,
+            )
+
+        dispatch.assert_called_once()
+        detail = dispatch.call_args.kwargs["detail"]
+        assert detail is not None
+        assert detail.job_name == check.name
+        assert detail.step_name == "Run tests"
+        assert "AssertionError: boom" in detail.log_excerpt
+
+    def test_no_ci_store_forwards_detail_none(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        from coord.commands import merge as merge_cmd
+        from coord.state import save_board
+
+        save_board(Board())
+        entry = _entry()
+        events = [MergeEvent(entry, "checks_failed", entry.error or "")]
+
+        with patch("coord.ci_fix.dispatch_ci_fix") as dispatch:
+            merge_cmd._dispatch_ci_fixes(events, two_machine_config, dry_run=False)
+
+        dispatch.assert_called_once()
+        assert dispatch.call_args.kwargs["detail"] is None
+
+    def test_detail_fetch_failure_still_dispatches(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        """#3114 acceptance: a raising fetcher degrades to the plain
+        checks_summary briefing (detail=None) rather than blocking dispatch."""
+        from coord.commands import merge as merge_cmd
+        from coord.state import save_board
+
+        # #3114 review fix: the entry must be otherwise dispatch-eligible
+        # (see `dispatch_precheck`) for `_dispatch_ci_fixes` to attempt the
+        # fetch at all — an empty board would skip the fetch (and this
+        # test's whole point) before the patched raising fetcher ever runs.
+        board = Board()
+        board.completed.append(_work_assignment())
+        save_board(board)
+        entry = _entry()
+        events = [MergeEvent(entry, "checks_failed", entry.error or "")]
+        ci_store = _StubCiStoreForDetail(checks=[], jobs_by_run={})
+
+        with patch(
+            "coord.ci_github.build_ci_failure_detail",
+            side_effect=RuntimeError("gh throttled"),
+        ), patch("coord.ci_fix.dispatch_ci_fix") as dispatch:
+            merge_cmd._dispatch_ci_fixes(
+                events, two_machine_config, ci_store, dry_run=False,
+            )
+
+        dispatch.assert_called_once()
+        assert dispatch.call_args.kwargs["detail"] is None
+
+    def test_declined_dispatch_with_ci_store_caches_detail_across_ticks(
+        self, two_machine_config: Config, coord_db,
+    ) -> None:
+        """#3114 review fix: a dispatch declined for a reason unrelated to
+        CI (budget remains, but the underlying `dispatch_ci_fix` call
+        itself returns None — no capable machine, agent unreachable, the
+        #2538 DB-lock-contention case) leaves the entry PENDING for the
+        next tick to retry. Before this fix, EVERY such retry re-fetched
+        the failing job's log from `gh` — exactly the per-tick GitHub
+        probing #2989/#2988 warn against. A second tick against the SAME
+        still-failing `branch_head_sha` must reuse the cached detail
+        instead of calling `build_ci_failure_detail` (and the `gh api
+        .../logs` fetch behind it) again."""
+        from coord.commands import merge as merge_cmd
+        from coord.state import save_board
+
+        board = Board()
+        board.completed.append(_work_assignment())
+        save_board(board)
+
+        entry = _entry()
+        entry.branch_head_sha = "deadbeef"  # unchanged across both ticks
+        check = _failed_check()
+        job = JobRun(
+            name=check.name, conclusion="failure", runner_name="GitHub Actions 1",
+            steps=[
+                JobStep(name="Set up job", conclusion="success"),
+                JobStep(name="Run tests", conclusion="failure"),
+            ],
+            job_id="456",
+        )
+        ci_store = _StubCiStoreForDetail(checks=[check], jobs_by_run={"999": [job]})
+
+        with patch(
+            "coord.ci_github.github_ops.get_job_log",
+            return_value="line1\nAssertionError: boom\n",
+        ) as get_log, patch(
+            "coord.ci_fix.dispatch_ci_fix", return_value=None,
+        ) as dispatch:
+            # Tick 1: dispatch declines (budget remains — see the module's
+            # own `test_declined_dispatch_under_budget_leaves_entry_pending`
+            # for the un-enriched twin of this scenario), but the detail
+            # fetch runs because the entry is otherwise dispatch-eligible.
+            events = [MergeEvent(entry, "checks_failed", entry.error or "")]
+            merge_cmd._dispatch_ci_fixes(
+                events, two_machine_config, ci_store, dry_run=False,
+            )
+            assert entry.state == PENDING
+            assert get_log.call_count == 1
+            first_detail = dispatch.call_args.kwargs["detail"]
+            assert first_detail is not None
+            assert first_detail.step_name == "Run tests"
+            assert entry.ci_fix_detail_sha == "deadbeef"
+            assert entry.ci_fix_detail_json is not None
+
+            # Tick 2: same still-failing SHA, dispatch declines again — the
+            # fetch must NOT run a second time.
+            events = [MergeEvent(entry, "checks_failed", entry.error or "")]
+            merge_cmd._dispatch_ci_fixes(
+                events, two_machine_config, ci_store, dry_run=False,
+            )
+            assert get_log.call_count == 1, (
+                "a repeat tick against the same still-failing SHA must "
+                "reuse the cached detail, not re-fetch the log"
+            )
+            second_detail = dispatch.call_args.kwargs["detail"]
+            assert second_detail == first_detail

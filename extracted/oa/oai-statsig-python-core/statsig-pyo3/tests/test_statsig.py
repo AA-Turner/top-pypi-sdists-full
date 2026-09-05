@@ -39,7 +39,7 @@ def statsig_setup(httpserver: HTTPServer):
     json_data = json.loads(dcs_content)
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(json_data)
 
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})

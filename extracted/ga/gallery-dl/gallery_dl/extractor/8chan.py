@@ -12,7 +12,7 @@ from .common import Extractor, Message
 from .. import text, dt
 import itertools
 
-BASE_PATTERN = r"(?:https?://)?8chan\.(moe|se|cc)"
+BASE_PATTERN = r"(?:https?://)?8chan\.(moe|s[te]|cc)"
 
 
 class _8chanExtractor(Extractor):

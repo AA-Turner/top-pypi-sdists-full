@@ -2,9 +2,8 @@ use std::cell::Cell;
 
 /// Optional behavior for parsing config-spec responses.
 ///
-/// The default preserves the existing generic SDK parse path. SnAPI uses the
-/// explicit preserving option when it needs `session_update_mode` to build a
-/// live client overlay.
+/// The default preserves the existing generic parse path. Callers that build
+/// live client overlays can explicitly preserve `session_update_mode`.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct SpecsResponseParseOptions {
     preserve_session_update_mode: bool,

@@ -39,7 +39,7 @@ class PaginatedSessionsOut(UniversalBaseModel):
 
     total: int = pydantic.Field()
     """
-    Total number of sessions matching the query filters
+    Lower bound on the number of sessions matching the query filters: the rows paged through so far plus one when has_more is true, or 0 for an empty page. It is exact once has_more is false and the page is non-empty. Use has_more/next_offset to paginate rather than dividing total by limit.
     """
 
     if IS_PYDANTIC_V2:

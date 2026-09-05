@@ -49,7 +49,6 @@ else:
         check(estimator)
 
 
-@pytest.mark.slow
 @pytest.mark.parametrize(
     "estimator, check, name",
     nilearn_check_estimator(estimators=ESTIMATORS_TO_CHECK),
@@ -85,7 +84,7 @@ def test_fit_transform(surf_label_img, surf_img_1d):
     assert signal.size == masker.n_elements_
 
 
-def test_surface_label_masker_no_label_error(surf_mesh):
+def test_no_label_error(surf_mesh):
     """Raise an error at fit time if the image has no label."""
     label_img = SurfaceImage(
         mesh=surf_mesh,
@@ -99,7 +98,7 @@ def test_surface_label_masker_no_label_error(surf_mesh):
         masker.fit()
 
 
-def test_surface_label_masker_all_labels_masked_error(surf_mesh):
+def test_all_labels_masked_error(surf_mesh):
     """Raise an error at fit time all labels are masked by mask_img."""
     label_img = SurfaceImage(
         mesh=surf_mesh,

@@ -33,6 +33,7 @@ from coord.review import (
     dispatch_scoped_reviews_for_queue,
     parse_review_from_log,
     pick_reviewer_machine,
+    repo_focus_lines,
 )
 
 
@@ -328,6 +329,149 @@ def test_briefing_includes_claude_md_and_checklist() -> None:
     assert "gh pr review" not in briefing
     # No same-machine warning when the reviewer is on a different machine.
     assert "running on the same machine as the worker" not in briefing
+
+
+# ── #3112: repo_focus_lines shared builder + worker's-own-claims section ────
+
+
+def test_repo_focus_lines_empty_when_no_overrides() -> None:
+    cfg = ReviewsConfig(repo_overrides={})
+    assert repo_focus_lines(cfg, "api") == []
+
+
+def test_repo_focus_lines_empty_for_repo_with_no_matching_override() -> None:
+    cfg = ReviewsConfig(repo_overrides={"other": ["Some rule."]})
+    assert repo_focus_lines(cfg, "api") == []
+
+
+def test_repo_focus_lines_renders_heading_and_bullets() -> None:
+    cfg = ReviewsConfig(repo_overrides={"api": ["Rule one.", "Rule two."]})
+    lines = repo_focus_lines(cfg, "api")
+    assert "### Repo-specific focus (api)" in lines
+    assert "- Rule one." in lines
+    assert "- Rule two." in lines
+
+
+def _briefing_kwargs(**overrides) -> dict:
+    base = dict(
+        pr_number=42,
+        pr_url="https://github.com/acme/api/pull/42",
+        repo_github="acme/api",
+        repo_name="api",
+        issue_number=7,
+        issue_title="Fix login",
+        issue_body="Login is broken on Firefox.",
+        branch="issue-7-fix-login",
+        worker_machine="laptop",
+        same_as_worker=False,
+        reviews_cfg=ReviewsConfig(),
+        repo_claude_md=None,
+    )
+    base.update(overrides)
+    return base
+
+
+def test_briefing_no_worker_claims_section_when_absent() -> None:
+    """Regression (#3112): no completion summary and no commit messages
+    produces no dangling/empty 'worker's own claims' section."""
+    briefing = build_review_briefing(**_briefing_kwargs())
+    assert "Worker's own claims" not in briefing
+
+
+def test_briefing_includes_worker_completion_summary() -> None:
+    briefing = build_review_briefing(
+        **_briefing_kwargs(
+            completion_summary="Added a regression test observed RED before the fix.",
+        )
+    )
+    assert "Worker's own claims" in briefing
+    assert "Added a regression test observed RED before the fix." in briefing
+
+
+def test_briefing_includes_worker_commit_messages() -> None:
+    briefing = build_review_briefing(
+        **_briefing_kwargs(
+            commit_messages=[
+                "Fix #804: guard ctrl-h backspace in insert mode\n\nObserved RED against unfixed develop.",
+                "Address review nit",
+            ],
+        )
+    )
+    assert "Worker's own claims" in briefing
+    assert "Fix #804: guard ctrl-h backspace in insert mode" in briefing
+    assert "Address review nit" in briefing
+    # #3112 fix-review: the commit *body* — not just its headline — must
+    # survive into the briefing. This is the exact vimcode#804 scenario: the
+    # "state the test was observed RED" claim lives in the body, and a
+    # headline-only render silently drops it.
+    assert "Observed RED against unfixed develop." in briefing
+
+
+def test_briefing_commit_messages_are_capped_in_count_and_length() -> None:
+    """Regression (#3112 fix-review): an unbounded number/size of commit
+    messages must not blow up every future review's prompt. The newest
+    messages are kept when capping the count."""
+    many_commits = [f"Commit number {i}" for i in range(30)]
+    huge_commit = "Huge commit\n\n" + ("x" * 5000)
+    briefing = build_review_briefing(
+        **_briefing_kwargs(commit_messages=[*many_commits, huge_commit])
+    )
+    # Only the newest MAX_COMMIT_MESSAGES are kept; the oldest are dropped
+    # and a note says so.
+    assert "Commit number 0" not in briefing
+    assert "Commit number 29" in briefing
+    assert "earlier commit message(s) omitted" in briefing
+    # A single oversized message body is clamped, not embedded verbatim.
+    assert "x" * 5000 not in briefing
+    assert "[truncated]" in briefing
+
+
+def test_briefing_worker_claims_survive_whitespace_only_inputs() -> None:
+    """Regression (#3112): blank/whitespace-only summary and commit list
+    entries must not fake a non-empty section."""
+    briefing = build_review_briefing(
+        **_briefing_kwargs(completion_summary="   ", commit_messages=["  ", ""])
+    )
+    assert "Worker's own claims" not in briefing
+
+
+def test_briefing_carries_same_repo_override_text_worker_briefing_gets(
+    tmp_path,
+) -> None:
+    """Black-box pair test (#3112): dispatch a work briefing and a review
+    briefing for the same fixture repo/override and assert the rule string
+    appears in both, sourced from the one shared builder."""
+    from unittest.mock import MagicMock, patch
+
+    from coord.config import Config
+    from coord.dispatch import dispatch
+    from coord.models import Machine, Proposal
+
+    rule = "State that the new black-box test was observed RED against unfixed develop."
+    cfg = Config(
+        repos=[Repo(name="api", github="acme/api")],
+        machines=[Machine(
+            name="laptop", host="laptop.tailnet", repos=["api"],
+            repo_paths={"api": str(tmp_path)},
+        )],
+        reviews=ReviewsConfig(repo_overrides={"api": [rule]}),
+    )
+    proposal = Proposal(
+        id=1, machine_name="laptop", repo_name="api", issue_number=10,
+        issue_title="Fix auth", rationale="best fit", briefing="Fix the auth module",
+    )
+    with patch("coord.dispatch.httpx.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+        dispatch(proposal, cfg)
+        worker_briefing = mock_post.call_args.kwargs["json"]["briefing"]
+
+    review_briefing = build_review_briefing(
+        **_briefing_kwargs(reviews_cfg=cfg.reviews)
+    )
+    assert rule in worker_briefing
+    assert rule in review_briefing
 
 
 def test_briefing_fetches_claude_md_by_sha_instead_of_embedding() -> None:
@@ -2426,6 +2570,175 @@ def test_dispatch_review_records_to_dispatched_ledger(
     assert records[0]["assignment_id"] == "review-ledger-1"
     assert records[0]["repo_github"] == "acme/api"
     assert records[0]["machine_name"] == "server"
+
+
+# ── #3113: atomic review-dispatch claim ──────────────────────────────────────
+
+
+def test_dispatch_review_second_racing_call_loses_the_claim(
+    two_machine_config: Config, coord_db,
+) -> None:
+    """Simulates two coordinator passes racing `dispatch_review` for the SAME
+    completed assignment, each holding its OWN board snapshot that has not
+    yet observed the other's dispatch — the vimcode#804 incident: two reviews
+    dispatched 3 seconds apart, both to the same machine, for $4.41 combined.
+
+    Before #3113, `has_active_followup` read the in-memory `board` argument
+    only, so two calls each passed an empty `Board()` (a stale snapshot
+    unaware of the other) would BOTH see "no review in flight" and BOTH
+    dispatch — reproducing the incident. The atomic DB-level claim now makes
+    the second call lose deterministically even though its own board
+    snapshot still looks empty.
+    """
+    completed = _completed_assignment(machine="laptop")
+
+    def _pr_lookup(repo_github, **kw):
+        return {"number": 1, "url": "https://github.com/acme/api/pull/1", "existed": True}
+
+    first = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "review-race-1"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+    )
+    assert first is not None
+
+    # A second, independent call for the SAME completed assignment, racing
+    # the first with its own fresh (stale) board snapshot.
+    second = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "review-race-2"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+    )
+    assert second is None
+    assert "atomic dispatch-claim race" in (completed.review_dispatch_reason or "")
+
+
+def test_dispatch_review_releases_claim_when_all_candidates_rejected(
+    two_machine_config: Config, coord_db,
+) -> None:
+    """A denial AFTER the claim is taken (here: every reviewer candidate 400s)
+    must release it — otherwise a transient/config-drift failure would
+    permanently strand this work assignment's review dispatch behind a claim
+    nothing else will ever clear."""
+    completed = _completed_assignment(machine="laptop")
+
+    def _pr_lookup(repo_github, **kw):
+        return {"number": 1, "url": "https://github.com/acme/api/pull/1", "existed": True}
+
+    denied = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_AllRejectingClient(),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        health_checker=lambda host: None,
+    )
+    assert denied is None
+    assert completed.review_state == "no_eligible_reviewer"
+
+    # Retried (e.g. after an operator fixes the agent's repos list) with a
+    # fresh board snapshot — must succeed, proving the claim was released.
+    retried = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "review-retry-1"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+    )
+    assert retried is not None
+
+
+def test_dispatch_review_releases_claim_on_early_deny_path(
+    two_machine_config: Config, coord_db,
+) -> None:
+    """A denial from an early guard (here: the #1534 zero-commit gate) must
+    also release the claim — every `_deny(...)` path after the claim is taken
+    releases it, not just the candidate-exhaustion tail."""
+    completed = _completed_assignment(machine="laptop")
+
+    def _pr_lookup(repo_github, **kw):
+        return {"number": 1, "url": "https://github.com/acme/api/pull/1", "existed": True}
+
+    denied = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "unused"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        commits_ahead_checker=lambda repo_github, base, branch: 0,
+    )
+    assert denied is None
+    assert completed.review_state == "zero_commits"
+
+    retried = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "review-retry-2"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        commits_ahead_checker=lambda repo_github, base, branch: 1,
+    )
+    assert retried is not None
+
+
+def test_dispatch_review_releases_claim_on_unhandled_exception(
+    two_machine_config: Config, coord_db,
+) -> None:
+    """#3113: an unhandled exception raised between the claim and a successful
+    dispatch (here: `pr_lookup` blowing up) must still release the claim —
+    every OTHER "no review dispatched" path releases it via `_deny(...)` or
+    the candidate-exhaustion tail, but a raised exception used to propagate
+    straight past all of them, permanently stranding this work assignment's
+    review dispatch behind a claim nothing would ever clear (no review row
+    is ever created for a raised exception, so the terminal-status release
+    hook in `coord.issue_store._update_local_state` never fires either).
+    """
+    from coord import state
+
+    completed = _completed_assignment(machine="laptop")
+
+    def _boom(repo_github, **kw):
+        raise RuntimeError("gh pr lookup blew up")
+
+    with pytest.raises(RuntimeError, match="gh pr lookup blew up"):
+        dispatch_review(
+            completed, Board(), two_machine_config,
+            http_client=_FakeHTTPClient({"id": "unused"}),
+            pr_lookup=_boom,
+            claude_md_reader=lambda p: "",
+            issue_body_fetcher=lambda repo, num: "",
+            remote_branch_checker=lambda repo, branch: True,
+        )
+
+    # The claim must be gone — a fresh claim attempt for the same completed
+    # assignment must succeed, proving the exception path released it.
+    assert state.claim_review_dispatch(completed.assignment_id) is True
+
+    # And a real retry (fresh board snapshot, no more exception) must succeed.
+    state.release_review_dispatch_claim(completed.assignment_id)
+
+    def _pr_lookup(repo_github, **kw):
+        return {"number": 1, "url": "https://github.com/acme/api/pull/1", "existed": True}
+
+    retried = dispatch_review(
+        completed, Board(), two_machine_config,
+        http_client=_FakeHTTPClient({"id": "review-retry-3"}),
+        pr_lookup=_pr_lookup,
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+    )
+    assert retried is not None
 
 
 # ── #1476: scoped re-review ──────────────────────────────────────────────────

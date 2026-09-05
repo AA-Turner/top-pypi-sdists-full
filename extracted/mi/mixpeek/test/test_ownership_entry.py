@@ -44,7 +44,15 @@ class TestOwnershipEntry(unittest.TestCase):
                 description = '',
                 alert_classes = [
                     ''
-                    ]
+                    ],
+                alert_escalations = {
+                    'key' : ''
+                    },
+                owner_confirmed = mixpeek.models.owner_confirmation.OwnerConfirmation(
+                    by = '', 
+                    at = '', 
+                    ref = '', 
+                    note = '', )
             )
         else:
             return OwnershipEntry(

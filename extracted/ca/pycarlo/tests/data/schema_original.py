@@ -2208,6 +2208,7 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `ACTIVE_DURATION`None
+    * `COST`None
     * `DURATION`None
     * `HAS_ERRORS`None
     * `INTENT_CLUSTER`None
@@ -2220,6 +2221,7 @@ class ConversationFilterFieldName(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "ACTIVE_DURATION",
+        "COST",
         "DURATION",
         "HAS_ERRORS",
         "INTENT_CLUSTER",
@@ -2319,6 +2321,35 @@ class ConversationStatus(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ERROR", "OK")
+
+
+class CostAgentFindingType(sgqlc.types.Enum):
+    """Finding category the Cost & Performance Agent can be scoped to:
+    STORAGE (storage optimization) or COMPUTE (query performance).
+
+    Enumeration Choices:
+
+    * `COMPUTE`None
+    * `STORAGE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPUTE", "STORAGE")
+
+
+class CostAgentScopeMode(sgqlc.types.Enum):
+    """Scope mode for a Cost & Performance Agent setting: ALL
+    (unrestricted — the agent covers every entry) or RESTRICTED (the
+    agent covers only the listed entries).
+
+    Enumeration Choices:
+
+    * `ALL`None
+    * `RESTRICTED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALL", "RESTRICTED")
 
 
 class CostBucketSize(sgqlc.types.Enum):
@@ -8866,6 +8897,7 @@ class TraceFilterFieldName(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `COMPLETION_TOKENS`None
+    * `COST`None
     * `DURATION`None
     * `MODEL`None
     * `PROMPT_TOKENS`None
@@ -8880,6 +8912,7 @@ class TraceFilterFieldName(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "COMPLETION_TOKENS",
+        "COST",
         "DURATION",
         "MODEL",
         "PROMPT_TOKENS",
@@ -11960,6 +11993,8 @@ class ConversationFiltersInput(sgqlc.types.Input):
         "max_turns",
         "min_total_tokens",
         "max_total_tokens",
+        "min_cost",
+        "max_cost",
         "min_duration",
         "max_duration",
         "min_active_duration",
@@ -12008,6 +12043,16 @@ class ConversationFiltersInput(sgqlc.types.Input):
     max_total_tokens = sgqlc.types.Field(Int, graphql_name="maxTotalTokens")
     """Maximum total tokens (inclusive)"""
 
+    min_cost = sgqlc.types.Field(Float, graphql_name="minCost")
+    """Minimum cost of a conversation, in the unit its platform bills.
+    Resolved against the customer's warehouse, so it matches nothing
+    for an agent whose platform publishes no cost -- today that is
+    everything except Cortex.
+    """
+
+    max_cost = sgqlc.types.Field(Float, graphql_name="maxCost")
+    """Maximum cost of a conversation, in the same unit"""
+
     min_duration = sgqlc.types.Field(Float, graphql_name="minDuration")
     """Minimum conversation duration in seconds"""
 
@@ -12045,6 +12090,46 @@ class ConversationFiltersInput(sgqlc.types.Input):
     incomplete list). startTime/endTime still bound the span scan —
     pass a window generously covering the run's period so boundary
     conversations aggregate completely.
+    """
+
+
+class CostAgentFindingTypeScopeInput(sgqlc.types.Input):
+    """Finding-type scope change for the Cost & Performance Agent."""
+
+    __schema__ = schema
+    __field_names__ = ("mode", "finding_types")
+    mode = sgqlc.types.Field(sgqlc.types.non_null(CostAgentScopeMode), graphql_name="mode")
+    """ALL generates every finding type and forbids findingTypes.
+    RESTRICTED generates only findingTypes; it requires that field
+    with at least one entry.
+    """
+
+    finding_types = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(CostAgentFindingType)), graphql_name="findingTypes"
+    )
+    """Finding types to generate. Required with at least one entry when
+    mode is RESTRICTED; must be omitted when mode is ALL.
+    """
+
+
+class CostAgentWarehouseScopeInput(sgqlc.types.Input):
+    """Warehouse scope change for the Cost & Performance Agent."""
+
+    __schema__ = schema
+    __field_names__ = ("mode", "warehouse_uuids")
+    mode = sgqlc.types.Field(sgqlc.types.non_null(CostAgentScopeMode), graphql_name="mode")
+    """ALL analyzes every warehouse on the account and forbids
+    warehouseUuids. RESTRICTED analyzes only warehouseUuids; it
+    requires that field with at least one entry.
+    """
+
+    warehouse_uuids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="warehouseUuids"
+    )
+    """Warehouses to analyze. Required with at least one entry when mode
+    is RESTRICTED; must be omitted when mode is ALL. Every uuid must
+    name a warehouse on the caller's account that is not deleted and
+    has an active non-dbt connection.
     """
 
 
@@ -18442,6 +18527,8 @@ class TraceFiltersInput(sgqlc.types.Input):
         "max_completion_tokens",
         "min_total_tokens",
         "max_total_tokens",
+        "min_cost",
+        "max_cost",
         "conversation_id",
         "trace_id",
         "statuses",
@@ -18496,6 +18583,16 @@ class TraceFiltersInput(sgqlc.types.Input):
 
     max_total_tokens = sgqlc.types.Field(Int, graphql_name="maxTotalTokens")
     """Maximum total tokens"""
+
+    min_cost = sgqlc.types.Field(Float, graphql_name="minCost")
+    """Minimum cost of a trace, in the unit its platform bills. Resolved
+    against the customer's warehouse, so it matches nothing for an
+    agent whose platform publishes no cost -- today that is everything
+    except Cortex.
+    """
+
+    max_cost = sgqlc.types.Field(Float, graphql_name="maxCost")
+    """Maximum cost of a trace, in the same unit"""
 
     conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
     """Filter by exact conversation ID"""
@@ -22514,6 +22611,29 @@ class AgentContext(sgqlc.types.Type):
         graphql_name="omittedLabels",
     )
     """Sections dropped entirely because they could not fit meaningfully."""
+
+
+class AgentCost(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("cost", "cost_unit", "traces", "conversations", "series")
+    cost = sgqlc.types.Field(Float, graphql_name="cost")
+
+    cost_unit = sgqlc.types.Field(String, graphql_name="costUnit")
+
+    traces = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TraceCost"))),
+        graphql_name="traces",
+    )
+
+    conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ConversationCost"))),
+        graphql_name="conversations",
+    )
+
+    series = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CostBucket"))),
+        graphql_name="series",
+    )
 
 
 class AgentCustomConnectors(sgqlc.types.Type):
@@ -29864,6 +29984,14 @@ class ConversationClusteringSpaceType(sgqlc.types.Type):
     """
 
 
+class ConversationCost(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("conversation_id", "cost")
+    conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
+
+    cost = sgqlc.types.Field(Float, graphql_name="cost")
+
+
 class ConversationEvalDimension(sgqlc.types.Type):
     """One dimension's outcome. Either (score + reasoning) or error is
     set.
@@ -30471,6 +30599,74 @@ class CorrelationSamplingResult(sgqlc.types.Type):
     __field_names__ = ("sample",)
     sample = sgqlc.types.Field(sgqlc.types.list_of("RcaPlotData"), graphql_name="sample")
     """List of value distribution samples"""
+
+
+class CostAgentFindingTypeScopeOutput(sgqlc.types.Type):
+    """Effective finding-type scope for the Cost & Performance Agent."""
+
+    __schema__ = schema
+    __field_names__ = ("mode", "finding_types")
+    mode = sgqlc.types.Field(sgqlc.types.non_null(CostAgentScopeMode), graphql_name="mode")
+    """ALL generates every finding type. RESTRICTED generates only
+    findingTypes — an empty list scopes the agent to no finding types.
+    """
+
+    finding_types = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(CostAgentFindingType)), graphql_name="findingTypes"
+    )
+    """Finding types the agent generates. Null when mode is ALL."""
+
+
+class CostAgentSettingsOutput(sgqlc.types.Type):
+    """Scope settings for the Cost & Performance Agent: which warehouses
+    it analyzes and which finding types it generates, each as a mode.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("warehouse_scope", "finding_type_scope")
+    warehouse_scope = sgqlc.types.Field(
+        sgqlc.types.non_null("CostAgentWarehouseScopeOutput"), graphql_name="warehouseScope"
+    )
+    """Warehouse scope in force."""
+
+    finding_type_scope = sgqlc.types.Field(
+        sgqlc.types.non_null(CostAgentFindingTypeScopeOutput), graphql_name="findingTypeScope"
+    )
+    """Finding-type scope in force."""
+
+
+class CostAgentWarehouseScopeOutput(sgqlc.types.Type):
+    """Effective warehouse scope for the Cost & Performance Agent."""
+
+    __schema__ = schema
+    __field_names__ = ("mode", "warehouse_uuids", "invalid_warehouse_uuids")
+    mode = sgqlc.types.Field(sgqlc.types.non_null(CostAgentScopeMode), graphql_name="mode")
+    """ALL analyzes every warehouse on the account. RESTRICTED analyzes
+    only warehouseUuids — an empty list scopes the agent to no
+    warehouses. A warehouse deleted or left without an active non-dbt
+    connection after being saved drops out on read.
+    """
+
+    warehouse_uuids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="warehouseUuids"
+    )
+    """Warehouses the agent analyzes. Null when mode is ALL."""
+
+    invalid_warehouse_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="invalidWarehouseUuids",
+    )
+    """Stored warehouses that are deleted or have no active non-dbt
+    connection. Empty when every stored warehouse is live.
+    """
+
+
+class CostBucket(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("bucket_start", "cost")
+    bucket_start = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="bucketStart")
+
+    cost = sgqlc.types.Field(Float, graphql_name="cost")
 
 
 class CostTimeSeriesPointOutput(sgqlc.types.Type):
@@ -37363,6 +37559,22 @@ class EventConnection(sgqlc.types.relay.Connection):
     """Contains the nodes in this connection."""
 
 
+class EventDataSloBreachTimeline(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("slo_type", "slo_breach_at", "breach_detected_at", "event_uuid")
+    slo_type = sgqlc.types.Field(String, graphql_name="sloType")
+    """SLO type (tta or ttr)"""
+
+    slo_breach_at = sgqlc.types.Field(String, graphql_name="sloBreachAt")
+    """ISO timestamp of the SLO breach deadline"""
+
+    breach_detected_at = sgqlc.types.Field(String, graphql_name="breachDetectedAt")
+    """ISO timestamp when the SLO breach was detected"""
+
+    event_uuid = sgqlc.types.Field(UUID, graphql_name="eventUuid")
+    """Event unique identifier"""
+
+
 class EventDetectorFeedbackConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -40188,6 +40400,9 @@ class GoldenBaseline(sgqlc.types.Type):
         "summary",
         "is_stale",
         "results",
+        "metric_summary",
+        "target_ref",
+        "agent_config_snapshot",
         "created_time",
         "updated_time",
     )
@@ -40211,6 +40426,22 @@ class GoldenBaseline(sgqlc.types.Type):
     )
     """Per-case results."""
 
+    metric_summary = sgqlc.types.Field("GoldenMetricSummary", graphql_name="metricSummary")
+    """Aggregate model / token / tool-call metrics across the baseline's
+    cases. Null for a baseline generated before metric collection, or
+    one that captured no usage.
+    """
+
+    target_ref = sgqlc.types.Field(String, graphql_name="targetRef")
+    """The agent REST endpoint path this baseline was generated against."""
+
+    agent_config_snapshot = sgqlc.types.Field(GenericScalar, graphql_name="agentConfigSnapshot")
+    """The Cortex agent's raw configuration captured when the baseline
+    was generated, for comparing setup against a test run. Withheld
+    (null) from callers without access to the underlying raw customer
+    data; null when it could not be captured.
+    """
+
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the baseline was generated."""
 
@@ -40229,6 +40460,8 @@ class GoldenBaselineResult(sgqlc.types.Type):
         "scored_response",
         "scores",
         "error",
+        "tool_use_count",
+        "token_usage",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Public identifier of the result."""
@@ -40240,10 +40473,8 @@ class GoldenBaselineResult(sgqlc.types.Type):
     """Per-case outcome."""
 
     scored_response = sgqlc.types.Field(String, graphql_name="scoredResponse")
-    """The judged response — populated only for cases captured with
-    response-capture on. A case captured without it is still scored
-    (from a re-fetched response), but that response is not persisted,
-    so this stays null.
+    """The live agent response that was judged. Withheld (null) from
+    callers without access to the underlying raw customer data.
     """
 
     scores = sgqlc.types.Field(
@@ -40255,7 +40486,18 @@ class GoldenBaselineResult(sgqlc.types.Type):
     error = sgqlc.types.Field(String, graphql_name="error")
     """Failure detail: the case's error when status is ERROR, or the
     first rule-level error when the case scored only partially (some
-    rules errored).
+    rules errored). Withheld (null) from callers without access to the
+    underlying raw customer data.
+    """
+
+    tool_use_count = sgqlc.types.Field(Int, graphql_name="toolUseCount")
+    """Number of tool calls the agent made on this case. Null if not
+    captured.
+    """
+
+    token_usage = sgqlc.types.Field("GoldenTokenUsage", graphql_name="tokenUsage")
+    """Token consumption for this case's agent run, summed across all
+    models used. Null when the run captured no usage data.
     """
 
 
@@ -40310,6 +40552,105 @@ class GoldenEvalScore(sgqlc.types.Type):
     """Per-rule comparison verdict on a test run (REGRESSED / HELD /
     IMPROVED).
     """
+
+
+class GoldenMetricComparison(sgqlc.types.Type):
+    """A run's model / token / tool-call metrics compared to the
+    baseline's.  Deltas are run minus baseline (signed); a token or
+    tool-call count has no natural tolerance band, so these are raw
+    counts rather than REGRESSED / HELD / IMPROVED verdicts.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "baseline_token_usage",
+        "run_token_usage",
+        "total_tokens_delta",
+        "input_tokens_delta",
+        "output_tokens_delta",
+        "baseline_tool_use_count",
+        "run_tool_use_count",
+        "tool_use_count_delta",
+        "baseline_models",
+        "run_models",
+        "model_match",
+    )
+    baseline_token_usage = sgqlc.types.Field(
+        sgqlc.types.non_null("GoldenTokenUsage"), graphql_name="baselineTokenUsage"
+    )
+    """The baseline's total token usage."""
+
+    run_token_usage = sgqlc.types.Field(
+        sgqlc.types.non_null("GoldenTokenUsage"), graphql_name="runTokenUsage"
+    )
+    """This run's total token usage."""
+
+    total_tokens_delta = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalTokensDelta"
+    )
+    """Run total tokens minus baseline total tokens."""
+
+    input_tokens_delta = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="inputTokensDelta"
+    )
+    """Run input tokens minus baseline input tokens."""
+
+    output_tokens_delta = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="outputTokensDelta"
+    )
+    """Run output tokens minus baseline output tokens."""
+
+    baseline_tool_use_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="baselineToolUseCount"
+    )
+    """The baseline's total tool-call count."""
+
+    run_tool_use_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="runToolUseCount"
+    )
+    """This run's total tool-call count."""
+
+    tool_use_count_delta = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="toolUseCountDelta"
+    )
+    """Run tool-call count minus baseline tool-call count."""
+
+    baseline_models = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="baselineModels",
+    )
+    """Models the baseline used."""
+
+    run_models = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="runModels",
+    )
+    """Models this run used."""
+
+    model_match = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="modelMatch")
+    """Whether this run used the same set of models as the baseline."""
+
+
+class GoldenMetricSummary(sgqlc.types.Type):
+    """A run's aggregate model / token / tool-call metrics, summed across
+    its cases.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("token_usage", "tool_use_count", "models")
+    token_usage = sgqlc.types.Field(
+        sgqlc.types.non_null("GoldenTokenUsage"), graphql_name="tokenUsage"
+    )
+    """Total token usage across the run's cases."""
+
+    tool_use_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="toolUseCount")
+    """Total tool calls the agent made across the run's cases."""
+
+    models = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="models",
+    )
+    """Distinct model names the run used (sorted)."""
 
 
 class GoldenPriorTurn(sgqlc.types.Type):
@@ -40560,6 +40901,7 @@ class GoldenTestRun(sgqlc.types.Type):
         "status",
         "rule_summary",
         "verdict_summary",
+        "metric_comparison",
         "compared_baseline_uuid",
         "target_ref",
         "baseline_stale",
@@ -40586,6 +40928,13 @@ class GoldenTestRun(sgqlc.types.Type):
         sgqlc.types.non_null("GoldenVerdictSummary"), graphql_name="verdictSummary"
     )
     """Per-run case-verdict counts."""
+
+    metric_comparison = sgqlc.types.Field(GoldenMetricComparison, graphql_name="metricComparison")
+    """Model / token / tool-call comparison vs the baseline. Null when
+    either this run or the baseline captured no metrics (e.g. a
+    baseline generated before metric collection, or a run with no
+    usage data).
+    """
 
     compared_baseline_uuid = sgqlc.types.Field(UUID, graphql_name="comparedBaselineUuid")
     """The baseline this run scored against (null if it was since
@@ -46321,6 +46670,7 @@ class Mutation(sgqlc.types.Type):
         "cancel_monitoring_run",
         "update_agentic_platform_pipeline",
         "update_triage_automation_config",
+        "update_cost_agent_settings",
         "create_or_update_agentic_notification_route",
         "delete_agentic_notification_route",
         "submit_finding_feedback",
@@ -48186,6 +48536,7 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
                     ),
                 ),
+                ("target_path", sgqlc.types.Arg(String, graphql_name="targetPath", default=None)),
             )
         ),
     )
@@ -48195,6 +48546,8 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `set_uuid` (`UUID!`): Golden set to generate a baseline for.
+    * `target_path` (`String`): Agent REST endpoint path to hit;
+      defaults to the set's prod target path.
     """
 
     start_golden_test_run = sgqlc.types.Field(
@@ -63475,6 +63828,14 @@ class Mutation(sgqlc.types.Type):
                     "run_instructions",
                     sgqlc.types.Arg(String, graphql_name="runInstructions", default=None),
                 ),
+                (
+                    "target_agent_name",
+                    sgqlc.types.Arg(String, graphql_name="targetAgentName", default=None),
+                ),
+                (
+                    "target_trace_table_mcon",
+                    sgqlc.types.Arg(String, graphql_name="targetTraceTableMcon", default=None),
+                ),
             )
         ),
     )
@@ -63509,6 +63870,21 @@ class Mutation(sgqlc.types.Type):
       Applied in addition to any instructions saved for the account or
       domain; saved restrictions still apply. Not persisted beyond the
       run. Truncated to 2000 characters; blank text is ignored.
+    * `target_agent_name` (`String`): Scope this run to a single AI
+      agent, instead of every agent in the domain. Must be sent
+      together with `targetTraceTableMcon`: agent names are not unique
+      — the same name can belong to two agents on different trace
+      tables — so an agent is identified by both. Use the `agentName`
+      from `getAgentMetadataV2`. Omit both to analyze every agent in
+      the domain.
+    * `target_trace_table_mcon` (`String`): The trace-source half of
+      the agent scope, required alongside `targetAgentName`. Must be
+      the `traceTableMcon` that `getAgentMetadataV2` returned for the
+      agent — it is matched exactly, and the correct value differs by
+      agent source: Snowflake platform agents carry a synthetic
+      `aiagent` MCON, while Databricks ones carry the MCON of the real
+      trace table or view they read. An MCON that matches no agent in
+      the domain yields a run that suggests nothing.
     """
 
     cancel_monitoring_run = sgqlc.types.Field(
@@ -63653,6 +64029,43 @@ class Mutation(sgqlc.types.Type):
     * `tsa_automation_threshold` (`TsaAutomationThreshold`): New
       account-level threshold at or above which the troubleshooting
       agent auto-runs on a triaged alert.
+    """
+
+    update_cost_agent_settings = sgqlc.types.Field(
+        "UpdateCostAgentSettings",
+        graphql_name="updateCostAgentSettings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "finding_type_scope",
+                    sgqlc.types.Arg(
+                        CostAgentFindingTypeScopeInput,
+                        graphql_name="findingTypeScope",
+                        default=None,
+                    ),
+                ),
+                (
+                    "warehouse_scope",
+                    sgqlc.types.Arg(
+                        CostAgentWarehouseScopeInput, graphql_name="warehouseScope", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update the Cost & Performance Agent scope settings
+    for the caller's account. Each setting takes a mode object: omit
+    it to leave the setting unchanged, mode ALL restores unrestricted
+    and must not carry an entry list, and mode RESTRICTED scopes the
+    agent to the listed entries (at least one). Requires AI agent
+    settings edit access.
+
+    Arguments:
+
+    * `finding_type_scope` (`CostAgentFindingTypeScopeInput`):
+      Finding-type scope change. Omit to leave the setting unchanged.
+    * `warehouse_scope` (`CostAgentWarehouseScopeInput`): Warehouse
+      scope change. Omit to leave the setting unchanged.
     """
 
     create_or_update_agentic_notification_route = sgqlc.types.Field(
@@ -75197,6 +75610,7 @@ class Query(sgqlc.types.Type):
         "get_trace_time_series",
         "get_trace_overview",
         "get_tool_call_overview",
+        "get_agent_cost",
         "get_tool_call_time_series",
         "get_top_tools",
         "get_conversations_filters",
@@ -75804,6 +76218,7 @@ class Query(sgqlc.types.Type):
         "get_triage_automation_config",
         "get_monitoring_run_for_domain",
         "get_triage_cost_estimate",
+        "get_cost_agent_settings",
         "get_agent_operation_logs",
         "get_gcp_agent_logs",
         "get_azure_agent_logs",
@@ -76970,6 +77385,82 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetToolCallOverviewInput!`)None
+    """
+
+    get_agent_cost = sgqlc.types.Field(
+        AgentCost,
+        graphql_name="getAgentCost",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+                (
+                    "trace_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="traceIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "conversation_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="conversationIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "bucket_size",
+                    sgqlc.types.Arg(TraceBucketSize, graphql_name="bucketSize", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Cost of an agent's model calls over a time range,
+    in the unit its platform bills. Read separately from the trace and
+    summary queries because it crosses to the customer's warehouse —
+    the prompt-cache counts it needs exist nowhere else — so a client
+    can render first and fill cost in after. Returns empty for any
+    agent whose platform publishes no per-token cost; today that is
+    everything except Cortex.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Agent to price
+    * `trace_table_mcon` (`String!`): MCON of the table holding the
+      agent's traces
+    * `start_time` (`DateTime!`): Window start (inclusive)
+    * `end_time` (`DateTime!`): Window end (inclusive)
+    * `trace_ids` (`[String!]`): Scope to these traces and return one
+      cost per trace. Omit for the window total.
+    * `conversation_ids` (`[String!]`): Scope to these conversations
+      and return one cost per conversation. Cannot be combined with
+      traceIds -- passing both is rejected.
+    * `bucket_size` (`TraceBucketSize`): Return a time series bucketed
+      at this size instead of a single total.
     """
 
     get_tool_call_time_series = sgqlc.types.Field(
@@ -99253,6 +99744,14 @@ class Query(sgqlc.types.Type):
       over (1-90).
     """
 
+    get_cost_agent_settings = sgqlc.types.Field(
+        sgqlc.types.non_null(CostAgentSettingsOutput), graphql_name="getCostAgentSettings"
+    )
+    """(experimental) Returns the Cost & Performance Agent scope settings
+    for the caller's account: the warehouses it analyzes and the
+    finding types it generates, each as a mode (ALL is unrestricted).
+    """
+
     get_agent_operation_logs = sgqlc.types.Field(
         sgqlc.types.list_of(AgentLogEntry),
         graphql_name="getAgentOperationLogs",
@@ -101451,12 +101950,17 @@ class RunMonitoringForDomain(sgqlc.types.Type):
     user, and at most one run per domain is in flight at a time —
     calling this while the domain is already running returns that run
     instead of starting a second one.  Poll the resulting run's state
-    via ``getMonitoringRunForDomain``.  Passing ``revisesPlanUuid``
-    (with or without ``planCorrections``) makes the run a *revision*
-    of that plan. A plan is a view over one run's output, so a
-    revision is always a new plan linked to its predecessor — the plan
-    being revised is never edited in place. Corrections are per-run
-    only and are never replayed into a later scheduled run.
+    via ``getMonitoringRunForDomain``.  Passing ``targetAgentName``
+    **and** ``targetTraceTableMcon`` scopes the run to that one agent
+    rather than every agent in the domain. Both are required together
+    — agent names are not unique, so an agent is identified by the
+    pair — and both must come from ``getAgentMetadataV2``. Passing one
+    without the other is rejected.  Passing ``revisesPlanUuid`` (with
+    or without ``planCorrections``) makes the run a *revision* of that
+    plan. A plan is a view over one run's output, so a revision is
+    always a new plan linked to its predecessor — the plan being
+    revised is never edited in place. Corrections are per-run only and
+    are never replayed into a later scheduled run.
     """
 
     __schema__ = schema
@@ -107647,6 +108151,14 @@ class TraceConnection(sgqlc.types.relay.Connection):
     """Pagination information"""
 
 
+class TraceCost(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("trace_id", "cost")
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+
+    cost = sgqlc.types.Field(Float, graphql_name="cost")
+
+
 class TraceEdge(sgqlc.types.Type):
     """Edge type for trace pagination."""
 
@@ -109212,6 +109724,18 @@ class UpdateCiGateConfig(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
+class UpdateCostAgentSettings(sgqlc.types.Type):
+    """Update the Cost & Performance Agent scope settings for the
+    caller's account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("settings",)
+    settings = sgqlc.types.Field(
+        sgqlc.types.non_null(CostAgentSettingsOutput), graphql_name="settings"
+    )
 
 
 class UpdateCredentials(sgqlc.types.Type):
@@ -116387,6 +116911,7 @@ class DbtJobExecution(sgqlc.types.Type, Node):
         "job",
         "started_at",
         "finished_at",
+        "dynamic_schedules_triggered_at",
         "status",
         "dbt_cloud_run_id",
         "display_name",
@@ -116411,6 +116936,11 @@ class DbtJobExecution(sgqlc.types.Type, Node):
 
     finished_at = sgqlc.types.Field(DateTime, graphql_name="finishedAt")
     """dbt job execution finish time"""
+
+    dynamic_schedules_triggered_at = sgqlc.types.Field(
+        DateTime, graphql_name="dynamicSchedulesTriggeredAt"
+    )
+    """when dynamic schedules were triggered for this job execution"""
 
     status = sgqlc.types.Field(DbtJobExecutionStatuses, graphql_name="status")
     """Status of dbt job execution"""
@@ -117545,11 +118075,76 @@ class Event(sgqlc.types.Type, Node):
     """
 
 
+class EventDataDeclaredIncidentSeverityUpdateTimeline(sgqlc.types.Type, IEventDataBaseTimeline):
+    __schema__ = schema
+    __field_names__ = ("severity", "old_severity")
+    severity = sgqlc.types.Field(String, graphql_name="severity")
+    """Current declared incident severity"""
+
+    old_severity = sgqlc.types.Field(String, graphql_name="oldSeverity")
+    """Previous declared incident severity"""
+
+
 class EventDataIncidentCommentTimeline(sgqlc.types.Type, IEventDataBaseTimeline):
     __schema__ = schema
     __field_names__ = ("comment",)
     comment = sgqlc.types.Field(String, graphql_name="comment")
     """Incident comment"""
+
+
+class EventDataIncidentDetectorFeedbackTimeline(sgqlc.types.Type, IEventDataBaseTimeline):
+    __schema__ = schema
+    __field_names__ = (
+        "feedback_event_uuid",
+        "event_date",
+        "event_table_id",
+        "event_metric",
+        "event_field",
+        "event_where_condition",
+        "reason",
+    )
+    feedback_event_uuid = sgqlc.types.Field(UUID, graphql_name="feedbackEventUuid")
+    """Alert event the feedback was recorded on"""
+
+    event_date = sgqlc.types.Field(String, graphql_name="eventDate")
+    """Alert event date"""
+
+    event_table_id = sgqlc.types.Field(String, graphql_name="eventTableId")
+    """Alert event table id"""
+
+    event_metric = sgqlc.types.Field(String, graphql_name="eventMetric")
+    """Alert event metric"""
+
+    event_field = sgqlc.types.Field(String, graphql_name="eventField")
+    """Alert event field"""
+
+    event_where_condition = sgqlc.types.Field(String, graphql_name="eventWhereCondition")
+    """Alert event where condition"""
+
+    reason = sgqlc.types.Field(String, graphql_name="reason")
+    """Detector feedback reason"""
+
+
+class EventDataIncidentMergeTimeline(sgqlc.types.Type, IEventDataBaseTimeline):
+    __schema__ = schema
+    __field_names__ = ("merged_from_alert_ids", "merged_into_alert_id")
+    merged_from_alert_ids = sgqlc.types.Field(
+        sgqlc.types.list_of(String), graphql_name="mergedFromAlertIds"
+    )
+    """Alert ids merged into this incident"""
+
+    merged_into_alert_id = sgqlc.types.Field(String, graphql_name="mergedIntoAlertId")
+    """Alert id the other alerts were merged into"""
+
+
+class EventDataIncidentNameUpdateTimeline(sgqlc.types.Type, IEventDataBaseTimeline):
+    __schema__ = schema
+    __field_names__ = ("name", "old_name")
+    name = sgqlc.types.Field(String, graphql_name="name")
+    """Current incident name"""
+
+    old_name = sgqlc.types.Field(String, graphql_name="oldName")
+    """Previous incident name"""
 
 
 class EventDataIncidentOwnerUpdateTimeline(sgqlc.types.Type, IEventDataBaseTimeline):
@@ -123373,6 +123968,11 @@ class TimeLineEvent(sgqlc.types.Union):
         EventDataIncidentReactionUpdateTimeline,
         EventDataIncidentOwnerUpdateTimeline,
         EventDataIncidentCommentTimeline,
+        EventDataIncidentNameUpdateTimeline,
+        EventDataDeclaredIncidentSeverityUpdateTimeline,
+        EventDataIncidentMergeTimeline,
+        EventDataIncidentDetectorFeedbackTimeline,
+        EventDataSloBreachTimeline,
     )
 
 

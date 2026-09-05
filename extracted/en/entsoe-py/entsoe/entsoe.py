@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Union, Optional, Dict, List, Literal
+from typing import Union, Optional, Dict, Literal
 
 import pandas as pd
 from pandas.tseries.offsets import YearBegin, YearEnd
@@ -9,7 +9,7 @@ import requests
 from bs4 import BeautifulSoup
 from bs4.builder import XMLParsedAsHTMLWarning
 
-from entsoe.exceptions import InvalidPSRTypeError, InvalidBusinessParameterError, InvalidParameterError
+from entsoe.exceptions import InvalidPSRTypeError, InvalidBusinessParameterError
 from .exceptions import NoMatchingDataError, PaginationError
 from .mappings import Area, NEIGHBOURS, lookup_area
 from .parsers import parse_prices, parse_loads, parse_generation, \
@@ -18,14 +18,14 @@ from .parsers import parse_prices, parse_loads, parse_generation, \
     parse_imbalance_prices_zip, parse_imbalance_volumes_zip, parse_netpositions, \
     parse_procured_balancing_capacity_zip, parse_water_hydro, parse_aggregated_bids, \
     parse_activated_balancing_energy_prices, parse_offshore_unavailability, parse_imbalance_volumes
-from .decorators import retry, paginated, year_limited, day_limited, documents_limited
+from .decorators import retry, paginated, year_limited, day_limited, documents_limited, month_limited
 import warnings
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings('ignore', category=XMLParsedAsHTMLWarning)
 
 __title__ = "entsoe-py"
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 __author__ = "EnergieID.be, Frank Boerman"
 __license__ = "MIT"
 
@@ -1196,7 +1196,7 @@ class EntsoeRawClient:
         return content
 
 class EntsoePandasClient(EntsoeRawClient):
-    @year_limited
+    @month_limited
     def query_net_position(self, country_code: Union[Area, str],
                             start: pd.Timestamp, end: pd.Timestamp, dayahead: bool = True,
                            resolution = None) -> pd.Series:
@@ -1465,7 +1465,7 @@ class EntsoePandasClient(EntsoeRawClient):
             raise NoMatchingDataError
         return series
 
-    @year_limited
+    @month_limited
     def query_load(self, country_code: Union[Area, str], start: pd.Timestamp,
                    end: pd.Timestamp) -> pd.DataFrame:
         """
@@ -1488,7 +1488,7 @@ class EntsoePandasClient(EntsoeRawClient):
         df = df.truncate(before=start, after=end)
         return df
 
-    @year_limited
+    @month_limited
     def query_load_forecast(
             self, country_code: Union[Area, str], start: pd.Timestamp,
             end: pd.Timestamp, process_type: str = 'A01') -> pd.DataFrame:
@@ -1535,7 +1535,7 @@ class EntsoePandasClient(EntsoeRawClient):
         return df_load_forecast_da.join(df_load, sort=True, how='outer')
 
 
-    @year_limited
+    @month_limited
     def query_generation_forecast(
             self, country_code: Union[Area, str], start: pd.Timestamp,
             end: pd.Timestamp, process_type: str = 'A01',
@@ -1564,7 +1564,7 @@ class EntsoePandasClient(EntsoeRawClient):
         df = df.truncate(before=start, after=end)
         return df
 
-    @year_limited
+    @month_limited
     def query_wind_and_solar_forecast(
             self, country_code: Union[Area, str], start: pd.Timestamp,
             end: pd.Timestamp, psr_type: Optional[str] = None,
@@ -1602,7 +1602,7 @@ class EntsoePandasClient(EntsoeRawClient):
                                                   process_type='A40')
 
 
-    @year_limited
+    @month_limited
     def query_generation(
             self, country_code: Union[Area, str], start: pd.Timestamp,
             end: pd.Timestamp, psr_type: Optional[str] = None,
@@ -1698,7 +1698,7 @@ class EntsoePandasClient(EntsoeRawClient):
         return df
 
 
-    @year_limited
+    @month_limited
     def query_crossborder_flows(
             self, country_code_from: Union[Area, str],
             country_code_to: Union[Area, str], start: pd.Timestamp,
@@ -1729,7 +1729,7 @@ class EntsoePandasClient(EntsoeRawClient):
         ts = ts.truncate(before=start, after=end)
         return ts
 
-    @year_limited
+    @month_limited
     def query_scheduled_exchanges(
             self, country_code_from: Union[Area, str],
             country_code_to: Union[Area, str],
@@ -2051,7 +2051,7 @@ class EntsoePandasClient(EntsoeRawClient):
 
         return df
 
-    @year_limited
+    @month_limited
     def query_imbalance_volumes(
             self, country_code: Union[Area, str], start: pd.Timestamp,
             end: pd.Timestamp, psr_type: Optional[str] = None, include_resolution=False) -> pd.DataFrame:
@@ -2077,7 +2077,7 @@ class EntsoePandasClient(EntsoeRawClient):
         df = df.truncate(before=start, after=end)
         return df
 
-    @year_limited
+    @month_limited
     def query_current_balancing_state(
             self, country_code: Union[Area, str], start: pd.Timestamp,
             end: pd.Timestamp) -> pd.DataFrame:
@@ -2168,7 +2168,7 @@ class EntsoePandasClient(EntsoeRawClient):
         df = df.truncate(before=start, after=end)
         return df
 
-    @year_limited
+    @month_limited
     @paginated
     @documents_limited(100)
     def query_contracted_reserve_prices(
@@ -2208,7 +2208,7 @@ class EntsoePandasClient(EntsoeRawClient):
         df = df.truncate(before=start, after=end)
         return df
     
-    @year_limited
+    @month_limited
     @paginated
     @documents_limited(100)
     def query_contracted_reserve_prices_procured_capacity(

@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import os
 
+from collections.abc import Iterable
 from pathlib import Path
 from typing import cast
 
 import click
 
-from ._builder import FragmentsPath
+from ._builder import FragmentsPath, parse_newfragment_basename
 from ._settings import config_option_help, load_config_from_options
 
 
@@ -54,6 +55,13 @@ DEFAULT_CONTENT = "Add your info here"
     type=str,
     help="The section to create the fragment for.",
 )
+@click.option(
+    "--sub-issue",
+    type=click.IntRange(min=0),
+    metavar="N",
+    default=None,
+    help="Optional numeric sub issue id of the fragment",
+)
 @click.argument("filename", default="")
 def _main(
     ctx: click.Context,
@@ -63,6 +71,7 @@ def _main(
     edit: bool | None,
     content: str,
     section: str | None,
+    sub_issue: int | None,
 ) -> None:
     """
     Create a new news fragment.
@@ -83,7 +92,7 @@ def _main(
     If the FILENAME base is just '+' (to create a fragment not tied to an
     issue), it will be appended with a random hex string.
     """
-    __main(ctx, directory, config, filename, edit, content, section)
+    __main(ctx, directory, config, filename, edit, content, section, sub_issue)
 
 
 def __main(
@@ -94,6 +103,7 @@ def __main(
     edit: bool | None,
     content: str,
     section: str | None,
+    sub_issue: int | None,
 ) -> None:
     """
     The main entry point.
@@ -145,7 +155,7 @@ def __main(
                 click.echo("Pick a section:")
                 default_section_index = None
                 for i, s in enumerate(sections):
-                    click.echo(f" {i+1}: {s or '(primary)'}")
+                    click.echo(f" {i + 1}: {s or '(primary)'}")
                     if not default_section_index and s == section:
                         default_section_index = str(i + 1)
                 section_index = click.prompt(
@@ -174,19 +184,12 @@ def __main(
             file_dir,
             (
                 f"{config.orphan_prefix}{os.urandom(4).hex()}"
-                f"{file_basename[len(config.orphan_prefix):]}"
+                f"{file_basename[len(config.orphan_prefix) :]}"
             ),
         )
     filename_parts = filename.split(".")
-    if len(filename_parts) < 2 or (
-        filename_parts[-1] not in config.types
-        and filename_parts[-2] not in config.types
-    ):
-        raise click.BadParameter(
-            "Expected filename '{}' to be of format '{{name}}.{{type}}', "
-            "where '{{name}}' is an arbitrary slug and '{{type}}' is "
-            "one of: {}".format(filename, ", ".join(config.types))
-        )
+    _validate_create_filename(filename, config.types)
+
     if filename_parts[-1] in config.types and filename_ext:
         filename += filename_ext
 
@@ -198,15 +201,22 @@ def __main(
 
     segment_file = os.path.join(fragments_directory, filename)
 
-    retry = 0
     if filename.split(".")[-1] not in config.types:
         filename, extra_ext = os.path.splitext(filename)
     else:
         extra_ext = ""
-    while os.path.exists(segment_file):
-        retry += 1
+
+    if sub_issue is None:
+        retry = 0
+        while os.path.exists(segment_file):
+            retry += 1
+            segment_file = os.path.join(
+                fragments_directory, f"{filename}.{retry}{extra_ext}"
+            )
+    else:
         segment_file = os.path.join(
-            fragments_directory, f"{filename}.{retry}{extra_ext}"
+            fragments_directory,
+            f"{filename}{'.' + str(sub_issue) if sub_issue > 0 else ''}{extra_ext}",
         )
 
     if edit:
@@ -223,6 +233,31 @@ def __main(
     Path(segment_file).write_text(content + "\n" * add_newline, encoding="utf-8")
 
     click.echo(f"Created news fragment at {segment_file}")
+
+
+def _validate_create_filename(filename: str, types: Iterable[str]) -> None:
+    """Reject fragment names that ``build`` cannot parse, or that hide extra dots.
+
+    ``towncrier create`` previously only checked that the last or second-to-last
+    component was a known type. That accepted names such as
+    ``foo.bar.baz.config`` (when ``config`` is a type), which ``build`` then
+    treats as issue ``foo.bar.baz``. The issue identifier must not contain
+    ``.`` because dots separate ``{name}.{type}`` (and an optional counter or
+    suffix).
+    """
+    basename = os.path.basename(filename)
+    issue, category, _counter = parse_newfragment_basename(basename, types)
+    if category is None or issue is None:
+        raise click.BadParameter(
+            "Expected filename '{}' to be of format '{{name}}.{{type}}', "
+            "where '{{name}}' is an arbitrary slug and '{{type}}' is "
+            "one of: {}".format(filename, ", ".join(types))
+        )
+    if "." in issue:
+        raise click.BadParameter(
+            f"Issue identifier '{issue}' in '{filename}' must not contain '.'. "
+            "Dots separate '{name}.{type}' (and an optional counter or suffix)."
+        )
 
 
 def _get_news_content_from_user(message: str, extension: str = "") -> str:

@@ -25,7 +25,7 @@ def test_event_logging_adapter_receives_sdk_exposures(httpserver: HTTPServer):
     mock_scrapi = MockScrapi(httpserver)
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json", response=dcs_content, method="GET"
+        "/v2/download_config_specs", response=dcs_content, method="GET"
     )
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
 

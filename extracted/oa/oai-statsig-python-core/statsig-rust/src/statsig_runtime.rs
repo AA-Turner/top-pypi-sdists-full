@@ -8,8 +8,8 @@ use futures::future::join_all;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::runtime::{Builder, Handle, Runtime};
 use tokio::sync::Notify;
@@ -30,6 +30,7 @@ pub struct StatsigRuntime {
     sdk_runtime_thread_count: Option<usize>,
     runtime_thread_start_callback: Option<RuntimeThreadStartCallback>,
     prefer_owned_runtime: bool,
+    external_runtime: OnceLock<Handle>,
 }
 
 impl StatsigRuntime {
@@ -68,10 +69,21 @@ impl StatsigRuntime {
             sdk_runtime_thread_count,
             runtime_thread_start_callback,
             prefer_owned_runtime,
+            external_runtime: OnceLock::new(),
         })
     }
 
+    pub(crate) fn bind_external_runtime(&self, handle: Handle) {
+        if !self.prefer_owned_runtime {
+            let _ = self.external_runtime.set(handle);
+        }
+    }
+
     pub fn get_handle(&self) -> Result<Handle, StatsigErr> {
+        if let Some(handle) = self.external_runtime.get() {
+            return Ok(handle.clone());
+        }
+
         if !self.prefer_owned_runtime {
             if let Ok(handle) = Handle::try_current() {
                 return Ok(handle);
@@ -433,5 +445,19 @@ mod tests {
 
         assert_eq!(thread_names, vec![Some("statsig".to_string()); 2]);
         drop(runtime);
+    }
+
+    #[test]
+    #[cfg(not(target_family = "wasm"))]
+    fn externally_bound_runtime_preserves_explicit_owned_runtime_preference() {
+        let external = create_new_runtime_with_thread_count(Some(1));
+        let owned = StatsigRuntime::get_runtime_with_thread_count(Some(1));
+
+        owned.bind_external_runtime(external.handle().clone());
+
+        assert!(
+            owned.external_runtime.get().is_none(),
+            "an explicitly configured SDK runtime must not be replaced by a scoped host runtime"
+        );
     }
 }

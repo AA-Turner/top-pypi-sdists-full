@@ -1,5 +1,5 @@
 use super::{SpecsInfo, StatsigHttpSpecsAdapter};
-use crate::networking::ResponseData;
+use crate::networking::{DEFAULT_CDN_SPECS_URL, ResponseData, config_specs_url};
 use crate::observability::ErrorBoundaryEvent;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
@@ -44,6 +44,7 @@ pub struct StatsigGrpcSpecsAdapter {
     ops_stats: Arc<OpsStatsForInstance>,
     // For fallback to poll job behavior
     http_specs_adapter: Arc<StatsigHttpSpecsAdapter>,
+    hydration_source_url: String,
     cancel_poll_notify: Arc<Notify>,
 }
 
@@ -178,9 +179,17 @@ impl StatsigGrpcSpecsAdapter {
         config: &SpecAdapterConfig,
         options: Option<&StatsigOptions>,
     ) -> Self {
-        let fallback_adapter = StatsigHttpSpecsAdapter::new(sdk_key, options, None);
+        let grpc_source_url = config.specs_url.clone().unwrap_or("INVALID".to_owned());
         let default_options = StatsigOptions::default();
         let options_ref = options.unwrap_or(&default_options);
+        let hydration_source_url = config_specs_url(
+            options_ref
+                .remote_config_value_source_url
+                .as_deref()
+                .or(options_ref.specs_url.as_deref())
+                .unwrap_or(DEFAULT_CDN_SPECS_URL),
+        );
+        let fallback_adapter = StatsigHttpSpecsAdapter::new(sdk_key, options, None);
         let sdk_instance_id = options_ref.get_sdk_instance_id(sdk_key);
         let (init_tx, _) = broadcast::channel(1);
         Self {
@@ -189,7 +198,7 @@ impl StatsigGrpcSpecsAdapter {
             task_handle_id: Mutex::new(None),
             grpc_client: StatsigGrpcClient::new(
                 sdk_key,
-                &config.specs_url.clone().unwrap_or("INVALID".to_owned()),
+                &grpc_source_url,
                 config.authentication_mode.clone(),
                 config.ca_cert_path.clone(),
                 config.client_cert_path.clone(),
@@ -205,6 +214,7 @@ impl StatsigGrpcSpecsAdapter {
             init_timeout: Duration::from_millis(config.init_timeout_ms),
             ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
             http_specs_adapter: Arc::new(fallback_adapter),
+            hydration_source_url,
             cancel_poll_notify: Arc::new(Notify::new()),
         }
     }
@@ -319,6 +329,15 @@ impl StatsigGrpcSpecsAdapter {
         loop {
             match stream.message().await {
                 Ok(Some(config_spec)) => {
+                    let data = match self.hydrate_spec_update(config_spec.spec).await {
+                        Ok(data) => data,
+                        Err(error) => {
+                            let _ = self.initialization_tx.send(Err(error.clone()));
+                            self.log_received_message();
+                            return Err(error);
+                        }
+                    };
+
                     self.cancel_poll_notify.notify_one();
                     if self.retry_state.is_retrying.load(Ordering::SeqCst) {
                         // Reset retry state
@@ -334,15 +353,10 @@ impl StatsigGrpcSpecsAdapter {
                             None,
                         ));
                     }
-                    let _ = self
-                        .initialization_tx
-                        .send(self.send_spec_update_to_listener(config_spec.spec));
-                    self.ops_stats.log(ObservabilityEvent::new_event(
-                        MetricType::Increment,
-                        "grpc_received_message".to_string(),
-                        1.0,
-                        None,
-                    ));
+
+                    let update_result = self.send_hydrated_spec_update_to_listener(data);
+                    let _ = self.initialization_tx.send(update_result);
+                    self.log_received_message();
                 }
                 err => {
                     return Err(StatsigErr::GrpcError(format!(
@@ -368,7 +382,15 @@ impl StatsigGrpcSpecsAdapter {
         }
     }
 
-    fn send_spec_update_to_listener(&self, data: String) -> Result<(), StatsigErr> {
+    async fn hydrate_spec_update(&self, data: String) -> Result<ResponseData, StatsigErr> {
+        let mut data = ResponseData::from_bytes(data.into_bytes());
+        self.http_specs_adapter
+            .hydrate_response_data(&mut data, &self.hydration_source_url)
+            .await?;
+        Ok(data)
+    }
+
+    fn send_hydrated_spec_update_to_listener(&self, data: ResponseData) -> Result<(), StatsigErr> {
         let listener = self
             .listener
             .try_read_for(std::time::Duration::from_secs(5))
@@ -378,7 +400,7 @@ impl StatsigGrpcSpecsAdapter {
 
         if let Some(listener) = listener.as_ref() {
             let update = SpecsUpdate {
-                data: ResponseData::from_bytes(data.into_bytes()),
+                data,
                 source: SpecsSource::Adapter("GRPC".to_string()),
                 received_at: Utc::now().timestamp_millis() as u64,
                 source_api: None,
@@ -389,6 +411,15 @@ impl StatsigGrpcSpecsAdapter {
         } else {
             Err(StatsigErr::UnstartedAdapter("Listener not set".to_string()))
         }
+    }
+
+    fn log_received_message(&self) {
+        self.ops_stats.log(ObservabilityEvent::new_event(
+            MetricType::Increment,
+            "grpc_received_message".to_string(),
+            1.0,
+            None,
+        ));
     }
 
     fn get_current_specs_info(&self) -> Option<SpecsInfo> {
@@ -424,5 +455,281 @@ impl StatsigGrpcSpecsAdapter {
             backoff,
             err
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use oai_statsig_grpc::mock_forward_proxy::{MockForwardProxy, api::ConfigSpecResponse};
+    use serde_json::json;
+    use sha2::{Digest, Sha256};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[derive(Default)]
+    struct RecordingListener {
+        received_update: AtomicBool,
+    }
+
+    impl SpecsUpdateListener for RecordingListener {
+        fn did_receive_specs_update(&self, _update: SpecsUpdate) -> Result<(), StatsigErr> {
+            self.received_update.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn get_current_specs_info(&self) -> SpecsInfo {
+            SpecsInfo::empty()
+        }
+    }
+
+    #[derive(Default)]
+    struct FailingListener {
+        received_updates: AtomicUsize,
+    }
+
+    impl SpecsUpdateListener for FailingListener {
+        fn did_receive_specs_update(&self, _update: SpecsUpdate) -> Result<(), StatsigErr> {
+            self.received_updates.fetch_add(1, Ordering::SeqCst);
+            Err(StatsigErr::CustomError(
+                "intentional listener failure".to_string(),
+            ))
+        }
+
+        fn get_current_specs_info(&self) -> SpecsInfo {
+            SpecsInfo::empty()
+        }
+    }
+
+    #[tokio::test]
+    async fn hydration_failure_returns_without_cancelling_polling() {
+        let mock_proxy = MockForwardProxy::spawn().await;
+        let config = grpc_config(format!("http://{}", mock_proxy.proxy_address));
+        let adapter = Arc::new(StatsigGrpcSpecsAdapter::new("secret-key", &config, None));
+        let listener = Arc::new(RecordingListener::default());
+        adapter.initialize(listener.clone());
+        mock_proxy
+            .send_stream_update(Ok(ConfigSpecResponse {
+                spec: r#"{"dynamic_configs":{"config":{"defaultValue":"https://statsigcdn.openai.com/v1/dynamic_config_value/not-a-sha","remoteConfigMetadata":{"sha256":"not-a-sha","byteLength":1,"contentType":"application/json","compression":"none"},"rules":[]}}}"#.to_string(),
+                last_updated: 123,
+                zstd_dict_id: None,
+            }))
+            .await;
+
+        let result = timeout(Duration::from_secs(2), adapter.handle_grpc_request_stream())
+            .await
+            .expect("hydration failure should return from the stream loop");
+
+        assert!(matches!(
+            result,
+            Err(StatsigErr::CustomError(message))
+                if message.starts_with("Dynamic config hydration failure: invalid_sha256:")
+        ));
+        assert!(!listener.received_update.load(Ordering::SeqCst));
+        assert!(
+            timeout(
+                Duration::from_millis(50),
+                adapter.cancel_poll_notify.notified()
+            )
+            .await
+            .is_err()
+        );
+
+        mock_proxy.stop().await;
+    }
+
+    #[tokio::test]
+    async fn listener_failure_without_remote_metadata_keeps_stream_open() {
+        let mock_proxy = MockForwardProxy::spawn().await;
+        let config = grpc_config(format!("http://{}", mock_proxy.proxy_address));
+        let adapter = Arc::new(StatsigGrpcSpecsAdapter::new("secret-key", &config, None));
+        let listener = Arc::new(FailingListener::default());
+        adapter.initialize(listener.clone());
+
+        for last_updated in [123, 124] {
+            mock_proxy
+                .send_stream_update(Ok(ConfigSpecResponse {
+                    spec: r#"{"dynamic_configs":{}}"#.to_string(),
+                    last_updated,
+                    zstd_dict_id: None,
+                }))
+                .await;
+        }
+
+        let stream_adapter = adapter.clone();
+        let stream_task =
+            tokio::spawn(async move { stream_adapter.handle_grpc_request_stream().await });
+        timeout(Duration::from_secs(2), async {
+            while listener.received_updates.load(Ordering::SeqCst) < 2 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("the stream should process a second update after a listener failure");
+        assert!(
+            !stream_task.is_finished(),
+            "an ordinary listener failure should not close the gRPC stream"
+        );
+
+        stream_task.abort();
+        let _ = stream_task.await;
+        mock_proxy.stop().await;
+    }
+
+    #[tokio::test]
+    async fn relative_remote_value_url_uses_http_specs_source() {
+        assert_hydrates_from_http_specs_source(false).await;
+    }
+
+    #[tokio::test]
+    async fn absolute_remote_value_url_uses_http_specs_source() {
+        assert_hydrates_from_http_specs_source(true).await;
+    }
+
+    #[tokio::test]
+    async fn configured_remote_value_source_overrides_http_specs_source() {
+        let grpc_source = MockForwardProxy::spawn().await;
+        let http_specs_source = MockServer::start().await;
+        let blob_source = MockServer::start().await;
+        let remote_value = br#"{"from":"configured-blob-source"}"#;
+        let sha = lowercase_hex(&Sha256::digest(remote_value));
+        let download_path = format!("/v1/dynamic_config_value/{sha}");
+
+        Mock::given(method("GET"))
+            .and(path(download_path.clone()))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "application/json")
+                    .set_body_bytes(remote_value),
+            )
+            .expect(1)
+            .mount(&blob_source)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(download_path.clone()))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(0)
+            .mount(&http_specs_source)
+            .await;
+
+        let config = grpc_config(format!("http://{}", grpc_source.proxy_address));
+        let options = StatsigOptions {
+            specs_url: Some(http_specs_source.uri()),
+            remote_config_value_source_url: Some(blob_source.uri()),
+            ..StatsigOptions::new()
+        };
+        let adapter = StatsigGrpcSpecsAdapter::new("secret-key", &config, Some(&options));
+        let listener = Arc::new(RecordingListener::default());
+        adapter.initialize(listener.clone());
+
+        let data = adapter
+            .hydrate_spec_update(
+                json!({
+                    "dynamic_configs": {
+                        "config": {
+                            "defaultValue": download_path,
+                            "remoteConfigMetadata": {
+                                "sha256": sha,
+                                "byteLength": remote_value.len(),
+                                "contentType": "application/json",
+                                "compression": "none"
+                            },
+                            "rules": []
+                        }
+                    }
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+        adapter.send_hydrated_spec_update_to_listener(data).unwrap();
+
+        assert!(listener.received_update.load(Ordering::SeqCst));
+        blob_source.verify().await;
+        http_specs_source.verify().await;
+        grpc_source.stop().await;
+    }
+
+    async fn assert_hydrates_from_http_specs_source(use_absolute_url: bool) {
+        let grpc_source = MockForwardProxy::spawn().await;
+        let http_source = MockServer::start().await;
+        let remote_value = br#"{"from":"http-source"}"#;
+        let sha = lowercase_hex(&Sha256::digest(remote_value));
+        let download_path = format!("/v1/dynamic_config_value/{sha}");
+        let placeholder = if use_absolute_url {
+            format!("{}{download_path}", http_source.uri())
+        } else {
+            download_path.clone()
+        };
+
+        Mock::given(method("GET"))
+            .and(path(download_path))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "application/json")
+                    .set_body_bytes(remote_value),
+            )
+            .expect(1)
+            .mount(&http_source)
+            .await;
+
+        let config = grpc_config(format!("http://{}", grpc_source.proxy_address));
+        let options = StatsigOptions {
+            specs_url: Some(http_source.uri()),
+            ..StatsigOptions::new()
+        };
+        let adapter = StatsigGrpcSpecsAdapter::new("secret-key", &config, Some(&options));
+        let listener = Arc::new(RecordingListener::default());
+        adapter.initialize(listener.clone());
+
+        let data = adapter
+            .hydrate_spec_update(
+                json!({
+                    "dynamic_configs": {
+                        "config": {
+                            "defaultValue": placeholder,
+                            "remoteConfigMetadata": {
+                                "sha256": sha,
+                                "byteLength": remote_value.len(),
+                                "contentType": "application/json",
+                                "compression": "none"
+                            },
+                            "rules": []
+                        }
+                    }
+                })
+                .to_string(),
+            )
+            .await
+            .unwrap();
+        adapter.send_hydrated_spec_update_to_listener(data).unwrap();
+
+        assert!(listener.received_update.load(Ordering::SeqCst));
+        http_source.verify().await;
+        grpc_source.stop().await;
+    }
+
+    fn grpc_config(specs_url: String) -> SpecAdapterConfig {
+        SpecAdapterConfig {
+            adapter_type: crate::SpecsAdapterType::NetworkGrpcWebsocket,
+            specs_url: Some(specs_url),
+            init_timeout_ms: 3_000,
+            authentication_mode: None,
+            ca_cert_path: None,
+            client_cert_path: None,
+            client_key_path: None,
+            domain_name: None,
+        }
+    }
+
+    fn lowercase_hex(bytes: &[u8]) -> String {
+        const HEX: &[u8; 16] = b"0123456789abcdef";
+        let mut result = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            result.push(HEX[(byte >> 4) as usize] as char);
+            result.push(HEX[(byte & 0x0f) as usize] as char);
+        }
+        result
     }
 }

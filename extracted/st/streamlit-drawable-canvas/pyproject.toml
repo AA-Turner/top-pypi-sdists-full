@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "streamlit-drawable-canvas"
-version = "0.10.0"
+version = "0.13.0"
 description = "A Streamlit custom component for a free drawing canvas using Fabric.js."
 readme = "README.md"
 license = "MIT"
@@ -29,7 +29,8 @@ Homepage = "https://github.com/andfanilo/streamlit-drawable-canvas"
 "Bug Tracker" = "https://github.com/andfanilo/streamlit-drawable-canvas/issues"
 
 [project.optional-dependencies]
-image = ["Pillow", "numpy"]
+# Intentionally empty; see CHANGELOG.md.
+image = []
 
 [dependency-groups]
 dev = [

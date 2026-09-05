@@ -94,27 +94,20 @@ impl<'a> StatsigUrl<'a> {
     }
 }
 
-fn append_sdk_key_json(url: &str, sdk_key: &str) -> String {
-    format!("{}/{sdk_key}.json", url.trim_end_matches('/'))
+pub(crate) fn config_specs_url(specs_url: &str) -> String {
+    specs_url.trim_end_matches('/').to_string()
 }
 
-pub(crate) fn config_specs_url(specs_url: &str, sdk_key: &str) -> String {
-    append_sdk_key_json(specs_url, sdk_key)
+pub(crate) fn default_cdn_id_lists_manifest_url() -> String {
+    DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX.to_string()
 }
 
-pub(crate) fn default_cdn_id_lists_manifest_url(sdk_key: &str) -> String {
-    append_sdk_key_json(DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX, sdk_key)
-}
-
-pub(crate) fn normalize_default_cdn_id_lists_manifest_url(
-    sdk_key: &str,
-    id_lists_url: Option<&str>,
-) -> String {
+pub(crate) fn normalize_default_cdn_id_lists_manifest_url(id_lists_url: Option<&str>) -> String {
     // Some SDK adapters pass the default CDN manifest prefix as id_lists_url.
-    // Append the SDK key before trying to fetch it as a CDN manifest.
+    // Normalize that SDK-owned default to the keyless route.
     match id_lists_url {
         Some(url) if !is_default_cdn_id_lists_manifest_url_prefix(url) => url.to_string(),
-        _ => default_cdn_id_lists_manifest_url(sdk_key),
+        _ => default_cdn_id_lists_manifest_url(),
     }
 }
 
@@ -387,8 +380,8 @@ mod tests {
             Some("https://statsigcdn.openai.com:443/v1/get_id_lists/"),
         ] {
             assert_eq!(
-                normalize_default_cdn_id_lists_manifest_url("secret-test", id_lists_url),
-                "https://statsigcdn.openai.com/v1/get_id_lists/secret-test.json",
+                normalize_default_cdn_id_lists_manifest_url(id_lists_url),
+                DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX,
                 "failed to normalize {id_lists_url:?}"
             );
         }
@@ -404,7 +397,7 @@ mod tests {
             "https://statsigcdn.openai.com:443@proxy.example/v1/get_id_lists",
         ] {
             assert_eq!(
-                normalize_default_cdn_id_lists_manifest_url("secret-test", Some(id_lists_url)),
+                normalize_default_cdn_id_lists_manifest_url(Some(id_lists_url)),
                 id_lists_url,
                 "unexpectedly rewrote {id_lists_url}"
             );
@@ -416,7 +409,7 @@ mod tests {
         let id_lists_url = "https://statsigcdn.openai.com/v1/get_id_lists?token=x";
 
         assert_eq!(
-            normalize_default_cdn_id_lists_manifest_url("secret-test", Some(id_lists_url)),
+            normalize_default_cdn_id_lists_manifest_url(Some(id_lists_url)),
             id_lists_url
         );
         assert!(is_default_cdn_id_lists_manifest_url(id_lists_url));
@@ -473,9 +466,27 @@ mod tests {
             "https://statsigcdn.openai.com/v2/download_config_specs/",
         ] {
             assert_eq!(
-                config_specs_url(specs_url, "secret-test"),
-                "https://statsigcdn.openai.com/v2/download_config_specs/secret-test.json"
+                config_specs_url(specs_url),
+                "https://statsigcdn.openai.com/v2/download_config_specs"
             );
         }
+    }
+
+    #[test]
+    fn test_sdk_owned_urls_are_keyless() {
+        assert_eq!(
+            config_specs_url("https://statsigcdn.openai.com/v2/download_config_specs/"),
+            "https://statsigcdn.openai.com/v2/download_config_specs"
+        );
+        assert_eq!(
+            default_cdn_id_lists_manifest_url(),
+            DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX
+        );
+        assert_eq!(
+            normalize_default_cdn_id_lists_manifest_url(Some(
+                "https://statsigcdn.openai.com/v1/get_id_lists/",
+            )),
+            DEFAULT_CDN_ID_LISTS_MANIFEST_URL_PREFIX
+        );
     }
 }

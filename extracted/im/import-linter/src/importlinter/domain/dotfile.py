@@ -1,4 +1,15 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+from enum import Enum
+
+
+class EdgeStyle(str, Enum):
+    SOLID = "solid"
+    DASHED = "dashed"
+
+
+class EdgeArrowhead(str, Enum):
+    NORMAL = "normal"
+    VEE = "vee"
 
 
 @dataclass(frozen=True, order=True)
@@ -6,7 +17,8 @@ class Edge:
     source: str
     destination: str
     label: str = ""
-    emphasized: bool = False
+    style: EdgeStyle = EdgeStyle.SOLID
+    arrowhead: EdgeArrowhead = EdgeArrowhead.NORMAL
 
     def __str__(self) -> str:
         return f'"{DotGraph.render_module(self.source)}" ->  "{DotGraph.render_module(self.destination)}"{self._render_attrs()}'
@@ -15,13 +27,21 @@ class Edge:
         attrs: dict[str, str] = {}
         if self.label:
             attrs["label"] = self.label
-        if self.emphasized:
-            attrs["style"] = "dashed"
+
+        if self.style != _EDGE_FIELDS["style"].default:
+            attrs["style"] = self.style.value
+
+        if self.arrowhead != _EDGE_FIELDS["arrowhead"].default:
+            attrs["arrowhead"] = self.arrowhead.value
+
         if attrs:
             joined_attrs = ", ".join([f'{key}="{value}"' for key, value in attrs.items()])
             return f" [{joined_attrs}]"
         else:
             return ""
+
+
+_EDGE_FIELDS = {f.name: f for f in fields(Edge)}
 
 
 @dataclass

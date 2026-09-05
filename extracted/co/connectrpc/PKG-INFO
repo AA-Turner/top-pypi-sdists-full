@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connectrpc
-Version: 0.12.0
+Version: 0.12.1
 Summary: Server and client runtime library for Connect RPC
 Keywords: connect,grpc,http,protobuf,rpc
 License-Expression: Apache-2.0

@@ -210,6 +210,40 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(config.get(("b",), "c"), "text")
             self.assertEqual(config.get(("b",), "e"), "foo")
 
+    def test_remap_categories_default(self):
+        opts = {"foo": 1, "bar": 2, "baz": 3}
+        config.set(("extractor",), "pixiv", opts)
+
+        config.remap_categories()
+
+        self.assertIs(config.get(("extractor",), "pixiv-novel"), opts)
+
+    def test_remap_categories_custom(self):
+        config.set(("extractor",), "config-map", (
+            ("pixiv", "nijie"),
+            ("pixiv", "hitomi"),
+        ))
+
+        opts = {"foo": 1, "bar": 2, "baz": 3}
+        config.set(("extractor",), "pixiv", opts)
+
+        config.remap_categories()
+
+        self.assertIs(config.get(("extractor",), "nijie"), opts)
+        self.assertIs(config.get(("extractor",), "hitomi"), opts)
+        self.assertFalse(config.get(("extractor",), "pixiv-novel"))
+
+    def test_remap_categories_update(self):
+        opts1 = {"foo": 1, "bar": 2, "baz": 3}
+        opts2 = {"foo": 123}
+        config.set(("extractor",), "pixiv", opts1)
+        config.set(("extractor",), "pixiv-novel", opts2)
+
+        config.remap_categories()
+
+        self.assertEqual(config.get(("extractor",), "pixiv-novel"), {
+            "foo": 123, "bar": 2, "baz": 3})
+
 
 class TestConfigFiles(unittest.TestCase):
 

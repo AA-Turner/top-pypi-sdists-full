@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elixcee
-Version: 1.0.0
+Version: 1.0.1
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Classifier: License :: OSI Approved :: MIT License
@@ -25,7 +25,7 @@ Run and test a practical subset of Excel VBA without Microsoft Excel. The core i
 Rust, with a Python API (PyO3), a standalone CLI, and an experimental
 `@elixcee/xlsx` JavaScript/WASM package.
 
-Current release: **1.0.0**.
+Current release: **1.0.1**.
 
 elixcee is intended for data-processing macros. It is not a replacement for the
 Excel desktop application: UI features such as charts, dialogs, and screen
@@ -82,6 +82,12 @@ print(vm.get_cell(1, 2))       # 20
 vm = elixcee.load_workbook("input.xlsx")
 vm.run(vba_code, "ProcessData")
 vm.save_workbook("output.xlsx")
+
+# Optional reader resource controls (the cancellation check is cooperative).
+cancel = elixcee.ReadCancellation()
+vm = elixcee.load_workbook(
+    "input.xlsx", max_work_units=100_000_000, timeout_ms=30_000, cancellation=cancel
+)
 ```
 
 The Python API also provides formula evaluation, ranges, sorting, merges,
@@ -99,6 +105,11 @@ Set `timeout_ms=N` to bound how long each `next()` waits for another row.
 `Vm(on_msgbox="skip")` is the default. Use `on_msgbox="error"` to make a
 `MsgBox` call raise an error. Set `Vm(timeout_ms=N)` or pass `timeout_ms=N`
 to `run_macro` to bound VBA execution time.
+
+The read-only CLI snapshot accepts `--max-work-units N`, `--timeout-ms N`, and
+`--cancel-file PATH`. Creating the cancel-file while a read is in progress
+requests a cooperative stop; a blocking filesystem read cannot be forcibly
+interrupted by this mechanism.
 Repeated runs of the same source on one `Vm` reuse its parsed AST.
 Use `vm.fork()` to create an isolated copy for batch execution.
 Use `vm.snapshot()` to obtain a detached read-only view of all sheets.
@@ -151,6 +162,9 @@ cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo audit --no-fetch
 cargo deny check --disable-fetch
+python3 scripts/check-reader-measurements.py docs/measurements/*.json
+python3 scripts/check-reader-measurements.py --self-test
+bash scripts/check-measurement-boundary.sh
 ```
 
 依存監査は、ネットワークアクセスを必要としないローカル検証として実行できます。

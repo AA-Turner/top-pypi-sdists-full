@@ -35,7 +35,7 @@ fn run_planned_v1_initialize_benchmark(label: &str, include_previous_response_ha
         serde_json::from_str(include_str!("data/perf_proj_dcs.json")).unwrap();
     let hashing = HashUtil::new();
     let plan = GcirEvaluationPlan::new(&specs, &hashing);
-    let user = StatsigUser::with_user_id("snapi-bench-user");
+    let user = StatsigUser::with_user_id("snapshot-bench-user");
     let user_internal = StatsigUserInternal::new(&user, None);
     let id_list_callback = |_: &str, _: &str| false;
     let options = ClientInitResponseOptions {
@@ -69,8 +69,7 @@ fn run_planned_v1_initialize_benchmark(label: &str, include_previous_response_ha
             None,
             None,
             false,
-            None,
-            true,
+            false,
         );
         let response = GCIRFormatter::generate_v1_format_with_plan(&mut ctx, &options, &plan)
             .expect("planned v1 format should generate");

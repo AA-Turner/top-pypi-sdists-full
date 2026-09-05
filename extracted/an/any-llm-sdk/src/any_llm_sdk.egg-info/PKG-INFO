@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.27.0
+Version: 1.27.1
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -11,7 +11,7 @@ License-File: LICENSE
 Requires-Dist: pydantic<3,>2
 Requires-Dist: openai>=2.18.0
 Requires-Dist: openresponses-types<3,>=2.4.0
-Requires-Dist: anthropic>=0.119.0
+Requires-Dist: anthropic<1,>=0.119.0
 Requires-Dist: rich
 Requires-Dist: httpx
 Requires-Dist: typing_extensions>=4.5.0
@@ -32,9 +32,9 @@ Provides-Extra: vertexai
 Requires-Dist: google-genai>=1.51.0; extra == "vertexai"
 Requires-Dist: google-cloud-storage; extra == "vertexai"
 Provides-Extra: vertexaianthropic
-Requires-Dist: anthropic[vertex]>=0.119.0; extra == "vertexaianthropic"
+Requires-Dist: anthropic[vertex]<1,>=0.119.0; extra == "vertexaianthropic"
 Provides-Extra: azureanthropic
-Requires-Dist: anthropic>=0.119.0; extra == "azureanthropic"
+Requires-Dist: anthropic<1,>=0.119.0; extra == "azureanthropic"
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub; extra == "huggingface"
 Provides-Extra: cohere

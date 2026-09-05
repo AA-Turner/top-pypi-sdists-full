@@ -9,7 +9,11 @@ pub mod data_store_bytes_adapter_tests {
     };
     use serde_json::json;
     use statsig_rust::{SpecAdapterConfig, SpecsAdapterType, SpecsSource, Statsig, StatsigOptions};
-    use std::{collections::HashMap, sync::Arc};
+    use std::{
+        collections::{HashMap, HashSet},
+        io::Read,
+        sync::Arc,
+    };
 
     const EVAL_PROJ_PROTO_BYTES: &[u8] = include_bytes!("data/eval_proj_dcs.pb.br");
     const BG_SYNC_INTERVAL_MS: u32 = 20;
@@ -61,6 +65,7 @@ pub mod data_store_bytes_adapter_tests {
             init_details.source,
             SpecsSource::Adapter("DataStore".to_string())
         );
+        assert_eq!(data_store.num_zstd_get_bytes_calls(), 0);
         assert_eq!(statsig.get_dynamic_config_list().len(), 9);
 
         assert_eventually!(
@@ -112,9 +117,68 @@ pub mod data_store_bytes_adapter_tests {
         );
     }
 
+    #[tokio::test]
+    async fn test_zstd_proto_data_store_initializes() {
+        let zstd_bytes = recompress_brotli_as_zstd(EVAL_PROJ_PROTO_BYTES);
+        let data_store = Arc::new(MockDataStore::with_zstd_proto_cache(&zstd_bytes));
+        let (_mock_scrapi, statsig) =
+            setup_statsig_with_data_store_http_and_zstd("secret-ds-zstd-proto", data_store.clone())
+                .await;
+
+        let init_details = statsig.initialize_with_details().await.unwrap();
+        assert!(init_details.init_success);
+        assert_eq!(
+            init_details.source,
+            SpecsSource::Adapter("DataStore".to_string())
+        );
+        assert!(data_store.num_zstd_get_bytes_calls() > 0);
+        assert_eq!(statsig.get_dynamic_config_list().len(), 9);
+    }
+
+    #[tokio::test]
+    async fn test_network_zstd_is_cached_under_zstd_key() {
+        let zstd_bytes = recompress_brotli_as_zstd(EVAL_PROJ_PROTO_BYTES);
+        let data_store = Arc::new(MockDataStore::new_with_byte_cache(false));
+        let (mock_scrapi, statsig) = setup_statsig_with_data_store_http_and_zstd(
+            "secret-ds-network-zstd",
+            data_store.clone(),
+        )
+        .await;
+
+        stub_dcs_with_zstd_proto(&mock_scrapi, &zstd_bytes).await;
+
+        let init_details = statsig.initialize_with_details().await.unwrap();
+        assert!(init_details.init_success);
+        assert_eq!(init_details.source, SpecsSource::Network);
+        assert_eventually!(
+            || data_store.stored_zstd_proto_bytes().as_deref() == Some(zstd_bytes.as_slice())
+        );
+        assert!(data_store.stored_proto_bytes().is_none());
+    }
+
     async fn setup_statsig_with_data_store_http(
         sdk_key: &str,
         data_store: Arc<MockDataStore>,
+    ) -> (MockScrapi, Statsig) {
+        setup_statsig_with_data_store_http_options(sdk_key, data_store, None).await
+    }
+
+    async fn setup_statsig_with_data_store_http_and_zstd(
+        sdk_key: &str,
+        data_store: Arc<MockDataStore>,
+    ) -> (MockScrapi, Statsig) {
+        setup_statsig_with_data_store_http_options(
+            sdk_key,
+            data_store,
+            Some(HashSet::from(["enable_dcs_zstd_datastore".to_string()])),
+        )
+        .await
+    }
+
+    async fn setup_statsig_with_data_store_http_options(
+        sdk_key: &str,
+        data_store: Arc<MockDataStore>,
+        experimental_flags: Option<HashSet<String>>,
     ) -> (MockScrapi, Statsig) {
         std::env::set_var("STATSIG_RUNNING_TESTS", "true");
 
@@ -147,6 +211,7 @@ pub mod data_store_bytes_adapter_tests {
                 },
             ]),
             log_event_url: Some(mock_scrapi.url_for_endpoint(Endpoint::LogEvent)),
+            experimental_flags,
             ..StatsigOptions::new()
         };
 
@@ -192,6 +257,26 @@ pub mod data_store_bytes_adapter_tests {
             .await;
     }
 
+    async fn stub_dcs_with_zstd_proto(mock_scrapi: &MockScrapi, data: &[u8]) {
+        mock_scrapi.clear_stubs().await;
+        stub_log_event(mock_scrapi).await;
+
+        mock_scrapi
+            .stub(EndpointStub {
+                method: Method::GET,
+                response: StubData::Bytes(data.to_vec()),
+                res_headers: Some(HashMap::from([
+                    (
+                        "Content-Type".to_string(),
+                        "application/octet-stream".to_string(),
+                    ),
+                    ("Content-Encoding".to_string(), "statsig-zstd".to_string()),
+                ])),
+                ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
+            })
+            .await;
+    }
+
     async fn stub_log_event(mock_scrapi: &MockScrapi) {
         mock_scrapi
             .stub(EndpointStub {
@@ -209,5 +294,13 @@ pub mod data_store_bytes_adapter_tests {
         dcs.insert("checksum".to_string(), json!(checksum));
         dcs.insert("dynamic_configs".to_string(), json!({}));
         serde_json::to_string(&dcs).unwrap()
+    }
+
+    fn recompress_brotli_as_zstd(brotli_bytes: &[u8]) -> Vec<u8> {
+        let mut decoded = Vec::new();
+        brotli::Decompressor::new(brotli_bytes, 4096)
+            .read_to_end(&mut decoded)
+            .unwrap();
+        zstd::stream::encode_all(decoded.as_slice(), 3).unwrap()
     }
 }

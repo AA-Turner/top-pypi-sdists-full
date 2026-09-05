@@ -219,19 +219,32 @@ _UPSERT_SQL = """
         -- it. A row with no stored `finished_at` yet (still running/pending)
         -- is unaffected — every first-time transition proceeds exactly as
         -- before.
+        --
+        -- #3083: every reference to a *stored* (pre-UPDATE) column below is
+        -- qualified `assignments.<col>`, never bare. Inside an `ON CONFLICT
+        -- ... DO UPDATE`, both the target table and the `excluded`
+        -- pseudo-table are in scope and `excluded` carries every column of
+        -- the target — so a bare `finished_at` on the right-hand side is
+        -- genuinely ambiguous. SQLite resolves it to the target row anyway;
+        -- Postgres refuses the whole statement with `AmbiguousColumn:
+        -- column reference "finished_at" is ambiguous` (352 test failures,
+        -- the second-largest signature in the Postgres lane). The SET
+        -- *targets* (left of each `=`) stay unqualified — that half is
+        -- unambiguous by construction and Postgres rejects a qualified one.
         status = CASE
-            WHEN finished_at IS NULL THEN excluded.status
+            WHEN assignments.finished_at IS NULL THEN excluded.status
             WHEN excluded.finished_at IS NOT NULL
-                 AND excluded.finished_at >= finished_at THEN excluded.status
-            ELSE status
+                 AND excluded.finished_at >= assignments.finished_at THEN excluded.status
+            ELSE assignments.status
         END,
         branch             = excluded.branch,
         pr_url             = excluded.pr_url,
         finished_at = CASE
-            WHEN finished_at IS NULL THEN excluded.finished_at
+            WHEN assignments.finished_at IS NULL THEN excluded.finished_at
             WHEN excluded.finished_at IS NOT NULL
-                 AND excluded.finished_at >= finished_at THEN excluded.finished_at
-            ELSE finished_at
+                 AND excluded.finished_at >= assignments.finished_at
+                 THEN excluded.finished_at
+            ELSE assignments.finished_at
         END,
         -- #1337: the unbounded free-text columns (smoke_test_reason,
         -- test_reason, briefing) are EXCLUDED from this whole-board upsert.
@@ -280,9 +293,10 @@ _UPSERT_SQL = """
         -- scoped single-row UPDATEs, not this whole-board upsert, so they are
         -- unaffected by this guard.
         review_state = CASE
-            WHEN review_state IS NOT NULL AND review_state != 'pending'
+            WHEN assignments.review_state IS NOT NULL
+                 AND assignments.review_state != 'pending'
                  AND (excluded.review_state IS NULL OR excluded.review_state = 'pending')
-            THEN review_state
+            THEN assignments.review_state
             ELSE excluded.review_state
         END,
         review_of_assignment_id = excluded.review_of_assignment_id,
@@ -294,24 +308,28 @@ _UPSERT_SQL = """
         files_forbidden    = excluded.files_forbidden,
         required_gates     = excluded.required_gates,
         review_iteration   = excluded.review_iteration,
-        review_posted_at   = COALESCE(excluded.review_posted_at, review_posted_at),
-        review_verdict     = COALESCE(excluded.review_verdict, review_verdict),
+        review_posted_at   = COALESCE(
+            excluded.review_posted_at, assignments.review_posted_at),
+        review_verdict     = COALESCE(excluded.review_verdict, assignments.review_verdict),
         -- #1456: once an override is recorded, preserve it.  A later upsert
         -- from a path that doesn't know about the override (agent reload, thin
         -- client round-trip) must never erase the reviewer's original verdict —
         -- that would restore exactly the silent-rewrite behaviour #1456 fixed.
         review_verdict_original = COALESCE(
-            excluded.review_verdict_original, review_verdict_original),
+            excluded.review_verdict_original, assignments.review_verdict_original),
         review_verdict_override_reason = COALESCE(
-            excluded.review_verdict_override_reason, review_verdict_override_reason),
+            excluded.review_verdict_override_reason,
+            assignments.review_verdict_override_reason),
         -- #821: once a review_head_sha is recorded, preserve it; a later
         -- upsert without the SHA (e.g. from an older code path) must not
         -- erase a captured value.
-        review_head_sha    = COALESCE(excluded.review_head_sha, review_head_sha),
+        review_head_sha    = COALESCE(
+            excluded.review_head_sha, assignments.review_head_sha),
         -- #1475: same COALESCE-preserve pattern as review_head_sha above —
         -- a later upsert without the patch-id (older code path, agent
         -- reload) must not erase a captured value.
-        review_patch_id    = COALESCE(excluded.review_patch_id, review_patch_id),
+        review_patch_id    = COALESCE(
+            excluded.review_patch_id, assignments.review_patch_id),
         -- #1476: scoped-re-review audit trail. review_scoped defaults to 0,
         -- not NULL, so plain COALESCE (which only fires on NULL) can't be
         -- used to "preserve once set" the way it is for the NULL-default
@@ -320,19 +338,21 @@ _UPSERT_SQL = """
         -- is marked scoped, a later upsert (older code path, agent reload)
         -- can never un-mark it. review_scope_base_sha IS NULL-default text,
         -- so it keeps the ordinary COALESCE-preserve pattern.
-        review_scoped      = CASE WHEN review_scoped = 1 THEN 1 ELSE excluded.review_scoped END,
-        review_scope_base_sha = COALESCE(excluded.review_scope_base_sha, review_scope_base_sha),
+        review_scoped      = CASE
+            WHEN assignments.review_scoped = 1 THEN 1 ELSE excluded.review_scoped END,
+        review_scope_base_sha = COALESCE(
+            excluded.review_scope_base_sha, assignments.review_scope_base_sha),
         -- #208: cost_usd is set once at completion.  COALESCE so a re-load
         -- of the same row from an agent that doesn't know the cost
         -- doesn't blow away a previously-captured value.
-        cost_usd           = COALESCE(excluded.cost_usd, cost_usd),
+        cost_usd           = COALESCE(excluded.cost_usd, assignments.cost_usd),
         -- #252: same pattern — once a worker has emitted a smoke-test
         -- list, a later upsert without one (e.g. agent reload) can't
         -- erase it.
-        smoke_tests        = COALESCE(excluded.smoke_tests, smoke_tests),
+        smoke_tests        = COALESCE(excluded.smoke_tests, assignments.smoke_tests),
         -- #324: once a provider_name is recorded at dispatch, a later
         -- upsert without one (e.g. agent reload) must not clear it.
-        provider_name      = COALESCE(excluded.provider_name, provider_name),
+        provider_name      = COALESCE(excluded.provider_name, assignments.provider_name),
         -- #1956: once verdict provenance is recorded (a single-row seam
         -- write — issue_store._persist_verdict_source, never this whole-
         -- board upsert itself), a later upsert from a path that doesn't
@@ -341,9 +361,83 @@ _UPSERT_SQL = """
         -- original/review_verdict_override_reason above, for the same
         -- reason: a provenance-bearing column is written once and audited,
         -- never silently reverted.
-        verdict_source        = COALESCE(excluded.verdict_source, verdict_source),
-        verdict_source_reason = COALESCE(excluded.verdict_source_reason, verdict_source_reason)
+        verdict_source        = COALESCE(
+            excluded.verdict_source, assignments.verdict_source),
+        verdict_source_reason = COALESCE(
+            excluded.verdict_source_reason, assignments.verdict_source_reason)
 """
+
+
+#: The dispatch upsert (#3083: hoisted out of
+#: :func:`_record_dispatched_assignment_local`'s inner ``_write()`` so
+#: ``tests/test_sql_dialect.py`` can assert on the statement text itself --
+#: this is the statement whose 21 parameters reached psycopg as 17
+#: placeholders, and the one whose ``DO UPDATE SET`` Postgres refused as
+#: ambiguous. A constant is testable; a literal three frames deep inside a
+#: closure is not.)
+_DISPATCHED_UPSERT_SQL = """INSERT INTO assignments (
+            assignment_id, machine_name, repo_name, repo_github,
+            issue_number, issue_title, status, type, briefing,
+            files_allowed, model, dispatched_at, review_of_assignment_id,
+            review_target, required_gates, review_iteration,
+            provider_name, branch, for_issue_number, driven_by,
+            dispatched_by_assignment_id
+        ) VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            -- #1553: a follow-up dispatched off another assignment (review,
+            -- smoke, [fix-N], retry, pr-helper) inherits that parent's
+            -- oracle-loop slice attribution when it didn't set one itself.
+            -- Without this, only the originating `test-author` row knows
+            -- which CHILD issue the work is for and every derived row falls
+            -- back to the milestone's tracking issue — which is exactly the
+            -- "child's Pipeline row shows no activity while 6 sessions run"
+            -- bug. Done as a correlated subquery rather than a Python lookup
+            -- so it costs no extra round trip and covers BOTH write paths
+            -- (the daemon's `/dispatched` handler calls this same function
+            -- server-side). NULL parent / no parent row / non-slice parent
+            -- all resolve to NULL, so ordinary work is untouched.
+            COALESCE(?, (
+                SELECT p.for_issue_number FROM assignments p
+                WHERE p.assignment_id = ?
+            )),
+            ?, ?)
+        ON CONFLICT(assignment_id) DO UPDATE SET
+            status = 'running',
+            machine_name = excluded.machine_name,
+            repo_github = excluded.repo_github,
+            type = excluded.type,
+            briefing = excluded.briefing,
+            model = excluded.model,
+            dispatched_at = excluded.dispatched_at,
+            review_of_assignment_id = excluded.review_of_assignment_id,
+            review_target = excluded.review_target,
+            required_gates = excluded.required_gates,
+            review_iteration = excluded.review_iteration,
+            -- #3083: the stored-value half of every COALESCE below is
+            -- qualified `assignments.<col>` -- see _UPSERT_SQL's matching
+            -- note. A bare column name inside `DO UPDATE SET` is ambiguous
+            -- between the target row and `excluded`; Postgres refuses the
+            -- statement, SQLite silently picks the target.
+            --
+            -- #324: COALESCE so a retry/re-dispatch doesn't clear a
+            -- previously-recorded provider_name from the original dispatch.
+            provider_name = COALESCE(excluded.provider_name, assignments.provider_name),
+            -- #557: COALESCE so a re-dispatch doesn't clear a branch that
+            -- finalize already wrote (mark_notified sets branch on completion).
+            branch = COALESCE(excluded.branch, assignments.branch),
+            -- #1084: COALESCE so a re-dispatch/reload doesn't clear the JIT
+            -- per-issue correlation already recorded for this assignment.
+            for_issue_number = COALESCE(
+                excluded.for_issue_number, assignments.for_issue_number),
+            -- #1499: COALESCE so a re-dispatch/reload doesn't clear the
+            -- drive provenance already recorded for this assignment.
+            driven_by = COALESCE(excluded.driven_by, assignments.driven_by),
+            -- #2417: COALESCE so a re-dispatch/reload doesn't clear the
+            -- calling-worker provenance already recorded for this
+            -- assignment.
+            dispatched_by_assignment_id = COALESCE(
+                excluded.dispatched_by_assignment_id,
+                assignments.dispatched_by_assignment_id
+            )"""
 
 
 # ── Session ───────────────────────────────────────────────────────────────────
@@ -1071,89 +1165,36 @@ def _record_dispatched_assignment_local(
     # as-is: `assignment_id` is the primary key and the `ON CONFLICT ...
     # DO UPDATE` makes a re-attempted write idempotent.
     def _write() -> None:
-        sql.execute(conn,
-            """INSERT INTO assignments (
-            assignment_id, machine_name, repo_name, repo_github,
-            issue_number, issue_title, status, type, briefing,
-            files_allowed, model, dispatched_at, review_of_assignment_id,
-            review_target, required_gates, review_iteration,
-            provider_name, branch, for_issue_number, driven_by,
-            dispatched_by_assignment_id
-        ) VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            -- #1553: a follow-up dispatched off another assignment (review,
-            -- smoke, [fix-N], retry, pr-helper) inherits that parent's
-            -- oracle-loop slice attribution when it didn't set one itself.
-            -- Without this, only the originating `test-author` row knows
-            -- which CHILD issue the work is for and every derived row falls
-            -- back to the milestone's tracking issue — which is exactly the
-            -- "child's Pipeline row shows no activity while 6 sessions run"
-            -- bug. Done as a correlated subquery rather than a Python lookup
-            -- so it costs no extra round trip and covers BOTH write paths
-            -- (the daemon's `/dispatched` handler calls this same function
-            -- server-side). NULL parent / no parent row / non-slice parent
-            -- all resolve to NULL, so ordinary work is untouched.
-            COALESCE(?, (
-                SELECT p.for_issue_number FROM assignments p
-                WHERE p.assignment_id = ?
-            )),
-            ?, ?)
-        ON CONFLICT(assignment_id) DO UPDATE SET
-            status = 'running',
-            machine_name = excluded.machine_name,
-            repo_github = excluded.repo_github,
-            type = excluded.type,
-            briefing = excluded.briefing,
-            model = excluded.model,
-            dispatched_at = excluded.dispatched_at,
-            review_of_assignment_id = excluded.review_of_assignment_id,
-            review_target = excluded.review_target,
-            required_gates = excluded.required_gates,
-            review_iteration = excluded.review_iteration,
-            -- #324: COALESCE so a retry/re-dispatch doesn't clear a
-            -- previously-recorded provider_name from the original dispatch.
-            provider_name = COALESCE(excluded.provider_name, provider_name),
-            -- #557: COALESCE so a re-dispatch doesn't clear a branch that
-            -- finalize already wrote (mark_notified sets branch on completion).
-            branch = COALESCE(excluded.branch, branch),
-            -- #1084: COALESCE so a re-dispatch/reload doesn't clear the JIT
-            -- per-issue correlation already recorded for this assignment.
-            for_issue_number = COALESCE(excluded.for_issue_number, for_issue_number),
-            -- #1499: COALESCE so a re-dispatch/reload doesn't clear the
-            -- drive provenance already recorded for this assignment.
-            driven_by = COALESCE(excluded.driven_by, driven_by),
-            -- #2417: COALESCE so a re-dispatch/reload doesn't clear the
-            -- calling-worker provenance already recorded for this
-            -- assignment.
-            dispatched_by_assignment_id = COALESCE(
-                excluded.dispatched_by_assignment_id, dispatched_by_assignment_id
-            )""",
-        (
-            assignment.assignment_id or "",
-            assignment.machine_name,
-            assignment.repo_name,
-            repo_github,
-            assignment.issue_number,
-            assignment.issue_title,
-            assignment.type,
-            assignment.briefing,
-            json.dumps(list(assignment.files_allowed)),
-            assignment.model,
-            assignment.dispatched_at or time.time(),
-            assignment.review_of_assignment_id,
-            assignment.review_target,
-            json.dumps(list(assignment.required_gates)),
-            assignment.review_iteration,
-            assignment.provider_name,
-            assignment.branch,
-            assignment.for_issue_number,
-            # #1553: parent id for the for_issue_number inheritance subquery
-            # above (same value already bound for the review_of_assignment_id
-            # column — bound twice because sqlite3 qmark params are
-            # positional).
-            assignment.review_of_assignment_id,
-            assignment.driven_by,
-            assignment.dispatched_by_assignment_id,
-        ),
+        sql.execute(
+            conn,
+            _DISPATCHED_UPSERT_SQL,
+            (
+                assignment.assignment_id or "",
+                assignment.machine_name,
+                assignment.repo_name,
+                repo_github,
+                assignment.issue_number,
+                assignment.issue_title,
+                assignment.type,
+                assignment.briefing,
+                json.dumps(list(assignment.files_allowed)),
+                assignment.model,
+                assignment.dispatched_at or time.time(),
+                assignment.review_of_assignment_id,
+                assignment.review_target,
+                json.dumps(list(assignment.required_gates)),
+                assignment.review_iteration,
+                assignment.provider_name,
+                assignment.branch,
+                assignment.for_issue_number,
+                # #1553: parent id for the for_issue_number inheritance subquery
+                # above (same value already bound for the review_of_assignment_id
+                # column — bound twice because sqlite3 qmark params are
+                # positional).
+                assignment.review_of_assignment_id,
+                assignment.driven_by,
+                assignment.dispatched_by_assignment_id,
+            ),
         )
         conn.commit()
 
@@ -2133,6 +2174,96 @@ def _mark_needs_attention_notified_local(assignment_id: str) -> None:
     _mark_notified_local(f"{assignment_id}:needs-attention", EVENT_NEEDS_ATTENTION)
 
 
+# ── Atomic review-dispatch claim (#3113) ─────────────────────────────────────
+
+
+def claim_review_dispatch(of_assignment_id: str) -> bool:
+    """Atomically claim the right to dispatch a review for *of_assignment_id*.
+
+    Returns ``True`` when THIS call wins the claim (no other in-flight claim
+    exists for the same completed work assignment), ``False`` when another
+    caller already holds it.
+
+    ``dispatch_review``'s previous dedupe (``coord.claim.has_active_followup``)
+    read an in-memory ``Board`` snapshot — two coordinator passes racing each
+    other each read "no review in flight" from their own stale snapshot and
+    both dispatched a metered review for the same completed assignment (the
+    vimcode#804 incident: two reviews 3 seconds apart, both to the same
+    machine, $4.41 combined, with the *loser's* blocking findings never
+    reaching the fix worker). This is the DB-level conditional insert that
+    closes the gap: a single ``INSERT ... OR IGNORE`` is atomic even across
+    two separate processes/machines, so exactly one caller ever sees
+    ``rowcount > 0`` for a given ``of_assignment_id``.
+
+    Routes to the daemon when ``board_service`` is configured (the claim
+    table lives on the shared canonical DB, same as ``assignments``), else
+    writes the local DB directly.
+
+    Released by :func:`release_review_dispatch_claim` — call sites are
+    ``dispatch_review`` itself (every deny path after a successful claim) and
+    ``coord.issue_store._update_local_state`` (the review assignment's own
+    terminal-status write), so a legitimate later re-review of the same work
+    assignment (the ``coord review <id>`` escape hatch) is never permanently
+    stranded by a claim nothing will ever release.
+    """
+    if not of_assignment_id:
+        return True
+    svc = _board_service()
+    resp = _route_write(svc, "/review-claim", {"of_assignment_id": of_assignment_id})
+    if resp is not None:
+        return bool(resp.get("claimed", False))
+    return _claim_review_dispatch_local(of_assignment_id)
+
+
+def _claim_review_dispatch_local(of_assignment_id: str) -> bool:
+    """Local-DB write for :func:`claim_review_dispatch`.
+
+    Called directly by the daemon endpoint so it never re-routes back over
+    HTTP — mirrors every other ``_*_local`` write in this module.
+    """
+    conn = get_connection()
+    cur = sql.insert_ignore(
+        conn, "review_claims", ["of_assignment_id", "claimed_at"],
+        (of_assignment_id, time.time()),
+    )
+    conn.commit()
+    return (cur.rowcount or 0) > 0
+
+
+def release_review_dispatch_claim(of_assignment_id: str) -> None:
+    """Release a claim taken by :func:`claim_review_dispatch`.
+
+    Idempotent — deleting an absent row is a no-op. Routes to the daemon
+    exactly like :func:`claim_review_dispatch` does: a thin client that
+    claimed via the ``/review-claim`` POST above must release through the
+    same seam, or the claim it took on the daemon's canonical DB would never
+    actually clear (a purely-local delete on the thin client would touch a
+    different, likely-empty, DB and silently no-op).
+    """
+    if not of_assignment_id:
+        return
+    svc = _board_service()
+    resp = _route_write(
+        svc, "/review-claim-release", {"of_assignment_id": of_assignment_id}
+    )
+    if resp is not None:
+        return
+    _release_review_dispatch_claim_local(of_assignment_id)
+
+
+def _release_review_dispatch_claim_local(of_assignment_id: str) -> None:
+    """Local-DB write for :func:`release_review_dispatch_claim`.
+
+    Called directly by the daemon endpoint so it never re-routes back over
+    HTTP, and by ``coord.issue_store._update_local_state`` (which always runs
+    against whatever DB is local to that process — the canonical one, when
+    that process is the daemon or a non-thin-client host).
+    """
+    conn = get_connection()
+    sql.execute(conn, "DELETE FROM review_claims WHERE of_assignment_id=?", (of_assignment_id,))
+    conn.commit()
+
+
 # ── Review-findings tracking ──────────────────────────────────────────────────
 
 def update_assignment_review_findings(
@@ -2383,6 +2514,54 @@ def reset_work_test_state(repo_name: str, issue_number: int) -> int:
     )
     conn.commit()
     return cur.rowcount
+
+
+def promote_advisory_with_commits(assignment_id: str) -> bool:
+    """#3099: undo the #1357 false-positive ``advisory`` downgrade for one row.
+
+    ``coord drive --accept-advisory`` already treats an ADVISORY row whose
+    branch demonstrably carries commits as a good ``done`` that got
+    mis-flagged (``coord.drive._decide_advisory``) — but the driver itself
+    never dispatches the Test/Review/Merge stages (``coord.smoke.
+    dispatch_pending_smoke`` / ``coord.review.dispatch_pending_reviews`` /
+    ``coord.merge_queue`` do), and every one of those gates on
+    ``status == 'done'`` alone. Left at ``status='advisory'`` forever, the
+    row livelocks: the driver prints "proceeding per --accept-advisory"
+    every poll and nothing downstream ever moves.
+
+    Flips ``status`` ``'advisory'`` → ``'done'`` and, if ``review_state``
+    was stamped ``'advisory'`` (``coord.reconcile``'s own #448 downgrade
+    write, made specifically to keep the review-dispatch loop from picking
+    up a genuinely empty branch), resets it to ``NULL`` — the same "make it
+    re-eligible" value :func:`reset_work_review_state` already uses —  so
+    ``dispatch_pending_reviews``'s ``review_state in (None, 'pending')``
+    gate re-admits the row once a Test verdict lands.
+
+    Scoped to a ``WHERE status='advisory'`` guard so calling this twice (or
+    racing another writer that already resolved the row a different way,
+    e.g. a human running ``coord retry``) is a no-op the second time rather
+    than clobbering a status this call didn't itself decide. Returns
+    whether a row was actually updated — callers use this to decide whether
+    their in-memory mirror of the row also needs the same two fields
+    updated.
+
+    Deliberately a plain local write, not routed through the daemon HTTP
+    seam like :func:`record_test_verdict` — mirrors
+    :func:`reset_work_review_state`, whose only callers (``coord diagnose``
+    here; ``coord.smoke.dispatch_pending_smoke`` for this function) already
+    run on the coordinator host with direct DB access, never from a thin
+    client.
+    """
+    conn = get_connection()
+    cur = sql.execute(
+        conn,
+        "UPDATE assignments SET status='done', review_state = CASE "
+        "WHEN review_state='advisory' THEN NULL ELSE review_state END "
+        "WHERE assignment_id=? AND status='advisory'",
+        (assignment_id,),
+    )
+    conn.commit()
+    return cur.rowcount > 0
 
 
 def clear_issue_context_by_source(
@@ -4246,9 +4425,34 @@ def _load_gate_a_approvals_raw(conn: sqlite3.Connection) -> list[dict]:
 # :mod:`coord.portal_store`, which calls the functions below the same way
 # :mod:`coord.gate_a` calls :func:`save_gate_a_approval` /
 # :func:`get_gate_a_approval` — this module only knows about plain dicts.
+#
+# #3110: a real customer (``SUB-1EA1D3``) was mailed 161 "shipped" emails
+# because TWO targets (``grocery-list ms-1`` and, wrongly, our own
+# ``coord-portal ms-4``) both carried a link to the same submission_id —
+# #2588's status fold ran once per link and alternated between two answers
+# every tick. Nothing here constrained that fan-in, the write that caused it
+# left no audit trail (the only forensic signal was ``actor=''``, i.e. "not
+# the interactive CLI" — consistent with a hand-run ``curl POST
+# /portal-link``), and clearing it required hand-editing
+# ``board_meta.portal_links`` with sqlite on the daemon host. ``_save_
+# portal_link_local``/``_delete_portal_link_local`` below now (1) refuse a
+# write that would let a submission_id fan out to a second target unless the
+# caller passes ``force=True`` (``coord portal link --force``), in which case
+# the OTHER target's claim is replaced rather than added to, and (2) audit
+# EVERY write/delete at the business tier, keyed off whatever the request
+# itself carries — including an empty ``actor`` — so a future incident's
+# forensic trail exists regardless of whether the caller went through the
+# CLI, a routed thin client, or a raw HTTP call. This is the one choke point
+# every path funnels through (a same-host CLI call reaches it directly; a
+# thin client's HTTP POST/DELETE reaches it via ``post_portal_link``/
+# ``delete_portal_link`` in ``coord/serve_app.py``), which is why the audit
+# call moved here instead of staying in ``coord.commands.portal``'s CLI
+# handler — `record_audit` itself never routes to the daemon (see
+# ``coord/audit.py``), so an audit call left in the CLI would have written
+# to a thin client's own empty local DB instead of the canonical one.
 
 
-def save_portal_link(record: dict) -> None:
+def save_portal_link(record: dict, *, force: bool = False) -> None:
     """Upsert one milestone's (or, since #2665, one issue's) portal
     ``submission_id`` link — routes to the daemon when set (#2751).
 
@@ -4257,12 +4461,21 @@ def save_portal_link(record: dict) -> None:
     that pair is replaced wholesale — relinking is a plain overwrite,
     matching :func:`save_gate_a_approval`'s semantics for the same reason
     (exactly one live link per milestone/issue).
+
+    ``force`` (#3110): pass ``True`` to move a submission_id that is already
+    linked to a DIFFERENT target onto this one instead of refusing — see
+    :func:`_save_portal_link_local` for the fan-in guard this overrides.
+    Omitted from the routed payload when ``False`` so an already-daemon-side
+    caller's request body is unchanged from before #3110.
     """
     svc = _board_service()
-    resp = _route_write(svc, "/portal-link", {"record": record})
+    payload: dict = {"record": record}
+    if force:
+        payload["force"] = True
+    resp = _route_write(svc, "/portal-link", payload)
     if resp is not None:
         return
-    _save_portal_link_local(record)
+    _save_portal_link_local(record, force=force)
 
 
 def _link_target_key(link: dict) -> tuple:
@@ -4277,7 +4490,18 @@ def _link_target_key(link: dict) -> tuple:
     return ("issue", link.get("repo_name"), _as_int(link.get("issue_number")))
 
 
-def _save_portal_link_local(record: dict) -> None:
+def _link_target_desc(link: dict) -> str:
+    """``"ms-3"`` / ``"issue #42"`` for a raw link dict — the plain-dict
+    counterpart to :attr:`coord.portal_store.PortalLink.target_desc`, needed
+    here because this module only ever holds link state as dicts (#3110's
+    conflict/audit messages)."""
+    milestone_number = link.get("milestone_number")
+    if milestone_number is not None:
+        return f"ms-{milestone_number}"
+    return f"issue #{link.get('issue_number')}"
+
+
+def _save_portal_link_local(record: dict, *, force: bool = False) -> None:
     repo_name = record.get("repo_name")
     if not isinstance(repo_name, str) or not repo_name:
         raise ValueError("portal link needs repo_name")
@@ -4289,6 +4513,9 @@ def _save_portal_link_local(record: dict) -> None:
         raise ValueError(
             "portal link needs exactly one of milestone_number or issue_number"
         )
+    submission_id = record.get("submission_id")
+    if not isinstance(submission_id, str) or not submission_id:
+        raise ValueError("portal link needs a submission_id")
     record = {
         **record,
         "milestone_number": int(milestone_number) if has_milestone else None,
@@ -4299,7 +4526,33 @@ def _save_portal_link_local(record: dict) -> None:
     with conn:
         links = _load_portal_links_raw(conn)
         key = _link_target_key(record)
-        remaining = [link for link in links if _link_target_key(link) != key]
+        # #3110: refuse a write that would let SUBMISSION_ID fan out to a
+        # SECOND target — the exact condition that made #2588's status fold
+        # alternate every tick and mailed a real customer 161 times. `force`
+        # is the escape hatch (`coord portal link --force`) for a genuine
+        # relink (e.g. a decomposition re-filed under a new issue number);
+        # it REPLACES the other target's claim rather than adding to it, so
+        # forcing can never itself recreate the fan-in condition.
+        conflicting = [
+            link
+            for link in links
+            if link.get("submission_id") == submission_id
+            and _link_target_key(link) != key
+        ]
+        if conflicting and not force:
+            other = conflicting[0]
+            raise ValueError(
+                f"submission {submission_id!r} is already linked to "
+                f"{other.get('repo_name')} {_link_target_desc(other)} — pass "
+                "force=True (`coord portal link --force`) to move it here "
+                "instead (#3110: a submission_id may map to at most one "
+                "target)"
+            )
+        remaining = [
+            link
+            for link in links
+            if _link_target_key(link) != key and link not in conflicting
+        ]
         remaining.append(record)
         sql.upsert(
             conn,
@@ -4308,6 +4561,37 @@ def _save_portal_link_local(record: dict) -> None:
             ("portal_links", json.dumps(remaining)),
             conflict_columns=["key"],
         )
+
+    # #3110: audit EVERY write here — the one choke point every path funnels
+    # through (see the section docstring above) — rather than in the CLI,
+    # which never routed anywhere useful to begin with (`record_audit`
+    # writes to whatever DB is local to the calling process, not the
+    # daemon's canonical one) and was silent for any non-CLI caller, which
+    # is how a hand-run `curl POST /portal-link` was the leading suspect for
+    # the bogus link with no way to confirm it.
+    _record_audit(
+        tier="business",
+        category="portal",
+        event_type="portal_link",
+        actor=str(record.get("actor") or ""),
+        repo=repo_name,
+        summary=(
+            f"linked {repo_name} {_link_target_desc(record)} to portal "
+            f"submission {submission_id}"
+        ),
+        details={
+            "milestone_number": record["milestone_number"],
+            "issue_number": record["issue_number"],
+            "submission_id": submission_id,
+            "force": force,
+            "replaced": [
+                {"repo_name": c.get("repo_name"), "target": _link_target_desc(c)}
+                for c in conflicting
+            ]
+            if force and conflicting
+            else [],
+        },
+    )
 
 
 def list_portal_links() -> list[dict]:
@@ -4378,6 +4662,116 @@ def _load_portal_links_raw(conn: sqlite3.Connection) -> list[dict]:
     if not isinstance(data, list):
         return []
     return [d for d in data if isinstance(d, dict)]
+
+
+def delete_portal_link(
+    *,
+    repo_name: str,
+    milestone_number: int | None = None,
+    issue_number: int | None = None,
+    actor: str = "",
+) -> bool:
+    """Remove one milestone's or one issue's portal link (#3110) — the
+    supported way to clear a bad or stale link.
+
+    Before this existed, clearing a link that was actively mailing a
+    customer (#3110's incident: two targets carrying the same submission_id,
+    161 duplicate "shipped" emails) meant hand-editing
+    ``board_meta.portal_links`` with sqlite on the daemon host. ``coord
+    portal unlink`` is the CLI surface for this.
+
+    Pass exactly one of ``milestone_number`` / ``issue_number``, same
+    contract as :func:`get_portal_link`. Routes to the daemon when
+    ``board_service`` is set, mirroring :func:`save_portal_link` — an
+    operator clearing an active flood needs this to work from wherever they
+    are, not just the daemon host, and unlike the read-side fetch this is
+    deliberately NOT fail-soft on a routing failure (see
+    :func:`coord.client.delete_portal_link`): "couldn't ask" must not
+    collapse to "cleared" for a destructive, customer-safety-critical write.
+
+    Returns ``True`` if a link was removed, ``False`` if there was nothing
+    to remove.
+    """
+    if (milestone_number is None) == (issue_number is None):
+        raise ValueError(
+            "delete_portal_link needs exactly one of milestone_number or "
+            "issue_number"
+        )
+    svc = _board_service()
+    if svc is not None:
+        from coord.client import delete_portal_link as _delete_portal_link_remote  # noqa: PLC0415
+
+        return _delete_portal_link_remote(
+            svc,
+            repo_name,
+            milestone_number=milestone_number,
+            issue_number=issue_number,
+            actor=actor,
+        )
+    return _delete_portal_link_local(
+        repo_name=repo_name,
+        milestone_number=milestone_number,
+        issue_number=issue_number,
+        actor=actor,
+    )
+
+
+def _delete_portal_link_local(
+    *,
+    repo_name: str,
+    milestone_number: int | None,
+    issue_number: int | None,
+    actor: str = "",
+) -> bool:
+    """Local-DB-only delete — the daemon's own writer, mirroring
+    :func:`_save_portal_link_local`. Called directly by a same-host CLI
+    invocation and by ``coord.serve_app``'s ``DELETE /portal-link`` handler
+    for a routed one — the single choke point both paths funnel through, so
+    the audit call below fires exactly once per delete regardless of caller.
+    """
+    if (milestone_number is None) == (issue_number is None):
+        raise ValueError(
+            "delete_portal_link needs exactly one of milestone_number or "
+            "issue_number"
+        )
+    key = (
+        ("ms", repo_name, milestone_number)
+        if milestone_number is not None
+        else ("issue", repo_name, issue_number)
+    )
+    conn = get_connection()
+    with conn:
+        links = _load_portal_links_raw(conn)
+        removed = [link for link in links if _link_target_key(link) == key]
+        if not removed:
+            return False
+        remaining = [link for link in links if _link_target_key(link) != key]
+        sql.upsert(
+            conn,
+            "board_meta",
+            ["key", "value"],
+            ("portal_links", json.dumps(remaining)),
+            conflict_columns=["key"],
+        )
+
+    removed_link = removed[0]
+    _record_audit(
+        tier="business",
+        category="portal",
+        event_type="portal_unlink",
+        actor=str(actor or ""),
+        repo=repo_name,
+        summary=(
+            f"unlinked {repo_name} {_link_target_desc(removed_link)} "
+            f"(was submission {removed_link.get('submission_id')})"
+        ),
+        details={
+            "milestone_number": milestone_number,
+            "issue_number": issue_number,
+            "submission_id": removed_link.get("submission_id"),
+        },
+    )
+    return True
 
 
 def delete_milestone_gate(*, repo_name: str, tracking_issue: int) -> None:
@@ -6045,6 +6439,17 @@ def _list_issue_numbers_with_assignments_local(repo_name: str) -> set[int]:
 ISSUE_CONTEXT_MAX_ENTRIES = 12
 ISSUE_CONTEXT_MAX_CHARS = 2500
 
+# #3113: `source="review"` entries are exempt from the char cap below (a
+# reviewer's full `## Blocking findings` section must never be truncated
+# mid-word — that's the whole point of the exemption). Left fully open-ended,
+# that combines with `ISSUE_CONTEXT_MAX_ENTRIES` to allow up to 12 uncapped
+# multi-KB review sections in one briefing on a heavily-iterated issue. Cap
+# how many *review* entries get the uncapped treatment — the newest ones,
+# since those are the ones a fix worker is actually iterating against right
+# now; anything older falls back into the normal char-capped/droppable pool
+# alongside every other note source.
+ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES = 4
+
 
 def add_issue_context_entry(
     repo_name: str,
@@ -7109,6 +7514,29 @@ def render_issue_context_entries(
     non-pinned notes newest-first, total capped at *max_entries* and the whole
     block char-capped.  Returns "" when there are no entries (caller omits the
     section).  Shared by the briefing read-path and ``coord context show``.
+
+    #3113: the char cap used to slice the joined block at a raw character
+    offset, which cuts clean through whichever entry straddles the cutoff —
+    including a ``source="review"`` entry, which carries a reviewer's
+    ``## Blocking findings`` section verbatim (#2466) and is the fix worker's
+    one authoritative record of what to fix. Two reviews racing for the same
+    work assignment (#3113's root cause) each add their own ``source="review"``
+    entry, and two full blocking sections routinely exceed this cap on their
+    own — the old behavior silently truncated one mid-word. Entries whose
+    ``source`` is ``"review"`` are therefore exempt from the char cap: they
+    always render in full; only non-review lines are eligible to be dropped
+    (oldest-selected-first) to bring the rest of the block back toward
+    *max_chars*. Order is otherwise unchanged from before this exemption
+    existed (pinned first, then notes newest-first) whenever no truncation is
+    needed at all — the overwhelmingly common case. When truncation DOES
+    trigger, the rebuilt block instead orders as protected-review-lines then
+    kept-other-lines, which can differ from the untruncated ordering above.
+
+    Only the newest ``ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES`` review
+    entries get this uncapped treatment — otherwise a heavily-iterated issue
+    could accumulate up to *max_entries* uncapped multi-KB review sections in
+    every future briefing. Older review entries beyond that fall back into
+    the normal char-capped/droppable pool alongside every other source.
     """
     if not entries:
         return ""
@@ -7127,17 +7555,56 @@ def render_issue_context_entries(
         src = f"  _[{e['source']}]_" if e.get("source") else ""
         return f"- {tag}{(e.get('body') or '').strip()}{src}"
 
-    lines = [_fmt(e) for e in pinned] + [_fmt(e) for e in notes[:note_slots]]
-    dropped = len(notes) - note_slots
-    if dropped > 0:
-        lines.append(f"- _… {dropped} older note(s) trimmed — `coord context show` for all_")
+    # (entry, formatted line), in display order — pinned first, then the
+    # newest notes up to the max_entries budget.
+    selected = [(e, _fmt(e)) for e in pinned] + [(e, _fmt(e)) for e in notes[:note_slots]]
+    entries_dropped = max(0, len(notes) - note_slots)
+
+    lines = [line for _, line in selected]
     block = "\n".join(lines)
-    if len(block) > max_chars:
-        block = (
-            block[:max_chars].rstrip()
-            + "\n- _… (truncated — `coord context show` for full context)_"
+    if entries_dropped > 0:
+        marker = f"- _… {entries_dropped} older note(s) trimmed — `coord context show` for all_"
+        block = f"{block}\n{marker}" if block else marker
+
+    if len(block) <= max_chars:
+        return block
+
+    # Char-cap truncation is needed. Split into review-sourced (protected,
+    # always kept whole) vs everything else (eligible to be trimmed). Only
+    # the newest ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES review entries are
+    # protected — older ones fall back into the trimmable pool so a
+    # heavily-iterated issue can't accumulate unbounded uncapped review text
+    # (see the docstring above).
+    review_entries_newest_first = sorted(
+        (e for e, _ in selected if e.get("source") == "review"),
+        key=lambda e: e.get("created_at") or 0,
+        reverse=True,
+    )
+    protected_ids = {
+        id(e)
+        for e in review_entries_newest_first[:ISSUE_CONTEXT_MAX_UNCAPPED_REVIEW_ENTRIES]
+    }
+    review_lines = [line for e, line in selected if id(e) in protected_ids]
+    other_lines = [line for e, line in selected if id(e) not in protected_ids]
+    review_len = sum(len(x) + 1 for x in review_lines)  # +1 per joining newline
+    budget = max(0, max_chars - review_len)
+
+    kept_other: list[str] = []
+    used = 0
+    for line in other_lines:
+        needed = len(line) + 1
+        if used + needed > budget:
+            break
+        kept_other.append(line)
+        used += needed
+
+    total_dropped = entries_dropped + (len(other_lines) - len(kept_other))
+    final_lines = review_lines + kept_other
+    if total_dropped > 0:
+        final_lines.append(
+            f"- _… {total_dropped} older note(s) trimmed — `coord context show` for all_"
         )
-    return block
+    return "\n".join(final_lines)
 
 
 def render_issue_context(

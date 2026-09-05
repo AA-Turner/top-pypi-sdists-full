@@ -67,10 +67,10 @@ class ProjectEvent:
         self.branch = branch
         self.event = event_name(name, project, branch)
 
-    def publish(self, payload=None, ignore_errors=True):
+    def publish(self, payload=None, ignore_errors=False):
         return ArgoEvent(self.event).publish(payload=payload, ignore_errors=ignore_errors)
 
-    def safe_publish(self, payload=None, ignore_errors=True):
+    def safe_publish(self, payload=None, ignore_errors=False):
         return ArgoEvent(self.event).safe_publish(payload=payload, ignore_errors=ignore_errors)
 
 

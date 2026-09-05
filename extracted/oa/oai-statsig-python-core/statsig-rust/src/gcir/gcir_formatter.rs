@@ -24,7 +24,10 @@ use crate::{
 };
 
 use crate::{
-    StatsigUser, evaluation::dynamic_string::DynamicString, hashing, user::StatsigUserInternal,
+    StatsigUser,
+    evaluation::{dynamic_string::DynamicString, dynamic_value::DynamicValue},
+    hashing,
+    user::StatsigUserInternal,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -158,6 +161,7 @@ impl GCIRFormatter {
                 hash_used: options.get_hash_algorithm().to_string(),
                 user: context.user.to_loggable(),
                 sdk_params: HashMap::new(),
+                sdk_configs: get_client_sdk_configs(context),
                 evaluated_keys,
                 sdk_info: get_sdk_info(),
                 param_stores,
@@ -214,6 +218,7 @@ impl GCIRFormatter {
             user: context.user.to_loggable(),
             pa_hash: context.user.get_hashed_private_attributes(),
             sdk_params: HashMap::new(),
+            sdk_configs: get_client_sdk_configs(context),
             evaluated_keys,
             sdk_info: get_sdk_info(),
             param_stores,
@@ -290,6 +295,21 @@ impl GCIRFormatter {
             response_format: "init-v2".to_string(),
         })
     }
+}
+
+fn get_client_sdk_configs(context: &EvaluatorContext) -> Option<HashMap<String, DynamicValue>> {
+    context
+        .specs_data
+        .sdk_configs
+        .as_ref()?
+        .get("live_values_auto_refresh_interval_seconds")
+        .cloned()
+        .map(|value| {
+            HashMap::from([(
+                "live_values_auto_refresh_interval_seconds".to_string(),
+                value,
+            )])
+        })
 }
 
 fn intern_response_keys<T>(map: HashMap<String, T>) -> HashMap<InternedString, T> {
@@ -592,8 +612,7 @@ mod tests {
             app_id,
             None,
             false,
-            None,
-            true,
+            false,
         );
         let unplanned = GCIRFormatter::generate_v1_format(&mut unplanned_context, options).unwrap();
 
@@ -605,8 +624,7 @@ mod tests {
             app_id,
             None,
             false,
-            None,
-            true,
+            false,
         );
         let planned =
             GCIRFormatter::generate_v1_format_with_plan(&mut planned_context, options, &plan)
@@ -659,8 +677,7 @@ mod tests {
             None,
             None,
             false,
-            None,
-            true,
+            false,
         );
         let options = ClientInitResponseOptions {
             previous_response_hash: Some("stale-checksum".to_string()),
@@ -669,6 +686,67 @@ mod tests {
 
         serde_json::to_value(GCIRFormatter::generate_v1_format(&mut context, &options).unwrap())
             .unwrap()
+    }
+
+    #[test]
+    fn v1_format_includes_sdk_configs() {
+        let (unplanned, planned) = planned_and_unplanned_response_values_with_specs(
+            &ClientInitResponseOptions::default(),
+            None,
+            |specs| {
+                specs.sdk_configs = Some(HashMap::from([
+                    (
+                        "live_values_auto_refresh_interval_seconds".to_string(),
+                        DynamicValue::from(60),
+                    ),
+                    ("event_queue_size".to_string(), DynamicValue::from(2000)),
+                ]));
+            },
+        );
+
+        assert_eq!(
+            unplanned["sdk_configs"],
+            serde_json::json!({ "live_values_auto_refresh_interval_seconds": 60 })
+        );
+        assert_eq!(planned["sdk_configs"], unplanned["sdk_configs"]);
+    }
+
+    #[test]
+    fn v2_format_includes_sdk_configs() {
+        let mut specs: SpecsResponseFull = serde_json::from_str(DCS_STR).unwrap();
+        specs.sdk_configs = Some(HashMap::from([
+            (
+                "live_values_auto_refresh_interval_seconds".to_string(),
+                DynamicValue::from(60),
+            ),
+            ("event_queue_size".to_string(), DynamicValue::from(2000)),
+        ]));
+
+        let hashing = HashUtil::new();
+        let user = StatsigUser::with_user_id("user-in-test");
+        let user_internal = StatsigUserInternal::new(&user, None);
+        let id_list_callback = |_: &str, _: &str| false;
+        let mut context = EvaluatorContext::new(
+            &user_internal,
+            &specs,
+            IdListResolution::Callback(&id_list_callback),
+            &hashing,
+            None,
+            None,
+            false,
+            false,
+        );
+
+        let response = serde_json::to_value(
+            GCIRFormatter::generate_v2_format(&mut context, &ClientInitResponseOptions::default())
+                .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            response["sdk_configs"],
+            serde_json::json!({ "live_values_auto_refresh_interval_seconds": 60 })
+        );
     }
 
     #[test]

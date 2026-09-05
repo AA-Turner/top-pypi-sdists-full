@@ -21,6 +21,7 @@ from djlint.const import (
     TEMPLATE_TAGS_WITH_QUOTED_CONDITIONS,
 )
 from djlint.formatter.attributes import format_attributes
+from djlint.formatter.class_attributes import VERBATIM_ATTRIBUTE_NEWLINE
 from djlint.formatter.tokenizer import tokenize_tags
 from djlint.helpers import (
     RE_FLAGS_IMSX,
@@ -67,8 +68,12 @@ _TAG_SPACING_PATTERN: Final = re.compile(
 _INTERPOLATION_SPACING_PATTERN: Final = re.compile(
     r"({{)[ ]*?(\w(?:(?!}}).)*?)[ ]*?(\+?-?}})", cache_pattern=False
 )
+# Indentation after a preserved attribute line break is the author's layout,
+# not padding inside the tag, so it is held whole rather than collapsed.
 _EXTRA_TAG_WHITESPACE_PATTERN: Final = re.compile(
-    r"(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')|[ \t]{2,}", cache_pattern=False
+    r"(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'"
+    rf"|{re.escape(VERBATIM_ATTRIBUTE_NEWLINE)}[ \t]*)|[ \t]{{2,}}",
+    cache_pattern=False,
 )
 _HANDLEBARS_BLOCK_END_PATTERN: Final = re.compile(
     r"({{#(?:each|if)(?:(?!}}).)+?[^ ])(}})", cache_pattern=False
@@ -101,6 +106,12 @@ _MULTILINE_TAG_CLOSE_PATTERN: Final = re.compile(
 )
 _LEADING_CLOSE_BRACKET_PATTERN: Final = re.compile(
     r"[ ]*[)\]}]", cache_pattern=False
+)
+_MULTILINE_TAG_OPEN_PAREN_PATTERN: Final = re.compile(
+    r"\((?=[^()]*$)", cache_pattern=False
+)
+_MULTILINE_TAG_CLOSE_PAREN_PATTERN: Final = re.compile(
+    r"^[ ]*\)", cache_pattern=False
 )
 _TEXTAREA_CLOSE_PATTERN: Final = re.compile(
     r"^\s*</textarea\b", RE_FLAGS_IX, cache_pattern=False
@@ -584,6 +595,7 @@ def indent_html(rawcode: str, config: Config) -> str:
         html_dedent = 0
         indented_closes = 0
         closes_nothing_indented = False
+        closed_a_template_block = False
 
         if not is_block_raw and is_ignored_block_opening_:
             is_raw_first_line = True
@@ -695,7 +707,10 @@ def indent_html(rawcode: str, config: Config) -> str:
         elif (
             not is_block_raw
             and in_multiline_tag
-            and _SET_CLOSING_BRACE_PATTERN.search(item)
+            and (
+                _SET_CLOSING_BRACE_PATTERN.search(item)
+                or _MULTILINE_TAG_CLOSE_PAREN_PATTERN.search(item)
+            )
         ):
             indent_level = max(indent_level - 1, 0)
             tmp = (indent * indent_level) + formatted_item(item) + "\n"
@@ -703,7 +718,10 @@ def indent_html(rawcode: str, config: Config) -> str:
         elif (
             not is_block_raw
             and in_multiline_tag
-            and _SET_OPENING_BRACE_PATTERN.search(item)
+            and (
+                _SET_OPENING_BRACE_PATTERN.search(item)
+                or _MULTILINE_TAG_OPEN_PAREN_PATTERN.search(item)
+            )
         ):
             tmp = (indent * indent_level) + formatted_item(item) + "\n"
             indent_level += 1
@@ -730,6 +748,7 @@ def indent_html(rawcode: str, config: Config) -> str:
                 saved_level, branch_delta, consistent = (
                     template_block_stack.pop()
                 )
+                closed_a_template_block = True
                 delta = indent_level - saved_level - 1
                 target = (
                     saved_level + delta
@@ -868,7 +887,7 @@ def indent_html(rawcode: str, config: Config) -> str:
                     and not stripped_item.startswith("</")
                 )
             )
-            if already_given_back:
+            if already_given_back and not closed_a_template_block:
                 html_dedent = 0
             elif took_no_level_of_its_own:
                 html_dedent = min(html_dedent, indented_closes)
@@ -1043,7 +1062,11 @@ def indent_html(rawcode: str, config: Config) -> str:
         separator = (
             " " if close_bracket.lstrip("-+").startswith("}}") else match["gap"]
         )
-        return f"{leading_space}{open_bracket} {tag}({contents}){index}{separator}{close_bracket}"
+        closing_space = leading_space if contents.endswith("\n") else ""
+        return (
+            f"{leading_space}{open_bracket} {tag}({contents}{closing_space})"
+            f"{index}{separator}{close_bracket}"
+        )
 
     if not config.no_set_formatting:
         beautified_code = _SET_CONTENT_PATTERN.sub(

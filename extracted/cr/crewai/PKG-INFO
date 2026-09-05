@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: crewai
-Version: 1.15.18
+Version: 1.15.20
 Summary: Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com
@@ -13,8 +13,8 @@ Requires-Dist: appdirs~=1.4.4
 Requires-Dist: cel-python<0.6,>=0.5.0
 Requires-Dist: chromadb~=1.1.0
 Requires-Dist: click<9,>=8.1.7
-Requires-Dist: crewai-cli==1.15.18
-Requires-Dist: crewai-core==1.15.18
+Requires-Dist: crewai-cli==1.15.20
+Requires-Dist: crewai-core==1.15.20
 Requires-Dist: httpx~=0.28.1
 Requires-Dist: instructor>=1.3.3
 Requires-Dist: json-repair~=0.60.1
@@ -76,7 +76,7 @@ Requires-Dist: qdrant-client[fastembed]~=1.14.3; extra == 'qdrant'
 Provides-Extra: qdrant-edge
 Requires-Dist: qdrant-edge-py>=0.6.0; extra == 'qdrant-edge'
 Provides-Extra: tools
-Requires-Dist: crewai-tools==1.15.18; extra == 'tools'
+Requires-Dist: crewai-tools==1.15.20; extra == 'tools'
 Provides-Extra: voyageai
 Requires-Dist: voyageai~=0.3.5; extra == 'voyageai'
 Provides-Extra: watson
@@ -661,7 +661,7 @@ pip install dist/*.tar.gz
 
 CrewAI uses anonymous telemetry to collect usage data with the main purpose of helping us improve the library by focusing our efforts on the most used features, integrations and tools.
 
-It's pivotal to understand that **NO data is collected** concerning prompts, task descriptions, agents' backstories or goals, usage of tools, API calls, responses, any data processed by the agents, or secrets and environment variables, with the exception of the conditions mentioned. When the `share_crew` feature is enabled, detailed data including task descriptions, agents' backstories or goals, and other specific attributes are collected to provide deeper insights while respecting user privacy. Users can disable telemetry by setting the environment variable OTEL_SDK_DISABLED to true.
+It's pivotal to understand that **NO data is collected** concerning prompts, task descriptions, agents' backstories or goals, usage of tools, API calls, responses, any data processed by the agents, or secrets and environment variables, with the exception of the conditions mentioned. When the `share_crew` feature is enabled, detailed data including task descriptions, agents' backstories or goals, and other specific attributes are collected to provide deeper insights while respecting user privacy. Users can disable telemetry by setting `CREWAI_DISABLE_TELEMETRY` to `true`, `1`, `yes`, or `on`. `OTEL_SDK_DISABLED` with the same values also disables CrewAI telemetry; the OpenTelemetry SDK itself still only honors `true` for other instrumentation.
 
 Data collected includes:
 

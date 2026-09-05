@@ -55,6 +55,12 @@ class Job():
                 extr.config_accumulate = extr._config_shared_accumulate
             extr._cfgpath = cfgpath
 
+        if _async := extr.config("async", extr.async_mode):
+            extr._async_queue = _async if isinstance(
+                _async, int) and _async is not True else 10
+            extr._async_items = extr.items
+            extr.items = extr._async_items_main
+
         if actions := extr.config("actions"):
             from .actions import LoggerAdapter, parse_logging
             self._logger_adapter = LoggerAdapter

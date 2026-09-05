@@ -1,7 +1,7 @@
-use crate::evaluation::evaluation_types::SecondaryExposure;
 use crate::evaluation::evaluation_types_v2::{
     AnyConfigEvaluationV2, GateEvaluationV2, LayerEvaluationV2,
 };
+use crate::evaluation::{dynamic_value::DynamicValue, evaluation_types::SecondaryExposure};
 use crate::gcir::gcir_formatter::EvaluatedKeys;
 use crate::specs_response::param_store_types::Parameter;
 use crate::specs_response::spec_types::{SessionReplayPrivacySetting, SessionReplayTrigger};
@@ -24,6 +24,7 @@ pub struct InitializeEvaluationsResponse {
     pub sdk_info: HashMap<String, String>,
     #[serde(rename = "sdkParams")]
     pub sdk_params: HashMap<String, String>,
+    pub sdk_configs: Option<HashMap<String, DynamicValue>>,
     pub evaluated_keys: EvaluatedKeys,
     pub param_stores: HashMap<String, HashMap<String, Parameter>>,
     pub exposures: HashMap<String, SecondaryExposure>,
@@ -48,6 +49,7 @@ impl InitializeEvaluationsResponse {
             hash_used: Default::default(),
             user: user.to_loggable(),
             sdk_params: Default::default(),
+            sdk_configs: Default::default(),
             evaluated_keys: Default::default(),
             sdk_info: Default::default(),
             param_stores: Default::default(),

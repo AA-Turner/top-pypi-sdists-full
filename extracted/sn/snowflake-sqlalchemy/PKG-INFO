@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: snowflake-sqlalchemy
-Version: 1.11.0
+Version: 1.11.1
 Summary: Snowflake SQLAlchemy Dialect
 Project-URL: Changelog, https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/DESCRIPTION.md
 Project-URL: Documentation, https://docs.snowflake.com/en/user-guide/sqlalchemy.html
@@ -1254,6 +1254,36 @@ dynamic_test_table_1 = DynamicTable(
 * Defining a primary key in a Dynamic Table is not supported, meaning declarative tables don’t support Dynamic Tables.
 * When using the `as_query` parameter with a string, you must explicitly define the columns. However, if you use the SQLAlchemy `select()` construct, you don’t need to explicitly define the columns.
 * Direct data insertion into Dynamic Tables is not supported.
+
+## Division operators and `force_div_is_floordiv`
+
+The `force_div_is_floordiv` flag is **deprecated** and has **no effect** on the
+generated SQL. It only gates a `PendingDeprecationWarning` reminding you to
+remove it. The `/` and `//` operators always compile to the correct Snowflake
+SQL regardless of the flag value:
+
+| Python expression | Generated SQL | Behaviour |
+| --- | --- | --- |
+| `col1 / col2` | `col1 / col2` | True division (Snowflake's native `/`) |
+| `col1 // col2` | `FLOOR(col1 / col2)` | Floor division |
+
+- `/` always performs true division — Snowflake's `/` already returns a
+  fractional result, so no `CAST` or `FLOOR` is applied.
+- `//` always emits `FLOOR(left / right)` — this is correct even for
+  `Integer`/`Integer` pairs, where SQLAlchemy's base implementation would
+  otherwise skip `FLOOR()` (it assumes the database floors natively, which
+  Snowflake does not).
+
+The flag will be removed in a future major release (2.x). Remove it from your
+`create_engine()` call to silence the deprecation warning:
+
+```python
+# Before (deprecated — emits a warning, no SQL effect)
+create_engine(URL(...), force_div_is_floordiv=True)
+
+# After (recommended)
+create_engine(URL(...))
+```
 
 ## Verifying Package Signatures
 

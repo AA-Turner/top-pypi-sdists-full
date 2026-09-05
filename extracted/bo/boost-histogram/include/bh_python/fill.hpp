@@ -21,7 +21,10 @@
 #include <boost/mp11.hpp>
 #include <boost/variant2/variant.hpp>
 
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -97,17 +100,50 @@ inline decltype(auto) special_cast<c_array_t<std::string>>(py::handle x) {
     return py::cast<B>(x);
 }
 
+inline bool fits_in_int(std::int64_t v) {
+    return v >= static_cast<std::int64_t>(std::numeric_limits<int>::min())
+           && v <= static_cast<std::int64_t>(std::numeric_limits<int>::max());
+}
+
+inline bool fits_in_int(std::uint64_t v) {
+    return v <= static_cast<std::uint64_t>(std::numeric_limits<int>::max());
+}
+
+/// Narrow a wide or unsigned integer array to int, the value type of the integer
+/// axes. NumPy would wrap out-of-range values silently.
+template <class T>
+inline c_array_t<int> narrow_to_int(py::handle x) {
+    const py::array_t<T, py::array::c_style | py::array::forcecast> wide(
+        py::reinterpret_borrow<py::object>(x));
+    const std::vector<py::ssize_t> shape(wide.shape(), wide.shape() + wide.ndim());
+    py::array_t<int> out(shape);
+
+    const T* in = wide.data();
+    int* op     = out.mutable_data();
+    for(py::ssize_t i = 0, n = wide.size(); i < n; ++i) {
+        if(!fits_in_int(in[i]))
+            throw py::value_error(
+                "Integer axis values must fit in a 32-bit signed integer");
+        op[i] = static_cast<int>(in[i]);
+    }
+
+    return {py::reinterpret_borrow<py::object>(out)};
+}
+
 // Make sure float arrays don't get cast to integers (-.5 rounds to 0!)
 template <>
 inline decltype(auto) special_cast<c_array_t<int>>(py::handle x) {
-    auto np    = py::module::import("numpy");
-    auto dtype = py::cast<py::array>(x).dtype();
-    if(dtype.equal(np.attr("bool_")) || dtype.equal(np.attr("int8"))
-       || dtype.equal(np.attr("int16")) || dtype.equal(np.attr("int32"))
-       || dtype.equal(np.attr("int64")) || dtype.equal(np.attr("uint8"))
-       || dtype.equal(np.attr("uint16")) || dtype.equal(np.attr("uint32"))
-       || dtype.equal(np.attr("uint64")))
+    const auto dtype  = py::cast<py::array>(x).dtype();
+    const char kind   = dtype.kind();
+    const auto nbytes = dtype.itemsize();
+
+    // These always fit in an int, so let NumPy convert them
+    if(kind == 'b' || (kind == 'i' && nbytes <= 4) || (kind == 'u' && nbytes <= 2))
         return py::cast<c_array_t<int>>(x);
+    if(kind == 'i')
+        return narrow_to_int<std::int64_t>(x);
+    if(kind == 'u')
+        return narrow_to_int<std::uint64_t>(x);
     throw py::type_error("Only integer arrays supported when targeting integer axes");
 }
 
@@ -122,12 +158,14 @@ inline decltype(auto) special_cast<int>(py::handle x) {
     }
 }
 
-using arg_t = variant::variant<c_array_t<double>,
-                               double,
-                               c_array_t<int>,
+// The first alternative must stay cheap to default construct; a stack buffer of
+// these is made for every fill, and only the leading axes.size() are assigned.
+using arg_t = variant::variant<double,
+                               c_array_t<double>,
                                int,
-                               c_array_t<std::string>,
-                               std::string>;
+                               c_array_t<int>,
+                               std::string,
+                               c_array_t<std::string>>;
 
 using weight_t = variant::variant<variant::monostate, double, c_array_t<double>>;
 
@@ -189,6 +227,15 @@ inline auto get_sample(const py::handle& s) {
     return sample;
 }
 
+// Boost.Histogram < 1.91 reports sample types as const T&, newer versions as T
+template <class T>
+struct decayed_traits;
+
+template <bool W, class... Ts>
+struct decayed_traits<bh::detail::accumulator_traits_holder<W, Ts...>> {
+    using type = bh::detail::accumulator_traits_holder<W, std::decay_t<Ts>...>;
+};
+
 // for accumulators that accept a weight
 template <class Histogram, class VArgs>
 void fill_impl(bh::detail::accumulator_traits_holder<true>,
@@ -209,7 +256,7 @@ void fill_impl(bh::detail::accumulator_traits_holder<true>,
 
 // for accumulators that accept a weight and a double
 template <class Histogram, class VArgs>
-void fill_impl(bh::detail::accumulator_traits_holder<true, const double&>,
+void fill_impl(bh::detail::accumulator_traits_holder<true, double>,
                Histogram& h,
                const VArgs& vargs,
                const weight_t& weight,
@@ -236,7 +283,7 @@ void fill_impl(bh::detail::accumulator_traits_holder<true, const double&>,
 
 // for multi_cell
 template <class Histogram, class VArgs>
-void fill_impl(bh::detail::accumulator_traits_holder<false, const boost::span<double>&>,
+void fill_impl(bh::detail::accumulator_traits_holder<false, boost::span<double>>,
                Histogram& h,
                const VArgs& vargs,
                const weight_t& weight,
@@ -248,12 +295,20 @@ void fill_impl(bh::detail::accumulator_traits_holder<false, const boost::span<do
     if(sarray.ndim() != 2)
         throw std::invalid_argument("Sample or weight array for MultiCell must be 2D");
 
-    auto buf = sarray.request();
-    // releasing gil here is safe, we don't manipulate refcounts
-    const py::gil_scoped_release lock;
+    auto buf              = sarray.request();
     const auto buf_shape0 = static_cast<std::size_t>(buf.shape[0]);
     const auto buf_shape1 = static_cast<std::size_t>(buf.shape[1]);
-    auto* src             = static_cast<double*>(buf.ptr);
+
+    // A row that is not nelem wide would throw deep inside the fill loop
+    const auto nelem = bh::unsafe_access::storage(h).nelem();
+    if(buf_shape1 != nelem)
+        throw std::invalid_argument("Sample or weight array for MultiCell must have "
+                                    + std::to_string(nelem) + " entries per row, got "
+                                    + std::to_string(buf_shape1));
+
+    // releasing gil here is safe, we don't manipulate refcounts
+    const py::gil_scoped_release lock;
+    auto* src = static_cast<double*>(buf.ptr);
     std::vector<boost::span<double>> vec_s;
     vec_s.reserve(buf_shape0);
     for(std::size_t i = 0; i < buf_shape0; i++) {
@@ -267,7 +322,9 @@ void fill_impl(bh::detail::accumulator_traits_holder<false, const boost::span<do
 template <class Histogram>
 Histogram& fill(Histogram& self, const py::args& args, py::kwargs kwargs) {
     using value_type = typename Histogram::value_type;
-    detail::fill_impl(bh::detail::accumulator_traits<value_type>{},
+    using traits     = typename detail::decayed_traits<
+        bh::detail::accumulator_traits<value_type>>::type;
+    detail::fill_impl(traits{},
                       self,
                       detail::get_vargs(bh::unsafe_access::axes(self), args),
                       detail::get_weight(kwargs),

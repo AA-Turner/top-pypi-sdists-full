@@ -42,7 +42,12 @@ def gen_blocks(
             fd.write(constants.BLOCK_MAGIC)
             data = np.ones(size, dtype="uint8") * i
             bio.write_block(
-                fd, data, stream=streamed and (i == n - 1), padding=block_padding, write_checksum=write_checksums
+                fd,
+                # pyrefly: ignore [bad-argument-type]
+                data,
+                stream=streamed and (i == n - 1),
+                padding=block_padding,
+                write_checksum=write_checksums,
             )
         if with_index and not streamed:
             bio.write_block_index(fd, offsets)
@@ -73,9 +78,7 @@ def test_read(tmp_path, lazy_load, memmap, with_index, validate_checksums, paddi
     ) as (fd, check):
         r = read_blocks(fd, memmap=memmap, lazy_load=lazy_load, validate_checksums=validate_checksums)
         if lazy_load and with_index and not streamed:
-            assert r[0].loaded
-            assert r[-1].loaded
-            for blk in r[1:-1]:
+            for blk in r:
                 assert not blk.loaded
                 # getting the header should load the block
                 blk.header
@@ -131,36 +134,33 @@ def test_read_post_padding_non_null_bytes():
             check(read_blocks(fd))
 
 
-@pytest.mark.parametrize("invalid_block_index", [0, 1, -1, "junk"])
-def test_invalid_block_index(tmp_path, invalid_block_index):
-    fn = tmp_path / "test.bin"
-    with gen_blocks(fn=fn, with_index=True) as (fd, check):
+@pytest.mark.parametrize("invalid_type", ["junk", "first", "empty"])
+def test_invalid_block_index(invalid_type):
+    with gen_blocks(with_index=True) as (fd, check):
         # trash the block index
         offset = bio.find_block_index(fd)
         assert offset is not None
-        if invalid_block_index == "junk":
+        if invalid_type == "junk":
             # trash the whole index
             fd.seek(-4, 2)
             fd.write(b"junk")
-        else:  # mess up one entry of the index
+            ctx = pytest.warns(AsdfBlockIndexWarning, match="Failed to read block index")
+        elif invalid_type == "first":
+            # mess up the first entry of the index
             block_index = bio.read_block_index(fd, offset)
-            block_index[invalid_block_index] += 4
+            block_index[0] += 4
             fd.seek(offset)
             bio.write_block_index(fd, block_index)
+            ctx = pytest.warns(AsdfBlockIndexWarning, match="Invalid block index contents")
+        else:  # "empty"
+            # write out an empty index
+            fd.seek(offset)
+            bio.write_block_index(fd, [])
+            ctx = pytest.warns(AsdfBlockIndexWarning, match="Invalid block index contents")
+        fd.truncate()
         fd.seek(0)
-
-        # when the block index is read, only the first and last blocks
-        # are check, so any other invalid entry should result in failure
-        if invalid_block_index in (0, -1):
-            with pytest.warns(AsdfBlockIndexWarning, match="Invalid block index contents"):
-                check(read_blocks(fd, lazy_load=True))
-        elif invalid_block_index == "junk":
-            # read_blocks should fall back to reading serially
-            with pytest.warns(AsdfBlockIndexWarning, match="Failed to read block index"):
-                check(read_blocks(fd, lazy_load=True))
-        else:
-            with pytest.raises(ValueError, match=r"Header size.*"):
-                check(read_blocks(fd, lazy_load=True))
+        with ctx:
+            check(read_blocks(fd, lazy_load=True))
 
 
 def test_invalid_block_in_index_with_valid_magic(tmp_path):
@@ -172,6 +172,8 @@ def test_invalid_block_in_index_with_valid_magic(tmp_path):
         # move the first block offset to the padding before
         # the second block with enough space to write
         # valid magic (but invalid header)
+
+        # pyrefly: ignore [unsupported-operation]
         block_index[0] = block_index[1] - 6
         fd.seek(block_index[0])
         fd.write(constants.BLOCK_MAGIC)

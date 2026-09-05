@@ -1,4 +1,5 @@
 import collections
+import contextlib
 import datetime
 import email.utils
 import os
@@ -12,8 +13,10 @@ import time
 import urllib.parse
 import warnings
 from collections.abc import Callable
+from http import HTTPStatus
 from http.cookiejar import MozillaCookieJar
 from typing import BinaryIO
+from typing import Final
 
 import bs4
 import requests
@@ -23,7 +26,7 @@ from .exceptions import DownloadError
 from .exceptions import FileURLRetrievalError
 from .parse_url import parse_url
 
-CHUNK_SIZE = 512 * 1024  # 512KB
+CHUNK_SIZE: Final = 512 * 1024  # 512KB
 home = osp.expanduser("~")
 
 GoogleDriveFileToDownload = collections.namedtuple(
@@ -31,7 +34,7 @@ GoogleDriveFileToDownload = collections.namedtuple(
 )
 
 
-def get_url_from_gdrive_confirmation(contents: str) -> str:
+def get_url_from_gdrive_confirmation(contents: str) -> str:  # noqa: GR005 -- public API accepts both call styles
     url = ""
     for line in contents.splitlines():
         m = re.search(r'href="(\/uc\?export=download[^"]+)', line)
@@ -76,7 +79,7 @@ def get_url_from_gdrive_confirmation(contents: str) -> str:
     return url
 
 
-def _sanitize_filename(filename: str) -> str:
+def _sanitize_filename(*, filename: str) -> str:
     filename = filename.replace("\x00", "")
     filename = filename.replace("/", "_").replace("\\", "_").strip()
     if filename in ("", ".", ".."):
@@ -84,7 +87,7 @@ def _sanitize_filename(filename: str) -> str:
     return filename
 
 
-def _get_filename_from_response(response: requests.Response) -> str | None:
+def _get_filename_from_response(*, response: requests.Response) -> str | None:
     content_disposition = urllib.parse.unquote(response.headers["Content-Disposition"])
 
     m = re.search(r"filename\*=UTF-8''(.*)", content_disposition)
@@ -98,7 +101,33 @@ def _get_filename_from_response(response: requests.Response) -> str | None:
     return None
 
 
+def _get_content_length_from_response(*, response: requests.Response) -> int | None:
+    content_length = response.headers.get("Content-Length")
+    if content_length is None:
+        return None
+    try:
+        size = int(content_length)
+    except ValueError:
+        return None
+    return size if size >= 0 else None
+
+
+def _has_only_identity_encoding(*, response: requests.Response, header: str) -> bool:
+    encodings = response.headers.get(header, "").split(",")
+    return all(encoding.strip().lower() in ("", "identity") for encoding in encodings)
+
+
+def _is_content_length_comparable(*, response: requests.Response) -> bool:
+    # A content encoding the client decodes transparently makes Content-Length
+    # count the encoded bytes on the wire instead of the ones iteration yields,
+    # and a transfer encoding makes the client ignore Content-Length entirely.
+    return _has_only_identity_encoding(
+        response=response, header="Content-Encoding"
+    ) and _has_only_identity_encoding(response=response, header="Transfer-Encoding")
+
+
 def _get_modified_time_from_response(
+    *,
     response: requests.Response,
 ) -> datetime.datetime | None:
     if "Last-Modified" not in response.headers:
@@ -112,6 +141,7 @@ def _get_modified_time_from_response(
 
 
 def _get_session(
+    *,
     proxy: str | None,
     use_cookies: bool,
     user_agent: str,
@@ -139,22 +169,23 @@ def _get_session(
     return sess, cookies_file
 
 
+# Parameters remain positional-or-keyword for backward compatibility.
 def download(
     url: str | None = None,
     output: str | BinaryIO | None = None,
-    quiet: bool = False,
+    quiet: bool = False,  # noqa: FBT001, FBT002
     proxy: str | None = None,
     speed: float | None = None,
-    use_cookies: bool = True,
-    verify: bool | str = True,
+    use_cookies: bool = True,  # noqa: FBT001, FBT002
+    verify: bool | str = True,  # noqa: FBT001, FBT002
     id: str | None = None,
-    resume: bool = False,
+    resume: bool = False,  # noqa: FBT001, FBT002
     format: str | None = None,
     user_agent: str | None = None,
     log_messages: dict[str, str] | None = None,
     progress: Callable[[int, int | None], None] | None = None,
-    skip_download: bool = False,
-) -> str | BinaryIO | GoogleDriveFileToDownload:
+    skip_download: bool = False,  # noqa: FBT001, FBT002
+) -> str | BinaryIO | GoogleDriveFileToDownload:  # noqa: GR005 -- public API accepts both call styles
     """Download file from URL.
 
     Parameters
@@ -216,7 +247,8 @@ def download(
         If the file URL cannot be retrieved from Google Drive, or if
         skip_download is True and no Google Drive filename can be resolved.
     DownloadError
-        If the download fails (e.g., multiple temporary files exist during
+        If the download fails (e.g., the response body ends before the
+        announced number of bytes, or multiple temporary files exist during
         resume).
     """
     if not (id is None) ^ (url is None):
@@ -251,7 +283,7 @@ def download(
         if not (gdrive_file_id and is_gdrive_download_link):
             break
 
-        if url == url_origin and res.status_code == 500:
+        if url == url_origin and res.status_code == HTTPStatus.INTERNAL_SERVER_ERROR:
             # The file could be Google Docs or Spreadsheets.
             url = f"https://drive.google.com/open?id={gdrive_file_id}"
             continue
@@ -385,22 +417,15 @@ def download(
         tmp_file = None
         f = output
 
-    if tmp_file is not None and f.tell() != 0:
-        start_size = f.tell()
-        headers = {"Range": f"bytes={start_size}-"}
-        res = sess.get(url, headers=headers, stream=True, verify=verify)
-    else:
-        start_size = 0
-
     if not quiet:
         print(log_messages.get("start", "Downloading...\n"), file=sys.stderr, end="")
         if resume:
             print("Resume:", tmp_file, file=sys.stderr)
-        if url_origin != url:
+        if url_origin == url:
+            print("From:", url, file=sys.stderr)
+        else:
             print("From (original):", url_origin, file=sys.stderr)
             print("From (redirected):", url, file=sys.stderr)
-        else:
-            print("From:", url, file=sys.stderr)
         print(
             log_messages.get(
                 "output",
@@ -410,36 +435,64 @@ def download(
             end="",
         )
 
-    try:
-        total = res.headers.get("Content-Length")
-        if total is not None:
-            total = int(total) + start_size
+    with contextlib.ExitStack() as stack:
+        stack.callback(sess.close)
+        if tmp_file is not None:
+            stack.callback(f.close)
+
+        start_size = f.tell() if tmp_file is not None else 0
+        if start_size != 0:
+            headers = {"Range": f"bytes={start_size}-"}
+            res = sess.get(url, headers=headers, stream=True, verify=verify)
+
+        content_length = _get_content_length_from_response(response=res)
+        total = None if content_length is None else content_length + start_size
+        expected_size = (
+            content_length if _is_content_length_comparable(response=res) else None
+        )
         if not quiet:
             pbar = tqdm.tqdm(total=total, unit="B", initial=start_size, unit_scale=True)
+            stack.callback(pbar.close)
         t_start = time.time()
         downloaded = 0
-        for chunk in res.iter_content(chunk_size=CHUNK_SIZE):
-            f.write(chunk)
-            downloaded += len(chunk)
-            if not quiet:
-                pbar.update(len(chunk))
-            if progress is not None:
-                progress(downloaded + start_size, total)
-            if speed is not None:
+        truncation_error: requests.exceptions.ChunkedEncodingError | None = None
+        try:
+            for chunk in res.iter_content(chunk_size=CHUNK_SIZE):
+                f.write(chunk)
+                downloaded += len(chunk)
+                if not quiet:
+                    pbar.update(len(chunk))
+                if progress is not None:
+                    progress(downloaded + start_size, total)
+                if speed is None:
+                    continue
                 elapsed_time_expected = downloaded / speed
                 elapsed_time = time.time() - t_start
                 if elapsed_time < elapsed_time_expected:
                     time.sleep(elapsed_time_expected - elapsed_time)
-        if not quiet:
-            pbar.close()
-        if tmp_file:
-            f.close()
-            assert isinstance(output, str)
-            shutil.move(tmp_file, output)
-        if isinstance(output, str) and last_modified_time:
-            mtime = last_modified_time.timestamp()
-            os.utime(output, (mtime, mtime))
-    finally:
-        sess.close()
+        except requests.exceptions.ChunkedEncodingError as e:
+            # Some HTTP client versions enforce Content-Length themselves, so a
+            # body that ends early surfaces here rather than as a short read.
+            truncation_error = e
+
+    if truncation_error is not None or (
+        expected_size is not None and downloaded < expected_size
+    ):
+        message = f"Download is incomplete: received {downloaded + start_size} bytes"
+        if expected_size is not None:
+            message += f" but the server announced {total} bytes"
+        if tmp_file is not None:
+            message += (
+                f".\nThe received bytes are kept in {tmp_file}, which resume "
+                "(--continue on the command line) picks up"
+            )
+        raise DownloadError(message + ".") from truncation_error
+
+    if tmp_file is not None:
+        assert isinstance(output, str)
+        shutil.move(tmp_file, output)
+    if isinstance(output, str) and last_modified_time:
+        mtime = last_modified_time.timestamp()
+        os.utime(output, (mtime, mtime))
 
     return output

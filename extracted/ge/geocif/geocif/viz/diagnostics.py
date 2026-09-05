@@ -437,7 +437,7 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg
 
     metrics_text = (
         f"RMSE: {rmse:.2f} {yield_units}\nMAPE: {mape:.2%}\n"
-        f"Bias: {bias:+.2f} {yield_units}\n$r^2$: {r2:.2f}\nN: {len(df)}"
+        f"Bias: {bias:+.2f} {yield_units}\n$R^2$: {r2:.2f}\nN: {len(df)}"
     )
 
     try:
@@ -1296,8 +1296,9 @@ def rmse_box_by_region(
     region_col: str = "Region",
     production_pct: dict | None = None,
     ascending: bool = True,
+    yield_units: str = "Mg/ha",
 ):
-    """Horizontal box plot of RMSE (Mg/ha) per region — RMSE twin of
+    """Horizontal box plot of RMSE per region — RMSE twin of
     ``mape_box_by_region``. Same sort logic, no percentage cap.
     """
     if df.empty or rmse_col not in df.columns or region_col not in df.columns:
@@ -1353,7 +1354,7 @@ def rmse_box_by_region(
                 vals, ys, s=14, color="#1f4e79", alpha=0.65,
                 edgecolors="none", zorder=3,
             )
-        ax.set_xlabel("RMSE (Mg/ha)")
+        ax.set_xlabel(f"RMSE ({yield_units})")
         if title:
             ax.set_title(title, fontsize=10, fontweight="bold")
         ax.grid(True, axis="x", linestyle=":", alpha=0.4)
@@ -1372,6 +1373,7 @@ def rmse_box_by_year(
     *,
     rmse_col: str = "RMSE",
     year_col: str = "Harvest Year",
+    yield_units: str = "Mg/ha",
 ):
     """Vertical box plot of RMSE per year — RMSE twin of
     ``mape_box_by_year``. No percentage cap.
@@ -1412,7 +1414,7 @@ def rmse_box_by_year(
                 xs, vals, s=14, color="#1f4e79", alpha=0.65,
                 edgecolors="none", zorder=3,
             )
-        ax.set_ylabel("RMSE (Mg/ha)")
+        ax.set_ylabel(f"RMSE ({yield_units})")
         ax.set_xlabel("Forecast year")
         if title:
             ax.set_title(title, fontsize=10, fontweight="bold")
@@ -1436,8 +1438,9 @@ def rmse_by_year(
     pred_col: str | None = None,
     area_col: str = "Area (ha)",
     threshold: float | None = None,
+    yield_units: str = "Mg/ha",
 ):
-    """Bar chart of RMSE (Mg/ha) per year with 5-yr moving avg — RMSE twin
+    """Bar chart of RMSE per year with 5-yr moving avg — RMSE twin
     of ``mape_by_year``.  When area is available, uses area-weighted
     national RMSE per year (sqrt of area-weighted squared error); otherwise
     falls back to mean of per-row ``rmse_col`` values.
@@ -1491,7 +1494,7 @@ def rmse_by_year(
         )
         ax.legend(loc="upper right", fontsize=8, frameon=False)
         ax.set_xlabel("")
-        ax.set_ylabel("RMSE (Mg/ha)")
+        ax.set_ylabel(f"RMSE ({yield_units})")
         if title:
             ax.set_title(title, fontsize=10, fontweight="bold")
         ax.tick_params(axis='x', which='minor', length=0)

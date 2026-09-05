@@ -26,13 +26,13 @@ else:
 class _RedirectAwareStreamHandler(_StreamHandlerBase):
     """``StreamHandler`` that re-resolves ``sys.stdout``/``sys.stderr`` on every emitted record.
 
-    Rich's ``Live`` display (used internally by pytorch_lightning's ``RichProgressBar``, see ``trainer.py``'s progress-
-    bar callback wiring) temporarily replaces *both* the ``sys.stdout`` and ``sys.stderr`` module attributes with
-    proxies while training runs (``redirect_stdout``/``redirect_stderr`` default to ``True`` in ``rich.live.Live``), so
-    ordinary writes are printed above the live-rendered progress bar instead of corrupting it. A plain
-    ``StreamHandler(sys.stdout)`` (or ``sys.stderr``) captures that attribute once, at construction time — which happens
-    at import time here, long before any ``Trainer.fit()`` call — so it keeps writing through the pre-redirect stream
-    forever, bypassing Rich's coordination. With ``RichProgressBar(leave=True)`` this corruption is no longer
+    Rich's ``Live`` display (used internally by pytorch_lightning's ``RichProgressBar``, see ``trainer.py``'s
+    ``GPUMemoryRichProgressBar`` callback) temporarily replaces *both* the ``sys.stdout`` and ``sys.stderr`` module
+    attributes with proxies while training runs (``redirect_stdout``/``redirect_stderr`` default to ``True`` in
+    ``rich.live.Live``), so ordinary writes are printed above the live-rendered progress bar instead of corrupting it. A
+    plain ``StreamHandler(sys.stdout)`` (or ``sys.stderr``) captures that attribute once, at construction time — which
+    happens at import time here, long before any ``Trainer.fit()`` call — so it keeps writing through the pre-redirect
+    stream forever, bypassing Rich's coordination. With ``RichProgressBar(leave=True)`` this corruption is no longer
     overwritten by the next refresh and shows up as a duplicated/garbled epoch bar in the terminal history whenever a
     training-time log call fires mid-epoch (e.g. ``BestModelCallback`` logging a new best checkpoint on stdout, or a
     fallback warning on stderr).

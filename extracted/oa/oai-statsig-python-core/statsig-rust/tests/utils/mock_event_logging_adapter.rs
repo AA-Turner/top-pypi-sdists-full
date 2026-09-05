@@ -14,6 +14,7 @@ pub struct MockEventLoggingAdapter {
     pub logged_payloads: Mutex<Vec<LogEventPayload>>,
     pub mocked_log_events_result: Mutex<Result<bool, StatsigErr>>,
     pub on_log_notify: Notify,
+    schedule_background_flush: bool,
 }
 
 impl Default for MockEventLoggingAdapter {
@@ -24,6 +25,10 @@ impl Default for MockEventLoggingAdapter {
 
 impl MockEventLoggingAdapter {
     pub fn new() -> Self {
+        Self::new_with_background_flush(true)
+    }
+
+    pub fn new_with_background_flush(schedule_background_flush: bool) -> Self {
         Self {
             logged_event_count: AtomicU64::new(0),
             times_called: AtomicU64::new(0),
@@ -31,6 +36,7 @@ impl MockEventLoggingAdapter {
             logged_payloads: Mutex::new(Vec::new()),
             mocked_log_events_result: Mutex::new(Ok(true)),
             on_log_notify: Notify::new(),
+            schedule_background_flush,
         }
     }
 
@@ -126,6 +132,6 @@ impl EventLoggingAdapter for MockEventLoggingAdapter {
     }
 
     fn should_schedule_background_flush(&self) -> bool {
-        true
+        self.schedule_background_flush
     }
 }

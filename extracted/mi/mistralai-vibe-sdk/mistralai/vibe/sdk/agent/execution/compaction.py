@@ -14,10 +14,12 @@ from mistralai.vibe.sdk.agent.execution.completion_request_telemetry import (
 )
 from mistralai.vibe.sdk.execution_record.snapshots import make_snapshot_entry
 from mistralai.vibe.sdk.execution_record.state import (
+    ContentBlock,
     MessageEntry,
     MessageEntryPayload,
     StateEntry,
     TaskState,
+    TextContentBlock,
     content_blocks,
     content_text,
 )
@@ -51,6 +53,8 @@ __all__ = [
 ]
 
 COMPACTION_STREAM_NAME = "compaction"
+COMPACTION_USER_MESSAGE_MAX_TOKENS = 20_000
+_TRUNCATION_MARKER = "\n...[truncated]...\n"
 
 DEFAULT_COMPACTION_PROMPT = """\
 Create a comprehensive summary of our entire conversation that will serve
@@ -170,6 +174,110 @@ def _latest_user_message_index(state: TaskState) -> int | None:
     return None
 
 
+def _recent_user_messages_for_compaction(
+    state: TaskState,
+    max_tokens: int = COMPACTION_USER_MESSAGE_MAX_TOKENS,
+) -> list[MessageEntry]:
+    """Retain the newest user messages within the post-compaction token budget."""
+    latest_boundary = latest_compaction_sentinel_index(state)
+    candidates = [
+        entry
+        for entry in state.history[latest_boundary + 1 :]
+        if isinstance(entry, MessageEntry) and entry.payload.role == "user"
+    ]
+
+    selected: list[MessageEntry] = []
+    remaining = max_tokens
+    for entry in reversed(candidates):
+        if remaining <= 0:
+            break
+
+        token_count = _user_message_tokens(state, entry)
+        if token_count <= remaining:
+            selected.append(entry)
+            remaining -= token_count
+            continue
+
+        truncated = _truncate_user_message_to_tokens(state, entry, remaining)
+        if truncated is not None:
+            selected.append(truncated)
+        break
+
+    selected.reverse()
+    return selected
+
+
+def _user_message_tokens(state: TaskState, entry: MessageEntry) -> int:
+    message_state = state.model_copy(update={"history": [entry]})
+    return estimate_context_tokens(message_state, {}, prefer_reported_usage=False)
+
+
+def _truncate_user_message_to_tokens(
+    state: TaskState,
+    entry: MessageEntry,
+    max_tokens: int,
+) -> MessageEntry | None:
+    text_length = sum(
+        len(block.text) for block in entry.payload.content if isinstance(block, TextContentBlock)
+    )
+    if text_length == 0:
+        return None
+
+    def build_entry(retained_chars: int) -> MessageEntry:
+        content = _content_with_middle_truncated_text(entry.payload.content, retained_chars)
+        return entry.model_copy(
+            update={"payload": entry.payload.model_copy(update={"content": content})}
+        )
+
+    smallest = build_entry(0)
+    if _user_message_tokens(state, smallest) > max_tokens:
+        return None
+
+    best = smallest
+    lower = 0
+    upper = text_length - 1
+    while lower <= upper:
+        retained_chars = (lower + upper) // 2
+        candidate = build_entry(retained_chars)
+        if _user_message_tokens(state, candidate) <= max_tokens:
+            best = candidate
+            lower = retained_chars + 1
+        else:
+            upper = retained_chars - 1
+    return best
+
+
+def _content_with_middle_truncated_text(
+    content: list[ContentBlock], retained_chars: int
+) -> list[ContentBlock]:
+    text_length = sum(len(block.text) for block in content if isinstance(block, TextContentBlock))
+    prefix_limit = (retained_chars + 1) // 2
+    suffix_start = text_length - retained_chars // 2
+    result: list[ContentBlock] = []
+    text_offset = 0
+    marker_added = False
+
+    for block in content:
+        if not isinstance(block, TextContentBlock):
+            result.append(block)
+            continue
+
+        block_start = text_offset
+        block_end = block_start + len(block.text)
+        prefix_end = max(0, min(len(block.text), prefix_limit - block_start))
+        suffix_offset = max(0, suffix_start - block_start)
+        if prefix_end:
+            result.append(TextContentBlock(text=block.text[:prefix_end]))
+        if not marker_added and block_end >= prefix_limit:
+            result.append(TextContentBlock(text=_TRUNCATION_MARKER))
+            marker_added = True
+        if suffix_offset < len(block.text):
+            result.append(TextContentBlock(text=block.text[suffix_offset:]))
+        text_offset = block_end
+
+    return result
+
+
 def has_compactable_history(state: TaskState) -> bool:
     """True when there is non-system history before the latest user message."""
     suffix_start_index = _latest_user_message_index(state)
@@ -235,7 +343,7 @@ async def run_compaction(
     """Summarize the conversation and return the finalized outcome (completed/failed)."""
     anchor = latest_compaction_sentinel_index(state)
     head, tail = state.history[:anchor], state.history[anchor + 1 :]
-    original = state.model_copy(update={"history": [*head, *tail]})
+    original = state.model_copy(update={"history": head})
     old_context_tokens = estimate_context_tokens(original, tools)
 
     def state_with(sentinel: StateEntry) -> TaskState:

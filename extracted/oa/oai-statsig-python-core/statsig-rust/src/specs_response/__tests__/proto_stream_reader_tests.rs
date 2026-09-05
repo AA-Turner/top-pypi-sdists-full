@@ -118,6 +118,43 @@ fn create_test_proto_data(messages: Vec<&str>) -> Vec<u8> {
     compressed
 }
 
+fn create_zstd_test_proto_data(messages: Vec<&str>) -> Vec<u8> {
+    let mut encoded = Vec::new();
+    for msg_content in messages {
+        let msg = TestMessage {
+            content: msg_content.to_string(),
+        };
+        let msg_bytes = msg.encode_to_vec();
+        prost::encode_length_delimiter(msg_bytes.len(), &mut encoded).unwrap();
+        encoded.extend_from_slice(&msg_bytes);
+    }
+
+    zstd::stream::encode_all(encoded.as_slice(), 3).unwrap()
+}
+
+#[test]
+fn test_reading_statsig_zstd_delta_data() {
+    let headers = std::collections::HashMap::from([
+        (
+            "content-type".to_string(),
+            "application/octet-stream".to_string(),
+        ),
+        ("content-encoding".to_string(), "statsig-zstd".to_string()),
+        ("x-deltas-used".to_string(), "true".to_string()),
+    ]);
+    let test_data = create_zstd_test_proto_data(vec!["msg1", "msg2"]);
+    let mut data = ResponseData::from_bytes_with_headers(test_data, Some(headers));
+    let mut reader = ProtoStreamReader::new_for_response(&mut data).unwrap();
+
+    let msg1 = reader.read_next_delimited_proto().unwrap();
+    let msg2 = reader.read_next_delimited_proto().unwrap();
+    let decoded1 = TestMessage::decode_length_delimited(msg1.as_ref()).unwrap();
+    let decoded2 = TestMessage::decode_length_delimited(msg2.as_ref()).unwrap();
+
+    assert_eq!(decoded1.content, "msg1");
+    assert_eq!(decoded2.content, "msg2");
+}
+
 #[test]
 fn test_multiple_consecutive_messages() {
     let test_data = create_test_proto_data(vec!["msg1", "msg2", "msg3"]);
@@ -135,6 +172,41 @@ fn test_multiple_consecutive_messages() {
     assert_eq!(decoded1.content, "msg1");
     assert_eq!(decoded2.content, "msg2");
     assert_eq!(decoded3.content, "msg3");
+}
+
+#[test]
+fn test_reads_prepared_uncompressed_stream_without_replacing_original_bytes() {
+    let original = create_test_proto_data(vec!["original"]);
+    let mut prepared = Vec::new();
+    for content in ["hydrated-1", "hydrated-2"] {
+        let message = TestMessage {
+            content: content.to_string(),
+        };
+        message.encode_length_delimited(&mut prepared).unwrap();
+    }
+
+    let mut data = ResponseData::from_bytes(original.clone());
+    data.set_prepared_protobuf_stream(prepared);
+
+    {
+        let mut reader = ProtoStreamReader::new(&mut data);
+        let first = reader.read_next_delimited_proto().unwrap();
+        let second = reader.read_next_delimited_proto().unwrap();
+        assert_eq!(
+            TestMessage::decode_length_delimited(first.as_ref())
+                .unwrap()
+                .content,
+            "hydrated-1"
+        );
+        assert_eq!(
+            TestMessage::decode_length_delimited(second.as_ref())
+                .unwrap()
+                .content,
+            "hydrated-2"
+        );
+    }
+
+    assert_eq!(data.read_to_bytes().unwrap(), original);
 }
 
 #[test]

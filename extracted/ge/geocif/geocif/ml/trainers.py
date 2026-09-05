@@ -556,6 +556,164 @@ class TabPFNGSARegressor:
         return np.asarray(self._m.predict(X)).ravel()
 
 
+def _tabfm_cast_category_to_object(X):
+    """Cast pandas category columns back to object for TabFM.
+
+    Same rationale as the plain-'tabfm' branch's _TabFMWithObjectDtype:
+    TabFM's tokenizer misreads CategoricalDtype as numeric codes (verified
+    10x worse RMSE on a synthetic fixture). geocif casts cat_features to
+    category upstream for catboost/tabpfn; undo it locally for TabFM only.
+    """
+    X = X.copy()
+    for c in X.columns:
+        if hasattr(X[c], "cat"):
+            X[c] = X[c].astype(object)
+    return X
+
+
+def _tabfm_gsa_fit_fn(X, y, n_estimators=8, device="cpu", seed=0):
+    """Function-backend fit hook for GSAModel: one TabFM in-context 'fit'
+    per local grid cell (plus the global fallback). Module-level (not a
+    closure) so it survives pickling into pool workers.
+
+    tabfm's load() memoizes the ~13 GB pretrained handle by
+    (model_type, path, device, dtype) at module level, so calling it per
+    local fit is a dict lookup after the first call in each process —
+    the per-auto_train reload cost that made plain 'tabfm' unusable on
+    CPU does not recur here.
+    """
+    from tabfm import TabFMRegressor
+    from tabfm import tabfm_v1_0_0_pytorch as _tabfm_torch
+
+    pretrained = _tabfm_torch.load(model_type="regression", device=device)
+    reg = TabFMRegressor(
+        model=pretrained,
+        n_estimators=int(n_estimators),
+        random_state=int(seed),
+    )
+    reg.fit(_tabfm_cast_category_to_object(pd.DataFrame(X)), y)
+    return reg
+
+
+def _tabfm_gsa_predict_fn(reg, X):
+    return np.asarray(
+        reg.predict(_tabfm_cast_category_to_object(pd.DataFrame(X)))
+    ).ravel()
+
+
+class TabFMGSARegressor:
+    """GSA spatial context-sampler (ruid7181/TabPFN-GSA) with Google
+    Research's TabFM as the local in-context estimator instead of TabPFN.
+
+    Same geometry as TabPFNGSARegressor — K-cell grid over region-centroid
+    lat/lon, per-cell fits on the 3x3 Moore neighborhood + fraction ``s``
+    of distant rows, 3 ensembles, global fallback — but each local model
+    is a TabFMRegressor, plugged in through GSAModel's function backend
+    (fit_fn/predict_fn in model_kwargs), which bypasses the TabPFN-only
+    kwargs (ignore_pretraining_limits / categorical_features_indices).
+    TabFM detects categoricals from object dtype itself; the fit/predict
+    hooks cast geocif's category columns back to object first.
+
+    n_estimators is TabFM's INTERNAL ensemble width per local fit
+    (upstream default 32). Default 8 here: GSA already ensembles 3x over
+    ~dozens of local models per fold, so 32 inner members multiplies to
+    thousands of prefills per fold. Override via [ML]
+    tabfm_gsa_n_estimators.
+
+    GPU strongly recommended (weights are ~13 GB bf16; CPU in-context
+    inference was measured pathologically slow — see the plain 'tabfm'
+    branch note). device='auto' resolves to cuda when available.
+    """
+
+    def __init__(self, K=64, s=0.1, device="auto", n_estimators=8, seed=0):
+        self.K = K
+        self.s = s
+        self.device = device
+        self.n_estimators = n_estimators
+        self.seed = seed
+
+    def get_params(self, deep=True):
+        return dict(
+            K=self.K,
+            s=self.s,
+            device=self.device,
+            n_estimators=self.n_estimators,
+            seed=self.seed,
+        )
+
+    def set_params(self, **p):
+        for k, v in p.items():
+            setattr(self, k, v)
+        return self
+
+    @staticmethod
+    def _resolve_device(device):
+        if device != "auto":
+            return device
+        try:
+            import torch
+
+            return "cuda" if torch.cuda.is_available() else "cpu"
+        except Exception:
+            return "cpu"
+
+    def fit(self, X, y):
+        try:
+            from tabpfn_gsa import GSAModel
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'tabfm_gsa' requires tabpfn-gsa, a git-only "
+                "optional dependency (not on PyPI):\n"
+                "    pip install git+https://github.com/ruid7181/TabPFN-GSA.git"
+            ) from exc
+        try:
+            import tabfm  # noqa: F401
+        except ImportError as exc:
+            raise ImportError(
+                "model = 'tabfm_gsa' requires tabfm (Google Research, "
+                "https://github.com/google-research/tabfm):\n"
+                "    pip install tabfm"
+            ) from exc
+
+        X = pd.DataFrame(X)
+        PyGRFRegressor._require_coords(X, model_label="tabfm_gsa")
+        # Fill at FIT time, not just predict: GSAModel stores X internally
+        # and reuses those coords when building the predict-time grid.
+        self._coord_mean = np.nanmean(
+            X[["lat", "lon"]].to_numpy(dtype=float), axis=0
+        )
+        if not np.all(np.isfinite(self._coord_mean)):
+            self._coord_mean = np.zeros(2)
+        X = TabPFNGSARegressor._fill_nan_coords(X, self._coord_mean)
+        x_cols = [c for c in X.columns if c not in ("lat", "lon")]
+        side = max(2, int(round(np.sqrt(self.K))))
+        self._m = GSAModel(
+            spa_cols=["lat", "lon"],
+            x_cols=x_cols,
+            K=side * side,
+            s=float(np.clip(self.s, 0.0, 1.0)),
+            random_state=int(self.seed),
+            device=self.device,
+            model_kwargs={
+                "fit_fn": _tabfm_gsa_fit_fn,
+                "predict_fn": _tabfm_gsa_predict_fn,
+                "fit_kwargs": {
+                    "n_estimators": int(self.n_estimators),
+                    "device": self._resolve_device(self.device),
+                    "seed": int(self.seed),
+                },
+            },
+        )
+        self._m.fit(X, np.asarray(y, dtype=float).ravel())
+        return self
+
+    def predict(self, X):
+        X = TabPFNGSARegressor._fill_nan_coords(
+            pd.DataFrame(X), self._coord_mean
+        )
+        return np.asarray(self._m.predict(X)).ravel()
+
+
 def loocv(
     model,
     df,
@@ -964,13 +1122,24 @@ def auto_train(
             #   * inference_config left at None: custom PREPROCESS_TRANSFORMS
             #     / FEATURE_SHIFT_METHOD tuning (Tier 2b) is a future
             #     experiment — see IDEAS.md.
-            model = TabPFNRegressor(
+            # CLASSIFICATION gets TabPFNClassifier — same tuning surface, but
+            # it returns class labels and exposes predict_proba. Before this,
+            # model_type was ignored here and a REGRESSOR was silently fitted
+            # to integer class labels, which is ordinal regression, not
+            # classification, and produced continuous output like 0.7.
+            _tabpfn_kwargs = dict(
                 device="auto",
                 categorical_features_indices=cat_feature_indices,
                 random_state=int(seed),
                 n_estimators=8,
                 ignore_pretraining_limits=True,
             )
+            if model_type == "CLASSIFICATION":
+                from tabpfn import TabPFNClassifier
+
+                model = TabPFNClassifier(**_tabpfn_kwargs)
+            else:
+                model = TabPFNRegressor(**_tabpfn_kwargs)
         elif model_name == "tabpfn_phe":
             # Post-Hoc Ensembling wrapper from tabpfn_extensions — runs
             # TabPFN with multiple preprocessing configurations and
@@ -1431,7 +1600,20 @@ def auto_train(
             # tabpfn_gsa_* config keys.
             gsa = dict(K=64, s=0.1, device="auto")
             gsa.update(gsa_params or {})
+            # n_estimators belongs to the tabfm_gsa variant only; drop it
+            # so a config carrying tabfm_gsa_n_estimators can still run
+            # tabpfn_gsa side by side without a TypeError here.
+            gsa.pop("n_estimators", None)
             model = TabPFNGSARegressor(seed=int(seed), **gsa)
+        elif model_name == "tabfm_gsa":
+            # GSA context sampler with Google Research TabFM as the local
+            # estimator (via GSAModel's fit_fn/predict_fn function backend).
+            # Shares [ML] tabpfn_gsa_K / tabpfn_gsa_s with tabpfn_gsa so the
+            # two arms grid identically; inner-ensemble width via [ML]
+            # tabfm_gsa_n_estimators (default 8). GPU strongly recommended.
+            gsa = dict(K=64, s=0.1, device="auto", n_estimators=8)
+            gsa.update(gsa_params or {})
+            model = TabFMGSARegressor(seed=int(seed), **gsa)
         elif model_name == "george":
             # george (dfm/george) — C++ exact-GP regression, routed through
             # the same scaled path as 'gpr' (GPRFitter / StandardScaler).

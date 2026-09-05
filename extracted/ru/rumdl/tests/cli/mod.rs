@@ -1,6 +1,7 @@
 mod check_runner_tests;
 mod cli_alias_test;
 mod cli_cache_cross_file_test;
+mod cli_code_block_tool_modes_test;
 mod cli_config_override_test;
 mod cli_config_test;
 mod cli_disable_all_test;
@@ -12,6 +13,7 @@ mod cli_fix_atomicity_test;
 mod cli_flag_precedence_test;
 mod cli_flavor_test;
 mod cli_integration_tests;
+mod cli_issue_846_test;
 mod cli_list_rules_removed_test;
 mod cli_lsp_fix_consistency;
 mod cli_md089_cjk_spacing_test;

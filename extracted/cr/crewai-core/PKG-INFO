@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: crewai-core
-Version: 1.15.18
+Version: 1.15.20
 Summary: Shared utilities for CrewAI — version, paths, user-data, telemetry, printer.
 Project-URL: Homepage, https://crewai.com
 Project-URL: Documentation, https://docs.crewai.com

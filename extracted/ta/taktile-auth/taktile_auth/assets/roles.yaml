@@ -58,7 +58,7 @@ ws_editor/org_id,ws_id:
     - w+d:workspace_job/org_id,ws_id
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id
-    # job management (w+d:jobs) is admin-only; editors can only run and delete sandbox/test runs
+    # deleting jobs (d:jobs) and live runs are admin-only
     - w+d:job_run/org_id,ws_id,*,{env=sandbox}
     - w+d:job_run/org_id,ws_id,*,{env=test}
     - case_editor/org_id,ws_id
@@ -95,20 +95,29 @@ ws_manager/org_id,ws_id:
     - w+d:flow_folders/org_id,ws_id
 flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - r:jobs/org_id,ws_id,flow_folder_id
+    - r:job_run/org_id,ws_id,flow_folder_id,{env=*}
     - dh_viewer_sandbox/org_id,ws_id
 flow_execute_sandbox/org_id,ws_id,flow_folder_id:
     - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
     - execute:flows/org_id,ws_id,flow_folder_id,{env=test}
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=sandbox}
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=test}
 flow_execute_live/org_id,ws_id,flow_folder_id:
     - execute:flows/org_id,ws_id,flow_folder_id,{env=live}
+    - w:job_run/org_id,ws_id,flow_folder_id,{env=live}
 flow_editor/org_id,ws_id,flow_folder_id:
     - flow_viewer/org_id,ws_id,flow_folder_id
     - flow_execute_sandbox/org_id,ws_id,flow_folder_id
     - w:flows/org_id,ws_id,flow_folder_id,{env=*}
     - d:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - w:jobs/org_id,ws_id,flow_folder_id
+    - d:job_run/org_id,ws_id,flow_folder_id,{env=sandbox}
+    - d:job_run/org_id,ws_id,flow_folder_id,{env=test}
 flow_deployer/org_id,ws_id,flow_folder_id:
     - flow_editor/org_id,ws_id,flow_folder_id
     - deploy:flows/org_id,ws_id,flow_folder_id,{env=*}
+    - deploy:jobs/org_id,ws_id,flow_folder_id
 
 # P141c agent roles, carved verbatim from the ws_* roles (capability-neutral)
 agent_viewer/org_id,ws_id:
@@ -295,6 +304,7 @@ api_key_job_admin/org_id,ws_id:
     - w:workspace_test_job_trigger/org_id,ws_id
     - w:workspace_live_job_trigger/org_id,ws_id
     - r+w+d:jobs/org_id,ws_id,*
+    - deploy:jobs/org_id,ws_id,*
     - r+w+d:job_run/org_id,ws_id,*,{env=*}
 api_key_history_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id

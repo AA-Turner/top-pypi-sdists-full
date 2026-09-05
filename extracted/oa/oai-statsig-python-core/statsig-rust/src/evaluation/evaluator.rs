@@ -14,7 +14,9 @@ use crate::evaluation::dynamic_string::DynamicString;
 use crate::evaluation::dynamic_value::DynamicValue;
 use crate::evaluation::evaluation_data::{InternedStrRef, RuleRef, SpecAccess, SpecView};
 use crate::evaluation::evaluation_types::SecondaryExposure;
-use crate::evaluation::evaluator_context::{EvaluatorContext, IdListResolution};
+use crate::evaluation::evaluator_context::{
+    EvaluatorContext, IdListResolution, NestedExperimentExposure,
+};
 use crate::evaluation::evaluator_value::{EvaluatorValue, EvaluatorValueRef};
 use crate::evaluation::get_unit_id::get_unit_id;
 use crate::evaluation::user_agent_parsing::UserAgentParser;
@@ -22,7 +24,7 @@ use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::spec_types::{Condition, ConditionOperator, ConditionType};
 use crate::user::user_value::UserValueRef;
-use crate::{ExperimentEvaluationOptions, StatsigErr, dyn_value, log_w, unwrap_or_return};
+use crate::{StatsigErr, dyn_value, log_w, unwrap_or_return};
 
 use super::country_lookup::CountryLookup;
 
@@ -136,7 +138,30 @@ impl Evaluator {
                 continue;
             }
 
+            if matches!(spec_type, SpecType::Layer) {
+                if let Some(shared_control_experiments) = rule.shared_control_experiments() {
+                    if !evaluate_pass_percentage(ctx, rule, spec.salt()) {
+                        continue;
+                    }
+
+                    let return_value = rule.return_value();
+                    ctx.result.bool_value = return_value.bool_value() == Some(true);
+                    ctx.result.json_value = Some(return_value.to_owned());
+                    ctx.result.rule_id = Some(rule.id().to_interned());
+                    ctx.result.group_name = None;
+                    ctx.result.is_experiment_group = false;
+                    ctx.result.shared_control_experiments = Some(shared_control_experiments);
+                    ctx.finalize_evaluation_values(
+                        rule.sampling_rate(),
+                        spec.forward_all_exposures(),
+                    );
+                    return Ok(Recognition::Recognized);
+                }
+            }
+
             if evaluate_config_delegate(ctx, rule)? {
+                ctx.result.rule_pass_percentage =
+                    matches!(spec_type, SpecType::Gate).then(|| rule.pass_percentage());
                 ctx.finalize_evaluation_values(rule.sampling_rate(), spec.forward_all_exposures());
                 return Ok(Recognition::Recognized);
             }
@@ -154,8 +179,9 @@ impl Evaluator {
                 return_value.bool_value() == Some(true)
             };
             ctx.result.json_value = Some(return_value.to_owned());
-
             ctx.result.rule_id = Some(rule.id().to_interned());
+            ctx.result.rule_pass_percentage =
+                matches!(spec_type, SpecType::Gate).then(|| rule.pass_percentage());
             ctx.result.group_name = rule.group_name().map(InternedStrRef::to_interned);
             ctx.result.is_experiment_group = rule.is_experiment_group();
             ctx.result.is_experiment_active = spec.is_active().unwrap_or(false);
@@ -170,6 +196,7 @@ impl Evaluator {
             true => Some(InternedString::default_rule_id()),
             false => Some(DISABLED_RULE.clone()),
         };
+        ctx.result.rule_pass_percentage = None;
         ctx.finalize_evaluation_values(None, spec.forward_all_exposures());
 
         Ok(Recognition::Recognized)
@@ -210,6 +237,23 @@ fn new_layer_eval<'a>(
 
         let did_pass = evaluate_pass_percentage(ctx, rule, spec.salt());
         if !did_pass {
+            continue;
+        }
+
+        if let Some(shared_control_experiments) = rule.shared_control_experiments() {
+            if !has_passed_rule {
+                passed = ctx.result.bool_value;
+                update_parameter_values(
+                    &mut value,
+                    &mut rule_ids,
+                    rule.return_value().json_value(),
+                    rule.id(),
+                );
+                rule_id = Some(rule.id().to_interned());
+                ctx.result.shared_control_experiments = Some(shared_control_experiments);
+                break;
+            }
+
             continue;
         }
 
@@ -284,6 +328,7 @@ fn new_layer_eval<'a>(
     ctx.result.secondary_exposures = secondary_exposures;
     ctx.result.undelegated_secondary_exposures = Some(undelegated_secondary_exposures);
     ctx.result.parameter_rule_ids = Some(rule_ids);
+    ctx.result.rule_pass_percentage = None;
     ctx.finalize_evaluation_values(None, spec.forward_all_exposures());
     Ok(Recognition::Recognized)
 }
@@ -483,7 +528,7 @@ fn evaluate_condition<'a>(
             return Ok(());
         }
         ConditionType::ExperimentGroup => {
-            let group_name = evaluate_experiment_group(ctx, &condition.field);
+            let group_name = evaluate_experiment_group(ctx, &condition.field)?;
             match group_name {
                 Some(name) => {
                     temp_value = Some(DynamicValue::from(name));
@@ -647,31 +692,60 @@ fn is_in_id_list(
 fn evaluate_experiment_group<'a>(
     ctx: &mut EvaluatorContext<'a>,
     experiment_name: &Option<DynamicString>,
-) -> Option<String> {
+) -> Result<Option<String>, StatsigErr> {
     let exp_name = match experiment_name {
         Some(name) => &name.value,
         None => {
-            return None;
+            return Ok(None);
         }
     };
-    let statsig = match &ctx.statsig {
-        Some(s) => s,
-        None => {
-            ctx.result.unsupported = true;
-            return None;
+
+    // Experiment-group conditions are evaluated from the same pinned snapshot as
+    // their containing gate. This keeps scoped snapshot sessions config-only and
+    // avoids routing a nested evaluation through the public Statsig API.
+    let parent_result = std::mem::take(&mut ctx.result);
+    let parent_nested_count = ctx.nested_count;
+
+    if let Err(error) = ctx.prep_for_nested_evaluation() {
+        ctx.result = parent_result;
+        ctx.nested_count = parent_nested_count;
+        return Err(error);
+    }
+
+    let recognition = Evaluator::evaluate_with_name(ctx, exp_name, &SpecType::Experiment);
+    ctx.nested_count = parent_nested_count;
+
+    let recognized = matches!(&recognition, Ok(Recognition::Recognized));
+    let group_name = match recognition {
+        Ok(Recognition::Recognized) if !ctx.result.unsupported => ctx
+            .result
+            .group_name
+            .as_ref()
+            .map(|group_name| group_name.as_str().to_string()),
+        Ok(_) => None,
+        Err(error) => {
+            ctx.result = parent_result;
+            return Err(error);
         }
     };
-    let res = ctx.user.with_public_user(|user| {
-        statsig.get_experiment_with_options(
-            user,
-            exp_name.as_str(),
-            ExperimentEvaluationOptions {
-                disable_exposure_logging: ctx.disable_exposure_logging,
-                user_persisted_values: None,
-            },
-        )
-    });
-    res.group_name
+
+    let nested_result = std::mem::take(&mut ctx.result);
+    let unsupported = nested_result.unsupported;
+    if ctx.capture_nested_experiment_exposures {
+        ctx.nested_experiment_exposures
+            .push(NestedExperimentExposure {
+                experiment_name: exp_name.clone(),
+                recognized,
+                result: nested_result,
+            });
+    }
+
+    ctx.result = parent_result;
+    if unsupported {
+        ctx.result.unsupported = true;
+    }
+
+    Ok(group_name)
 }
 
 fn evaluate_nested_gate<'a>(

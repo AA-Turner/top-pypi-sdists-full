@@ -1,27 +1,18 @@
+from __future__ import annotations
+
 import enum
 import importlib.util
-import inspect
 import math
 import re
 import struct
-import sys
 from functools import lru_cache
+from typing import Final
 
 import numpy as np
 import yaml
+from typing_extensions import sentinel
 
 from . import constants
-
-# The standard library importlib.metadata returns duplicate entrypoints
-# for all python versions up to and including 3.11
-# https://github.com/python/importlib_metadata/issues/410#issuecomment-1304258228
-# see PR https://github.com/asdf-format/asdf/pull/1260
-# see issue https://github.com/asdf-format/asdf/issues/1254
-if sys.version_info >= (3, 12):
-    pass
-else:
-    pass
-
 
 # We're importing our own copy of urllib.parse because
 # we need to patch it to support asdf:// URIs, but it'd
@@ -40,6 +31,7 @@ _patched_urllib_parse.uses_netloc.append("asdf")
 
 
 __all__ = [
+    "NOT_SET",
     "FileType",
     "NotSet",
     "calculate_padding",
@@ -126,7 +118,7 @@ def _iter_subclasses(cls):
         yield from _iter_subclasses(x)
 
 
-def calculate_padding(content_size, pad_blocks, block_size):
+def calculate_padding(content_size: int, pad_blocks: float | bool | None, block_size: int) -> int:
     """
     Calculates the amount of extra space to add to a block given the
     user's request for the amount of extra space.  Care is given so
@@ -274,57 +266,10 @@ def get_class_name(obj, instance=True):
     return f"{typ.__module__}.{typ.__qualname__}"
 
 
-class _InheritDocstrings(type):
-    """
-    This metaclass makes methods of a class automatically have their
-    docstrings filled in from the methods they override in the base
-    class.
-
-    If the class uses multiple inheritance, the docstring will be
-    chosen from the first class in the bases list, in the same way as
-    methods are normally resolved in Python.  If this results in
-    selecting the wrong docstring, the docstring will need to be
-    explicitly included on the method.
-
-    For example::
-
-        >>> from asdf.util import _InheritDocstrings
-        >>> class A(metaclass=_InheritDocstrings):
-        ...     def wiggle(self):
-        ...         "Wiggle the thingamajig"
-        ...         pass
-        >>> class B(A):
-        ...     def wiggle(self):
-        ...         pass
-        >>> B.wiggle.__doc__
-        'Wiggle the thingamajig'
-    """
-
-    def __init__(cls, name, bases, dct):
-        def is_public_member(key):
-            return (key.startswith("__") and key.endswith("__") and len(key) > 4) or not key.startswith("_")
-
-        for key, val in dct.items():
-            if inspect.isfunction(val) and is_public_member(key) and val.__doc__ is None:
-                for base in cls.__mro__[1:]:
-                    super_method = getattr(base, key, None)
-                    if super_method is not None:
-                        val.__doc__ = super_method.__doc__
-                        break
-
-        super().__init__(name, bases, dct)
-
-
-class _NotSetType:
-    def __repr__(self):
-        return "NotSet"
-
-
-"""
-Special value indicating that a parameter is not set.  Distinct
-from None, which may for example be a value of interest in a search.
-"""
-NotSet = _NotSetType()
+#: Special value indicating that a parameter is not set.
+#: Distinct from None, which may for example be a value of interest in a search.
+NOT_SET = sentinel("NOT_SET", repr="NotSet")
+NotSet: Final[NOT_SET] = NOT_SET
 
 
 def uri_match(pattern, uri):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openccu-loom-client
-Version: 2026.9.2
+Version: 2026.9.3
 Summary: Async Python REST + WebSocket client for the openccu-loom daemon
 Author: OpenCCU-Loom authors
 License: MIT

@@ -23,6 +23,7 @@ document; a parser does not provide insertion positions.
 
 from __future__ import annotations
 
+import json
 import re
 import uuid as _uuid
 from collections.abc import Mapping
@@ -695,6 +696,37 @@ def new_object_yaml(
     return "\n".join(lines + spelled_lines(list(extra_lines), lang)) + "\n"
 
 
+#: The base a form template belongs to: only these carry `Content: FormTemplate`, so only
+#: they need the template wrapper the default scaffold writes.
+_FORM_BASES = ("Форма", "ФормаОбъекта", "ФормаСписка", "ФормаЗаписи", "ФормаОтчета",
+               "ФормаОбработки")
+
+
+def _component_base_lines(base: str) -> list[str]:
+    """The `Inherits` block of an interface component built on `base`.
+
+    The scaffold used to write one base for every component - a form with a template wrapper -
+    and the most common base in a real project is not a form at all: a measurement over a live
+    project counted 31 components built on `Group` against 7 on a bare `Form`. Rewriting the
+    whole block by hand was therefore the usual case, not the exception.
+
+    A form base keeps the template wrapper (`Form.Content` is typed `FormTemplate?`, so a
+    group cannot sit there directly); any other base is written as it is - its content is the
+    author's business, and inventing it would be inventing markup.
+    """
+    head = base.split("<", 1)[0].strip()
+    lines = ["Наследует:", f"    Тип: {base.strip()}"]
+    if head in _FORM_BASES:
+        return lines + [
+            "    Содержимое:",
+            "        Тип: ПроизвольныйШаблонФормы",
+            "        Содержимое:",
+            "            Тип: Группа",
+            "            Компоновка: Вертикальная",
+        ]
+    return lines
+
+
 def _expand_extra(lines: tuple[str, ...], name: str) -> list[str]:
     """Substitute the name and a unique Ид for every {uuid} occurrence in object template lines."""
     out = []
@@ -999,7 +1031,10 @@ _SECTION_SPECS: dict[str, dict] = {
 }
 
 # Mapping sections "Ключ: Значение" (not a list of items with "-"): ЛокализованныеСтроки.
-# quote - wrap the value in quotes (templates may contain spaces and %0/$0 substitutions).
+# quote - ALWAYS wrap the value in quotes (a template carries substitutions and reads better
+# quoted); a section without the flag quotes only what yaml requires quoting. Written as
+# given, a value with a colon and a space in it ("Переходов посетителей: $0.") broke the file
+# the tool had just written - yaml read the tail as a nested mapping.
 _MAPPING_SPECS: dict[str, dict] = {
     "строка": {"section": "Строки", "quote": False},
     "шаблон": {"section": "Шаблоны", "quote": True},
@@ -1701,6 +1736,7 @@ def op_new_object(
     routes: str | None = None,
     report: dict | None = None,
     presentation: str | None = None,
+    base: str | None = None,
 ) -> ScaffoldResult:
     """Create a configuration object: Имя.yaml (+ Имя.xbsl for kinds with a module).
 
@@ -1762,6 +1798,12 @@ def op_new_object(
         )
 
     extra = _expand_extra(spec.extra, name)
+    if base:
+        if kind != "КомпонентИнтерфейса":
+            raise ScaffoldError(
+                f"Базовый тип (base) задаётся только у вида КомпонентИнтерфейса, а не у {kind}"
+            )
+        extra = _component_base_lines(base)
     if environment:
         extra = [line for line in extra if not line.startswith("Окружение:")]
         extra.append(f"Окружение: {environment}")
@@ -1794,6 +1836,39 @@ def op_new_object(
 #: The attribute a newly created tabular part carries (see _SECTION_SPECS): the platform
 #: needs a non-empty `Attributes` list, so the part cannot be born empty.
 _STARTER_ATTRIBUTE = "Реквизит1"
+
+#: The same trick a register is born with: the platform refuses an information register
+#: without a dimension and an accumulation register without a resource, so the new object
+#: carries a placeholder. Section -> (its stub name, the stub's own type).
+_STARTER_ITEMS = {
+    "Измерения": ("Измерение1", ("Строка", "String")),
+    "Ресурсы": ("Ресурс1", ("Число", "Number")),
+}
+
+
+def _starter_item_span(text: str, section: str) -> tuple[int, int, int] | None:
+    """(start, end, indent) of the section's placeholder while it is still untouched.
+
+    Untouched means the section holds exactly ONE item and it is the template's own - the
+    stub name and the stub type. An author who renamed or retyped it owns it, and a real
+    item named that way with anything else beside it is not a stub either. Without this the
+    first real dimension landed NEXT to the placeholder, and the placeholder was deleted by
+    hand after every such add - the tabular part had the same fix long ago.
+    """
+    stub = _STARTER_ITEMS.get(section)
+    if stub is None:
+        return None
+    name, types = stub
+    items = section_items(text, section, top_level=True)
+    if len(items) != 1 or items[0].get("Имя") != name:
+        return None
+    if items[0].get("Тип") not in types:
+        return None
+    offset = find_section_item_offset(text, section, name, top_level=True)
+    if offset is None:
+        return None
+    end, indent = _item_block_span(text, offset)
+    return offset, end, indent
 
 
 def _starter_attribute_span(text: str, tabular_offset: int, tabular: str) -> tuple[int, int, int] | None:
@@ -1921,10 +1996,20 @@ def op_add_field(
         line.format(uuid=new_uuid(), uuid2=new_uuid(), name=name, type=resolved or "")
         for line in template
     ], resolved), kind, path) + _prop_lines(extra), lang)
-    edit = insert_item_edit(text, spec["section"], lines, nl, top_level=True, lang=lang)
+    starter = _starter_item_span(text, spec["section"])
+    notes: list[str] = []
+    if starter is None:
+        edit = insert_item_edit(text, spec["section"], lines, nl, top_level=True, lang=lang)
+    else:
+        start, end, indent = starter
+        edit = TextEdit(start, end, (nl + " " * indent).join(lines))
+        notes.append(f"Заглушка {_STARTER_ITEMS[spec['section']][0]} секции "
+                     f"{spec['section']} заменена на {name}")
     new_text = apply_edit(text, edit)
     cursor = _cursor_at(new_text, edit.start + len(edit.new_text))
-    result = ScaffoldResult([FileChange(yaml_path, new_text, created=False, cursor=cursor)])
+    result = ScaffoldResult(
+        [FileChange(yaml_path, new_text, created=False, cursor=cursor)], notes=notes,
+    )
     if field_kind == "операция":
         _add_operation_handler(yaml_path, name, result, reader, lang)
     if field_kind == "индекс":
@@ -2137,7 +2222,42 @@ def _checked_props(
         return {}
     cls = metamodel.item_class(kind, path) if metamodel.available() else None
     written_forms = {form for name in written for form in key_forms(name)}
-    return _checked_block(_nested(props), cls, _item_label(cls, path), written_forms)
+    checked = _checked_block(_nested(props), cls, _item_label(cls, path), written_forms)
+    _check_standard_length(path, checked)
+    return checked
+
+
+def _check_standard_length(path: tuple[tuple[str, str | None], ...],
+                           props: Mapping[str, object]) -> None:
+    """The `Length` of a standard field against the platform limit.
+
+    The compiler refuses a longer one ('The length of attribute "Code" must fall between zero
+    and 50'), and the linter says so as well - but only on the NEXT run, over a file the tool
+    has already written. A limit the tool knows belongs in the tool: a refusal costs one call,
+    a written file costs a lint, an edit and a second call.
+    """
+    from xbsl.rules.yaml_schema import _STANDARD_LENGTH_LIMITS, _STANDARD_LENGTH_LIMITS_EN
+
+    name = path[-1][1] if path else None
+    if not isinstance(name, str):
+        return
+    limit = _STANDARD_LENGTH_LIMITS.get(name) or _STANDARD_LENGTH_LIMITS_EN.get(name)
+    if limit is None:
+        return
+    for key in ("Длина", "Length"):
+        # The checked value comes back SHAPED for the yaml line - a number arrives as its
+        # text. Read both, and let anything that is not a number pass to the checks that
+        # judge types.
+        raw = props.get(key)
+        value = raw if isinstance(raw, int) else None
+        if isinstance(raw, str) and raw.strip().isdigit():
+            value = int(raw.strip())
+        if value is not None and value > limit:
+            raise ScaffoldError(
+                f"Длина стандартного поля '{name}' – {value}, а платформа принимает не больше "
+                f"{limit}: применение отвергает такое поле сообщением о длине между нулём и "
+                f"{limit}"
+            )
 
 
 def _checked_block(
@@ -2396,6 +2516,24 @@ def op_set_field_property(
     return ScaffoldResult([FileChange(yaml_path, new_text, created=False, cursor=cursor)])
 
 
+def _survives_bare(value: str) -> bool:
+    """Would this value read back as itself if written without quotes?
+
+    Asked of the yaml parser rather than of a pattern: the value came from a person and may
+    carry anything. A colon and a space in it ("Переходов посетителей: $0.") makes yaml read
+    the tail as a nested mapping, and the file the tool had just written did not parse.
+    """
+    try:
+        import yaml as _yaml
+    except ImportError:  # pragma: no cover - the parser is a hard dependency of the linter
+        return False
+    try:
+        parsed = _yaml.safe_load("k: " + value)
+    except _yaml.YAMLError:
+        return False
+    return isinstance(parsed, dict) and parsed.get("k") == value
+
+
 def _add_mapping_entry(
     yaml_path: Path, text: str, nl: str, kind: str, field_kind: str,
     map_spec: dict, key: str, value: str,
@@ -2412,7 +2550,12 @@ def _add_mapping_entry(
         raise ScaffoldError(f"У вида {kind} нет секции для '{field_kind}'; доступны: {avail}")
     section = map_spec["section"]
     raw_value = value if value and value != "Строка" else key
-    entry_value = f'"{raw_value}"' if map_spec["quote"] else raw_value
+    # The quoting rules of yaml are the writer's job, not the caller's. Quoted only when the
+    # value would not survive being written bare - the files of a live project write their
+    # strings plain, and quoting every one of them would make the tool's lines look foreign
+    # beside the hand-written ones.
+    entry_value = (json.dumps(raw_value, ensure_ascii=False)
+                   if map_spec["quote"] or not _survives_bare(raw_value) else raw_value)
 
     bounds = _section_bounds(text, section, top_level=True)
     if bounds is not None:
@@ -2426,7 +2569,45 @@ def _add_mapping_entry(
         header = spelled_key(section, yaml_language(text, yaml_path.parent))
         new_text = text + f"{tail}{header}:{nl}    {key}: {entry_value}{nl}"
     cursor = _cursor_at(new_text, new_text.index(f"{key}: {entry_value}"))
-    return ScaffoldResult([FileChange(yaml_path, new_text, created=False, cursor=cursor)])
+    changes = [FileChange(yaml_path, new_text, created=False, cursor=cursor)]
+    notes: list[str] = []
+    _echo_into_translations(yaml_path, section, key, entry_value, nl, changes, notes)
+    return ScaffoldResult(changes, notes=notes)
+
+
+def _echo_into_translations(
+    yaml_path: Path, section: str, key: str, entry_value: str, nl: str,
+    changes: list, notes: list[str],
+) -> None:
+    """Repeat the new pair in the translation files the element already has.
+
+    A translation repeats the sections of its element key for key, and a key present in the
+    element and missing from a translation is a gap the translator only meets later. The
+    value written is the DEFAULT-language one - exactly what op_add_localization copies when
+    it creates such a file, and what a translator replaces in place.
+
+    A translation file carries no element kind of its own (only the two mapping sections), so
+    the ordinary add operation refuses it; that is why the echo lives here rather than in a
+    second call the caller has to know about.
+    """
+    for folder in _localization_dirs(yaml_path.parent):
+        for target in sorted(folder.glob(f"*/{yaml_path.name}")):
+            try:
+                text = target.read_text(encoding="utf-8-sig")
+            except OSError:
+                continue
+            bounds = _section_bounds(text, section, top_level=True)
+            if bounds is None:
+                continue
+            _, header_line_end, body_end = bounds
+            if re.search(rf"^[ \t]+{re.escape(key)}:", text[header_line_end:body_end], re.M):
+                continue
+            changes.append(FileChange(
+                target, text[:body_end] + f"{nl}    {key}: {entry_value}" + text[body_end:],
+                created=False,
+            ))
+            notes.append(f"Ключ {key} дописан в перевод {target.parent.name}/{target.name} "
+                         "значением языка по умолчанию – замените его переводом")
 
 
 def _add_operation_handler(
@@ -3608,11 +3789,15 @@ def _new_report(yaml_path: Path, name: str, report: dict, result: ScaffoldResult
 # --- operations: forms --------------------------------------------------------------------
 
 
-def _form_field_component(name: str, type_: str, indent: str) -> list[str]:
-    """Editing component by attribute type (the mapping from the form specification)."""
+def _form_field_component(name: str, type_: str, indent: str, owner: str = "Объект") -> list[str]:
+    """Editing component by attribute type (the mapping from the form specification).
+
+    `owner` is what the value binds to: a reference object's form binds to `Object`, an
+    information register's record form to `Record` - the same fields, another holder.
+    """
     if type_ == "Булево":
         return [f"{indent}-", f"{indent}    Тип: Флажок", f"{indent}    Имя: {name}",
-                f"{indent}    Значение: =Объект.{name}"]
+                f"{indent}    Значение: ={owner}.{name}"]
     component_type = type_ or "Строка"
     # '?' is added only where the type is known to have no default value: a reference and
     # an enumeration. Collections and generics (Массив<Строка> etc.) do have a default -
@@ -3628,7 +3813,7 @@ def _form_field_component(name: str, type_: str, indent: str) -> list[str]:
         f"{indent}-",
         f"{indent}    Тип: ПолеВвода<{component_type}>",
         f"{indent}    Имя: {name}",
-        f"{indent}    Значение: =Объект.{name}",
+        f"{indent}    Значение: ={owner}.{name}",
     ]
     if type_ in ("Строка", "") and name in ("Описание", "Комментарий"):
         lines += [f"{indent}    НастройкиВводаСтроки:", f"{indent}        Многострочная: Истина"]
@@ -3780,6 +3965,49 @@ def object_form_yaml(info: dict, uid: str) -> str:
             ] + [" " * 28 + "-"] + _tabular_table_lines(
                 obj, tc_name, " " * 32, panels=False, fields=tc["fields"]
             )
+    return "\n".join(lines) + "\n"
+
+
+def record_form_yaml(info: dict, uid: str) -> str:
+    """The RecordForm from a register summary: its dimensions and resources as fields.
+
+    An information register has no object form - the editable thing is its RECORD, and the
+    form type is `RecordForm<Register.Record>`. Writing one by hand was the whole cost of the
+    gap: the form itself is the same list of input fields as an object form, but every part
+    around it differs - the type argument, the binding holder (`Record`, not `Object`) and the
+    registration key (`Interface.Record.Form`).
+
+    The write commands are the form's own: the type declares `Write`, `WriteAndClose`,
+    `Refresh` and `Delete`, so nothing here needs a form module. A
+    record form that validates its fields writes its own handlers instead - that is a choice
+    the author makes, not a thing the scaffold should presume.
+    """
+    obj = info["name"]
+    lines = [
+        "ВидЭлемента: КомпонентИнтерфейса",
+        f"Ид: {uid}",
+        f"Имя: {obj}ФормаЗаписи",
+        "ОбластьВидимости: ВПодсистеме",
+        "Наследует:",
+        f"    Тип: ФормаЗаписи<{obj}.Запись>",
+        "    ВключатьВАвтоИнтерфейс: Ложь",
+        f"    Заголовок: {obj}",
+        "    ДополнительныеКоманды:",
+        "        Тип: ФрагментКомандногоИнтерфейса",
+        "        Элементы:",
+        "            - =Обновить",
+        "            - =Удалить",
+        "    ОсновнаяКоманда: =ЗаписатьИЗакрыть",
+        "    Содержимое:",
+        "        Тип: ПроизвольныйШаблонФормы",
+        "        ШиринаВКолонках: Одинарная",
+        "        Содержимое:",
+        "            Тип: Группа",
+        "            Компоновка: Вертикальная",
+        "            Содержимое:",
+    ]
+    for field in info["fields"]:
+        lines += _form_field_component(field["name"], field["type"], " " * 16, owner="Запись")
     return "\n".join(lines) + "\n"
 
 
@@ -4242,6 +4470,8 @@ def _interface_block(kind: str, obj: str, forms: list[str]) -> list[str]:
         lines += ["    Объект:", f"        Форма: {obj}ФормаОбъекта"]
     if "list" in forms:
         lines += ["    Список:", f"        Форма: {obj}ФормаСписка"]
+    if "record" in forms:
+        lines += ["    Запись:", f"        Форма: {obj}ФормаЗаписи"]
     return lines
 
 
@@ -4276,10 +4506,11 @@ def _register_forms(text: str, nl: str, kind: str, obj: str, forms: list[str], r
             text = text[: span[1]] + f"{nl}    Форма: {form_name}" + text[span[1]:]
         return text
 
-    for form, subsection in (("object", "Объект"), ("list", "Список")):
+    suffixes = {"object": "ФормаОбъекта", "list": "ФормаСписка", "record": "ФормаЗаписи"}
+    for form, subsection in (("object", "Объект"), ("list", "Список"), ("record", "Запись")):
         if form not in forms:
             continue
-        form_name = f"{obj}Форма{'Объекта' if form == 'object' else 'Списка'}"
+        form_name = f"{obj}{suffixes[form]}"
         if re.search(rf"Форма:\s*{form_name}\b", text):
             result.notes.append(f"{form_name} уже зарегистрирована в Интерфейс")
             continue
@@ -4295,7 +4526,10 @@ def _register_forms(text: str, nl: str, kind: str, obj: str, forms: list[str], r
     return text
 
 
-FORM_KINDS = ("object", "list", "list-cards", "report", "processing")
+FORM_KINDS = ("object", "list", "list-cards", "record", "report", "processing")
+#: A record form belongs to the information register alone: an accumulation register's
+#: records are written by movements, not edited on a form.
+RECORD_FORM_KINDS = ("РегистрСведений",)
 
 
 def op_add_form(root: Path, name: str | None = None, yaml_path: Path | None = None,
@@ -4353,9 +4587,15 @@ def op_add_form(root: Path, name: str | None = None, yaml_path: Path | None = No
         raise ScaffoldError(f"Форма обработки неприменима к виду {kind}")
     # Only reference entities produce the ФормаОбъекта<X.Объект> type; a register has none.
     if "object" in forms and kind not in OBJECT_FORM_KINDS:
+        instead = ("форма записи (forms=[\"record\"]) и форма списка"
+                   if kind in RECORD_FORM_KINDS else "форма списка")
         raise ScaffoldError(
             f"У вида {kind} нет формы объекта (тип ФормаОбъекта порождают только "
-            + ", ".join(OBJECT_FORM_KINDS) + f"); для {kind} доступна форма списка"
+            + ", ".join(OBJECT_FORM_KINDS) + f"); для {kind} доступна {instead}"
+        )
+    if "record" in forms and kind not in RECORD_FORM_KINDS:
+        raise ScaffoldError(
+            f"У вида {kind} нет формы записи; она есть у: " + ", ".join(RECORD_FORM_KINDS)
         )
     if ("list" in forms or "list-cards" in forms) and kind not in LIST_FORM_KINDS:
         raise ScaffoldError(
@@ -4365,6 +4605,7 @@ def op_add_form(root: Path, name: str | None = None, yaml_path: Path | None = No
     result = ScaffoldResult()
     generators = {
         "object": ("ФормаОбъекта", object_form_yaml),
+        "record": ("ФормаЗаписи", record_form_yaml),
         "list": ("ФормаСписка", list_form_yaml),
         "list-cards": ("ФормаСписка", lambda i, uid: cards_list_form_yaml(i, uid, min_width=card_min_width)),
         "report": ("ФормаОтчета", report_form_yaml),

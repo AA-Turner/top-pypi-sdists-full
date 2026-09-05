@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.12.3"
+__version__ = "1.14.2"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -55,6 +55,7 @@ from cwsandbox._types import (
     ProcessResult,
     RegisteredVolumeOptions,
     ResourceOptions,
+    SandboxFileType,
     ScratchVolumeOptions,
     Secret,
     SecurityContext,
@@ -68,6 +69,7 @@ from cwsandbox._types import (
     TenantScope,
     TerminalResult,
     TerminalSession,
+    TlsPassthroughEndpointStatus,
     VolumeMount,
 )
 from cwsandbox._volume import PvcVolumeSource, Volume, VolumeLocality, VolumeState
@@ -88,6 +90,7 @@ from cwsandbox.exceptions import (
     SandboxFileError,
     SandboxNotFoundError,
     SandboxNotRunningError,
+    SandboxProtocolError,
     SandboxRequestTimeoutError,
     SandboxResourceExhaustedError,
     SandboxSnapshotError,
@@ -376,8 +379,10 @@ __all__ = [
     "SandboxExecutionError",
     "SandboxFailedError",
     "SandboxFileError",
+    "SandboxFileType",
     "SandboxNotFoundError",
     "SandboxNotRunningError",
+    "SandboxProtocolError",
     "SandboxRequestTimeoutError",
     "SandboxResourceExhaustedError",
     "SandboxSnapshotError",
@@ -404,6 +409,7 @@ __all__ = [
     "StreamWriter",
     "TerminalResult",
     "TerminalSession",
+    "TlsPassthroughEndpointStatus",
     "Volume",
     "VolumeBackendNotFoundError",
     "VolumeError",

@@ -2,10 +2,23 @@ from __future__ import annotations
 
 import sys
 from functools import singledispatch
+from typing import TYPE_CHECKING, Any, TypeGuard
 
-from htmltools import HTML, Tag, Tagifiable
+from htmltools import HTML, HTMLDependency, Tag, Tagifiable, TagList
 
-from ._chat_types import ChatMessage
+from ._chat_types import (
+    ChatMessage,
+    StructuredBlock,
+    WebFetchBlock,
+    WebSearchBlock,
+    WebSearchCitationsBlock,
+    WebSearchResultsBlock,
+    WebSearchSource,
+    is_structured_segment,
+)
+
+if TYPE_CHECKING:
+    from chatlas.types import ContentToolResult
 
 __all__ = ["message_content", "message_content_chunk"]
 
@@ -18,6 +31,48 @@ def message_content(message):
     This function uses `singledispatch` to allow for easy extension to support
     new message types. To add support for a new type, register a new function
     using the `@message_content.register` decorator.
+
+    To render a `chatlas.ContentToolResult` subclass as fully custom,
+    standalone UI after a tool call settles, register complete and streaming
+    handlers for it here and in `message_content_chunk()`. The pending
+    condensed activity row remains while the tool runs, then shinychat pairs
+    the custom result with that call and renders the returned UI outside the
+    default drill-down card.
+
+    Examples
+    --------
+
+    ```python
+    from chatlas import ContentToolResult
+    from shiny import ui
+    from shinychat import message_content, message_content_chunk
+    from shinychat.types import ChatMessage
+
+
+    class WeatherResult(ContentToolResult):
+        location_name: str
+
+
+    def weather_result_ui(result: WeatherResult) -> ChatMessage:
+        temperature = result.value["temperature_2m"]
+        return ChatMessage(
+            content=ui.div(
+                ui.h4(result.location_name),
+                f"{temperature} C",
+                class_="weather-result",
+            )
+        )
+
+
+    @message_content.register
+    def _(result: WeatherResult) -> ChatMessage:
+        return weather_result_ui(result)
+
+
+    @message_content_chunk.register
+    def _(result: WeatherResult) -> ChatMessage:
+        return weather_result_ui(result)
+    ```
 
     Parameters
     ----------
@@ -67,6 +122,48 @@ def message_content_chunk(chunk):
     This function uses `singledispatch` to allow for easy extension to support
     new chunk types. To add support for a new type, register a new function
     using the `@message_content_chunk.register` decorator.
+
+    To render a `chatlas.ContentToolResult` subclass as fully custom,
+    standalone UI after a tool call settles, register complete and streaming
+    handlers for it here and in `message_content()`. The pending condensed
+    activity row remains while the tool runs, then shinychat pairs the custom
+    result with that call and renders the returned UI outside the default
+    drill-down card.
+
+    Examples
+    --------
+
+    ```python
+    from chatlas import ContentToolResult
+    from shiny import ui
+    from shinychat import message_content, message_content_chunk
+    from shinychat.types import ChatMessage
+
+
+    class WeatherResult(ContentToolResult):
+        location_name: str
+
+
+    def weather_result_ui(result: WeatherResult) -> ChatMessage:
+        temperature = result.value["temperature_2m"]
+        return ChatMessage(
+            content=ui.div(
+                ui.h4(result.location_name),
+                f"{temperature} C",
+                class_="weather-result",
+            )
+        )
+
+
+    @message_content.register
+    def _(result: WeatherResult) -> ChatMessage:
+        return weather_result_ui(result)
+
+
+    @message_content_chunk.register
+    def _(result: WeatherResult) -> ChatMessage:
+        return weather_result_ui(result)
+    ```
 
     Parameters
     ----------
@@ -132,8 +229,12 @@ try:
 
     # Import here to avoid hard dependency on pydantic
     from ._chat_normalize_chatlas import (
+        citation_aside,
+        tool_display_override,
         tool_request_contents,
+        tool_request_message,
         tool_result_contents,
+        tool_result_message,
     )
 
     @message_content.register
@@ -189,7 +290,7 @@ try:
 
     @message_content.register
     def _(chunk: ContentToolRequest):
-        return ChatMessage(content=tool_request_contents(chunk))
+        return tool_request_message(tool_request_contents(chunk))
 
     @message_content_chunk.register
     def _(chunk: ContentToolRequest):
@@ -197,11 +298,127 @@ try:
 
     @message_content.register
     def _(chunk: ContentToolResult):
-        return ChatMessage(content=tool_result_contents(chunk))
+        result = tool_result_contents(chunk)
+        return tool_result_message(result)
 
     @message_content_chunk.register
     def _(chunk: ContentToolResult):
         return message_content(chunk)
+
+    try:
+        from chatlas.types import (
+            ContentCitation,
+            ContentToolRequestFetch,
+            ContentToolRequestSearch,
+            ContentToolResponseFetch,
+            ContentToolResponseSearch,
+            WebSource,
+        )
+
+        @message_content.register
+        def _(message: ContentToolRequestSearch):
+            if tool_display_override() == "none":
+                return ChatMessage(content="")
+            block: WebSearchBlock = {
+                "type": "web_search",
+                "version": 1,
+                "query": message.query,
+            }
+            # Providers that key their search calls (Anthropic, OpenAI)
+            # carry the id in extra; the client pairs results against it.
+            if message.extra is not None:
+                search_id = message.extra.get("id")
+                if isinstance(search_id, str):
+                    block["id"] = search_id
+            return ChatMessage(content="", blocks=[block])
+
+        @message_content_chunk.register
+        def _(chunk: ContentToolRequestSearch):
+            return message_content(chunk)
+
+        @message_content.register
+        def _(message: ContentToolResponseSearch):
+            if tool_display_override() == "none":
+                return ChatMessage(content="")
+            sources: list[WebSearchSource] = []
+            for s in message.sources:
+                source: WebSearchSource = {"url": s.url}
+                if s.title is not None:
+                    source["title"] = s.title
+                sources.append(source)
+            block: WebSearchResultsBlock = {
+                "type": "web_search_results",
+                "version": 1,
+                "sources": sources,
+            }
+            if message.extra is not None:
+                search_id = message.extra.get("tool_use_id")
+                if isinstance(search_id, str):
+                    block["search_id"] = search_id
+            return ChatMessage(content="", blocks=[block])
+
+        @message_content_chunk.register
+        def _(chunk: ContentToolResponseSearch):
+            return message_content(chunk)
+
+        @message_content.register
+        def _(message: ContentToolRequestFetch):
+            return ChatMessage(content="")
+
+        @message_content_chunk.register
+        def _(chunk: ContentToolRequestFetch):
+            return message_content(chunk)
+
+        @message_content.register
+        def _(message: ContentToolResponseFetch):
+            if tool_display_override() == "none":
+                return ChatMessage(content="")
+            block: WebFetchBlock = {
+                "type": "web_fetch",
+                "version": 1,
+                "url": message.url,
+            }
+            if message.status is not None:
+                block["status"] = message.status
+            return ChatMessage(content="", blocks=[block])
+
+        @message_content_chunk.register
+        def _(chunk: ContentToolResponseFetch):
+            return message_content(chunk)
+
+        @message_content.register
+        def _(message: ContentCitation):
+            if tool_display_override() == "none" or not isinstance(
+                message.source, WebSource
+            ):
+                return ChatMessage(content="")
+            cited: WebSearchSource = {"url": message.source.url}
+            if message.source.title:
+                cited["title"] = message.source.title
+            # Citations ride their own block so the client can pair them
+            # with the search on both the stream and replay paths.
+            citations: WebSearchCitationsBlock = {
+                "type": "web_search_citations",
+                "version": 1,
+                "sources": [cited],
+            }
+            return ChatMessage(
+                content=citation_aside(
+                    message.source.url,
+                    message.source.title,
+                    grounded_span=message.grounded_span,
+                    cited_quote=message.cited_quote,
+                ),
+                content_type="markdown",
+                blocks=[citations],
+            )
+
+        @message_content_chunk.register
+        def _(chunk: ContentCitation):
+            return message_content(chunk)
+
+    except ImportError:
+        pass
 
     # ContentThinking is a complete thought stored in a turn, ContentThinkingDelta is
     # a thinking chunk from .stream(content="all")
@@ -228,16 +445,32 @@ try:
 
     @message_content.register
     def _(message: Turn):
-        from chatlas import ContentToolResult
-
-        content = ""
+        deps: list[HTMLDependency] = []
+        blocks: list[StructuredBlock] = []
+        parts: list[str | StructuredBlock] = []
+        block_dep_objs: dict[int, list[HTMLDependency]] = {}
         for x in message.contents:
-            content += message_content(x).content
+            item = normalize_message(x)
+            deps += item.html_deps
+            offset = len(blocks)
+            blocks.extend(item.blocks)
+            for idx, block_deps in item._block_html_deps.items():
+                block_dep_objs[offset + idx] = block_deps
+            if item.content:
+                parts.append(item.content)
+            parts.extend(item.blocks)
         if all(isinstance(x, ContentToolResult) for x in message.contents):
             role = "assistant"
         else:
             role = message.role
-        return ChatMessage(content=content, role=role)
+        # The merged segment list already carries the blocks, so it is the
+        # only content spelling passed. String parts flatten to the
+        # message-level content_type (markdown), matching the pre-segments
+        # merge; per-item content_type fidelity is a future improvement.
+        result = ChatMessage(content="", role=role, parts=parts or None)
+        result.html_deps = deps + result.html_deps
+        result._block_html_deps = block_dep_objs
+        return result
 
     @message_content_chunk.register
     def _(chunk: Turn):
@@ -248,6 +481,103 @@ try:
     # shinychat_contents() method for Chat, but Python doesn't.
 except ImportError:
     pass
+
+
+def normalize_message(message: Any) -> ChatMessage:
+    """Normalize a complete message and apply shared postprocessing."""
+    return _wrap_custom_tool_result(message, message_content(message))
+
+
+def normalize_message_chunk(chunk: Any) -> ChatMessage:
+    """Normalize a message chunk and apply shared postprocessing."""
+    return _wrap_custom_tool_result(chunk, message_content_chunk(chunk))
+
+
+def _is_tool_result(value: object) -> TypeGuard["ContentToolResult"]:
+    try:
+        from chatlas.types import ContentToolResult
+
+        return isinstance(value, ContentToolResult)
+    except ImportError:
+        return False
+
+
+def _part_text(p: "str | StructuredBlock") -> str:
+    """Extract text from one ``parts`` entry.
+
+    Strings contribute themselves. ``html_block`` blocks contribute
+    their ``content``. Other structured blocks contribute nothing.
+    """
+    if isinstance(p, str):
+        return p
+    if is_structured_segment(p) and p["type"] == "html_block":
+        return p["content"]
+    return ""
+
+
+def _wrap_custom_tool_result(message: Any, msg: ChatMessage) -> ChatMessage:
+    """Emit a custom tool result as a structured ``tool_result`` block.
+
+    The author's custom UI is the block's ``value`` with
+    ``custom_display: True``, so the client pairs it with the pending
+    ``tool_request`` row.
+    """
+    if not _is_tool_result(message):
+        return msg
+
+    if message.request is None:
+        return msg
+
+    try:
+        from ._chat_normalize_chatlas import (
+            ShinyToolCardMessage,
+            ValueType,
+            resolve_tool_annotations,
+            tool_display_override,
+            tool_result_message,
+            wrap_custom_tool_result,
+        )
+    except ImportError:
+        return msg
+
+    if isinstance(msg, ShinyToolCardMessage):
+        return msg
+
+    # These are shinychat's own early returns, not an author's bypass.
+    if tool_display_override() == "none":
+        return msg
+
+    # Mirror the author's payload mode, while keeping the wrapper itself
+    # routable as HTML.
+    value_type: ValueType = (
+        msg.content_type
+        if msg.content_type in ("html", "markdown", "text")
+        else "markdown"
+    )
+    annotations = resolve_tool_annotations(message.request.tool)
+    if msg.parts is not None:
+        content = "".join(_part_text(p) for p in msg.parts)
+    else:
+        content = msg.content + "".join(
+            b["content"] for b in msg.blocks if b["type"] == "html_block"
+        )
+    wrapped = wrap_custom_tool_result(
+        request_id=message.request.id,
+        tool_name=message.request.name,
+        # A custom renderer owns its error presentation; the wrapper only
+        # carries the lifecycle signal needed by the client.
+        status="success" if message.error is None else "error",
+        value=TagList(HTML(content)) if value_type == "html" else content,
+        value_type=value_type,
+        grouping=annotations.grouping,
+    )
+
+    result = tool_result_message(wrapped)
+    result.role = msg.role
+    result.attachments = msg.attachments
+    result.html_deps = list(msg.html_deps) + list(result.html_deps)
+    return result
+
 
 # ------------------------------------------------------------------
 # LangChain content extractor

@@ -323,11 +323,10 @@ class DeviantartExtractor(Extractor):
 
         # filename metadata
         sub = text.re(r"\W").sub
-        deviation["filename"] = "".join((
-            sub("_", deviation["title"].lower()), "_by_",
-            sub("_", deviation["author"]["username"].lower()), "-d",
-            deviation["index_base36"],
-        ))
+        deviation["filename"] = (
+            f"{sub('_', deviation['title'].lower())}_by_"
+            f"{sub('_', deviation['author']['username'].lower())}_d"
+            f"{deviation['index_base36']}")
 
     def commit(self, deviation, target):
         url = target["src"]
@@ -1102,19 +1101,50 @@ class DeviantartDeviationExtractor(DeviantartExtractor):
         self.archive_fmt = ("g_{_username}_{index}{index_file:?_//}."
                             "{extension}")
 
-        additional_media = util.json_loads(self._unescape_json(
-            additional_media) + "}]")
-        deviation["count"] = 1 + len(additional_media)
+        if additional_media := util.json_loads(self._unescape_json(
+                additional_media) + "}]"):
+            for post in additional_media:
+                if post.get("type") == "video":
+                    medias = DeviantartEclipseAPI(
+                        self).deviation_media(deviation_id)
+                    break
+            else:
+                medias = {}
+            deviation["count"] = 1 + len(additional_media)
+            dev_orig = deviation.copy()
+            dev_orig.pop("content", None)
+            dev_orig.pop("videos", None)
+            dev_orig.pop("flash", None)
+        else:
+            deviation["count"] = 1
+
         yield deviation
 
-        for index, post in enumerate(additional_media):
-            uri = eclipse_media(post["media"], "fullview")[0]
-            deviation["content"]["src"] = uri
-            deviation["num"] += 1
-            deviation["index_file"] = post["fileId"]
-            # Download only works on purchased materials - no way to check
-            deviation["is_downloadable"] = False
-            yield deviation
+        for index, post in enumerate(additional_media, 2):
+            dev = dev_orig.copy()
+            dev["num"] = index
+            dev["index_file"] = post["fileId"]
+            dev["is_downloadable"] = False
+
+            media = medias.get(post["fileId"]) or post["media"]
+            if videos := [fmt for fmt in (media.get("types") or ())
+                          if fmt.get("t") == "video"]:
+                dev["videos"] = [{
+                    "src"     : fmt["b"],
+                    "quality" : fmt.get("q") or str(fmt.get("h", 0)) + "p",
+                    "duration": fmt.get("d"),
+                    "filesize": fmt.get("f"),
+                } for fmt in videos]
+            else:
+                dev["content"] = {"src": eclipse_media(
+                    post["media"], "fullview")[0]}
+                if post.get("type") == "video":
+                    self.log.warning(
+                        "%s: Unable to extract video URL of file %s; falling "
+                        "back to preview image. Provide login credentials or "
+                        "session cookies to be able to access it.",
+                        deviation_id, post.get("filename") or post["fileId"])
+            yield dev
 
 
 class DeviantartScrapsExtractor(DeviantartExtractor):
@@ -1778,6 +1808,11 @@ class DeviantartEclipseAPI():
             "expand"          : "deviation.related",
             "da_minor_version": "20230710",
         }
+        return self._call(endpoint, params)
+
+    def deviation_media(self, deviation_id):
+        endpoint = "/_puppy/dadeviation/media"
+        params = {"deviationid": deviation_id}
         return self._call(endpoint, params)
 
     def gallery_scraps(self, user, offset=0):

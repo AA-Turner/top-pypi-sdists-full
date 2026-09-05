@@ -9,12 +9,12 @@ use crate::evaluation::country_lookup::CountryLookup;
 use crate::evaluation::dynamic_value::DynamicValue;
 use crate::evaluation::evaluation_data::{RuleRef, SpecView};
 use crate::evaluation::evaluation_details::EvaluationDetails;
-use crate::evaluation::evaluation_types::GateEvaluation;
+use crate::evaluation::evaluation_types::{GateEvaluation, SharedControlLayerExposure};
 use crate::evaluation::evaluator::{Evaluator, Recognition, SpecType};
 use crate::evaluation::evaluator_context::{EvaluatorContext, IdListResolution};
 use crate::evaluation::evaluator_result::{
-    EvaluatorResult, result_to_dynamic_config_eval, result_to_experiment_eval, result_to_gate_eval,
-    result_to_layer_eval,
+    EvaluatorResult, result_to_dynamic_config_eval, result_to_experiment_eval,
+    result_to_extra_exposure_info, result_to_gate_eval, result_to_layer_eval,
 };
 use crate::evaluation::user_agent_parsing::{ParsedUserAgentValue, UserAgentParser};
 #[cfg(feature = "ffi-support")]
@@ -48,9 +48,11 @@ use crate::persistent_storage::persistent_values_manager::PersistentValuesManage
 use crate::sdk_diagnostics::diagnostics::{ContextType, Diagnostics};
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker};
 use crate::sdk_event_emitter::SdkEventEmitter;
+#[cfg(test)]
+use crate::snapshot_evaluation_session::SnapshotEvaluationSession;
 use crate::spec_store::{SpecStore, SpecStoreData};
 use crate::specs_adapter::{StatsigCustomizedSpecsAdapter, StatsigHttpSpecsAdapter};
-use crate::specs_response::param_store_types::Parameter;
+use crate::specs_response::{param_store_types::Parameter, spec_types::SpecsResponseFull};
 use crate::statsig_err::StatsigErr;
 use crate::statsig_metadata::StatsigMetadata;
 use crate::statsig_options::StatsigOptions;
@@ -192,6 +194,7 @@ impl Statsig {
 
         let hashing = Arc::new(HashUtil::new());
         let sdk_instance_id = options.get_sdk_instance_id(sdk_key).to_string();
+        let _ops_stats_instance_scope = OPS_STATS.enter_instance_scope(&sdk_instance_id, None);
 
         let data_store_key =
             get_data_store_key(RequestPath::RulesetsV2, sdk_key, &hashing, &options);
@@ -810,13 +813,39 @@ impl Statsig {
             return;
         }
 
-        self.event_logger
-            .enqueue(EnqueueLayerParamExpoOp::LayerOwned(
-                Utc::now().timestamp_millis() as u64,
-                Box::new(layer),
-                parameter_name,
-                ExposureTrigger::Auto,
-            ));
+        if layer.__shared_control_exposures.is_empty() {
+            self.event_logger
+                .enqueue(EnqueueLayerParamExpoOp::LayerOwned(
+                    Utc::now().timestamp_millis() as u64,
+                    Box::new(layer),
+                    parameter_name,
+                    ExposureTrigger::Auto,
+                ));
+            return;
+        }
+
+        let exposure_time = Utc::now().timestamp_millis() as u64;
+        self.event_logger.enqueue(EnqueueLayerParamExpoOp::LayerRef(
+            exposure_time,
+            &layer,
+            parameter_name.as_str(),
+            ExposureTrigger::Auto,
+        ));
+        for shared_control_exposure in &layer.__shared_control_exposures {
+            if shared_control_exposure
+                .explicit_parameters
+                .contains(parameter_name.as_str())
+            {
+                self.event_logger
+                    .enqueue(EnqueueLayerParamExpoOp::SharedControlRef(
+                        exposure_time,
+                        &layer,
+                        parameter_name.as_str(),
+                        shared_control_exposure,
+                        ExposureTrigger::Auto,
+                    ));
+            }
+        }
     }
 
     pub async fn flush_events(&self) {
@@ -1118,7 +1147,6 @@ impl Statsig {
             &data,
             data.snapshot.app_id.as_ref(),
             self.override_adapter.as_ref(),
-            true,
         );
         get_cmab_ranked_list(&mut context, cmab_name)
     }
@@ -1247,6 +1275,36 @@ impl Statsig {
 // ------------------------------------------------------------------------------- [ Debugging ]
 
 impl Statsig {
+    /// Returns the current hydrated config-spec snapshot without cloning it.
+    #[doc(hidden)]
+    pub fn specs_snapshot(&self) -> Arc<SpecsResponseFull> {
+        Arc::clone(&self.spec_store.load_data().snapshot)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn snapshot_evaluation_session(&self) -> SnapshotEvaluationSession<'_> {
+        self.snapshot_evaluation_session_with_data(self.snapshot_evaluation_data())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn snapshot_evaluation_data(&self) -> Arc<SpecStoreData> {
+        self.spec_store.load_data()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn snapshot_evaluation_session_with_data(
+        &self,
+        data: Arc<SpecStoreData>,
+    ) -> SnapshotEvaluationSession<'_> {
+        SnapshotEvaluationSession::new_with_statsig(
+            data,
+            self.hashing.as_ref(),
+            self.should_user_third_party_parser(),
+            Some(self),
+            self.override_adapter.as_ref(),
+        )
+    }
+
     pub fn get_feature_gate_list(&self) -> Vec<String> {
         self.spec_store
             .unperformant_keys_entity_filter("feature_gates", "feature_gate")
@@ -1838,18 +1896,59 @@ impl Statsig {
     ) {
         let (details, evaluation) =
             self.evaluate_spec_raw(user_internal, layer_name.as_str(), &SpecType::Layer, None);
+        let shared_control_exposures = self.build_shared_control_layer_exposures(
+            user_internal,
+            evaluation
+                .as_ref()
+                .and_then(|result| result.shared_control_experiments.as_deref()),
+            true,
+        );
+
+        if shared_control_exposures.is_empty() {
+            self.event_logger.enqueue(
+                EnqueueExposureOp::layer_param_exposure(
+                    user_internal,
+                    layer_name,
+                    parameter_name,
+                    ExposureTrigger::Manual,
+                    details,
+                    evaluation,
+                )
+                .with_extra_metadata(exposure_metadata),
+            );
+            return;
+        }
 
         self.event_logger.enqueue(
             EnqueueExposureOp::layer_param_exposure(
                 user_internal,
                 layer_name,
-                parameter_name,
+                parameter_name.clone(),
                 ExposureTrigger::Manual,
-                details,
+                details.clone(),
                 evaluation,
             )
-            .with_extra_metadata(exposure_metadata),
+            .with_extra_metadata(exposure_metadata.clone()),
         );
+
+        for shared_control_exposure in shared_control_exposures {
+            if shared_control_exposure
+                .explicit_parameters
+                .contains(parameter_name.as_str())
+            {
+                self.event_logger.enqueue(
+                    EnqueueExposureOp::shared_control_layer_param_exposure(
+                        user_internal,
+                        layer_name,
+                        parameter_name.clone(),
+                        ExposureTrigger::Manual,
+                        details.clone(),
+                        shared_control_exposure,
+                    )
+                    .with_extra_metadata(exposure_metadata.clone()),
+                );
+            }
+        }
     }
 
     pub fn get_fields_needed_for_layer(&self, layer_name: &str) -> Vec<String> {
@@ -2502,12 +2601,21 @@ impl Statsig {
             evaluation,
         );
 
+        let shared_control_exposures = self.build_shared_control_layer_exposures(
+            user_internal,
+            evaluation
+                .as_ref()
+                .and_then(|result| result.shared_control_experiments.as_deref()),
+            include_local_override,
+        );
+
         let raw = result_to_layer_raw(
             user_internal,
             layer_name,
             options,
             &details,
             evaluation.as_ref(),
+            (!shared_control_exposures.is_empty()).then_some(&shared_control_exposures),
         );
 
         let token = match exposure_logging {
@@ -2726,14 +2834,46 @@ impl Statsig {
 
         let interned_parameter_name = InternedString::from_string(param_name);
 
-        self.event_logger.enqueue(
-            EnqueueExposureOp::layer_param_exposure_from_partial_raw(
-                interned_parameter_name,
-                ExposureTrigger::Auto,
-                partial_raw,
-            )
-            .with_extra_metadata(exposure_metadata),
-        );
+        if partial_raw
+            .shared_control_exposures
+            .as_ref()
+            .is_none_or(Vec::is_empty)
+        {
+            self.event_logger.enqueue(
+                EnqueueExposureOp::layer_param_exposure_from_partial_raw(
+                    interned_parameter_name,
+                    ExposureTrigger::Auto,
+                    partial_raw,
+                )
+                .with_extra_metadata(exposure_metadata),
+            );
+            return;
+        }
+
+        self.event_logger.enqueue(BorrowedLayerParamExposureOp::new(
+            interned_parameter_name.clone(),
+            ExposureTrigger::Auto,
+            &partial_raw,
+            exposure_metadata.clone(),
+        ));
+
+        if let Some(shared_control_exposures) = &partial_raw.shared_control_exposures {
+            for shared_control_exposure in shared_control_exposures {
+                if shared_control_exposure
+                    .explicit_parameters
+                    .contains(interned_parameter_name.as_str())
+                {
+                    self.event_logger
+                        .enqueue(BorrowedLayerParamExposureOp::shared_control(
+                            interned_parameter_name.clone(),
+                            ExposureTrigger::Auto,
+                            &partial_raw,
+                            shared_control_exposure,
+                            exposure_metadata.as_ref(),
+                        ));
+                }
+            }
+        }
     }
 
     pub fn log_layer_param_exposure_from_partial_raw_ref_with_metadata(
@@ -2748,12 +2888,45 @@ impl Statsig {
             return;
         }
 
+        if partial_raw
+            .shared_control_exposures
+            .as_ref()
+            .is_none_or(Vec::is_empty)
+        {
+            self.event_logger.enqueue(BorrowedLayerParamExposureOp::new(
+                InternedString::from_string(param_name),
+                ExposureTrigger::Auto,
+                partial_raw,
+                exposure_metadata,
+            ));
+            return;
+        }
+
         self.event_logger.enqueue(BorrowedLayerParamExposureOp::new(
-            InternedString::from_string(param_name),
+            InternedString::from_string(param_name.clone()),
             ExposureTrigger::Auto,
             partial_raw,
-            exposure_metadata,
+            exposure_metadata.clone(),
         ));
+
+        if let Some(shared_control_exposures) = &partial_raw.shared_control_exposures {
+            let interned_parameter_name = InternedString::from_string(param_name);
+            for shared_control_exposure in shared_control_exposures {
+                if shared_control_exposure
+                    .explicit_parameters
+                    .contains(interned_parameter_name.as_str())
+                {
+                    self.event_logger
+                        .enqueue(BorrowedLayerParamExposureOp::shared_control(
+                            interned_parameter_name.clone(),
+                            ExposureTrigger::Auto,
+                            partial_raw,
+                            shared_control_exposure,
+                            exposure_metadata.as_ref(),
+                        ));
+                }
+            }
+        }
     }
 }
 
@@ -2932,7 +3105,9 @@ impl Statsig {
         let mut error_message = None;
         let mut id_list_ready = None;
 
-        let init_country_lookup = if !self.options.disable_country_lookup.unwrap_or_default() {
+        let init_country_lookup = if !self.options.disable_country_lookup.unwrap_or_default()
+            && !CountryLookup::is_loaded()
+        {
             Some(self.statsig_runtime.spawn(INIT_IP_TAG, |_| async {
                 CountryLookup::load_country_lookup();
             }))
@@ -3088,7 +3263,6 @@ impl Statsig {
         data: &'a SpecStoreData,
         app_id: Option<&'a DynamicValue>,
         override_adapter: Option<&'a Arc<dyn OverrideAdapter>>,
-        disable_exposure_logging: bool,
     ) -> EvaluatorContext<'a> {
         EvaluatorContext::new(
             user_internal,
@@ -3098,8 +3272,7 @@ impl Statsig {
             app_id,
             override_adapter,
             self.should_user_third_party_parser(),
-            Some(self),
-            disable_exposure_logging,
+            true,
         )
     }
 
@@ -3123,8 +3296,9 @@ impl Statsig {
             app_id,
             override_adapter,
             self.should_user_third_party_parser(),
-            None,
-            true,
+            // GCIR is side-effect free, so it does not retain nested experiment
+            // exposures after evaluating them on the pinned snapshot.
+            false,
         )
     }
 
@@ -3165,10 +3339,17 @@ impl Statsig {
             &data,
             data.snapshot.app_id.as_ref(),
             override_adapter,
+        );
+
+        let evaluation = Self::evaluate_with_details(&mut context, &data, spec_name, spec_type);
+        self.log_nested_experiment_exposures(
+            user_internal,
+            &data,
+            &mut context,
             disable_exposure_logging.unwrap_or(false),
         );
 
-        match Self::evaluate_with_details(&mut context, &data, spec_name, spec_type) {
+        match evaluation {
             Ok(eval_details) => (eval_details, Some(context.result)),
             Err(e) => {
                 log_error_to_statsig_and_console!(
@@ -3198,10 +3379,17 @@ impl Statsig {
             &data,
             data.snapshot.app_id.as_ref(),
             self.override_adapter.as_ref(),
+        );
+
+        let evaluation = Self::evaluate_with_details(&mut context, &data, spec_name, spec_type);
+        self.log_nested_experiment_exposures(
+            user_internal,
+            &data,
+            &mut context,
             disable_exposure_logging.unwrap_or(false),
         );
 
-        match Self::evaluate_with_details(&mut context, &data, spec_name, spec_type) {
+        match evaluation {
             Ok(eval_details) => make_result(context.result, eval_details),
             Err(e) => {
                 log_error_to_statsig_and_console!(
@@ -3211,6 +3399,59 @@ impl Statsig {
                 );
                 make_empty_result(EvaluationDetails::error(&e.to_string()))
             }
+        }
+    }
+
+    fn log_nested_experiment_exposures(
+        &self,
+        user_internal: &StatsigUserInternal,
+        data: &SpecStoreData,
+        context: &mut EvaluatorContext,
+        disable_exposure_logging: bool,
+    ) {
+        for mut nested in std::mem::take(&mut context.nested_experiment_exposures) {
+            let details = if !nested.recognized {
+                EvaluationDetails::unrecognized(&data.source, data.lcut(), data.time_received_at)
+            } else if let Some(reason) = nested.result.override_reason {
+                EvaluationDetails::recognized_but_overridden(
+                    data.lcut(),
+                    data.time_received_at,
+                    reason,
+                    nested.result.version,
+                )
+            } else {
+                EvaluationDetails::recognized(
+                    &data.source,
+                    data.lcut(),
+                    data.time_received_at,
+                    &nested.result,
+                )
+            };
+
+            let evaluation = if nested.recognized {
+                Some(result_to_experiment_eval(
+                    nested.experiment_name.as_str(),
+                    None,
+                    &mut nested.result,
+                ))
+            } else {
+                None
+            };
+            let experiment = make_experiment(nested.experiment_name.as_str(), evaluation, details);
+
+            if disable_exposure_logging {
+                self.event_logger
+                    .increment_non_exposure_checks(nested.experiment_name.as_str());
+            } else {
+                self.event_logger.enqueue(EnqueueExperimentExpoOp {
+                    exposure_time: Utc::now().timestamp_millis() as u64,
+                    user: user_internal,
+                    experiment: &experiment,
+                    trigger: ExposureTrigger::Auto,
+                });
+            }
+
+            self.emit_experiment_evaluated(&experiment);
         }
     }
 
@@ -3373,9 +3614,59 @@ impl Statsig {
             layer,
         );
 
+        layer.__shared_control_exposures = self.build_shared_control_layer_exposures(
+            &user_internal,
+            layer
+                .__evaluation
+                .as_ref()
+                .and_then(|evaluation| evaluation.shared_control_experiments.as_deref()),
+            true,
+        );
+
         self.emit_layer_evaluated(&layer);
 
         layer
+    }
+
+    fn build_shared_control_layer_exposures(
+        &self,
+        user_internal: &StatsigUserInternal<'_, '_>,
+        shared_control_experiments: Option<
+            &[crate::specs_response::spec_types::SharedControlExperiment],
+        >,
+        include_local_override: bool,
+    ) -> Vec<SharedControlLayerExposure> {
+        let Some(shared_control_experiments) = shared_control_experiments else {
+            return Vec::new();
+        };
+
+        shared_control_experiments
+            .iter()
+            .filter_map(|shared_control_experiment| {
+                let (_, result) = self.evaluate_spec_raw_with_include_local_override(
+                    user_internal,
+                    shared_control_experiment.name.as_str(),
+                    &SpecType::Experiment,
+                    None,
+                    include_local_override,
+                );
+                let mut result = result?;
+                if !result.is_experiment_group
+                    || result.rule_id.as_ref() != Some(&shared_control_experiment.control_group_id)
+                {
+                    return None;
+                }
+
+                let exposure_info = result_to_extra_exposure_info(&result);
+                Some(SharedControlLayerExposure {
+                    allocated_experiment_name: shared_control_experiment.name.clone(),
+                    control_group_id: shared_control_experiment.control_group_id.clone(),
+                    secondary_exposures: std::mem::take(&mut result.secondary_exposures),
+                    explicit_parameters: result.explicit_parameters.unwrap_or_default(),
+                    exposure_info,
+                })
+            })
+            .collect()
     }
 
     fn internalize_user<'s, 'u>(&'s self, user: &'u StatsigUser) -> StatsigUserInternal<'s, 'u> {

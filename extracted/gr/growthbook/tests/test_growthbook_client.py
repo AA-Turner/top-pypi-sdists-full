@@ -402,7 +402,9 @@ async def test_initialization_state_verification(mock_options, mock_features_res
         
         assert success == True
         assert callback_called == True
-        assert features_received == mock_features_response
+        # Callbacks receive the full cache state, which always carries a
+        # contextualBandits key alongside features/savedGroups
+        assert features_received == {**mock_features_response, "contextualBandits": {}}
         # Convert Feature objects to dict for comparison
         features_dict = {
             key: {"defaultValue": feature.defaultValue, "rules": feature.rules}
@@ -578,7 +580,8 @@ def pytest_generate_tests(metafunc):
     test_data_map = {
         'test_eval_feature': 'feature',
         'test_experiment_run': 'run',
-        'test_sticky_bucket': 'stickyBucket'
+        'test_sticky_bucket': 'stickyBucket',
+        'test_tracking_calls': 'trackingCalls'
     }
 
     for func, data_key in test_data_map.items():
@@ -644,7 +647,7 @@ async def test_experiment_run(test_experiment_run_data, base_client_setup):
             # Create and initialize client
             async with GrowthBookClient(Options(**client_opts)) as client:
                 result = await client.run(Experiment(**exp), UserContext(**user_attrs))
-            
+
                 # Verify experiment results
                 assert result.value == value
                 assert result.inExperiment == inExperiment
@@ -654,6 +657,42 @@ async def test_experiment_run(test_experiment_run_data, base_client_setup):
         raise
     finally:
         await client.close()
+        await asyncio.sleep(0.1)
+
+@pytest.mark.asyncio
+async def test_tracking_calls(test_tracking_calls_data, base_client_setup):
+    """Run the shared trackingCalls cases (a Python-local cases.json
+    extension) against the async client — same expectations as the sync
+    runner in test_growthbook.py."""
+    _, ctx, key, expected_tracking, expected_usage = test_tracking_calls_data
+
+    user_attrs, client_opts, features_data = base_client_setup(ctx)
+    tracked, usage = [], []
+    client_opts['on_experiment_viewed'] = (
+        lambda experiment, result, user_context: tracked.append(
+            [experiment.key, result.variationId]
+        )
+    )
+    client_opts['on_feature_usage'] = (
+        lambda k, result, user_context: usage.append(k)
+    )
+
+    EnhancedFeatureRepository._instances = {}
+    client = None
+    try:
+        with patch('growthbook.FeatureRepository.load_features_async',
+                  new_callable=AsyncMock, return_value=features_data), \
+             patch('growthbook.growthbook_client.EnhancedFeatureRepository.start_feature_refresh',
+                  new_callable=AsyncMock), \
+             patch('growthbook.growthbook_client.EnhancedFeatureRepository.stop_refresh',
+                  new_callable=AsyncMock):
+            async with GrowthBookClient(Options(**client_opts)) as client:
+                await client.eval_feature(key, UserContext(**user_attrs))
+                assert tracked == expected_tracking
+                assert usage == expected_usage
+    finally:
+        if client is not None:
+            await client.close()
         await asyncio.sleep(0.1)
 
 @pytest.mark.asyncio
@@ -735,7 +774,8 @@ def base_client_setup():
         # Features data structure
         features_data = {
             "features": ctx.get("features", {}),
-            "savedGroups": ctx.get("savedGroups", {})
+            "savedGroups": ctx.get("savedGroups", {}),
+            "contextualBandits": ctx.get("contextualBandits", {})
         }
         
         return user_attrs, client_opts, features_data
@@ -1405,12 +1445,18 @@ async def test_tracking():
             user_context.attributes = {"id": "2"}
             res5 = await client.run(exp2, user_context)
 
-            # Verify tracking calls
+            # Verify tracking calls. The tracked user context is an
+            # exposure-time snapshot, so the first two calls carry the
+            # attributes as they were when each experiment was viewed —
+            # not the later mutation.
             calls = getMockedCalls()
             assert len(calls) == 3, "Expected exactly 3 tracking calls"
-            assert calls[0] == [exp1, res1, user_context], "First tracking call mismatch"
-            assert calls[1] == [exp2, res4, user_context], "Second tracking call mismatch"
-            assert calls[2] == [exp2, res5, user_context], "Third tracking call mismatch"
+            assert calls[0][:2] == [exp1, res1], "First tracking call mismatch"
+            assert calls[0][2].attributes == {"id": "1"}
+            assert calls[1][:2] == [exp2, res4], "Second tracking call mismatch"
+            assert calls[1][2].attributes == {"id": "1"}
+            assert calls[2][:2] == [exp2, res5], "Third tracking call mismatch"
+            assert calls[2][2].attributes == {"id": "2"}
 
     finally:
         await client.close()

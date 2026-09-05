@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use ahash::HashMap as AHashMap;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::skip_serializing_none;
 
 use crate::evaluation::dynamic_string::DynamicString;
@@ -59,6 +59,55 @@ pub struct Rule {
     pub config_delegate: Option<InternedString>,
     pub is_experiment_group: Option<bool>,
     pub sampling_rate: Option<u64>,
+    pub shared_control_experiments: Option<SharedControlExperiments>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SharedControlExperiments {
+    experiments: Arc<Vec<SharedControlExperiment>>,
+}
+
+impl From<Vec<SharedControlExperiment>> for SharedControlExperiments {
+    fn from(experiments: Vec<SharedControlExperiment>) -> Self {
+        Self {
+            experiments: Arc::new(experiments),
+        }
+    }
+}
+
+impl std::ops::Deref for SharedControlExperiments {
+    type Target = [SharedControlExperiment];
+
+    fn deref(&self) -> &Self::Target {
+        self.experiments.as_slice()
+    }
+}
+
+impl<'de> Deserialize<'de> for SharedControlExperiments {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Vec::<SharedControlExperiment>::deserialize(deserializer).map(Self::from)
+    }
+}
+
+impl Serialize for SharedControlExperiments {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.experiments.as_slice().serialize(serializer)
+    }
+}
+
+#[skip_serializing_none]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedControlExperiment {
+    pub name: InternedString,
+    #[serde(rename = "controlGroupID")]
+    pub control_group_id: InternedString,
 }
 
 #[repr(u8)]

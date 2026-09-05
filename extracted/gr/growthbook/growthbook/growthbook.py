@@ -11,6 +11,7 @@ import logging
 import warnings
 
 from abc import ABC, abstractmethod
+from dataclasses import replace
 from typing import TYPE_CHECKING, Optional, Any, Set, Tuple, List, Dict, Callable, cast
 
 from typing_extensions import deprecated
@@ -35,8 +36,12 @@ from .common_types import (
     AbstractStickyBucketService,
     AbstractAsyncStickyBucketService,
     FeatureRule,
+    TrackingBuffer,
+    TrackingDedupeKey,
     build_remote_eval_payload,
     features_from_dict,
+    tracking_dedupe_key,
+    tracking_user_context,
     validate_remote_eval_options,
 )
 
@@ -54,7 +59,7 @@ if TYPE_CHECKING:
     # Only present in urllib3 2.x; the runtime dependency allows 1.x too.
     from urllib3.response import BaseHTTPResponse
 
-from .core import _getHashValue, eval_feature as core_eval_feature, run_experiment
+from .core import _eval_feature_and_report, _getHashValue, run_experiment
 
 logger = logging.getLogger("growthbook")
 
@@ -705,6 +710,22 @@ class FeatureRepository(object):
         elif "features" not in data:
             logger.warning("GrowthBook API response missing features")
         
+        if "encryptedContextualBandits" in data:
+            if not decryption_key:
+                raise ValueError("Must specify decryption_key")
+            try:
+                decrypted = decrypt(data["encryptedContextualBandits"], decryption_key)
+                data['contextualBandits'] = json.loads(decrypted)
+                del data['encryptedContextualBandits']
+            except Exception:
+                # Drop the undecryptable section (JS decryptPayload deletes the
+                # encrypted key either way); absent sections are preserved
+                # downstream, so the previous coherent map stays active.
+                del data['encryptedContextualBandits']
+                logger.warning(
+                    "Failed to decrypt contextual bandits from GrowthBook API response"
+                )
+
         if "encryptedSavedGroups" in data:
             if not decryption_key:
                 raise ValueError("Must specify decryption_key")
@@ -714,11 +735,31 @@ class FeatureRepository(object):
                 del data['encryptedSavedGroups']
                 return data
             except Exception:
+                del data['encryptedSavedGroups']
                 logger.warning(
                     "Failed to decrypt saved groups from GrowthBook API response"
                 )
-            
+
         return data
+
+    def decrypt_payload_sections(
+        self, payload: Dict[str, Any], decryption_key: str
+    ) -> Optional[Dict[str, Any]]:
+        """Decrypt any encrypted sections of an SDK payload, returning a copy
+        with the plaintext sections in place (JS setPayload accepts encrypted
+        payloads the same way). Payloads with no encrypted sections are
+        returned as-is; None means the features section failed to decrypt and
+        the payload should be discarded."""
+        if not any(
+            k in payload
+            for k in (
+                "encryptedFeatures",
+                "encryptedContextualBandits",
+                "encryptedSavedGroups",
+            )
+        ):
+            return payload
+        return self.decrypt_response(dict(payload), decryption_key)
 
     # Fetch features from the GrowthBook API
     def _fetch_features(
@@ -891,9 +932,19 @@ class GrowthBook(object):
         savedGroups: Optional[Dict[str, Any]] = None,
         remoteEval: bool = False,
         cacheKeyAttributes: Optional[List[str]] = None,
+        # New in 3.1.0 — appended after ALL 3.0.0 parameters (deprecated ones
+        # included) so every existing positional call site keeps its meaning.
+        contextual_bandits: Optional[Dict[str, Any]] = None,
+        contextualBandits: Optional[Dict[str, Any]] = None,
+        # New in 3.1.0, after the deprecated block so every earlier positional
+        # index is preserved. Opt-in: buffer every exposure for forwarding to
+        # a client SDK (see get_deferred_tracking_calls). Independent of
+        # on_experiment_viewed.
+        defer_tracking: bool = False,
     ) -> None:
         remote_eval = remote_eval or remoteEval
         saved_groups = saved_groups if saved_groups is not None else savedGroups
+        contextual_bandits = contextual_bandits if contextual_bandits is not None else contextualBandits
         cache_key_attributes = cache_key_attributes if cache_key_attributes is not None else cacheKeyAttributes
         self._remoteEval = remote_eval
         self._cacheKeyAttributes = cache_key_attributes
@@ -917,6 +968,7 @@ class GrowthBook(object):
         self._url = url
         self._features: Dict[str, Feature] = {}
         self._saved_groups = saved_groups if saved_groups is not None else {}
+        self._contextual_bandits = contextual_bandits if contextual_bandits is not None else {}
         self._api_host = api_host
         self._client_key = client_key
         self._decryption_key = decryption_key
@@ -949,10 +1001,15 @@ class GrowthBook(object):
         self._forcedVariations = forced_variations if forced_variations is not None else (forcedVariations if forcedVariations is not None else {})
         self._forcedFeatures: Dict[str, Any] = forced_features or {}
 
-        self._tracked: Dict[str, Any] = {}
+        self._tracked: Dict[TrackingDedupeKey, Any] = {}
+        self._deferred_buffer: Optional[TrackingBuffer] = TrackingBuffer() if defer_tracking else None
         self._assigned: Dict[str, Any] = {}
         self._subscriptions: Set[Callable[[Experiment[Any], Result[Any]], None]] = set()
         self._is_updating_features = False
+        # Serializes payload writers (set_features/set_payload/refreshes).
+        # Re-entrant because _ingest_payload calls set_features while holding
+        # it. Evals stay lock-free — they read the published snapshot.
+        self._payload_lock = threading.RLock()
         self._event_logger: Optional[EventLogger] = None
 
         # support plugins
@@ -972,8 +1029,9 @@ class GrowthBook(object):
                 qa_mode=self._qaMode
             ),
             features={},
-            saved_groups=self._saved_groups
-        )       
+            saved_groups=self._saved_groups,
+            contextual_bandits=self._contextual_bandits
+        )
         # Create a user context for the current user
         self._user_ctx: UserContext = UserContext(
             url=self._url,
@@ -1025,10 +1083,52 @@ class GrowthBook(object):
 
     def _on_feature_update(self, features_data: Dict[str, Any]) -> None:
         """Callback to handle automatic feature updates from FeatureRepository"""
-        if features_data and "features" in features_data:
-            self.set_features(features_data["features"])
-        if features_data and "savedGroups" in features_data:
-            self._saved_groups = features_data["savedGroups"]
+        if features_data:
+            self._ingest_payload(features_data)
+
+    def _ingest_payload(self, data: Dict[str, Any]) -> None:
+        """Apply the sections present in a (decrypted) SDK payload.
+
+        Sections absent from the payload are preserved (JS setPayload
+        semantics), and the evaluation context is republished even for
+        map-only payloads so a savedGroups/contextualBandits update takes
+        effect without waiting for the next features update.
+
+        Writers are serialized: without the lock, two concurrent updates
+        (e.g. set_payload and a background refresh) could interleave their
+        section writes and publish a snapshot mixing payload generations."""
+        with self._payload_lock:
+            if "savedGroups" in data:
+                self._saved_groups = data["savedGroups"]
+            if "contextualBandits" in data:
+                self._contextual_bandits = data["contextualBandits"]
+            if "features" in data:
+                self.set_features(data["features"])
+            elif "savedGroups" in data or "contextualBandits" in data:
+                self._publish_global_context()
+
+    def _publish_global_context(self) -> None:
+        # Swap in a complete snapshot with a single reference rebind
+        # (atomic under the GIL) so concurrent lock-free evals never observe
+        # features from one payload generation combined with savedGroups or
+        # contextualBandits from another. In-flight evals keep the previous
+        # coherent snapshot; the async client works the same way.
+        self._global_ctx = replace(
+            self._global_ctx,
+            features=self._features,
+            saved_groups=self._saved_groups,
+            contextual_bandits=self._contextual_bandits,
+        )
+
+    def set_payload(self, payload: Dict[str, Any]) -> None:
+        """Set features, saved groups, and contextual bandits from a full SDK
+        payload, e.g. one fetched out-of-band from the GrowthBook API.
+        Mirrors the JS SDK's setPayload: only the sections present in the
+        payload are overwritten, and encrypted sections are decrypted with
+        the configured decryption_key."""
+        data = feature_repo.decrypt_payload_sections(payload, self._decryption_key)
+        if data is not None:
+            self._on_feature_update(data)
 
     def load_features(self, force_refresh: bool = False) -> None:
         """Load features from the configured endpoint, populating the cache.
@@ -1049,11 +1149,8 @@ class GrowthBook(object):
             cache_key_attributes=self._cacheKeyAttributes,
             force_refresh=force_refresh,
         )
-        if response is not None and "features" in response.keys():
-            self.set_features(response["features"])
-
-        if response is not None and "savedGroups" in response:
-            self._saved_groups = response["savedGroups"]
+        if response is not None:
+            self._ingest_payload(response)
 
     async def load_features_async(self, force_refresh: bool = False) -> None:
         if not self._client_key:
@@ -1072,10 +1169,7 @@ class GrowthBook(object):
         )
 
         if features is not None:
-            if "features" in features:
-                self.set_features(features["features"])
-            if "savedGroups" in features:
-                self._saved_groups = features["savedGroups"]
+            self._ingest_payload(features)
 
     def _features_event_handler(self, features: str) -> None:
         decoded = json.loads(features)
@@ -1086,10 +1180,7 @@ class GrowthBook(object):
         key = self._api_host + "::" + self._client_key
 
         if data is not None:
-            if "features" in data:
-                self.set_features(data["features"])
-            if "savedGroups" in data:
-                self._saved_groups = data["savedGroups"]
+            self._ingest_payload(data)
             feature_repo.save_in_cache(key, data, self._cache_ttl)
 
     def _dispatch_sse_event(self, event_data: Dict[str, Any]) -> None:
@@ -1149,19 +1240,18 @@ class GrowthBook(object):
         # Prevent infinite recursion during feature updates
         self._is_updating_features = True
         try:
-            self._features = {}
-            for key, feature in features.items():
-                if isinstance(feature, Feature):
-                    self._features[key] = feature
-                else:
-                    self._features[key] = Feature(
-                        rules=feature.get("rules", []),
-                        defaultValue=feature.get("defaultValue", None),
-                    )
-            # Update the global context with the new features and saved groups
-            self._global_ctx.features = self._features
-            self._global_ctx.saved_groups = self._saved_groups
-            self.refresh_sticky_buckets()
+            with self._payload_lock:
+                self._features = {}
+                for key, feature in features.items():
+                    if isinstance(feature, Feature):
+                        self._features[key] = feature
+                    else:
+                        self._features[key] = Feature(
+                            rules=feature.get("rules", []),
+                            defaultValue=feature.get("defaultValue", None),
+                        )
+                self._publish_global_context()
+                self.refresh_sticky_buckets()
         finally:
             self._is_updating_features = False
 
@@ -1251,6 +1341,8 @@ class GrowthBook(object):
         try:
             self._subscriptions.clear()
             self._tracked.clear()
+            if self._deferred_buffer:
+                self._deferred_buffer.clear()
             self._assigned.clear()
             self._trackingCallback = None
             self._featureUsageCallback = None
@@ -1374,7 +1466,14 @@ class GrowthBook(object):
         return EvaluationContext(
             global_ctx = self._global_ctx,
             user = self._user_ctx,
-            stack = StackContext(evaluated_features=set())
+            stack = StackContext(evaluated_features=set()),
+            # Wired only when a consumer exists (contexts are per-eval, so a
+            # callback installed later — e.g. by a plugin — is still picked
+            # up), letting core skip dead work like rule.tracks hydration.
+            tracking_cb = self._track if self._trackingCallback else None,
+            callback_subscription = self._fireSubscriptions,
+            feature_usage_cb = self._feature_usage if self._featureUsageCallback else None,
+            tracking_buffer = self._deferred_buffer,
         )
 
     def _get_eval_context(self) -> EvaluationContext:
@@ -1384,18 +1483,19 @@ class GrowthBook(object):
         return self._build_eval_context()
 
     def eval_feature(self, key: str) -> FeatureResult[Any]:
-        result = core_eval_feature(key=key, 
-                                   evalContext=self._get_eval_context(), 
-                                   callback_subscription=self._fireSubscriptions,
-                                   tracking_cb=self._track
-                                   )
-        # Call feature usage callback if provided
-        if self._featureUsageCallback:
-            try:
-                self._featureUsageCallback(key, result, self._user_ctx)
-            except Exception:
-                pass
-        return result
+        # The internal entry point skips the public wrapper's deprecated-kwarg
+        # shim — the callbacks are already wired on the context.
+        return _eval_feature_and_report(key, self._get_eval_context())
+
+    def _feature_usage(self, key: str, result: FeatureResult[Any], user_context: UserContext) -> None:
+        if not self._featureUsageCallback:
+            return
+        try:
+            # Snapshot so the logged attributes are exactly the ones used
+            # for the evaluation, even if the caller mutates them afterwards.
+            self._featureUsageCallback(key, result, tracking_user_context(user_context))
+        except Exception:
+            pass
 
     @deprecated("getAllResults is deprecated, use get_all_results instead")
     def getAllResults(self) -> Dict[str, Dict[str, Any]]:
@@ -1423,11 +1523,8 @@ class GrowthBook(object):
                         pass
 
     def run(self, experiment: Experiment[T]) -> Result[T]:
-        # result = self._run(experiment)
         result = run_experiment(experiment=experiment,
-                                evalContext=self._get_eval_context(),
-                                tracking_cb=self._track
-                                )
+                                evalContext=self._get_eval_context())
 
         self._fireSubscriptions(experiment, result)
         return result
@@ -1436,18 +1533,35 @@ class GrowthBook(object):
         self._subscriptions.add(callback)
         return lambda: self._subscriptions.remove(callback)
 
+    def get_deferred_tracking_calls(self) -> List[Dict[str, Any]]:
+        """Exposures buffered by defer_tracking=True, as JSON-ready dicts in
+        the JS SDK's TrackingData shape ({experiment, result, user}) — forward
+        them to a client SDK's setDeferredTrackingCalls. Non-destructive;
+        call clear_deferred_tracking_calls() once they have been handed off.
+
+        When one instance serves many users (set_attributes per request), the
+        buffer spans all of them: read and clear it per request, or use one
+        instance per request, so exposures are never forwarded to the wrong
+        client."""
+        return self._deferred_buffer.get_calls() if self._deferred_buffer else []
+
+    def clear_deferred_tracking_calls(self) -> None:
+        if self._deferred_buffer:
+            self._deferred_buffer.clear()
+
     def _track(self, experiment: Experiment[Any], result: Result[Any], user_context: UserContext) -> None:
         if not self._trackingCallback:
             return None
-        key = (
-            result.hashAttribute
-            + str(result.hashValue)
-            + experiment.key
-            + str(result.variationId)
-        )
+        key = tracking_dedupe_key(experiment, result)
         if not self._tracked.get(key):
             try:
-                self._trackingCallback(experiment=experiment, result=result, user_context=user_context)
+                # Snapshot so the logged attributes are exactly the ones used
+                # for bucketing, even if the caller mutates them afterwards.
+                self._trackingCallback(
+                    experiment=experiment,
+                    result=result,
+                    user_context=tracking_user_context(user_context),
+                )
                 self._tracked[key] = True
             except Exception as e:
                 logger.exception(e)
@@ -1456,7 +1570,7 @@ class GrowthBook(object):
         attributes = set()
         for key, feature in self._features.items():
             for rule in feature.rules:
-                if rule.variations:
+                if rule.variations or rule.contextualVariations:
                     attributes.add(rule.hashAttribute or "id")
                     if rule.fallbackAttribute:
                         attributes.add(rule.fallbackAttribute)

@@ -46,7 +46,7 @@ def get_trx_tmp_dir():
         return tempfile.TemporaryDirectory(dir=trx_tmp_dir, prefix="trx_")
 
 
-def load_sft_with_reference(filepath, reference=None, bbox_check=True):
+def load_sft_with_reference(filepath, reference=None, bbox_check=True, from_space=None):
     """Load a tractogram as a StatefulTractogram with an explicit reference.
 
     Parameters
@@ -59,6 +59,8 @@ def load_sft_with_reference(filepath, reference=None, bbox_check=True):
     bbox_check : bool, optional
         If True, validate that streamlines lie within the reference bounding
         box. Defaults to True.
+    from_space : dipy.io.stateful_tractogram.Space, optional
+        Space to which the tractogram was transformed before saving.
 
     Returns
     -------
@@ -82,33 +84,35 @@ def load_sft_with_reference(filepath, reference=None, bbox_check=True):
     _, ext = os.path.splitext(filepath)
     if ext == ".trk":
         if reference is not None and reference != "same":
-            logging.warning(
-                "Reference is discarded for this file format {}.".format(filepath)
-            )
-        sft = load_tractogram(filepath, "same", bbox_valid_check=bbox_check)
+            logging.warning(f"Reference is discarded for this file format {filepath}.")
+        sft = load_tractogram(
+            filepath, "same", bbox_valid_check=bbox_check, from_space=from_space
+        )
     elif ext in [".tck", ".fib", ".vtk", ".dpy"]:
         if reference is None or reference == "same":
-            raise IOError(
-                "--reference is required for this file format {}.".format(filepath)
-            )
+            raise IOError(f"--reference is required for this file format {filepath}.")
         else:
-            sft = load_tractogram(filepath, reference, bbox_valid_check=bbox_check)
+            sft = load_tractogram(
+                filepath, reference, bbox_valid_check=bbox_check, from_space=from_space
+            )
 
     else:
-        raise IOError("{} is an unsupported file format".format(filepath))
+        raise IOError(f"{filepath} is an unsupported file format")
 
     return sft
 
 
-def load(tractogram_filename, reference):
+def load(tractogram_filename, reference=None, from_space=None):
     """Load a tractogram from disk and return a TRX or StatefulTractogram.
 
     Parameters
     ----------
     tractogram_filename : str
         Path to the input tractogram. TRX directories are supported.
-    reference : str or nibabel.Nifti1Image
+    reference : str or nibabel.Nifti1Image, optional
         Reference image used for formats without embedded affine information.
+    from_space : dipy.io.stateful_tractogram.Space, optional
+        Space to which the tractogram was transformed before saving.
 
     Returns
     -------
@@ -120,7 +124,7 @@ def load(tractogram_filename, reference):
     in_ext = split_name_with_gz(tractogram_filename)[1]
     if in_ext != ".trx" and not os.path.isdir(tractogram_filename):
         tractogram_obj = load_sft_with_reference(
-            tractogram_filename, reference, bbox_check=False
+            tractogram_filename, reference, bbox_check=False, from_space=from_space
         )
     else:
         tractogram_obj = tmm.load(tractogram_filename)

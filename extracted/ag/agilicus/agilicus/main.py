@@ -89,6 +89,7 @@ from .policy_config import policy_config_main
 from .licensing import licensing_main
 from .licensing.licenses import add_license_to_billing_sub
 from .deployments import deployments_main
+from .printers import printers_main
 
 from .version import __version__
 
@@ -9365,6 +9366,7 @@ def main():
     databases.add_commands(cli)
     licensing_main.add_commands(cli)
     deployments_main.add_commands(cli)
+    printers_main.add_commands(cli)
 
     cli(auto_envvar_prefix="AGILICUS")
 

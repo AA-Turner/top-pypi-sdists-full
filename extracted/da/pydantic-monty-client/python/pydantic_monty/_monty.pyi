@@ -1,3 +1,5 @@
+import uuid
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Callable, Literal, NoReturn, final
 
@@ -17,6 +19,7 @@ from .os_access import AbstractOS, OsFunction
 
 __all__ = [
     '__version__',
+    '_flush_telemetry',
     '_install_telemetry_adapter',
     'NOT_HANDLED',
     'AsyncMonty',
@@ -26,6 +29,8 @@ __all__ = [
     'CollectString',
     'Frame',
     'Monty',
+    'MontyClassProxy',
+    'MontyClassTypeProxy',
     'MontyConversionError',
     'MontyCrashedError',
     'MontyDisconnectError',
@@ -47,7 +52,8 @@ __all__ = [
 ]
 __version__: str
 
-# Private versioned hook used by the Python Logfire integration.
+# Private hooks used by the Python Logfire integration.
+def _flush_telemetry() -> None: ...
 def _install_telemetry_adapter(version: int, adapter: Any) -> None: ...
 
 NOT_HANDLED = object()
@@ -57,7 +63,8 @@ class CollectStreams:
     """Collect printed output as `(stream, text)` tuples.
 
     Defaults to a 10 MiB cap. Pass `max_bytes=None` to disable (trusted hosts).
-    Exceeding the cap raises `MemoryError`. Not covered by `ResourceLimits.max_memory`.
+    Exceeding the cap fails the feed with `MontyRuntimeError` wrapping a
+    `MemoryError`. Not covered by `ResourceLimits.max_memory`.
     The cap includes a fixed per-entry overhead (many tiny fragments).
     """
 
@@ -71,7 +78,8 @@ class CollectString:
     """Collect printed output as one concatenated string.
 
     Defaults to a 10 MiB cap. Pass `max_bytes=None` to disable (trusted hosts).
-    Exceeding the cap raises `MemoryError`. Not covered by `ResourceLimits.max_memory`.
+    Exceeding the cap fails the feed with `MontyRuntimeError` wrapping a
+    `MemoryError`. Not covered by `ResourceLimits.max_memory`.
     """
 
     def __new__(cls, max_bytes: int | None = 10 * 1024 * 1024) -> CollectString: ...
@@ -86,6 +94,23 @@ class MountDir:
     The directory is opened here, and every feed this mount is passed to serves
     that same directory — so build one and reuse it. `'overlay'` writes live in
     each feed's own table and are discarded when the feed ends.
+
+    **Warning: `mode='read-write'` writes files from untrusted code to your
+    real filesystem.**
+
+    Those files are untrusted input; do not execute them. Importing counts as
+    executing, and the import can be indirect: with a directory on `sys.path`
+    mounted, sandboxed code can write `json.py`, or any module not yet
+    imported, and the next `import` runs it. That includes imports made by
+    `pydantic_monty` itself. `sys.path[0]` is the script's directory, or the
+    cwd for `python -m`, `python -c` and the REPL.
+
+    Tools also read files without an explicit import: `conftest.py`,
+    `sitecustomize.py`, `.git/hooks/*`, `Makefile`, `.env`, `__pycache__`.
+
+    The `'overlay'` default keeps writes in memory, so nothing reaches the host
+    filesystem. Use `'read-write'` only with a directory that contains no code
+    or config and is not on `sys.path` or any other execution path.
 
     ```python
     from pathlib import Path
@@ -139,10 +164,11 @@ class MountDir:
                 relative — an absolute target raises `PermissionError` in the
                 sandbox even when it points back into the same mount.
             virtual_path: Absolute POSIX-style path prefix inside the sandbox
-                (e.g. `'/data'`), regardless of host OS. Raises `ValueError`
+                (e.g. `'/data'`), regardless of host OS. Raises `TypeError`
                 if not absolute.
             mode: `'read-only'` — reads only, writes raise `PermissionError`;
-                `'read-write'` — writes through to the host directory;
+                `'read-write'` — writes through to the host directory, where
+                the files persist after the feed (see the warning above);
                 `'overlay'` (default) — reads fall through to the host, writes
                 are captured in memory per feed and discarded when it ends.
             write_bytes_limit: Cap on cumulative bytes written through the
@@ -334,6 +360,62 @@ class MontyFileHandle:
         """`True` if the mode permits `write()` (`'w'`, `'a'`, `'r+'`, `'w+'`, `'a+'`, and binary variants)."""
 
 @final
+class MontyClassProxy:
+    """Read-only proxy for a class instance the host has no original object for:
+    a sandbox-defined instance, or a host-sent one after a session restore (the
+    instance store never survives `load_session` / `load_snapshot`). It keeps the
+    instance's `id`, so passed back in it resolves to the live sandbox object
+    (`attributes` not applied; a freed one raises) or, after a restore, re-enters
+    as a host-backed copy built from `attributes`.
+    """
+
+    @property
+    def name(self) -> str:
+        """Class name of the instance (e.g. `'Point'`)."""
+
+    @property
+    def id(self) -> uuid.UUID:
+        """Identity of the instance, the id the sandbox resolves it by when passed back."""
+
+    @property
+    def is_dataclass(self) -> bool:
+        """Whether the instance was a dataclass on the side that produced it."""
+
+    @property
+    def attributes(self) -> dict[str, Any]:
+        """The instance's attributes as a plain dict."""
+
+    def __repr__(self) -> str: ...
+    def __eq__(self, value: object, /) -> bool: ...
+
+@final
+class MontyClassTypeProxy:
+    """Read-only proxy for a host class the session has no class object for: a
+    `ClassType`, or `type(x)` of a `ClassInstance`, returned after a session
+    restore. It keeps the class `id`, so passed back in it is the same sandbox
+    type object.
+    """
+
+    @property
+    def name(self) -> str:
+        """Name of the class (e.g. `'Point'`)."""
+
+    @property
+    def id(self) -> uuid.UUID:
+        """Identity of the class, the id the sandbox resolves it by when passed back."""
+
+    @property
+    def is_dataclass(self) -> bool:
+        """Whether the class is a dataclass on the side that produced it."""
+
+    @property
+    def attributes(self) -> dict[str, Any]:
+        """The eager class attrs that crossed with the class, as a plain dict."""
+
+    def __repr__(self) -> str: ...
+    def __eq__(self, value: object, /) -> bool: ...
+
+@final
 class MontyCrashedError(MontyError):
     """Raised when the sandbox is gone and the session with it.
 
@@ -437,9 +519,9 @@ class Monty:
                 checkouts beyond it wait for a worker to be returned.
             checkout_timeout: Seconds `checkout()` waits for a free worker
                 before raising `TimeoutError`. `None` waits forever.
-            request_timeout: Parent-side deadline in seconds — a worker that
-                exceeds it is killed and the call raises `MontyCrashedError`
-                with `timed_out=True`. Trusted synchronous telemetry callbacks
+            request_timeout: Per-turn parent-side deadline in seconds — a worker
+                that exceeds it is killed and the call raises `MontyCrashedError`
+                with `timed_out=True`. Trusted synchronous span and log callbacks
                 delay enforcement while they run. Backstops sandbox `limits`.
             max_checkouts_per_worker: Recycle a worker after this many sessions.
         """
@@ -456,7 +538,6 @@ class Monty:
         type_check_format: TypeCheckFormat | None = None,
         type_check_color: bool = False,
         assert_message_annotations: bool | int = ...,
-        dataclass_registry: list[type] | None = None,
     ) -> MontySession:
         """
         Prepare a REPL session served by a dedicated worker.
@@ -466,7 +547,8 @@ class Monty:
 
         Arguments:
             script_name: Name used in tracebacks and error messages.
-            limits: Resource limits enforced inside the worker.
+            limits: Resource limits enforced inside the worker, plus `max_suspensions`,
+                which the pool enforces itself.
             type_check: Type-check each fed snippet before executing it; each
                 successfully executed snippet is appended to the accumulated
                 context used for type-checking subsequent snippets.
@@ -483,8 +565,6 @@ class Monty:
                 CPython's empty `AssertionError`. On by default; set to `False`
                 to restore CPython's behavior, or to an int >= 1 to customize
                 the per-operand repr truncation length (default 120 bytes).
-            dataclass_registry: Dataclass types to register for proper
-                isinstance() support on output.
         """
 
 @final
@@ -622,7 +702,9 @@ class MontySession:
 
         The dump restores its own `script_name` /
         limits / type-check state (the `checkout()` config for those is not
-        applied); the dataclass registry from `checkout()` is reused. Raises if
+        applied). The class-instance store starts empty — it is host state and
+        never part of a dump, so restored `ClassInstance` values fall back to
+        `MontyClassProxy` stand-ins and method calls on them fail. Raises if
         the dump is actually a suspended snapshot.
         """
 
@@ -644,7 +726,9 @@ class MontySession:
         Valid only on a fresh session, before any feed or load; raises
         `RuntimeError` otherwise. The dump restores its own `script_name` /
         limits / type-check state (the `checkout()` config for those is not
-        applied); the dataclass registry from `checkout()` is reused. `mount`
+        applied). The class-instance store starts empty — it is host state and
+        never part of a dump, so restored `ClassInstance` values fall back to
+        `MontyClassProxy` stand-ins and method calls on them fail. `mount`
         re-establishes the suspended feed's mounts, which are never part of the
         dump — pass the same mounts the original feed used, or its filesystem
         calls degrade into unhandled OS calls. `'overlay'` writes made before
@@ -732,7 +816,6 @@ class AsyncMonty:
         type_check_format: TypeCheckFormat | None = None,
         type_check_color: bool = False,
         assert_message_annotations: bool | int = ...,
-        dataclass_registry: list[type] | None = None,
     ) -> AsyncMontySession:
         """
         Prepare a REPL session served by a dedicated worker.
@@ -776,6 +859,7 @@ class AsyncMontyWebsocket:
         max_processes: int | None = None,
         checkout_timeout: float | None = None,
         request_timeout: float | None = 10.0,
+        connect_headers: Callable[[], Mapping[str, str]] | None = None,
     ) -> Self:
         """
         Configure a remote worker pool; connections are made by `async with` and
@@ -790,7 +874,7 @@ class AsyncMontyWebsocket:
                 count); checkouts beyond it wait.
             checkout_timeout: Seconds `checkout()` waits for capacity before
                 raising `TimeoutError`. `None` waits forever.
-            request_timeout: Hard per-call deadline in seconds (default 10.0) — a
+            request_timeout: Hard per-turn deadline in seconds (default 10.0) — a
                 worker that exceeds it has its connection killed and the call
                 raises `MontyCrashedError` with `timed_out=True`. This also
                 bounds the wait when a relay accepts the connection but never
@@ -800,6 +884,16 @@ class AsyncMontyWebsocket:
                 10.0 is often too low for it — a real `uv pip install` can exceed
                 it. Raise `request_timeout` (or pass `None`) when installing
                 dependencies over the WebSocket transport.
+            connect_headers: Called once per session, as it is entered and before
+                any wait for pool capacity, to produce extra `str` to `str`
+                headers for that connection's WebSocket upgrade request — e.g. a
+                token for infrastructure in front of the worker. It runs
+                synchronously on the checking-out task, so it sees that task's
+                contextvars and must not block. Monty never interprets the
+                values; duplicate names are last-wins, also over the default
+                `user-agent` and the `traceparent` the Logfire integration
+                adds, and a malformed name or value raises `RuntimeError` as
+                the session is entered.
         """
 
     async def __aenter__(self) -> Self: ...
@@ -814,7 +908,6 @@ class AsyncMontyWebsocket:
         type_check_format: TypeCheckFormat | None = None,
         type_check_color: bool = False,
         assert_message_annotations: bool | int = ...,
-        dataclass_registry: list[type] | None = None,
     ) -> AsyncMontySession:
         """
         Prepare a REPL session served by a dedicated remote connection.
@@ -1005,8 +1098,12 @@ class FunctionSnapshot:
     @property
     def is_os_function(self) -> bool: ...
     @property
-    def is_method_call(self) -> bool:
-        """Whether this is a dataclass method call (the instance is `args[0]`)."""
+    def object_id(self) -> uuid.UUID | None:
+        """Session uuid of the routed receiver — a host class instance sent
+        via `ClassInstance`, or a host class sent via `ClassType` (a
+        classmethod call, or construction, which arrives as `__call__`);
+        `None` for plain external functions and OS calls. The receiver is not
+        included in `args`."""
 
     @property
     def function_name(self) -> str | OsFunction: ...
@@ -1045,20 +1142,33 @@ class FunctionSnapshot:
 
 @final
 class NameLookupSnapshot:
-    """A paused execution waiting for the value of an undefined name."""
+    """A paused execution waiting for the value of an undefined name, or —
+    when `object_id` is set — a lazy attribute lookup on a host-backed object
+    (a `ClassInstance` instance, or a `ClassType` class)."""
 
     @property
     def script_name(self) -> str: ...
     @property
     def variable_name(self) -> str: ...
+    @property
+    def object_id(self) -> uuid.UUID | None:
+        """Session uuid of the receiver for a lazy attribute lookup; `None`
+        for a plain undefined-name lookup. An omitted-`value` resume raises
+        `AttributeError` (not `NameError`) for attribute lookups."""
     def resume(self, *, value: Any = ...) -> SyncSnapshot:
         """Resume by binding the name to `value` (any value, including `None`), or
-        omit `value` to leave the name undefined and raise `NameError`."""
+        omit `value` to leave the name undefined — the sandbox then raises
+        `NameError`, or `AttributeError` when `object_id` is set (a lazy
+        attribute lookup on a host-backed object)."""
 
     def resume_auto(self) -> SyncSnapshot:
-        """Answer this name lookup automatically from the captured
-        `external_lookup=`, then return the next snapshot (or `MontyComplete`). A
-        name absent from the lookup makes the sandbox raise `NameError`."""
+        """Answer this name lookup automatically, then return the next snapshot
+        (or `MontyComplete`). A plain lookup resolves from the captured
+        `external_lookup=` (an absent name raises `NameError` in the sandbox);
+        an `object_id` lookup resolves through the sending wrapper's
+        `lazy_attrs` policy (a denied or absent attribute raises
+        `AttributeError`; any other exception raised while serving it, or a
+        value that cannot be converted, is raised inside the sandbox)."""
 
     def dump(self) -> bytes:
         """Serialize the suspended worker; restore via `MontySession.load_snapshot`."""
@@ -1096,7 +1206,9 @@ class AsyncFunctionSnapshot:
     @property
     def is_os_function(self) -> bool: ...
     @property
-    def is_method_call(self) -> bool: ...
+    def object_id(self) -> uuid.UUID | None:
+        """As `FunctionSnapshot.object_id`: the routed receiver's session uuid."""
+
     @property
     def function_name(self) -> str | OsFunction: ...
     @property
@@ -1123,6 +1235,10 @@ class AsyncNameLookupSnapshot:
     def script_name(self) -> str: ...
     @property
     def variable_name(self) -> str: ...
+    @property
+    def object_id(self) -> uuid.UUID | None:
+        """As `NameLookupSnapshot.object_id`: the host object a lazy attribute is read from."""
+
     async def resume(self, *, value: Any = ...) -> AsyncSnapshot: ...
     async def resume_auto(self) -> AsyncSnapshot:
         """Async sibling of `NameLookupSnapshot.resume_auto`."""

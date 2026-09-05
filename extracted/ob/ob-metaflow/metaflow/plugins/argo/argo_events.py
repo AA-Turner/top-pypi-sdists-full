@@ -68,7 +68,7 @@ class ArgoEvent(object):
         self._payload[key] = str(value)
         return self
 
-    def safe_publish(self, payload=None, ignore_errors=True):
+    def safe_publish(self, payload=None, ignore_errors=False):
         """
         Publishes an event when called inside a deployed workflow. Outside a deployed workflow
         this function does nothing.
@@ -87,7 +87,7 @@ class ArgoEvent(object):
 
         return self.publish(payload=payload, force=False, ignore_errors=ignore_errors)
 
-    def publish(self, payload=None, force=True, ignore_errors=True):
+    def publish(self, payload=None, force=True, ignore_errors=False):
         """
         Publishes an event.
 
@@ -145,8 +145,15 @@ class ArgoEvent(object):
                         )
                         return data["payload"]["id"]
                     except urllib.error.HTTPError as e:
-                        # TODO: Retry retryable HTTP error codes
-                        raise e
+                        # Only 5xx responses are worth retrying; anything else
+                        # (4xx) won't succeed on a retry. The OB Plaform can have a
+                        # some small levels of flakiness because of things like autoscaling
+                        # / container topple over / network drops etc. So we retry a few times
+                        # until the event goes through.
+                        if e.code < 500 or i == SERVICE_RETRY_COUNT - 1:
+                            raise e
+                        else:
+                            time.sleep(2**i)
                     except urllib.error.URLError as e:
                         if i == SERVICE_RETRY_COUNT - 1:
                             raise e

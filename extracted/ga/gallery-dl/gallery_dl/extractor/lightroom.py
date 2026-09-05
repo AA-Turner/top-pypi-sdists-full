@@ -59,7 +59,8 @@ class LightroomGalleryExtractor(Extractor):
             # skip 1st line as it's a JS loop
             data = util.json_loads(page[page.index("\n") + 1:])
 
-            base_url = data["base"]
+            base_url = data["base"].replace(
+                "//photos.adobe.io/v2/", "//lightroom.adobe.com/v2c/", 1)
             for res in data["resources"]:
                 img_url, img_size = None, 0
                 for key, value in res["asset"]["links"].items():

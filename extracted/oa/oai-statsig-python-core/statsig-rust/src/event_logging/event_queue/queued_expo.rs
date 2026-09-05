@@ -1,3 +1,5 @@
+#[cfg(feature = "ffi-support")]
+use std::borrow::Cow;
 use std::{collections::HashMap, fmt::Display};
 
 use chrono::Utc;
@@ -6,7 +8,7 @@ use serde_json::Value;
 use crate::{
     EvaluationDetails, SecondaryExposure,
     evaluation::{
-        evaluation_types::ExtraExposureInfo,
+        evaluation_types::{ExtraExposureInfo, SharedControlLayerExposure},
         evaluator_result::{EvaluatorResult, result_to_extra_exposure_info},
     },
     event_logging::{
@@ -47,8 +49,9 @@ pub struct BorrowedLayerParamExposureOp<'a> {
     parameter_name: InternedString,
     trigger: ExposureTrigger,
     partial_raw: &'a crate::statsig_types_raw::PartialLayerRaw,
+    shared_control_exposure: Option<&'a SharedControlLayerExposure>,
     exposure_time: u64,
-    extra_metadata: Option<HashMap<String, Value>>,
+    extra_metadata: Option<Cow<'a, HashMap<String, Value>>>,
 }
 
 pub struct ExposureData {
@@ -181,6 +184,33 @@ impl<'a> EnqueueExposureOp<'a> {
         op
     }
 
+    pub fn shared_control_layer_param_exposure(
+        user: &'a StatsigUserInternal<'a, 'a>,
+        spec_name: &InternedString,
+        parameter_name: InternedString,
+        trigger: ExposureTrigger,
+        details: EvaluationDetails,
+        shared_control_exposure: SharedControlLayerExposure,
+    ) -> Self {
+        let SharedControlLayerExposure {
+            allocated_experiment_name,
+            control_group_id,
+            secondary_exposures,
+            explicit_parameters,
+            exposure_info,
+        } = shared_control_exposure;
+        let mut operation =
+            Self::layer_param_exposure(user, spec_name, parameter_name, trigger, details, None);
+        operation.data.rule_id = Some(control_group_id);
+        operation.data.secondary_exposures = Some(secondary_exposures);
+        operation.data.version = exposure_info.version;
+        operation.data.override_spec_name = exposure_info.override_config_name.clone();
+        operation.data.exposure_info = Some(exposure_info);
+        operation.data.explicit_params = Some(explicit_parameters);
+        operation.data.allocated_experiment = Some(allocated_experiment_name);
+        operation
+    }
+
     fn new(
         event_name: &'static str,
         user: UserLoggableOrInternal<'a>,
@@ -262,6 +292,53 @@ impl<'a> EnqueueExposureOp<'a> {
 
         Self { user, data }
     }
+
+    fn layer_param_exposure_from_partial_raw_ref(
+        parameter_name: InternedString,
+        trigger: ExposureTrigger,
+        partial_raw: &crate::statsig_types_raw::PartialLayerRaw,
+        shared_control_exposure: Option<&SharedControlLayerExposure>,
+    ) -> Self {
+        let user = UserLoggableOrInternal::Loggable(partial_raw.user.clone());
+        let rule_id = shared_control_exposure
+            .map(|exposure| exposure.control_group_id.clone())
+            .or_else(|| layer_param_rule_id(partial_raw, &parameter_name).cloned());
+        let secondary_exposures = shared_control_exposure
+            .map(|exposure| exposure.secondary_exposures.clone())
+            .or_else(|| partial_raw.secondary_exposures.clone());
+        let exposure_info = shared_control_exposure
+            .map(|exposure| exposure.exposure_info.clone())
+            .or_else(|| partial_raw.exposure_info.clone());
+        let data = ExposureData {
+            event_name: LAYER_EXPOSURE_EVENT_NAME,
+            spec_name: partial_raw.name.clone(),
+            rule_id,
+            exposure_time: Utc::now().timestamp_millis() as u64,
+            trigger,
+            evaluation_details: partial_raw.details.clone(),
+            secondary_exposures,
+            undelegated_secondary_exposures: partial_raw.undelegated_secondary_exposures.clone(),
+            version: shared_control_exposure
+                .map(|exposure| exposure.exposure_info.version)
+                .unwrap_or(partial_raw.details.version),
+            override_spec_name: shared_control_exposure
+                .and_then(|exposure| exposure.exposure_info.override_config_name.clone()),
+            rule_passed: None,
+            exposure_info,
+            extra_metadata: None,
+            parameter_name: Some(parameter_name),
+            explicit_params: shared_control_exposure
+                .map(|exposure| exposure.explicit_parameters.clone())
+                .or_else(|| partial_raw.explicit_parameters.clone()),
+            allocated_experiment: shared_control_exposure
+                .map(|exposure| exposure.allocated_experiment_name.clone())
+                .or_else(|| partial_raw.allocated_experiment_name.clone()),
+            is_user_in_experiment: None,
+            gate_value: None,
+        };
+
+        Self { user, data }
+    }
 }
 
 #[cfg(feature = "ffi-support")]
@@ -276,13 +353,33 @@ impl<'a> BorrowedLayerParamExposureOp<'a> {
             parameter_name,
             trigger,
             partial_raw,
+            shared_control_exposure: None,
             exposure_time: Utc::now().timestamp_millis() as u64,
-            extra_metadata,
+            extra_metadata: extra_metadata.map(Cow::Owned),
+        }
+    }
+
+    pub(crate) fn shared_control(
+        parameter_name: InternedString,
+        trigger: ExposureTrigger,
+        partial_raw: &'a crate::statsig_types_raw::PartialLayerRaw,
+        shared_control_exposure: &'a SharedControlLayerExposure,
+        extra_metadata: Option<&'a HashMap<String, Value>>,
+    ) -> Self {
+        Self {
+            parameter_name,
+            trigger,
+            partial_raw,
+            shared_control_exposure: Some(shared_control_exposure),
+            exposure_time: Utc::now().timestamp_millis() as u64,
+            extra_metadata: extra_metadata.map(Cow::Borrowed),
         }
     }
 
     fn rule_id(&self) -> Option<&InternedString> {
-        layer_param_rule_id(self.partial_raw, &self.parameter_name)
+        self.shared_control_exposure
+            .map(|exposure| &exposure.control_group_id)
+            .or_else(|| layer_param_rule_id(self.partial_raw, &self.parameter_name))
     }
 }
 
@@ -305,12 +402,13 @@ impl EnqueueOperation for BorrowedLayerParamExposureOp<'_> {
     }
 
     fn into_queued_event(self, sampling_decision: EvtSamplingDecision) -> QueuedEvent {
-        let mut operation = EnqueueExposureOp::layer_param_exposure_from_partial_raw(
+        let mut operation = EnqueueExposureOp::layer_param_exposure_from_partial_raw_ref(
             self.parameter_name,
             self.trigger,
-            self.partial_raw.clone(),
+            self.partial_raw,
+            self.shared_control_exposure,
         )
-        .with_extra_metadata(self.extra_metadata);
+        .with_extra_metadata(self.extra_metadata.map(Cow::into_owned));
         operation.data.exposure_time = self.exposure_time;
         operation.into_queued_event(sampling_decision)
     }
@@ -332,7 +430,9 @@ impl<'a> QueuedExposure<'a> for BorrowedLayerParamExposureOp<'a> {
     }
 
     fn get_extra_exposure_info_ref(&'a self) -> Option<&'a ExtraExposureInfo> {
-        self.partial_raw.exposure_info.as_ref()
+        self.shared_control_exposure
+            .map(|exposure| &exposure.exposure_info)
+            .or(self.partial_raw.exposure_info.as_ref())
     }
 }
 
@@ -391,6 +491,10 @@ impl<'a> QueuedExposure<'a> for EnqueueExposureOp<'a> {
 
     fn get_extra_exposure_info_ref(&'a self) -> Option<&'a ExtraExposureInfo> {
         self.data.exposure_info.as_ref()
+    }
+
+    fn is_primary_gate_exposure(&self) -> bool {
+        self.data.event_name == GATE_EXPOSURE_EVENT_NAME
     }
 }
 

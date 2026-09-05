@@ -1,6 +1,11 @@
 mod utils;
 
-use std::{fs, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashSet,
+    fs,
+    path::PathBuf,
+    sync::{Arc, atomic::Ordering},
+};
 
 use crate::utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
@@ -8,7 +13,8 @@ use assert_json_diff::assert_json_eq;
 use lazy_static::lazy_static;
 use serde_json::{Value, json};
 use statsig_rust::{
-    ClientInitResponseOptions, HashAlgorithm, Statsig, StatsigOptions, StatsigUser,
+    ClientInitResponseOptions, EvaluationFixtureClient, EvaluationOperation, EvaluationResult,
+    HashAlgorithm, InitializeEvaluationResult, Statsig, StatsigOptions, StatsigUser,
     StatsigUserBuilder,
 };
 
@@ -21,6 +27,43 @@ lazy_static! {
         .ip(Some("1.0.0.0".into()))
         .locale(Some("en_US".into()))
         .build();
+}
+
+async fn fixture_from_specs(specs_json: String) -> EvaluationFixtureClient {
+    let file = tempfile::NamedTempFile::new().expect("fixture file should be created");
+    fs::write(file.path(), specs_json).expect("fixture file should be populated");
+    EvaluationFixtureClient::from_file(file.path().to_str().expect("fixture path should be UTF-8"))
+        .await
+        .expect("fixture client should initialize from its public file boundary")
+}
+
+async fn evaluate_fixture_request(
+    fixture: &EvaluationFixtureClient,
+    operation: EvaluationOperation<'_>,
+) -> EvaluationResult {
+    fixture
+        .evaluate("test-company", (*USER).clone(), None, operation)
+        .await
+        .expect("fixture-backed SDK operation should evaluate")
+}
+
+async fn initialize_fixture_request(
+    fixture: &EvaluationFixtureClient,
+    options: ClientInitResponseOptions,
+    live_overlay: bool,
+) -> InitializeEvaluationResult {
+    let result = evaluate_fixture_request(
+        fixture,
+        EvaluationOperation::Initialize {
+            options: &options,
+            live_overlay,
+        },
+    )
+    .await;
+    let EvaluationResult::Initialize { response, .. } = result else {
+        panic!("initialize operations must return typed initialize results");
+    };
+    *response
 }
 
 async fn setup(hash_algorithm: HashAlgorithm) -> Value {
@@ -113,6 +156,36 @@ fn eval_proj_dcs_with_new_layer_eval(layer_name: &str) -> String {
     serde_json::to_string(&json).expect("Unable to serialize fixture")
 }
 
+fn eval_proj_dcs_with_shared_control_layer() -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/data/eval_proj_dcs.json");
+
+    let data = fs::read_to_string(path).expect("Unable to read fixture");
+    let mut json: Value = serde_json::from_str(&data).expect("Unable to parse fixture");
+
+    let rules = json
+        .get_mut("layer_configs")
+        .unwrap()
+        .get_mut("test_layer_in_holdout")
+        .unwrap()
+        .get_mut("rules")
+        .unwrap()
+        .as_array_mut()
+        .unwrap();
+
+    for rule in rules {
+        rule.as_object_mut().unwrap().insert(
+            "sharedControlExperiments".to_string(),
+            json!([{
+                "name": "running_exp_in_layer_with_holdout",
+                "controlGroupID": "control_group",
+            }]),
+        );
+    }
+
+    serde_json::to_string(&json).expect("Unable to serialize fixture")
+}
+
 fn eval_proj_dcs_with_nullable_versions() -> String {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("tests/data/eval_proj_dcs.json");
@@ -165,6 +238,77 @@ fn eval_proj_dcs_with_launched_group_marked_experiment_group() -> String {
         .as_object_mut()
         .unwrap()
         .insert("isExperimentGroup".to_string(), json!(true));
+
+    serde_json::to_string(&json).expect("Unable to serialize fixture")
+}
+
+fn eval_proj_dcs_with_experiment_group_gate() -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/data/eval_proj_dcs.json");
+
+    let data = fs::read_to_string(path).expect("Unable to read fixture");
+    let mut json: Value = serde_json::from_str(&data).expect("Unable to parse fixture");
+
+    let experiment_name = "experiment_group_source";
+    let gate_name = "gate_targeted_by_experiment_group";
+    let condition_name = "experiment_group_condition";
+
+    let mut experiment = json
+        .get("dynamic_configs")
+        .unwrap()
+        .get("test_experiment_no_targeting")
+        .unwrap()
+        .clone();
+    experiment["salt"] = json!("experiment-group-source-salt");
+    experiment["rules"] = json!([{
+        "name": "experiment-group-source-treatment",
+        "groupName": "Treatment",
+        "passPercentage": 100,
+        "conditions": ["1828919350"],
+        "returnValue": {"variant": "treatment"},
+        "id": "experiment-group-source-treatment",
+        "salt": "experiment-group-source-treatment",
+        "idType": "userID",
+        "isExperimentGroup": true
+    }]);
+    json.get_mut("dynamic_configs")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert(experiment_name.to_string(), experiment);
+
+    let mut gate = json
+        .get("feature_gates")
+        .unwrap()
+        .get("test_public")
+        .unwrap()
+        .clone();
+    gate["salt"] = json!("experiment-group-gate-salt");
+    gate["rules"][0]["name"] = json!("experiment-group-targeted-rule");
+    gate["rules"][0]["id"] = json!("experiment-group-targeted-rule");
+    gate["rules"][0]["salt"] = json!("experiment-group-targeted-rule");
+    gate["rules"][0]["conditions"] = json!([condition_name]);
+    json.get_mut("feature_gates")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert(gate_name.to_string(), gate);
+
+    json.get_mut("condition_map")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert(
+            condition_name.to_string(),
+            json!({
+                "type": "experiment_group",
+                "targetValue": ["Treatment"],
+                "operator": "any",
+                "field": experiment_name,
+                "additionalValues": {"experiment_name": experiment_name},
+                "idType": "userID"
+            }),
+        );
 
     serde_json::to_string(&json).expect("Unable to serialize fixture")
 }
@@ -311,8 +455,24 @@ async fn test_project_default_gate_removal_policy_is_used_by_default() {
         filtered.feature_gates.len(),
         unfiltered.feature_gates.len() - expected_removed.len()
     );
+    let fixture = fixture_from_specs(eval_proj_dcs_with_default_gate_removal()).await;
+    let snapshot_filtered = initialize_fixture_request(
+        &fixture,
+        ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
+            ..Default::default()
+        },
+        false,
+    )
+    .await
+    .response;
+    assert_eq!(
+        snapshot_filtered.feature_gates.len(),
+        filtered.feature_gates.len()
+    );
     for (name, _) in expected_removed {
         assert!(!filtered.feature_gates.contains_key(name));
+        assert!(!snapshot_filtered.feature_gates.contains_key(name));
     }
 }
 
@@ -358,6 +518,168 @@ async fn test_launched_group_is_not_user_in_experiment() {
 
     assert_eq!(experiment.get("rule_id").unwrap(), "launchedGroup");
     assert_eq!(experiment.get("is_user_in_experiment").unwrap(), false);
+}
+
+#[tokio::test]
+async fn test_experiment_group_gate_is_evaluated_in_client_init_response() {
+    let json_obj = setup_with_specs_data(
+        eval_proj_dcs_with_experiment_group_gate(),
+        HashAlgorithm::None,
+    )
+    .await;
+
+    let gate = json_obj
+        .get("feature_gates")
+        .unwrap()
+        .get("gate_targeted_by_experiment_group")
+        .unwrap();
+
+    assert_eq!(gate.get("value").unwrap(), true);
+    assert_eq!(
+        gate.get("rule_id").unwrap(),
+        "experiment-group-targeted-rule"
+    );
+}
+
+#[tokio::test]
+async fn test_experiment_group_gate_gcir_does_not_log_non_exposed_check() {
+    let logging_adapter = Arc::new(MockEventLoggingAdapter::new());
+    let mut options = StatsigOptions::new();
+    options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(
+        eval_proj_dcs_with_experiment_group_gate(),
+    )));
+    options.event_logging_adapter = Some(logging_adapter.clone());
+
+    let statsig = Statsig::new("secret-key", Some(Arc::new(options)));
+    statsig.initialize().await.unwrap();
+
+    let response = statsig.get_client_init_response_with_options(
+        &USER,
+        &ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
+            ..ClientInitResponseOptions::default()
+        },
+    );
+    assert_eq!(
+        serde_json::to_value(response).unwrap()["feature_gates"]["gate_targeted_by_experiment_group"]
+            ["value"],
+        json!(true)
+    );
+
+    statsig.shutdown().await.unwrap();
+    assert_eq!(
+        logging_adapter
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        0
+    );
+}
+
+#[tokio::test]
+async fn test_experiment_group_gate_preserves_nested_experiment_exposure() {
+    let logging_adapter = Arc::new(MockEventLoggingAdapter::new());
+    let mut options = StatsigOptions::new();
+    options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(
+        eval_proj_dcs_with_experiment_group_gate(),
+    )));
+    options.event_logging_adapter = Some(logging_adapter.clone());
+
+    let statsig = Statsig::new("secret-key", Some(Arc::new(options)));
+    statsig.initialize().await.unwrap();
+
+    assert!(statsig.check_gate(&USER, "gate_targeted_by_experiment_group"));
+
+    statsig.shutdown().await.unwrap();
+    assert_eq!(
+        logging_adapter
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        2
+    );
+    let nested_experiment_exposure = logging_adapter.force_get_event_at(0);
+    assert_eq!(
+        nested_experiment_exposure["eventName"],
+        "statsig::config_exposure"
+    );
+    assert_eq!(
+        nested_experiment_exposure["metadata"]["config"],
+        "experiment_group_source"
+    );
+    assert_eq!(
+        logging_adapter.force_get_event_at(1)["eventName"],
+        "statsig::gate_exposure"
+    );
+}
+
+#[tokio::test]
+async fn test_scoped_snapshot_session_evaluates_experiment_group_gate() {
+    let fixture = fixture_from_specs(eval_proj_dcs_with_experiment_group_gate()).await;
+
+    let EvaluationResult::Gate(gate) = evaluate_fixture_request(
+        &fixture,
+        EvaluationOperation::Gate("gate_targeted_by_experiment_group"),
+    )
+    .await
+    else {
+        panic!("gate operation should return a gate evaluation");
+    };
+    assert_eq!(
+        gate.rule_id.as_deref(),
+        Some("experiment-group-targeted-rule")
+    );
+    assert!(gate.evaluation.unwrap().value);
+
+    let response = initialize_fixture_request(
+        &fixture,
+        ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
+            ..ClientInitResponseOptions::default()
+        },
+        false,
+    )
+    .await
+    .response;
+    let response = serde_json::to_value(response).unwrap();
+    assert_eq!(
+        response["feature_gates"]["gate_targeted_by_experiment_group"]["value"],
+        json!(true)
+    );
+    assert_eq!(
+        response["feature_gates"]["gate_targeted_by_experiment_group"]["rule_id"],
+        json!("experiment-group-targeted-rule")
+    );
+}
+
+#[tokio::test]
+async fn test_snapshot_session_references_override_rule_condition_fields() {
+    let mut specs: Value = serde_json::from_str(&eval_proj_dcs_with_pipeline_override()).unwrap();
+    specs["condition_map"]["override_only_field"] = json!({
+        "type": "user_field",
+        "targetValue": ["yes"],
+        "operator": "any",
+        "field": "override_only_field",
+        "additionalValues": {},
+        "idType": "userID"
+    });
+    specs["override_rules"]["statsig::everyone"]["conditions"] = json!(["override_only_field"]);
+
+    let fixture = fixture_from_specs(serde_json::to_string(&specs).unwrap()).await;
+    let request = fixture
+        .prepare_evaluation("test-company", (*USER).clone(), None)
+        .await
+        .expect("fixture should prepare an authenticated evaluation");
+    assert!(
+        request.references_any_condition_field(&HashSet::from(["override_only_field".to_string()]))
+    );
+    let options = ClientInitResponseOptions::default();
+    let result = request
+        .evaluate(EvaluationOperation::Initialize {
+            options: &options,
+            live_overlay: false,
+        })
+        .await
+        .expect("override-backed initialize should evaluate");
+    assert!(matches!(result, EvaluationResult::Initialize { .. }));
 }
 
 #[tokio::test]
@@ -702,6 +1024,60 @@ async fn test_new_layer_eval_preserves_delegated_experiment_metadata() {
             .unwrap()
             .len(),
         2
+    );
+}
+
+#[tokio::test]
+async fn test_shared_control_experiments_are_not_in_client_initialize_response() {
+    let user = StatsigUser::with_user_id("user-in-test");
+    let json_obj = setup_with_specs_data_and_user(
+        eval_proj_dcs_with_shared_control_layer(),
+        HashAlgorithm::None,
+        &user,
+    )
+    .await;
+
+    let layer = json_obj
+        .get("layer_configs")
+        .unwrap()
+        .get("test_layer_in_holdout")
+        .unwrap();
+
+    assert!(layer.get("allocated_experiment_name").is_none());
+    assert!(layer.get("shared_control_experiments").is_none());
+}
+
+#[tokio::test]
+async fn test_shared_control_layer_preserves_rule_sampling_rate() {
+    let mut specs: Value =
+        serde_json::from_str(&eval_proj_dcs_with_shared_control_layer()).unwrap();
+    for rule in specs["layer_configs"]["test_layer_in_holdout"]["rules"]
+        .as_array_mut()
+        .unwrap()
+    {
+        rule["samplingRate"] = json!(201);
+    }
+
+    let options = StatsigOptions {
+        specs_adapter: Some(Arc::new(MockSpecsAdapter::with_json_data(
+            specs.to_string(),
+        ))),
+        event_logging_adapter: Some(Arc::new(MockEventLoggingAdapter::new())),
+        ..StatsigOptions::default()
+    };
+    let statsig = Statsig::new("secret-key", Some(Arc::new(options)));
+    statsig.initialize().await.unwrap();
+
+    let layer = statsig.get_layer(
+        &StatsigUser::with_user_id("user-in-test"),
+        "test_layer_in_holdout",
+    );
+    assert_eq!(
+        layer
+            .__exposure_info
+            .as_ref()
+            .and_then(|info| info.sampling_rate),
+        Some(201)
     );
 }
 

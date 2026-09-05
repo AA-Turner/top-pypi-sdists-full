@@ -204,8 +204,12 @@ def test_geocif_wiring_for_pygrf():
     assert "pygrf_band_width" in src and "pygrf_local_weight" in src
     assert 'pygrf_params=getattr(self.obj, "pygrf_params"' in src
     # fail-fast: missing include_lat_lon_as_feature must raise at setup,
-    # not be swallowed per-region by loop_ml (review finding)
-    assert '("pygrf", "tabpfn_gsa")' in src
+    # not be swallowed per-region by loop_ml (review finding). Matched on the
+    # guard's shape rather than the exact tuple literal -- the set of
+    # centroid-consuming models grows (tabfm_gsa joined pygrf/tabpfn_gsa), and
+    # a literal match turns every such addition into a spurious failure here.
+    assert 'self.dispatch_name in ("pygrf", "tabpfn_gsa"' in src
+    assert "and not self.include_lat_lon_as_feature" in src
     assert "include_lat_lon_as_feature = True — region" in src
     # max_features accepts sklearn strings, band_width parses as float
     assert "_cast_max_features" in src

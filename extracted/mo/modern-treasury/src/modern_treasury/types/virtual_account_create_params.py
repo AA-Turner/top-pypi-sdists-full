@@ -47,6 +47,9 @@ class VirtualAccountCreateParams(TypedDict, total=False):
     IPDs.
     """
 
+    ledger_account_id: str
+    """The ledger account that you'd like to link to the virtual account."""
+
     metadata: Dict[str, str]
     """Additional data represented as key-value pairs.
 
@@ -55,6 +58,9 @@ class VirtualAccountCreateParams(TypedDict, total=False):
 
     routing_details: Iterable[RoutingDetail]
     """An array of routing detail objects."""
+
+    virtual_account_setting_id: str
+    """The ID of the virtual account setting used to allocate this virtual account."""
 
 
 class AccountDetail(TypedDict, total=False):

@@ -18,6 +18,12 @@ def test_initialize_partial_statsig_options():
     assert options.log_event_url is None
 
 
+def test_positional_statsig_options_preserve_existing_order():
+    options = StatsigOptions(None, 1000)
+
+    assert options.specs_sync_interval_ms == 1000
+
+
 def test_evaluation_cache_option():
     cache = EvaluationCache(max_bytes=1024, max_entry_bytes=512)
     options = StatsigOptions(evaluation_cache=cache)

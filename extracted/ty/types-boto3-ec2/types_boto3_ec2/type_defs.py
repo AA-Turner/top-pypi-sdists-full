@@ -3272,6 +3272,8 @@ __all__ = (
     "VCpuCountRangeRequestTypeDef",
     "VCpuCountRangeTypeDef",
     "VCpuInfoTypeDef",
+    "ValidateSecurityGroupQuotasForInterfaceRequestTypeDef",
+    "ValidateSecurityGroupQuotasForInterfaceResultTypeDef",
     "ValidationErrorTypeDef",
     "ValidationWarningTypeDef",
     "VerifiedAccessEndpointCidrOptionsTypeDef",
@@ -9794,6 +9796,11 @@ class UpdateInterruptibleCapacityReservationAllocationRequestTypeDef(TypedDict):
     ZeroSizePreference: NotRequired[ZeroSizePreferenceType]
 
 
+class ValidateSecurityGroupQuotasForInterfaceRequestTypeDef(TypedDict):
+    SecurityGroupIds: Sequence[str]
+    DryRun: NotRequired[bool]
+
+
 class ValidationErrorTypeDef(TypedDict):
     Code: NotRequired[str]
     Message: NotRequired[str]
@@ -10823,6 +10830,11 @@ class UpdateSecurityGroupRuleDescriptionsEgressResultTypeDef(TypedDict):
 
 class UpdateSecurityGroupRuleDescriptionsIngressResultTypeDef(TypedDict):
     Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ValidateSecurityGroupQuotasForInterfaceResultTypeDef(TypedDict):
+    Valid: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 

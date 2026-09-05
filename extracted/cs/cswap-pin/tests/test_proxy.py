@@ -18856,7 +18856,7 @@ class TestTheSpliceHoldsTheConfigLock:
     # carries it into the live config.
 
     def case_the_profile_mapping_is_the_one_claude_code_writes(self):
-        """Same keys as CC's own writer (2.1.257 `D7e`), absent-vs-null
+        """Same keys as CC's own writer (2.1.261 `XQe`), absent-vs-null
         included: its gate tests four of them for `!== undefined`, so a null
         where CC omits the key re-opens the fetch this exists to close."""
         from cswap_pin import proxy as pin_proxy
@@ -18884,6 +18884,22 @@ class TestTheSpliceHoldsTheConfigLock:
         assert "billingType" not in pin_proxy.profile_identity_from(doc, now_ms=1)
         doc["account"]["uuid"] = ""
         assert pin_proxy.profile_identity_from(doc, now_ms=1) is None
+
+    def case_a_null_account_created_at_round_trips_as_null_not_absent(self):
+        """CC's writer has no `?? void 0` on `accountCreatedAt`, unlike its siblings; a server null must round-trip as JSON `null`, not an absent key -- but a KEY the server never sent at all must stay absent, since `JSON.stringify` drops CC's own `undefined` there."""
+        from cswap_pin import proxy as pin_proxy
+
+        org = {"uuid": "ORG", "billing_type": "stripe",
+               "subscription_created_at": "2026-02-10"}
+        got = pin_proxy.profile_identity_from(
+            {"account": {"uuid": "PIN", "created_at": None}, "organization": org},
+            now_ms=1)
+        assert "accountCreatedAt" in got, got
+        assert got["accountCreatedAt"] is None, got
+
+        got = pin_proxy.profile_identity_from(
+            {"account": {"uuid": "PIN"}, "organization": org}, now_ms=1)
+        assert "accountCreatedAt" not in got, got
 
     def case_remembering_never_downgrades_a_fresher_profile(self, tmp_path):
         """The host hands over the pinned slot's stored config; the daemon

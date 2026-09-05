@@ -18,7 +18,7 @@ def statsig_setup(httpserver: HTTPServer):
     mock_scrapi = MockScrapi(httpserver)
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json", response=dcs_content, method="GET"
+        "/v2/download_config_specs", response=dcs_content, method="GET"
     )
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
 
@@ -44,7 +44,7 @@ def callsite_logging_setup(httpserver: HTTPServer):
     sdk_configs["expo_callsite_logging_experiment::test_experiment_no_targeting"] = 1
     sdk_configs["expo_callsite_logging_layer::layer_with_many_params"] = 1
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json",
+        "/v2/download_config_specs",
         response=json.dumps(specs),
         method="GET",
     )
@@ -340,7 +340,7 @@ def test_bulk_evaluate_disable_all_logging_returns_no_tokens(httpserver: HTTPSer
     mock_scrapi = MockScrapi(httpserver)
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json", response=dcs_content, method="GET"
+        "/v2/download_config_specs", response=dcs_content, method="GET"
     )
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
 

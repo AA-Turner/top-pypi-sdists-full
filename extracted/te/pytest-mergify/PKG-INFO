@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-mergify
-Version: 2026.8.5.3
+Version: 2026.9.1.1
 Requires-Dist: pytest>=6.0.0
 Requires-Dist: pytest-timeout>=2.4.0
 License-File: LICENSE

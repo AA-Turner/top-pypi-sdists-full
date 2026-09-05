@@ -1,14 +1,19 @@
 import io
 import lzma
 import os
+import typing
+from typing import Any
 
 import numpy as np
 import pytest
 
 import asdf
-from asdf import _compression, config_context, generic_io
+from asdf import _compression, config_context
 from asdf._tests import _helpers as helpers
 from asdf.extension import Compressor, Extension
+
+if typing.TYPE_CHECKING:
+    from asdf.generic_io import GenericFile
 
 RNG = np.random.default_rng(0)
 
@@ -26,7 +31,13 @@ def _get_sparse_tree():
     return {"science_data": arr}
 
 
-def _roundtrip(tmp_path, tree, compression=None, write_options=None, read_options=None):
+def _roundtrip(
+    tmp_path,
+    tree,
+    compression=None,
+    write_options: dict[str, Any] | None = None,
+    read_options: dict[str, Any] | None = None,
+):
     read_options = {} if read_options is None else read_options
     write_options = {} if write_options is None else write_options.copy()
     write_options.update(all_array_compression=compression)
@@ -56,10 +67,10 @@ def _roundtrip(tmp_path, tree, compression=None, write_options=None, read_option
     buff = io.BytesIO()
 
     ff = asdf.AsdfFile(tree)
-    ff.write_to(generic_io.OutputStream(buff), **write_options)
+    ff.write_to(buff, **write_options)
 
     buff.seek(0)
-    with asdf.open(generic_io.InputStream(buff), **read_options) as ff:
+    with asdf.open(buff, **read_options) as ff:
         helpers.assert_tree_match(tree, ff.tree)
 
     return tmpfile
@@ -69,6 +80,8 @@ def test_invalid_compression():
     tree = _get_large_tree()
     ff = asdf.AsdfFile(tree)
     with pytest.raises(ValueError, match=r"Invalid compression type: foo"):
+        # Intentionally incorrect compression type
+        # pyrefly: ignore[bad-argument-type]
         ff.set_array_compression(tree["science_data"], "foo")
     with pytest.raises(ValueError, match=r"Unknown compression type: .*"):
         _compression._get_compressor("foo")
@@ -79,11 +92,12 @@ def test_get_compressed_size():
 
 
 def test_decompress_too_long_short():
-    fio = io.BytesIO()
+    fio = typing.cast("GenericFile", io.BytesIO())
     _compression.compress(fio, b"0" * 1024, "zlib")
     size = fio.tell()
     fio.seek(0)
     blocks = lambda us: [fio.read(us)]  # noqa: E731
+    # pyrefly: ignore [bad-assignment]
     fio.read_blocks = blocks
     _compression.decompress(fio, size, 1024, "zlib")
     fio.seek(0)
@@ -179,6 +193,7 @@ def test_set_array_compression(tmp_path):
             af_out.write_to(tmpfile)
         af_out.set_array_compression(bzp2_data, "bzp2", compresslevel=9)
         af_out.write_to(tmpfile)
+        # pyrefly: ignore [unsupported-operation]
         assert af_out.get_array_compression_kwargs(bzp2_data)["compresslevel"] == 9
 
     with asdf.open(tmpfile) as af_in:

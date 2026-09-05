@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 
 from .exceptions import NoMatchingDataError, PaginationError
-from .misc import day_blocks, year_blocks
+from .misc import day_blocks, year_blocks, month_blocks
 
 logger = logging.getLogger(__name__)
 
@@ -163,8 +163,8 @@ def year_limited(func):
 
 
 def day_limited(func):
-    """Deals with calls where you cannot query more than a year,
-    by splitting the call up in blocks per year"""
+    """Deals with calls where you cannot query more than a day,
+    by splitting the call up in blocks per day"""
 
     @wraps(func)
     def day_wrapper(*args, start, end, **kwargs):
@@ -188,3 +188,31 @@ def day_limited(func):
         return df
 
     return day_wrapper
+
+def month_limited(func):
+    """Deals with calls where you cannot query more than a month,
+    by splitting the call up in blocks per month"""
+
+    @wraps(func)
+    def month_wrapper(*args, start, end, **kwargs):
+        blocks = month_blocks(start, end)
+        frames = []
+        for _start, _end in blocks:
+            try:
+                frame = func(*args, start=_start, end=_end, **kwargs)
+            except NoMatchingDataError:
+                logger.debug(
+                    f"NoMatchingDataError: between {_start} and {_end}"
+                )
+                frame = None
+            frames.append(frame)
+
+        if sum([f is None for f in frames]) == len(frames):
+            # All the data returned are void
+            raise NoMatchingDataError
+
+        df = pd.concat(frames)
+        return df
+
+    return month_wrapper
+

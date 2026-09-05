@@ -3,13 +3,16 @@
 pub mod bridge;
 pub mod candidate;
 pub mod chem_env;
+pub mod compiled_stock;
 pub mod constraints;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod coverage_mode;
 pub mod display;
+pub mod diversity;
 pub mod evidence;
 pub mod evidence_match;
 pub mod io_limits;
+pub mod mcp;
 pub mod pool_export;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod reranker;

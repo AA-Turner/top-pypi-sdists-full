@@ -7,7 +7,7 @@ use assert_json_diff::assert_json_include;
 use chrono::Utc;
 use serde_json::{Map, Value, json};
 #[cfg(feature = "ffi-support")]
-use statsig_rust::BulkEvaluationOptions;
+use statsig_rust::{BulkEvaluationOptions, statsig_types_raw::PartialLayerRaw};
 use statsig_rust::{Statsig, StatsigOptions, StatsigUser, StatsigUserBuilder};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -61,6 +61,416 @@ async fn test_gate_exposures_formatting() {
     assert_eq!(holdout_exposure["gate"], "global_holdout");
     assert_eq!(holdout_exposure["gateValue"], "false");
     assert_eq!(holdout_exposure["ruleID"], "3QoA4ncNdVGBaMt3N1KYjz:0.50:1");
+}
+
+#[tokio::test]
+async fn shared_control_layer_parameter_logs_layer_and_control_exposures() {
+    for use_new_layer_eval in [false, true] {
+        assert_shared_control_layer_parameter_exposures(use_new_layer_eval).await;
+    }
+}
+
+async fn assert_shared_control_layer_parameter_exposures(use_new_layer_eval: bool) {
+    let logging_adapter = Arc::new(MockEventLoggingAdapter::new());
+    let specs_adapter = Arc::new(MockSpecsAdapter::with_json_data(
+        json!({
+            "feature_gates": {},
+            "dynamic_configs": {
+                "ranking_experiment": {
+                    "type": "dynamic_config",
+                    "salt": "experiment_salt",
+                    "enabled": true,
+                    "defaultValue": {},
+                    "rules": [{
+                        "name": "Control",
+                        "groupName": "Control",
+                        "passPercentage": 100,
+                        "conditions": [],
+                        "returnValue": {"ranking_model": "default"},
+                        "id": "control_group",
+                        "salt": "control_group",
+                        "idType": "userID",
+                        "isExperimentGroup": true
+                    }],
+                    "idType": "userID",
+                    "entity": "experiment",
+                    "isActive": true,
+                    "hasSharedParams": true,
+                    "explicitParameters": ["ranking_model"]
+                },
+                "treatment_experiment": {
+                    "type": "dynamic_config",
+                    "salt": "treatment_experiment_salt",
+                    "enabled": true,
+                    "defaultValue": {},
+                    "rules": [{
+                        "name": "Treatment",
+                        "groupName": "Treatment",
+                        "passPercentage": 100,
+                        "conditions": [],
+                        "returnValue": {"ranking_model": "treatment"},
+                        "id": "treatment_group",
+                        "idType": "userID",
+                        "isExperimentGroup": true
+                    }],
+                    "idType": "userID",
+                    "entity": "experiment",
+                    "isActive": true,
+                    "hasSharedParams": true,
+                    "explicitParameters": ["ranking_model"]
+                },
+                "untargeted_experiment": {
+                    "type": "dynamic_config",
+                    "salt": "untargeted_experiment_salt",
+                    "enabled": true,
+                    "defaultValue": {},
+                    "rules": [{
+                        "name": "Control",
+                        "groupName": "Control",
+                        "passPercentage": 100,
+                        "conditions": ["only_other_user"],
+                        "returnValue": {"ranking_model": "default"},
+                        "id": "untargeted_control",
+                        "idType": "userID",
+                        "isExperimentGroup": true
+                    }],
+                    "idType": "userID",
+                    "entity": "experiment",
+                    "isActive": true,
+                    "hasSharedParams": true,
+                    "explicitParameters": ["ranking_model"]
+                },
+                "other_parameter_experiment": {
+                    "type": "dynamic_config",
+                    "salt": "other_parameter_experiment_salt",
+                    "enabled": true,
+                    "defaultValue": {},
+                    "rules": [{
+                        "name": "Control",
+                        "groupName": "Control",
+                        "passPercentage": 100,
+                        "conditions": [],
+                        "returnValue": {"other_parameter": "default"},
+                        "id": "other_parameter_control",
+                        "idType": "userID",
+                        "isExperimentGroup": true
+                    }],
+                    "idType": "userID",
+                    "entity": "experiment",
+                    "isActive": true,
+                    "hasSharedParams": true,
+                    "explicitParameters": ["other_parameter"]
+                }
+            },
+            "layer_configs": {
+                "ads_layer": {
+                    "type": "layer",
+                    "salt": "layer_salt",
+                    "enabled": true,
+                    "defaultValue": {"ranking_model": "default"},
+                    "rules": [{
+                        "name": "Shared Control",
+                        "passPercentage": 100,
+                        "conditions": [],
+                        "returnValue": {"ranking_model": "cohort_control"},
+                        "id": "sharedControl",
+                        "idType": "userID",
+                        "sharedControlExperiments": [{
+                            "name": "ranking_experiment",
+                            "controlGroupID": "control_group"
+                        }, {
+                            "name": "treatment_experiment",
+                            "controlGroupID": "treatment_control"
+                        }, {
+                            "name": "untargeted_experiment",
+                            "controlGroupID": "untargeted_control"
+                        }, {
+                            "name": "other_parameter_experiment",
+                            "controlGroupID": "other_parameter_control"
+                        }]
+                    }, {
+                        "name": "Lower-Priority Treatment",
+                        "passPercentage": 100,
+                        "conditions": [],
+                        "returnValue": {},
+                        "id": "lower_priority_treatment",
+                        "idType": "userID",
+                        "configDelegate": "ranking_experiment"
+                    }],
+                    "idType": "userID",
+                    "entity": "layer",
+                    "useNewLayerEval": use_new_layer_eval
+                },
+                "holdout_layer": {
+                    "type": "layer",
+                    "salt": "holdout_layer_salt",
+                    "enabled": true,
+                    "defaultValue": {"ranking_model": "default"},
+                    "rules": [{
+                        "name": "Higher-Priority Holdout",
+                        "passPercentage": 100,
+                        "conditions": [],
+                        "returnValue": {"ranking_model": "default"},
+                        "id": "holdout",
+                        "idType": "userID"
+                    }, {
+                        "name": "Shared Control",
+                        "passPercentage": 100,
+                        "conditions": [],
+                        "returnValue": {},
+                        "id": "sharedControl",
+                        "idType": "userID",
+                        "sharedControlExperiments": [{
+                            "name": "ranking_experiment",
+                            "controlGroupID": "control_group"
+                        }]
+                    }],
+                    "idType": "userID",
+                    "entity": "layer",
+                    "useNewLayerEval": use_new_layer_eval
+                }
+            },
+            "conditions": {},
+            "experiment_to_layer": {},
+            "condition_map": {
+                "only_other_user": {
+                    "type": "user_field",
+                    "targetValue": ["other-user"],
+                    "operator": "any",
+                    "field": "userID",
+                    "idType": "userID"
+                }
+            },
+            "time": 1,
+            "has_updates": true,
+            "response_format": "dcs-v2"
+        })
+        .to_string(),
+    ));
+    let statsig = create_statsig(&specs_adapter, &logging_adapter);
+    statsig.initialize().await.unwrap();
+
+    let layer = statsig.get_layer(
+        &StatsigUser::with_user_id("shared-control-user"),
+        "ads_layer",
+    );
+    assert_eq!(
+        layer.get_string("ranking_model", "fallback".to_string()),
+        "cohort_control"
+    );
+
+    sleep(Duration::from_millis(1)).await;
+    statsig.flush_events().await;
+
+    let mut layer_exposures: Vec<Value> = Vec::new();
+    for payload in logging_adapter.logged_payloads.lock().unwrap().iter() {
+        for event in enforce_array(&payload.events) {
+            if event["eventName"] == "statsig::layer_exposure" {
+                layer_exposures.push(event.clone());
+            }
+        }
+    }
+
+    assert_eq!(layer_exposures.len(), 2);
+    assert_eq!(layer_exposures[0]["metadata"]["config"], "ads_layer");
+    assert_eq!(layer_exposures[0]["metadata"]["ruleID"], "sharedControl");
+    assert_eq!(layer_exposures[0]["metadata"]["allocatedExperiment"], "");
+    assert_eq!(
+        layer_exposures[1]["metadata"]["allocatedExperiment"],
+        "ranking_experiment"
+    );
+    assert_eq!(layer_exposures[1]["metadata"]["ruleID"], "control_group");
+    assert_eq!(
+        layer_exposures[1]["metadata"]["parameterName"],
+        "ranking_model"
+    );
+
+    logging_adapter.logged_payloads.lock().unwrap().clear();
+    statsig.manually_log_layer_parameter_exposure(
+        &StatsigUser::with_user_id("shared-control-user"),
+        "ads_layer",
+        "ranking_model".to_string(),
+    );
+    sleep(Duration::from_millis(1)).await;
+    statsig.flush_events().await;
+
+    let mut manual_layer_exposures: Vec<Value> = Vec::new();
+    for payload in logging_adapter.logged_payloads.lock().unwrap().iter() {
+        for event in enforce_array(&payload.events) {
+            if event["eventName"] == "statsig::layer_exposure" {
+                manual_layer_exposures.push(event.clone());
+            }
+        }
+    }
+    assert_eq!(manual_layer_exposures.len(), 2);
+    assert_eq!(
+        manual_layer_exposures[1]["metadata"]["allocatedExperiment"],
+        "ranking_experiment"
+    );
+    assert_eq!(
+        manual_layer_exposures[1]["metadata"]["isManualExposure"],
+        "true"
+    );
+
+    logging_adapter.logged_payloads.lock().unwrap().clear();
+    let holdout_layer = statsig.get_layer(
+        &StatsigUser::with_user_id("shared-control-user"),
+        "holdout_layer",
+    );
+    let _ = holdout_layer.get_string("ranking_model", "fallback".to_string());
+    sleep(Duration::from_millis(1)).await;
+    statsig.flush_events().await;
+
+    let mut holdout_layer_exposures: Vec<Value> = Vec::new();
+    for payload in logging_adapter.logged_payloads.lock().unwrap().iter() {
+        for event in enforce_array(&payload.events) {
+            if event["eventName"] == "statsig::layer_exposure" {
+                holdout_layer_exposures.push(event.clone());
+            }
+        }
+    }
+    assert_eq!(holdout_layer_exposures.len(), 1);
+    assert_eq!(
+        holdout_layer_exposures[0]["metadata"]["allocatedExperiment"],
+        ""
+    );
+
+    #[cfg(feature = "ffi-support")]
+    {
+        logging_adapter.logged_payloads.lock().unwrap().clear();
+
+        let (_, token) = statsig.use_raw_layer_with_delayed_exposure(
+            &StatsigUser::with_user_id("delayed-shared-control-user"),
+            "ads_layer",
+            Default::default(),
+            |_| (),
+        );
+        let token = token.expect("expected delayed shared-control layer token");
+        assert!(statsig.log_delayed_layer_parameter_exposure(&token, "ranking_model"));
+
+        sleep(Duration::from_millis(1)).await;
+        statsig.flush_events().await;
+
+        let mut delayed_layer_exposures: Vec<Value> = Vec::new();
+        for payload in logging_adapter.logged_payloads.lock().unwrap().iter() {
+            for event in enforce_array(&payload.events) {
+                if event["eventName"] == "statsig::layer_exposure" {
+                    delayed_layer_exposures.push(event.clone());
+                }
+            }
+        }
+
+        assert_eq!(delayed_layer_exposures.len(), 2);
+        assert_eq!(
+            delayed_layer_exposures[0]["metadata"]["allocatedExperiment"],
+            ""
+        );
+        assert_eq!(
+            delayed_layer_exposures[1]["metadata"]["allocatedExperiment"],
+            "ranking_experiment"
+        );
+        assert_eq!(
+            delayed_layer_exposures[1]["metadata"]["ruleID"],
+            "control_group"
+        );
+
+        for use_borrowed_raw in [false, true] {
+            logging_adapter.logged_payloads.lock().unwrap().clear();
+            let user_id = if use_borrowed_raw {
+                "borrowed-raw-shared-control-user"
+            } else {
+                "owned-raw-shared-control-user"
+            };
+            let partial_raw = statsig.use_raw_layer_with_options(
+                &StatsigUser::with_user_id(user_id),
+                "ads_layer",
+                Default::default(),
+                |raw| PartialLayerRaw::from(raw),
+            );
+            if use_borrowed_raw {
+                statsig.log_layer_param_exposure_from_partial_raw_ref_with_metadata(
+                    &partial_raw,
+                    "ranking_model".to_string(),
+                    None,
+                );
+            } else {
+                statsig.log_layer_param_exposure_from_partial_raw(
+                    partial_raw,
+                    "ranking_model".to_string(),
+                );
+            }
+            statsig.flush_events().await;
+
+            let raw_layer_exposures = logging_adapter
+                .logged_payloads
+                .lock()
+                .unwrap()
+                .iter()
+                .flat_map(|payload| enforce_array(&payload.events))
+                .filter(|event| event["eventName"] == "statsig::layer_exposure")
+                .collect::<Vec<_>>();
+            assert_eq!(raw_layer_exposures.len(), 2);
+            assert_eq!(
+                raw_layer_exposures[1]["metadata"]["allocatedExperiment"],
+                "ranking_experiment"
+            );
+            assert_eq!(
+                raw_layer_exposures[1]["metadata"]["ruleID"],
+                "control_group"
+            );
+        }
+
+        statsig.use_raw_layer_with_options(
+            &StatsigUser::with_user_id("ordinary-layer-user"),
+            "holdout_layer",
+            Default::default(),
+            |raw| {
+                let serialized = serde_json::to_value(raw).unwrap();
+                assert!(
+                    serialized.get("sharedControlExposures").is_none(),
+                    "{serialized}"
+                );
+            },
+        );
+
+        logging_adapter.logged_payloads.lock().unwrap().clear();
+        statsig.override_experiment(
+            "ranking_experiment",
+            std::collections::HashMap::from([("ranking_model".to_string(), json!("overridden"))]),
+            None,
+        );
+        let bulk_result = statsig.bulk_evaluate_with_delayed_exposures(
+            &StatsigUser::with_user_id("override-disabled-shared-control-user"),
+            BulkEvaluationOptions {
+                feature_gate_filter: Some(Vec::new()),
+                dynamic_config_filter: Some(Vec::new()),
+                experiment_filter: Some(Vec::new()),
+                layer_filter: Some(vec!["ads_layer".to_string()]),
+                include_local_override: false,
+            },
+        );
+        let token = bulk_result.layer_configs["ads_layer"]
+            .common
+            .exposure_token
+            .as_deref()
+            .expect("expected delayed shared-control layer token without overrides");
+        assert!(statsig.log_delayed_layer_parameter_exposure(token, "ranking_model"));
+        statsig.flush_events().await;
+
+        let override_disabled_exposures = logging_adapter
+            .logged_payloads
+            .lock()
+            .unwrap()
+            .iter()
+            .flat_map(|payload| enforce_array(&payload.events))
+            .filter(|event| event["eventName"] == "statsig::layer_exposure")
+            .collect::<Vec<_>>();
+        assert_eq!(override_disabled_exposures.len(), 2);
+        assert_eq!(
+            override_disabled_exposures[1]["metadata"]["ruleID"],
+            "control_group"
+        );
+    }
 }
 
 #[tokio::test]

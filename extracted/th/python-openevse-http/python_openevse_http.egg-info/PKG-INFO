@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python_openevse_http
-Version: 1.5.0
+Version: 1.6.0
 Summary: Python wrapper for OpenEVSE HTTP API
 Home-page: https://github.com/firstof9/python-openevse-http
 Download-URL: https://github.com/firstof9/python-openevse-http
@@ -65,6 +65,7 @@ import asyncio
 import aiohttp
 from openevsehttp import OpenEVSE
 
+
 async def main():
     async with aiohttp.ClientSession() as session:
         charger = OpenEVSE("192.168.1.30", session=session)
@@ -80,6 +81,7 @@ async def main():
 
         await charger.toggle_shaper()
         await charger.ws_disconnect()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

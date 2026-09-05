@@ -1,6 +1,8 @@
 import json
+import subprocess
 import sys
 import uuid
+from pathlib import Path
 
 import pytest
 from pytest_httpserver import HTTPServer
@@ -19,7 +21,10 @@ def server_setup(httpserver: HTTPServer):
     json_data = json.loads(dcs_content)
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
+    ).respond_with_json(json_data)
+    httpserver.expect_request(
+        "/v2/download_config_specs", headers={"STATSIG-API-KEY": "secret-key"}
     ).respond_with_json(json_data)
 
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
@@ -55,7 +60,26 @@ def test_interned_store_preload(server_setup):
 
 
 def test_interned_store_mmap_preload(server_setup):
-    specs_url, log_event_url = server_setup
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "sys.path.insert(0, '.'); "
+                "from test_interned_store_preload import "
+                "_assert_interned_store_mmap_preload; "
+                "_assert_interned_store_mmap_preload(*sys.argv[1:])"
+            ),
+            *server_setup,
+        ],
+        cwd=Path(__file__).parent,
+        check=True,
+        timeout=30,
+    )
+
+
+def _assert_interned_store_mmap_preload(specs_url, log_event_url):
     sdk_key = "secret-key"
 
     fetch_complete = InternedStore.fetch_and_write_mmap(sdk_key, specs_url)

@@ -563,6 +563,25 @@ def test_shutter_reset_calibration_and_open_posts_empty_array_operation():
     assert call.args[3] == []
 
 
+def test_shutter_reset_calibration_and_open_does_not_prime_or_stop():
+    """hass#396 follow-up: a real debug-log capture showed the previous
+    "priming" PUT (fake referenceMovingTimes + level: 0.0) was actively
+    counterproductive — the device accepted it as literal calibration data
+    (calibrated: true, no movement), which resetCalibrationAndOpen then
+    reset right back to false anyway, while the follow-up level: 0.0 write
+    triggered an unrelated close move that got forcibly interrupted. This
+    now just triggers the operation and lets the device run its own
+    sequence — no state writes at all."""
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    svc = _make_svc(ShutterControlService, {"operationState": "STOPPED", "calibrated": False})
+    svc._api = AsyncMock()
+    asyncio.run(svc.async_reset_calibration_and_open())
+    svc._api.put_device_service_state.assert_not_called()
+    svc._api.get_device_service.assert_not_called()
+
+
 # ===========================================================================
 # BlindsControlService
 # ===========================================================================

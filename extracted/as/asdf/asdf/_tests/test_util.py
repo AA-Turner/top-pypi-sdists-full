@@ -5,13 +5,16 @@ import numpy as np
 import pytest
 
 import asdf
+import asdf.tagged
 from asdf import generic_io, util
 
 
 def test_not_set():
-    assert util.NotSet is not None
+    assert util.NOT_SET is not None
 
-    assert repr(util.NotSet) == "NotSet"
+    assert repr(util.NOT_SET) == "NotSet"
+
+    assert util.NotSet is util.NOT_SET
 
 
 class SomeClass:
@@ -87,7 +90,8 @@ def test_get_file_type(content, expected_type):
         def read(self, size=-1):
             return self._fd.read(size)
 
-    fd = generic_io.get_file(OnlyHasAReadMethod(content))
+    with pytest.deprecated_call():
+        fd = generic_io.get_file(OnlyHasAReadMethod(content))
     assert util.get_file_type(fd) == expected_type
     assert fd.read() == content
 

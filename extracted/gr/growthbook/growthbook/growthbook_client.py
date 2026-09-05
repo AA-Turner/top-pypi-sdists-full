@@ -19,7 +19,7 @@ from datetime import datetime
 from growthbook import FeatureRepository, feature_repo
 from contextlib import asynccontextmanager
 
-from .core import eval_feature as core_eval_feature, run_experiment
+from .core import _eval_feature_and_report, run_experiment
 from .common_types import (
     T,
     AsyncEventLogger,
@@ -36,6 +36,11 @@ from .common_types import (
     Experiment,
     build_remote_eval_payload,
     features_from_dict,
+    snapshot_user_context,
+    TrackingBuffer,
+    TrackingDedupeKey,
+    tracking_dedupe_key,
+    tracking_user_context,
     validate_remote_eval_options,
 )
 
@@ -106,22 +111,35 @@ class FeatureCache:
     def __init__(self) -> None:
         self._cache: Dict[str, Dict[str, Any]] = {
             'features': {},
-            'savedGroups': {}
+            'savedGroups': {},
+            'contextualBandits': {}
         }
         self._lock = threading.Lock()
 
-    def update(self, features: Dict[str, Any], saved_groups: Dict[str, Any]) -> None:
-        """Simple thread-safe update of cache with new API data"""
+    def update(self, features: Optional[Dict[str, Any]],
+               saved_groups: Optional[Dict[str, Any]] = None,
+               contextual_bandits: Optional[Dict[str, Any]] = None) -> None:
+        """Thread-safe update of cache with new API data.
+
+        A section passed as None (the payload omitted that key) keeps its
+        current value — a partial or broken refresh must not wipe state that
+        evaluations depend on (mirrors JS setPayload). Pass an explicit empty
+        dict to clear a section."""
         with self._lock:
-            self._cache['features'] = dict(features)
-            self._cache['savedGroups'] = dict(saved_groups)
+            if features is not None:
+                self._cache['features'] = dict(features)
+            if saved_groups is not None:
+                self._cache['savedGroups'] = dict(saved_groups)
+            if contextual_bandits is not None:
+                self._cache['contextualBandits'] = dict(contextual_bandits)
 
     def get_current_state(self) -> Dict[str, Any]:
         """Get current cache state"""
         with self._lock:
             return {
                 "features": dict(self._cache['features']),
-                "savedGroups": self._cache['savedGroups']
+                "savedGroups": self._cache['savedGroups'],
+                "contextualBandits": self._cache['contextualBandits']
             }
 
 class EnhancedFeatureRepository(FeatureRepository, metaclass=SingletonMeta):
@@ -340,9 +358,12 @@ class EnhancedFeatureRepository(FeatureRepository, metaclass=SingletonMeta):
     async def _handle_feature_update(self, data: Dict[str, Any]) -> None:
         """Update features with memory optimization"""
         # Directly update with new features
+        # Sections absent from the payload are passed as None so the cache
+        # preserves their current values (see FeatureCache.update).
         self._feature_cache.update(
-            data.get("features", {}),
-            data.get("savedGroups", {})
+            data.get("features"),
+            data.get("savedGroups"),
+            data.get("contextualBandits")
         )
 
         # Create a copy of callbacks to avoid modification during iteration
@@ -410,7 +431,9 @@ class EnhancedFeatureRepository(FeatureRepository, metaclass=SingletonMeta):
                     data = json.loads(data)
 
                 if self._decryption_key and isinstance(data, dict) and (
-                    "encryptedFeatures" in data or "encryptedSavedGroups" in data
+                    "encryptedFeatures" in data
+                    or "encryptedSavedGroups" in data
+                    or "encryptedContextualBandits" in data
                 ):
                     logger.debug("Decrypting SSE payload...")
                     data = self.decrypt_response(data, self._decryption_key)
@@ -625,7 +648,7 @@ class GrowthBookClient:
                 )
         
         # Thread-safe tracking state
-        self._tracked: Dict[str, bool] = {}  # Access only within async context
+        self._tracked: Dict[TrackingDedupeKey, bool] = {}  # Access only within async context
         self._tracked_lock = threading.Lock()
         
         # Thread-safe subscription management
@@ -739,12 +762,7 @@ class GrowthBookClient:
             return
 
         # Create unique key for this tracking event
-        key = (
-            result.hashAttribute
-            + str(result.hashValue)
-            + experiment.key
-            + str(result.variationId)
-        )
+        key = tracking_dedupe_key(experiment, result)
 
         with self._tracked_lock:
             if not self._tracked.get(key):
@@ -761,17 +779,20 @@ class GrowthBookClient:
                         # Tracking callbacks are invoked by keyword (same
                         # contract as the sync client): implementations must
                         # name their params experiment/result/user_context.
+                        # user_context is snapshotted so the logged attributes
+                        # are exactly the ones used for bucketing, even if the
+                        # caller mutates them afterwards.
                         kwargs={
                             "experiment": experiment,
                             "result": result,
-                            "user_context": user_context,
+                            "user_context": tracking_user_context(user_context),
                         },
                     )
                     self._tracked[key] = True
                 except Exception:
                     logger.exception("Error in tracking callback")
 
-    def _untrack(self, key: str) -> None:
+    def _untrack(self, key: TrackingDedupeKey) -> None:
         with self._tracked_lock:
             self._tracked.pop(key, None)
 
@@ -836,6 +857,21 @@ class GrowthBookClient:
 
     async def set_features(self, features: Dict[str, Any]) -> None:
         await self._feature_update_callback({"features": features})
+
+    async def set_payload(self, payload: Dict[str, Any]) -> None:
+        """Set features, saved groups, and contextual bandits from a full SDK
+        payload, e.g. one fetched out-of-band from the GrowthBook API.
+        Mirrors the JS SDK's setPayload: only the sections present in the
+        payload are overwritten, and encrypted sections are decrypted with
+        the configured decryption_key."""
+        # decrypt_payload_sections is stateless, so the module singleton is a
+        # safe stand-in when set_payload is called before initialize().
+        repo: FeatureRepository = self._features_repository or feature_repo
+        data = repo.decrypt_payload_sections(
+            payload, self.options.decryption_key or ""
+        )
+        if data is not None:
+            await self._feature_update_callback(data)
         
     
     async def _refresh_sticky_buckets(self, attributes: Dict[str, Any]) -> Dict[str, Any]:
@@ -1123,6 +1159,12 @@ class GrowthBookClient:
         network requests."""
         if not self.options.remote_eval or not self._features_repository:
             return
+        # Same call-time freeze as create_evaluation_context: the cache key is
+        # computed from these values immediately, but an SWR background
+        # refresh serializes the POST body later — an unfrozen context mutated
+        # in between would cache the new attributes' response under the old
+        # attributes' key.
+        user_context = snapshot_user_context(user_context)
         await self._features_repository.fetch_remote_eval(
             self.options.api_host or "https://cdn.growthbook.io",
             self.options.client_key or "",
@@ -1139,15 +1181,30 @@ class GrowthBookClient:
             return
 
         async with self._context_lock:  # serializes concurrent updaters only
-            features = features_from_dict(features_data.get("features"))
-            saved_groups = features_data.get("savedGroups", {})
+            prev = self._global_context
+            # Mirror JS setPayload: sections absent from the update carry
+            # over from the previous snapshot, so a partial update (e.g.
+            # set_features) doesn't silently wipe savedGroups or
+            # contextualBandits. Full refreshes carry all three keys.
+            features = (
+                features_from_dict(features_data["features"])
+                if "features" in features_data
+                else (prev.features if prev else {})
+            )
+            saved_groups = features_data.get(
+                "savedGroups", prev.saved_groups if prev else {}
+            )
+            contextual_bandits = features_data.get(
+                "contextualBandits", prev.contextual_bandits if prev else {}
+            )
 
             # Build a NEW immutable snapshot and swap the reference atomically
             # (single assignment). In-flight evaluations captured the previous
             # snapshot and finish against it; new evaluations see this one.
             # This is what lets evaluations run without any lock.
             self._global_context = GlobalContext(
-                options=self.options, features=features, saved_groups=saved_groups
+                options=self.options, features=features, saved_groups=saved_groups,
+                contextual_bandits=contextual_bandits
             )
 
     async def __aenter__(self) -> "GrowthBookClient":
@@ -1162,13 +1219,48 @@ class GrowthBookClient:
     ) -> None:
         await self.close()
 
-    async def create_evaluation_context(self, user_context: UserContext) -> EvaluationContext:
+    def _context_callbacks(self, tracking_buffer: Optional[TrackingBuffer]) -> Dict[str, Any]:
+        """Callback/buffer fields for a new EvaluationContext, shared by both
+        construction branches so neither can drift and silently drop telemetry.
+
+        callback_subscription is intentionally NOT wired: subscriptions on the
+        multi-user client fire only from run() (like the JS multi-user client,
+        which has no eval-time subscriptions). Firing them per eval_feature
+        would spam subscribers, since unlike the single-user sync client there
+        is no per-user assignment change-detection here."""
+        return {
+            # Wired only when a consumer exists (contexts are per-eval, so a
+            # callback installed later — e.g. by a plugin — is still picked
+            # up), letting core skip dead work like rule.tracks hydration.
+            "tracking_cb": self._track if self.options.on_experiment_viewed else None,
+            "feature_usage_cb": self._feature_usage if self.options.on_feature_usage else None,
+            "tracking_buffer": tracking_buffer,
+        }
+
+    async def create_evaluation_context(
+        self,
+        user_context: UserContext,
+        tracking_buffer: Optional[TrackingBuffer] = None,
+    ) -> EvaluationContext:
         """Create evaluation context for feature evaluation"""
         # Capture the snapshot once; feature updates swap the reference, so
         # this evaluation runs against a consistent view without locking.
         global_context = self._global_context
         if global_context is None:
             raise RuntimeError("GrowthBook client not properly initialized")
+
+        # Freeze the evaluation inputs BEFORE the first await, but only when
+        # this call can actually yield the event loop (remote-eval fetch or
+        # sticky-bucket I/O): only then can another task mutate the
+        # UserContext mid-evaluation and change the remote payload, leaf
+        # routing, or forced assignments. Plain CDN evaluations never yield,
+        # so they skip the copy entirely and stay allocation-free — deferred
+        # callbacks are protected separately by tracking_user_context at fire
+        # time. The caller's own context object is kept aside so sticky-doc
+        # read-your-writes still lands on it.
+        caller_context = user_context
+        if self.options.remote_eval or self.options.sticky_bucket_service is not None:
+            user_context = snapshot_user_context(user_context)
 
         if self.options.remote_eval and self._features_repository:
             # Per-user POST + cache: features come from the proxy filtered for
@@ -1185,11 +1277,13 @@ class GrowthBookClient:
                 options=self.options,
                 features=features_from_dict(response.get("features")),
                 saved_groups=response.get("savedGroups") or {},
+                contextual_bandits=response.get("contextualBandits") or {},
             )
             return EvaluationContext(
                 user=user_context,
                 global_ctx=global_ctx,
                 stack=StackContext(evaluated_features=set()),
+                **self._context_callbacks(tracking_buffer),
             )
 
         # Get sticky bucket assignments if needed
@@ -1199,8 +1293,10 @@ class GrowthBookClient:
         # place when an experiment assigns a new sticky bucket, which is what
         # gives read-your-writes semantics while persistence happens
         # asynchronously (same mechanism as the JS SDK's
-        # stickyBucketAssignmentDocs).
+        # stickyBucketAssignmentDocs). Assigned to the caller's context too so
+        # callers keep observing assignments through the object they passed.
         user_context.sticky_bucket_assignment_docs = sticky_assignments
+        caller_context.sticky_bucket_assignment_docs = sticky_assignments
 
         return EvaluationContext(
             user=user_context,
@@ -1210,47 +1306,79 @@ class GrowthBookClient:
                 self._schedule_sticky_bucket_save
                 if self.options.sticky_bucket_service else None
             ),
+            **self._context_callbacks(tracking_buffer),
         )
 
-    async def eval_feature(self, key: str, user_context: UserContext) -> FeatureResult[Any]:
+    async def eval_feature(
+        self,
+        key: str,
+        user_context: UserContext,
+        *,
+        tracking_buffer: Optional[TrackingBuffer] = None,
+    ) -> FeatureResult[Any]:
         """Evaluate a feature. Lock-free: the evaluation context captures an
         immutable feature snapshot, so concurrent evaluations never contend
-        with each other or with feature updates."""
-        context = await self.create_evaluation_context(user_context)
-        result = core_eval_feature(key=key, evalContext=context, tracking_cb=self._track)
-        # Call feature usage callback if provided
-        if self.options.on_feature_usage:
-            try:
-                self._run_user_callback(
-                    self.options.on_feature_usage,
-                    (key, result, user_context),
-                    "feature usage",
-                )
-            except Exception:
-                logger.exception("Error in feature usage callback")
-        return result
+        with each other or with feature updates.
 
-    async def is_on(self, key: str, user_context: UserContext) -> bool:
+        Pass a per-request TrackingBuffer to collect the exposures this
+        evaluation produces (deferred tracking); the caller owns the buffer,
+        so requests never mix."""
+        context = await self.create_evaluation_context(user_context, tracking_buffer)
+        # The internal entry point skips the public wrapper's deprecated-kwarg
+        # shim — the callbacks are already wired on the context.
+        return _eval_feature_and_report(key, context)
+
+    def _feature_usage(self, key: str, result: FeatureResult[Any], user_context: UserContext) -> None:
+        if not self.options.on_feature_usage:
+            return
+        try:
+            self._run_user_callback(
+                self.options.on_feature_usage,
+                # Fire-time snapshot: core passes evalContext.user, which may
+                # be the caller's own context (plain CDN evals skip the
+                # boundary copy), and this callback can run deferred on the
+                # event loop.
+                (key, result, tracking_user_context(user_context)),
+                "feature usage",
+            )
+        except Exception:
+            logger.exception("Error in feature usage callback")
+
+    async def is_on(
+        self, key: str, user_context: UserContext, *,
+        tracking_buffer: Optional[TrackingBuffer] = None,
+    ) -> bool:
         """Check if a feature is enabled with proper async context management"""
-        result = await self.eval_feature(key, user_context)
+        result = await self.eval_feature(key, user_context, tracking_buffer=tracking_buffer)
         return result.on
 
-    async def is_off(self, key: str, user_context: UserContext) -> bool:
+    async def is_off(
+        self, key: str, user_context: UserContext, *,
+        tracking_buffer: Optional[TrackingBuffer] = None,
+    ) -> bool:
         """Check if a feature is set to off with proper async context management"""
-        result = await self.eval_feature(key, user_context)
+        result = await self.eval_feature(key, user_context, tracking_buffer=tracking_buffer)
         return result.off
 
-    async def get_feature_value(self, key: str, fallback: T, user_context: UserContext) -> T:
-        result = await self.eval_feature(key, user_context)
+    async def get_feature_value(
+        self, key: str, fallback: T, user_context: UserContext, *,
+        tracking_buffer: Optional[TrackingBuffer] = None,
+    ) -> T:
+        result = await self.eval_feature(key, user_context, tracking_buffer=tracking_buffer)
         return cast(T, result.value) if result.value is not None else fallback
 
-    async def run(self, experiment: Experiment[T], user_context: UserContext) -> Result[T]:
+    async def run(
+        self,
+        experiment: Experiment[T],
+        user_context: UserContext,
+        *,
+        tracking_buffer: Optional[TrackingBuffer] = None,
+    ) -> Result[T]:
         """Run experiment with tracking. Lock-free, same as eval_feature."""
-        context = await self.create_evaluation_context(user_context)
+        context = await self.create_evaluation_context(user_context, tracking_buffer)
         result = run_experiment(
             experiment=experiment,
             evalContext=context,
-            tracking_cb=self._track
         )
         # Fire subscriptions synchronously
         self._fire_subscriptions(experiment, result)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-core
-Version: 1.6.1
+Version: 1.6.2
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain_core/

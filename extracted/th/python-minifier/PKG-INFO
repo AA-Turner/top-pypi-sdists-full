@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python_minifier
-Version: 3.2.0
+Version: 3.3.0
 Summary: Transform Python source code into it's most compact representation
 Home-page: https://github.com/dflook/python-minifier
 Author: Daniel Flook

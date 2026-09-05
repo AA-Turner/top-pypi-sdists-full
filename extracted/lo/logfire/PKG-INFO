@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: logfire
-Version: 4.41.0
+Version: 5.0.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://pydantic.dev/logfire
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -39,7 +39,7 @@ Requires-Dist: opentelemetry-sdk<1.45.0,>=1.39.0
 Requires-Dist: protobuf>=4.23.4
 Requires-Dist: rich>=13.4.2
 Requires-Dist: tomli>=2.0.1; python_version < '3.11'
-Requires-Dist: typing-extensions>=4.1.0
+Requires-Dist: typing-extensions>=4.13.0
 Provides-Extra: aiohttp
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client>=0.42b0; extra == 'aiohttp'
 Provides-Extra: aiohttp-client
@@ -72,7 +72,7 @@ Requires-Dist: httpx>=0.27.0; extra == 'gateway'
 Requires-Dist: starlette>=0.37.0; extra == 'gateway'
 Requires-Dist: uvicorn>=0.30.0; extra == 'gateway'
 Provides-Extra: google-genai
-Requires-Dist: opentelemetry-instrumentation-google-genai<1.0b0,>=0.4b0; extra == 'google-genai'
+Requires-Dist: opentelemetry-instrumentation-google-genai>=1.0b0; extra == 'google-genai'
 Provides-Extra: httpx
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.42b0; extra == 'httpx'
 Provides-Extra: litellm
@@ -128,6 +128,8 @@ What sets Logfire apart:
 - **Pydantic Integration:** Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
 
 See the [documentation](https://pydantic.dev/docs/logfire/) for more information.
+
+Evaluating observability tools? See what Logfire does for [LLM apps and agents](https://pydantic.dev/logfire/llm-observability?utm_source=github&utm_medium=readme&utm_campaign=logfire), [evals in production](https://pydantic.dev/logfire/evals?utm_source=github&utm_medium=readme&utm_campaign=logfire), and [how it compares to alternatives](https://pydantic.dev/logfire/alternatives?utm_source=github&utm_medium=readme&utm_campaign=logfire).
 
 **Feel free to report issues and ask any questions about Logfire in this repository!**
 

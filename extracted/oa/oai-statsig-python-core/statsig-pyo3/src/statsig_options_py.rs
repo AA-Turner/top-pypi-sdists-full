@@ -426,6 +426,8 @@ fn create_inner_statsig_options(
 
     StatsigOptions {
         specs_url: opts.specs_url.clone(),
+        remote_config_value_source_url: None,
+        preserve_dcs_session_update_mode: None,
         specs_adapter: None,
         specs_sync_interval_ms: opts.specs_sync_interval_ms,
         init_timeout_ms: opts.init_timeout_ms,

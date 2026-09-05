@@ -14,7 +14,8 @@ use statsig_rust::{
 
 #[derive(Default)]
 struct MockDataStoreByteCache {
-    proto: Option<Vec<u8>>,
+    brotli_proto: Option<Vec<u8>>,
+    zstd_proto: Option<Vec<u8>>,
     json: Option<Vec<u8>>,
 }
 
@@ -26,6 +27,7 @@ pub struct MockDataStore {
     byte_cache_enabled: bool,
     get_call_count: Arc<AtomicUsize>,
     get_bytes_call_count: Arc<AtomicUsize>,
+    zstd_get_bytes_call_count: Arc<AtomicUsize>,
     set_call_count: Arc<AtomicUsize>,
     set_bytes_call_count: Arc<AtomicUsize>,
 }
@@ -40,6 +42,7 @@ impl MockDataStore {
             byte_cache_enabled: false,
             get_call_count: Arc::new(AtomicUsize::new(0)),
             get_bytes_call_count: Arc::new(AtomicUsize::new(0)),
+            zstd_get_bytes_call_count: Arc::new(AtomicUsize::new(0)),
             set_call_count: Arc::new(AtomicUsize::new(0)),
             set_bytes_call_count: Arc::new(AtomicUsize::new(0)),
         }
@@ -64,13 +67,23 @@ impl MockDataStore {
         store
     }
 
+    pub fn with_zstd_proto_cache(proto: &[u8]) -> Self {
+        let store = Self::new_with_byte_cache(false);
+        store.mock_zstd_proto_bytes(proto);
+        store
+    }
+
     pub async fn mock_response(&self, response: DataStoreResponse) {
         let mut lock = self.response.lock().unwrap();
         *lock = Some(response);
     }
 
     pub fn mock_proto_bytes(&self, proto: &[u8]) {
-        self.byte_cache.lock().unwrap().proto = Some(proto.to_vec());
+        self.byte_cache.lock().unwrap().brotli_proto = Some(proto.to_vec());
+    }
+
+    pub fn mock_zstd_proto_bytes(&self, proto: &[u8]) {
+        self.byte_cache.lock().unwrap().zstd_proto = Some(proto.to_vec());
     }
 
     pub fn mock_json_bytes(&self, json: &str) {
@@ -82,7 +95,11 @@ impl MockDataStore {
     }
 
     pub fn stored_proto_bytes(&self) -> Option<Vec<u8>> {
-        self.byte_cache.lock().unwrap().proto.clone()
+        self.byte_cache.lock().unwrap().brotli_proto.clone()
+    }
+
+    pub fn stored_zstd_proto_bytes(&self) -> Option<Vec<u8>> {
+        self.byte_cache.lock().unwrap().zstd_proto.clone()
     }
 
     pub fn stored_json_bytes(&self) -> Option<Vec<u8>> {
@@ -97,6 +114,10 @@ impl MockDataStore {
         self.get_bytes_call_count.load(Ordering::SeqCst)
     }
 
+    pub fn num_zstd_get_bytes_calls(&self) -> usize {
+        self.zstd_get_bytes_call_count.load(Ordering::SeqCst)
+    }
+
     pub fn num_set_calls(&self) -> usize {
         self.set_call_count.load(Ordering::SeqCst)
     }
@@ -107,8 +128,10 @@ impl MockDataStore {
 
     fn get_bytes_cache_for_key(&self, key: &str) -> Option<Vec<u8>> {
         let cache = self.byte_cache.lock().unwrap();
-        if is_proto_cache_key(key) {
-            cache.proto.clone()
+        if key.contains("|statsig-zstd|") {
+            cache.zstd_proto.clone()
+        } else if key.contains("|statsig-br|") {
+            cache.brotli_proto.clone()
         } else {
             cache.json.clone()
         }
@@ -160,6 +183,10 @@ impl DataStoreTrait for MockDataStore {
         _request: DataStoreGetBytesRequest,
     ) -> Result<DataStoreBytesResponse, StatsigErr> {
         self.get_bytes_call_count.fetch_add(1, Ordering::SeqCst);
+        if key.contains("|statsig-zstd|") {
+            self.zstd_get_bytes_call_count
+                .fetch_add(1, Ordering::SeqCst);
+        }
         if !self.byte_cache_enabled {
             return Err(StatsigErr::BytesNotImplemented);
         }
@@ -189,8 +216,10 @@ impl DataStoreTrait for MockDataStore {
         }
 
         let mut cache = self.byte_cache.lock().unwrap();
-        if is_proto_cache_key(key) {
-            cache.proto = Some(value.to_vec());
+        if key.contains("|statsig-zstd|") {
+            cache.zstd_proto = Some(value.to_vec());
+        } else if key.contains("|statsig-br|") {
+            cache.brotli_proto = Some(value.to_vec());
         } else {
             cache.json = Some(value.to_vec());
         }
@@ -204,5 +233,5 @@ impl DataStoreTrait for MockDataStore {
 }
 
 fn is_proto_cache_key(key: &str) -> bool {
-    key.contains("|statsig-br|")
+    key.contains("|statsig-br|") || key.contains("|statsig-zstd|")
 }

@@ -622,6 +622,8 @@ if TYPE_CHECKING:
         ChatSystemMessageContentTypedDict,
         ChatSystemMessageRole,
         ChatSystemMessageTypedDict,
+        ConfigurationUpdate,
+        ConfigurationUpdateTypedDict,
     )
     from .chattokenlogprob import (
         ChatTokenLogprob,
@@ -742,6 +744,16 @@ if TYPE_CHECKING:
         ComputerUseServerToolType,
         ComputerUseServerToolTypedDict,
         Environment,
+    )
+    from .configurationupdateitem import (
+        ConfigurationUpdateItem,
+        ConfigurationUpdateItemType,
+        ConfigurationUpdateItemTypedDict,
+    )
+    from .configurationupdatereasoning import (
+        ConfigurationUpdateReasoning,
+        ConfigurationUpdateReasoningEffort,
+        ConfigurationUpdateReasoningTypedDict,
     )
     from .conflictresponseerrordata import (
         ConflictResponseErrorData,
@@ -891,6 +903,10 @@ if TYPE_CHECKING:
     from .createscimgroupmappingresponse import (
         CreateScimGroupMappingResponse,
         CreateScimGroupMappingResponseTypedDict,
+    )
+    from .createscimsyncjobresponse import (
+        CreateScimSyncJobResponse,
+        CreateScimSyncJobResponseTypedDict,
     )
     from .createworkspacerequest import (
         CreateWorkspaceRequest,
@@ -1264,6 +1280,10 @@ if TYPE_CHECKING:
         GetScimGroupMappingResponse,
         GetScimGroupMappingResponseTypedDict,
     )
+    from .getscimsyncjobresponse import (
+        GetScimSyncJobResponse,
+        GetScimSyncJobResponseTypedDict,
+    )
     from .getworkspacebudgetresponse import (
         GetWorkspaceBudgetResponse,
         GetWorkspaceBudgetResponseTypedDict,
@@ -1586,12 +1606,18 @@ if TYPE_CHECKING:
         McpApprovalResponseItemTypedDict,
     )
     from .mcpcallitem import McpCallItem, McpCallItemType, McpCallItemTypedDict
+    from .mcphttperror import McpHTTPError, McpHTTPErrorType, McpHTTPErrorTypedDict
     from .mcplisttoolsitem import (
         McpListToolsItem,
         McpListToolsItemTool,
         McpListToolsItemToolTypedDict,
         McpListToolsItemType,
         McpListToolsItemTypedDict,
+    )
+    from .mcpprotocolerror import (
+        McpProtocolError,
+        McpProtocolErrorType,
+        McpProtocolErrorTypedDict,
     )
     from .mcpservertool import (
         AllowedTools,
@@ -1612,6 +1638,12 @@ if TYPE_CHECKING:
         RequireApprovalTypedDict,
         RequireApprovalUnion,
         RequireApprovalUnionTypedDict,
+    )
+    from .mcptoolcallerror import McpToolCallError, McpToolCallErrorTypedDict
+    from .mcptoolexecutionerror import (
+        McpToolExecutionError,
+        McpToolExecutionErrorType,
+        McpToolExecutionErrorTypedDict,
     )
     from .memberassignment import MemberAssignment, MemberAssignmentTypedDict
     from .messagesadvisortoolresultblock import (
@@ -2728,6 +2760,7 @@ if TYPE_CHECKING:
         ScimGroupMappingRole,
         ScimGroupMappingTypedDict,
     )
+    from .scimsyncjob import ScimSyncJob, ScimSyncJobStatus, ScimSyncJobTypedDict
     from .searchcontextsizeenum import SearchContextSizeEnum
     from .searchmodelsservertool_openrouter import (
         SearchModelsServerToolOpenRouter,
@@ -3739,6 +3772,14 @@ __all__ = [
     "ComputerUseServerTool",
     "ComputerUseServerToolType",
     "ComputerUseServerToolTypedDict",
+    "ConfigurationUpdate",
+    "ConfigurationUpdateItem",
+    "ConfigurationUpdateItemType",
+    "ConfigurationUpdateItemTypedDict",
+    "ConfigurationUpdateReasoning",
+    "ConfigurationUpdateReasoningEffort",
+    "ConfigurationUpdateReasoningTypedDict",
+    "ConfigurationUpdateTypedDict",
     "ConflictResponseErrorData",
     "ConflictResponseErrorDataTypedDict",
     "ConnectorID",
@@ -3859,6 +3900,8 @@ __all__ = [
     "CreateScimGroupMappingRequestTypedDict",
     "CreateScimGroupMappingResponse",
     "CreateScimGroupMappingResponseTypedDict",
+    "CreateScimSyncJobResponse",
+    "CreateScimSyncJobResponseTypedDict",
     "CreateWorkspaceRequest",
     "CreateWorkspaceRequestTypedDict",
     "CreateWorkspaceResponse",
@@ -4123,6 +4166,8 @@ __all__ = [
     "GetPresetVersionResponseTypedDict",
     "GetScimGroupMappingResponse",
     "GetScimGroupMappingResponseTypedDict",
+    "GetScimSyncJobResponse",
+    "GetScimSyncJobResponseTypedDict",
     "GetWorkspaceBudgetResponse",
     "GetWorkspaceBudgetResponseTypedDict",
     "GetWorkspaceResponse",
@@ -4380,14 +4425,25 @@ __all__ = [
     "McpCallItem",
     "McpCallItemType",
     "McpCallItemTypedDict",
+    "McpHTTPError",
+    "McpHTTPErrorType",
+    "McpHTTPErrorTypedDict",
     "McpListToolsItem",
     "McpListToolsItemTool",
     "McpListToolsItemToolTypedDict",
     "McpListToolsItemType",
     "McpListToolsItemTypedDict",
+    "McpProtocolError",
+    "McpProtocolErrorType",
+    "McpProtocolErrorTypedDict",
     "McpServerTool",
     "McpServerToolType",
     "McpServerToolTypedDict",
+    "McpToolCallError",
+    "McpToolCallErrorTypedDict",
+    "McpToolExecutionError",
+    "McpToolExecutionErrorType",
+    "McpToolExecutionErrorTypedDict",
     "MemberAssignment",
     "MemberAssignmentTypedDict",
     "MemoryLimit",
@@ -5139,6 +5195,9 @@ __all__ = [
     "ScimGroupMappingRole",
     "ScimGroupMappingTypedDict",
     "ScimGroupTypedDict",
+    "ScimSyncJob",
+    "ScimSyncJobStatus",
+    "ScimSyncJobTypedDict",
     "Scope",
     "SearchContextSizeEnum",
     "SearchModelsServerToolConfig",
@@ -6014,6 +6073,8 @@ _dynamic_imports: dict[str, str] = {
     "ChatSystemMessageContentTypedDict": ".chatsystemmessage",
     "ChatSystemMessageRole": ".chatsystemmessage",
     "ChatSystemMessageTypedDict": ".chatsystemmessage",
+    "ConfigurationUpdate": ".chatsystemmessage",
+    "ConfigurationUpdateTypedDict": ".chatsystemmessage",
     "ChatTokenLogprob": ".chattokenlogprob",
     "ChatTokenLogprobTopLogprob": ".chattokenlogprob",
     "ChatTokenLogprobTopLogprobTypedDict": ".chattokenlogprob",
@@ -6095,6 +6156,12 @@ _dynamic_imports: dict[str, str] = {
     "ComputerUseServerToolType": ".computeruseservertool",
     "ComputerUseServerToolTypedDict": ".computeruseservertool",
     "Environment": ".computeruseservertool",
+    "ConfigurationUpdateItem": ".configurationupdateitem",
+    "ConfigurationUpdateItemType": ".configurationupdateitem",
+    "ConfigurationUpdateItemTypedDict": ".configurationupdateitem",
+    "ConfigurationUpdateReasoning": ".configurationupdatereasoning",
+    "ConfigurationUpdateReasoningEffort": ".configurationupdatereasoning",
+    "ConfigurationUpdateReasoningTypedDict": ".configurationupdatereasoning",
     "ConflictResponseErrorData": ".conflictresponseerrordata",
     "ConflictResponseErrorDataTypedDict": ".conflictresponseerrordata",
     "ContainerAutoEnvironment": ".containerautoenvironment",
@@ -6192,6 +6259,8 @@ _dynamic_imports: dict[str, str] = {
     "CreateScimGroupMappingRequestTypedDict": ".createscimgroupmappingrequest",
     "CreateScimGroupMappingResponse": ".createscimgroupmappingresponse",
     "CreateScimGroupMappingResponseTypedDict": ".createscimgroupmappingresponse",
+    "CreateScimSyncJobResponse": ".createscimsyncjobresponse",
+    "CreateScimSyncJobResponseTypedDict": ".createscimsyncjobresponse",
     "CreateWorkspaceRequest": ".createworkspacerequest",
     "CreateWorkspaceRequestTypedDict": ".createworkspacerequest",
     "CreateWorkspaceResponse": ".createworkspaceresponse",
@@ -6469,6 +6538,8 @@ _dynamic_imports: dict[str, str] = {
     "GetPresetVersionResponseTypedDict": ".getpresetversionresponse",
     "GetScimGroupMappingResponse": ".getscimgroupmappingresponse",
     "GetScimGroupMappingResponseTypedDict": ".getscimgroupmappingresponse",
+    "GetScimSyncJobResponse": ".getscimsyncjobresponse",
+    "GetScimSyncJobResponseTypedDict": ".getscimsyncjobresponse",
     "GetWorkspaceBudgetResponse": ".getworkspacebudgetresponse",
     "GetWorkspaceBudgetResponseTypedDict": ".getworkspacebudgetresponse",
     "GetWorkspaceResponse": ".getworkspaceresponse",
@@ -6708,11 +6779,17 @@ _dynamic_imports: dict[str, str] = {
     "McpCallItem": ".mcpcallitem",
     "McpCallItemType": ".mcpcallitem",
     "McpCallItemTypedDict": ".mcpcallitem",
+    "McpHTTPError": ".mcphttperror",
+    "McpHTTPErrorType": ".mcphttperror",
+    "McpHTTPErrorTypedDict": ".mcphttperror",
     "McpListToolsItem": ".mcplisttoolsitem",
     "McpListToolsItemTool": ".mcplisttoolsitem",
     "McpListToolsItemToolTypedDict": ".mcplisttoolsitem",
     "McpListToolsItemType": ".mcplisttoolsitem",
     "McpListToolsItemTypedDict": ".mcplisttoolsitem",
+    "McpProtocolError": ".mcpprotocolerror",
+    "McpProtocolErrorType": ".mcpprotocolerror",
+    "McpProtocolErrorTypedDict": ".mcpprotocolerror",
     "AllowedTools": ".mcpservertool",
     "AllowedToolsTypedDict": ".mcpservertool",
     "AllowedToolsUnion": ".mcpservertool",
@@ -6731,6 +6808,11 @@ _dynamic_imports: dict[str, str] = {
     "RequireApprovalTypedDict": ".mcpservertool",
     "RequireApprovalUnion": ".mcpservertool",
     "RequireApprovalUnionTypedDict": ".mcpservertool",
+    "McpToolCallError": ".mcptoolcallerror",
+    "McpToolCallErrorTypedDict": ".mcptoolcallerror",
+    "McpToolExecutionError": ".mcptoolexecutionerror",
+    "McpToolExecutionErrorType": ".mcptoolexecutionerror",
+    "McpToolExecutionErrorTypedDict": ".mcptoolexecutionerror",
     "MemberAssignment": ".memberassignment",
     "MemberAssignmentTypedDict": ".memberassignment",
     "MessagesAdvisorToolResultBlock": ".messagesadvisortoolresultblock",
@@ -7601,6 +7683,9 @@ _dynamic_imports: dict[str, str] = {
     "ScimGroupMapping": ".scimgroupmapping",
     "ScimGroupMappingRole": ".scimgroupmapping",
     "ScimGroupMappingTypedDict": ".scimgroupmapping",
+    "ScimSyncJob": ".scimsyncjob",
+    "ScimSyncJobStatus": ".scimsyncjob",
+    "ScimSyncJobTypedDict": ".scimsyncjob",
     "SearchContextSizeEnum": ".searchcontextsizeenum",
     "SearchModelsServerToolOpenRouter": ".searchmodelsservertool_openrouter",
     "SearchModelsServerToolOpenRouterType": ".searchmodelsservertool_openrouter",

@@ -11,7 +11,8 @@ from numpy import ma
 from numpy.testing import assert_array_equal
 
 import asdf
-from asdf.exceptions import ValidationError
+import asdf.constants
+from asdf.exceptions import AsdfFutureWarning, ValidationError
 from asdf.extension import Converter, Extension, TagDefinition
 from asdf.tags.core import ndarray
 from asdf.testing import helpers
@@ -212,7 +213,7 @@ def test_dont_load_data():
         repr(ff.tree)
 
         for block in ff._blocks.blocks:
-            assert callable(block._data)
+            assert not block.loaded
 
 
 def test_table_inline():
@@ -646,6 +647,7 @@ arr: !{ndarray_tag}
         pass
 
 
+@helpers.config(validate_on_read=True)
 def test_invalid_mask_datatype(ndarray_tag):
     content = f"""
 arr: !{ndarray_tag}
@@ -665,6 +667,7 @@ arr: !{ndarray_tag}
         pass
 
 
+@helpers.config(validate_on_read=True)
 @with_custom_extension()
 def test_ndim_validation(ndarray_tag):
     content = f"""
@@ -739,6 +742,7 @@ obj: !<tag:nowhere.org:custom/ndim-1.0.0>
         pass
 
 
+@helpers.config(validate_on_read=True)
 @with_custom_extension()
 def test_datatype_validation(ndarray_tag):
     content = f"""
@@ -825,6 +829,7 @@ obj: !<tag:nowhere.org:custom/datatype-1.0.0>
         pass
 
 
+@helpers.config(validate_on_read=True)
 @with_custom_extension()
 def test_structured_datatype_validation(ndarray_tag):
     content = f"""
@@ -954,8 +959,9 @@ arr: !{ndarray_tag}
 
     buff = helpers.yaml_to_asdf(content)
     with pytest.raises(ValueError, match=r"inline data doesn't match the given shape"):
-        with asdf.open(buff) as af:
-            af["arr"]
+        with pytest.warns(AsdfFutureWarning):
+            with asdf.open(buff) as af:
+                af["arr"]
 
 
 def test_broadcasted_array():
@@ -1129,3 +1135,34 @@ def test_lazy_load_array_class(tmp_path, lazy_load, lazy_tree, array_class):
 
     with asdf.open(file_path, lazy_load=lazy_load, lazy_tree=lazy_tree) as af:
         assert type(af["arr"]) is array_class
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (0,),
+        (0, 0),
+        (0, 10),
+        (10, 0),
+        (10, 0, 10),
+        (10, 0, 10, 0),
+    ],
+)
+@pytest.mark.parametrize(
+    "dtype",
+    [
+        np.float32,  # Basic scalar type
+        np.dtype([("x", "f4"), ("y", "<U10")]),  # 1-D structured type
+        np.dtype([("x", "f4")]),  # structured type with a single field
+        np.dtype([("x", [("a", "f4"), ("b", "<i8")]), ("y", "<U10")]),  # Nested structured type
+        # Just in case the nested field not being first matters for some reason
+        np.dtype([("y", "<U10"), ("x", [("a", "f4"), ("b", "<i8")])]),
+    ],
+)
+def test_empty_inline_array_roundtrip(shape, dtype):
+    """Test that arrays with zero-length axes are round-tripped correctly"""
+    array = np.empty(shape, dtype=dtype)
+    f = asdf.loads(asdf.dumps({"array": array}, all_array_storage="inline"))
+    # Can't just compare the arrays because numpy doesn't like comparing empty arrays
+    assert f["array"].shape == array.shape
+    assert f["array"].dtype == array.dtype

@@ -1746,6 +1746,8 @@ from .type_defs import (
     UpdateSecurityGroupRuleDescriptionsEgressResultTypeDef,
     UpdateSecurityGroupRuleDescriptionsIngressRequestTypeDef,
     UpdateSecurityGroupRuleDescriptionsIngressResultTypeDef,
+    ValidateSecurityGroupQuotasForInterfaceRequestTypeDef,
+    ValidateSecurityGroupQuotasForInterfaceResultTypeDef,
     VolumeAttachmentResponseTypeDef,
     VolumeResponseTypeDef,
     WithdrawByoipCidrRequestTypeDef,
@@ -10074,6 +10076,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/update_security_group_rule_descriptions_ingress.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#update_security_group_rule_descriptions_ingress)
+        """
+
+    def validate_security_group_quotas_for_interface(
+        self, **kwargs: Unpack[ValidateSecurityGroupQuotasForInterfaceRequestTypeDef]
+    ) -> ValidateSecurityGroupQuotasForInterfaceResultTypeDef:
+        """
+        Validates whether the specified security groups can be associated with a single
+        network interface.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/validate_security_group_quotas_for_interface.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#validate_security_group_quotas_for_interface)
         """
 
     def withdraw_byoip_cidr(

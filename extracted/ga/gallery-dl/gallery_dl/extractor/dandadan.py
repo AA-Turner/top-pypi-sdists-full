@@ -11,13 +11,13 @@
 from .common import ChapterExtractor, MangaExtractor
 from .. import text
 
-BASE_PATTERN = r"(?:https?://)?(?:www\.)?dandadan\.net"
+BASE_PATTERN = r"(?:https?://)?(?:w(?:\d+|ww)\.)?dandadan\.net"
 
 
 class DandadanBase():
     """Base class for dandadan extractors"""
     category = "dandadan"
-    root = "https://dandadan.net"
+    root = "https://w6.dandadan.net"
 
 
 class DandadanChapterExtractor(DandadanBase, ChapterExtractor):

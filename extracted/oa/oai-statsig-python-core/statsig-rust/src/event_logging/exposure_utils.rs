@@ -6,6 +6,18 @@ use std::collections::HashMap;
 pub(crate) fn get_statsig_metadata_with_sampling_decision(
     sampling_decision: EvtSamplingDecision,
 ) -> HashMap<String, Value> {
+    if matches!(
+        sampling_decision,
+        EvtSamplingDecision::BoostedPartialRollout
+    ) {
+        return HashMap::from([
+            ("samplingRate".into(), Value::from(1)),
+            ("samplingMode".into(), Value::from("on")),
+            ("samplingReason".into(), Value::from("rollout_boost")),
+            ("shadowLogged".into(), Value::from("logged")),
+        ]);
+    }
+
     let (sampling_rate, mode, was_sampled) = match sampling_decision {
         EvtSamplingDecision::Sampled(sampling_rate, mode, was_sampled) => {
             (sampling_rate, mode, was_sampled)

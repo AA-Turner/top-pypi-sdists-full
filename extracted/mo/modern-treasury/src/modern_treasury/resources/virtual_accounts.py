@@ -52,8 +52,10 @@ class VirtualAccounts(SyncAPIResource):
         debit_ledger_account_id: str | Omit = omit,
         description: str | Omit = omit,
         ledger_account: LedgerAccountCreateRequest | Omit = omit,
+        ledger_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         routing_details: Iterable[virtual_account_create_params.RoutingDetail] | Omit = omit,
+        virtual_account_setting_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -88,10 +90,14 @@ class VirtualAccounts(SyncAPIResource):
               The resulting ledger account is linked to the virtual account for auto-ledgering
               IPDs.
 
+          ledger_account_id: The ledger account that you'd like to link to the virtual account.
+
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
 
           routing_details: An array of routing detail objects.
+
+          virtual_account_setting_id: The ID of the virtual account setting used to allocate this virtual account.
 
           extra_headers: Send extra headers
 
@@ -115,8 +121,10 @@ class VirtualAccounts(SyncAPIResource):
                     "debit_ledger_account_id": debit_ledger_account_id,
                     "description": description,
                     "ledger_account": ledger_account,
+                    "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
                     "routing_details": routing_details,
+                    "virtual_account_setting_id": virtual_account_setting_id,
                 },
                 virtual_account_create_params.VirtualAccountCreateParams,
             ),
@@ -343,8 +351,10 @@ class AsyncVirtualAccounts(AsyncAPIResource):
         debit_ledger_account_id: str | Omit = omit,
         description: str | Omit = omit,
         ledger_account: LedgerAccountCreateRequest | Omit = omit,
+        ledger_account_id: str | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         routing_details: Iterable[virtual_account_create_params.RoutingDetail] | Omit = omit,
+        virtual_account_setting_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -379,10 +389,14 @@ class AsyncVirtualAccounts(AsyncAPIResource):
               The resulting ledger account is linked to the virtual account for auto-ledgering
               IPDs.
 
+          ledger_account_id: The ledger account that you'd like to link to the virtual account.
+
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
 
           routing_details: An array of routing detail objects.
+
+          virtual_account_setting_id: The ID of the virtual account setting used to allocate this virtual account.
 
           extra_headers: Send extra headers
 
@@ -406,8 +420,10 @@ class AsyncVirtualAccounts(AsyncAPIResource):
                     "debit_ledger_account_id": debit_ledger_account_id,
                     "description": description,
                     "ledger_account": ledger_account,
+                    "ledger_account_id": ledger_account_id,
                     "metadata": metadata,
                     "routing_details": routing_details,
+                    "virtual_account_setting_id": virtual_account_setting_id,
                 },
                 virtual_account_create_params.VirtualAccountCreateParams,
             ),

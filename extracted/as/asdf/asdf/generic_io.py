@@ -7,23 +7,35 @@ The classes in this module should not be instantiated directly, but
 instead, one should use the factory function `get_file`.
 """
 
+from __future__ import annotations
+
 import io
 import mmap
 import os
 import pathlib
 import re
 import sys
+import typing
+import warnings
 from os import SEEK_CUR, SEEK_END, SEEK_SET
+from typing import TYPE_CHECKING, overload
 from urllib.request import url2pathname
 
 import numpy as np
+from typing_extensions import Reader, Writer, deprecated
 
-from . import util
 from ._extern import atomicfile
 from .exceptions import DelimiterNotFoundError
 from .util import _patched_urllib_parse
 
-__all__ = ["get_file", "get_uri", "relative_uri", "resolve_uri"]
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from fsspec.core import OpenFile
+
+    from asdf.typing import ByteArray1D, FileLike, FileMode, PathLike, Reader
+
+__all__ = ["GenericFile", "get_file", "get_uri", "relative_uri", "resolve_uri"]
 
 
 _FILE_PERMISSIONS_DEFAULT_UMASK = 0o22
@@ -62,7 +74,7 @@ def _check_bytes(fd, mode):
     return True
 
 
-def resolve_uri(base, uri):
+def resolve_uri(base: str | None, uri: str) -> str:
     """
     Resolve a URI against a base URI.
     """
@@ -76,7 +88,7 @@ def resolve_uri(base, uri):
     return resolved
 
 
-def relative_uri(source, target):
+def relative_uri(source: str, target: str) -> str:
     """
     Make a relative URI from source to target.
     """
@@ -186,7 +198,7 @@ class _TruncatedReader:
         return content
 
 
-class GenericFile(metaclass=util._InheritDocstrings):
+class GenericFile:
     """
     Base class for an abstraction layer around a number of different
     file-like types.  Each of its subclasses handles a particular kind
@@ -197,7 +209,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
     subclass for the given file-like object.
     """
 
-    def __init__(self, fd, mode, close=False, uri=None):
+    def __init__(self, fd, mode: FileMode, close: bool = False, uri: str | None = None):
         """
         Parameters
         ----------
@@ -210,7 +222,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
             (read/write).
 
         close : bool, optional
-            When ``True``, close the given `fd` in the ``__exit__``
+            When ``True``, close the given ``fd`` in the ``__exit__``
             method, i.e. at the end of the with block.  Should be set
             to ``True`` when this object "owns" the file object.
             Default: ``False``.
@@ -236,10 +248,10 @@ class GenericFile(metaclass=util._InheritDocstrings):
 
         self.block_size = get_config().io_block_size
 
-    def __enter__(self):
+    def __enter__(self) -> GenericFile:
         return self
 
-    def __exit__(self, type_, value, traceback):
+    def __exit__(self, type_, value, traceback) -> None:
         if self._close:
             if hasattr(self._fd, "__exit__"):
                 self._fd.__exit__(type_, value, traceback)
@@ -265,20 +277,20 @@ class GenericFile(metaclass=util._InheritDocstrings):
         self._blksize = block_size
 
     @property
-    def mode(self):
+    def mode(self) -> FileMode:
         """
         The mode of the file.  Will be ``'r'``, ``'w'`` or ``'rw'``.
         """
         return self._mode
 
     @property
-    def uri(self):
+    def uri(self) -> str | None:
         """
         The base uri of the file.
         """
         return self._uri
 
-    def read(self, size=-1):
+    def read(self, size: int = -1) -> bytes:
         """
         Read at most size bytes from the file (less if the read hits
         EOF before obtaining size bytes). If the size argument is
@@ -294,14 +306,14 @@ class GenericFile(metaclass=util._InheritDocstrings):
             return b""
         return self._fd.read(size)
 
-    def read_block(self):
+    def read_block(self) -> bytes:
         """
         Read a "block" from the file.  For real filesystem files, the
         block is the size of a native filesystem block.
         """
         return self.read(self._blksize)
 
-    def read_blocks(self, size):
+    def read_blocks(self, size: int) -> Iterator[bytes]:
         """
         Read ``size`` bytes of data from the file, one block at a
         time.  The result is a generator where each value is a bytes
@@ -311,18 +323,17 @@ class GenericFile(metaclass=util._InheritDocstrings):
             thissize = min(self._blksize, size - i)
             yield self.read(thissize)
 
-    def write(self, content):
+    def write(self, content: bytes | bytearray | memoryview) -> None:
+        """
+        Write a string to the file. There is no return value. Due to
+        buffering, the string may not actually show up in the file
+        until the flush() or close() method is called.
+
+        Only available if `writable` returns `True`.
+        """
         self._fd.write(content)
 
-    write.__doc__ = """
-    Write a string to the file. There is no return value. Due to
-    buffering, the string may not actually show up in the file
-    until the flush() or close() method is called.
-
-    Only available if `writable` returns `True`.
-    """
-
-    def write_array(self, array):
+    def write_array(self, array: ByteArray1D) -> None:
         """
         Write array content to the file.  Array must be 1D contiguous
         so that this method can avoid making assumptions about the
@@ -339,7 +350,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
 
         self.write(array.data)
 
-    def peek(self, size=-1):
+    def peek(self, size: int = -1) -> bytes:
         """
         Read bytes of the file without consuming them.  This method
         must be implemented by all GenericFile implementations that
@@ -361,7 +372,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
         msg = "Non-seekable file"
         raise RuntimeError(msg)
 
-    def seek(self, offset, whence=0):
+    def seek(self, offset: int, whence: int = 0) -> int:
         """
         Set the file's current position.  Only available if `seekable`
         returns `True`.
@@ -372,7 +383,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
             Offset, in bytes.
 
         whence : integer, optional
-            The `whence` argument is optional and defaults to
+            The ``whence`` argument is optional and defaults to
             SEEK_SET or 0 (absolute file positioning); other values
             are SEEK_CUR or 1 (seek relative to the current
             position) and SEEK_END or 2 (seek relative to the
@@ -381,20 +392,20 @@ class GenericFile(metaclass=util._InheritDocstrings):
         result = self._fd.seek(offset, whence)
         return result
 
-    def tell(self):
+    def tell(self) -> int:
         """
         Return the file's current position, in bytes.  Only available
         in `seekable` returns `True`.
         """
         return self._fd.tell()
 
-    def flush(self):
+    def flush(self) -> None:
         """
         Flush the internal buffer.
         """
         self._fd.flush()
 
-    def close(self):
+    def close(self) -> None:
         """
         Close the file.  The underlying file-object will only be
         closed if ``close=True`` was passed to the constructor.
@@ -404,38 +415,38 @@ class GenericFile(metaclass=util._InheritDocstrings):
             if hasattr(self, "_fix_permissions"):
                 self._fix_permissions()
 
-    def truncate(self, size=None):
+    def truncate(self, size: int | None = None) -> None:
         """
         Truncate the file to the given size.
         """
         raise NotImplementedError
 
-    def writable(self):
+    def writable(self) -> bool:
         """
         Returns `True` if the file can be written to.
         """
         return "w" in self.mode
 
-    def readable(self):
+    def readable(self) -> bool:
         """
         Returns `True` if the file can be read from.
         """
         return "r" in self.mode
 
-    def seekable(self):
+    def seekable(self) -> bool:
         """
         Returns `True` if the file supports random access (`seek` and
         `tell`).
         """
         return False
 
-    def can_memmap(self):
+    def can_memmap(self) -> bool:
         """
         Returns `True` if the file supports memmapping.
         """
         return False
 
-    def is_closed(self):
+    def is_closed(self) -> bool:
         """
         Returns `True` if the underlying file object is closed.
         """
@@ -443,13 +454,13 @@ class GenericFile(metaclass=util._InheritDocstrings):
 
     def read_until(
         self,
-        delimiter,
-        readahead_bytes,
-        delimiter_name=None,
-        include=True,
-        initial_content=b"",
-        exception=True,
-    ):
+        delimiter: str | bytes,
+        readahead_bytes: int,
+        delimiter_name: str | None = None,
+        include: bool = True,
+        initial_content: bytes = b"",
+        exception: bool = True,
+    ) -> bytes:
         """
         Reads until a match for a given regular expression is found.
 
@@ -465,7 +476,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
         delimiter_name : str, optional
             The name of the delimiter.  Used in error messages if the
             delimiter is not found.  If not provided, the raw content
-            of `delimiter` will be used.
+            of ``delimiter`` will be used.
 
         include : bool, optional
             When ``True``, include the delimiter in the result.
@@ -482,7 +493,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
         -------
         content : bytes
             The content from the current position in the file, up to
-            the delimiter.  Includes the delimiter if `include` is
+            the delimiter.  Includes the delimiter if ``include`` is
             ``True``.
 
         Raises
@@ -508,13 +519,13 @@ class GenericFile(metaclass=util._InheritDocstrings):
 
     def reader_until(
         self,
-        delimiter,
-        readahead_bytes,
-        delimiter_name=None,
-        include=True,
-        initial_content=b"",
-        exception=True,
-    ):
+        delimiter: str | bytes,
+        readahead_bytes: int,
+        delimiter_name: str | None = None,
+        include: bool = True,
+        initial_content: bytes = b"",
+        exception: bool = True,
+    ) -> Reader:
         """
         Returns a readable file-like object that treats the given
         delimiter as the end-of-file.
@@ -531,7 +542,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
         delimiter_name : str, optional
             The name of the delimiter.  Used in error messages if the
             delimiter is not found.  If not provided, the raw content
-            of `delimiter` will be used.
+            of ``delimiter`` will be used.
 
         include : bool, optional
             When ``True``, include the delimiter in the result.
@@ -553,13 +564,13 @@ class GenericFile(metaclass=util._InheritDocstrings):
 
     def seek_until(
         self,
-        delimiter,
-        readahead_bytes,
-        delimiter_name=None,
-        include=True,
-        initial_content=b"",
-        exception=True,
-    ):
+        delimiter: str | bytes,
+        readahead_bytes: int,
+        delimiter_name: str | None = None,
+        include: bool = True,
+        initial_content: bytes = b"",
+        exception: bool = True,
+    ) -> bool:
         """
         Seeks in the file until a match for a given regular expression
         is found.  This is similar to ``read_until``, except the
@@ -577,7 +588,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
         delimiter_name : str, optional
             The name of the delimiter.  Used in error messages if the
             delimiter is not found.  If not provided, the raw content
-            of `delimiter` will be used.
+            of ``delimiter`` will be used.
 
         include : bool, optional
             When ``True``, include the delimiter in the result.
@@ -620,13 +631,13 @@ class GenericFile(metaclass=util._InheritDocstrings):
 
         return True
 
-    def fast_forward(self, size):
+    def fast_forward(self, size: int) -> None:
         """
-        Move the file position forward by `size`.
+        Move the file position forward by ``size``.
         """
         raise NotImplementedError
 
-    def clear(self, nbytes):
+    def clear(self, nbytes: int) -> None:
         """
         Write nbytes of zeros.
         """
@@ -635,9 +646,9 @@ class GenericFile(metaclass=util._InheritDocstrings):
             length = min(nbytes - i, self.block_size)
             self.write(blank_data[:length])
 
-    def memmap_array(self, offset, size):
+    def memmap_array(self, offset: int, size: int) -> np.memmap:
         """
-        Memmap a chunk of the file into a `np.memmap` object.
+        Memmap a chunk of the file into a ``np.memmap`` object.
 
         Parameters
         ----------
@@ -654,14 +665,14 @@ class GenericFile(metaclass=util._InheritDocstrings):
         msg = f"memmapping is not implemented for {self.__class__.__name__}"
         raise NotImplementedError(msg)
 
-    def close_memmap(self):
+    def close_memmap(self) -> None:
         """
         Close the memmapped file (if one was mapped with memmap_array)
         """
         msg = f"memmapping is not implemented for {self.__class__.__name__}"
         raise NotImplementedError(msg)
 
-    def flush_memmap(self):
+    def flush_memmap(self) -> None:
         """
         Flush any pending writes to the memmapped file (if one was mapped with
         memmap_array)
@@ -669,7 +680,7 @@ class GenericFile(metaclass=util._InheritDocstrings):
         msg = f"memmapping is not implemented for {self.__class__.__name__}"
         raise NotImplementedError(msg)
 
-    def read_into_array(self, size):
+    def read_into_array(self, size: int) -> ByteArray1D:
         """
         Read a chunk of the file into a uint8 array.
 
@@ -683,7 +694,8 @@ class GenericFile(metaclass=util._InheritDocstrings):
         array : np.memmap
         """
         buff = self.read(size)
-        return np.frombuffer(buff, np.uint8, size, 0)
+        # Need cast because numpy doesn't type frombuffer as a 1D array
+        return typing.cast("ByteArray1D", np.frombuffer(buff, np.uint8, size, 0))
 
 
 class GenericWrapper:
@@ -710,7 +722,11 @@ class RandomAccessFile(GenericFile):
     The base class of file types that support random access.
     """
 
-    def seekable(self):
+    def __init__(self, fd, mode: FileMode, close: bool = False, uri: str | None = None, inner_fd=None):
+        super().__init__(fd, mode, close, uri)
+        self._inner_fd = inner_fd
+
+    def seekable(self) -> bool:
         return True
 
     def reader_until(
@@ -732,12 +748,12 @@ class RandomAccessFile(GenericFile):
             exception=exception,
         )
 
-    def fast_forward(self, size):
+    def fast_forward(self, size: int) -> None:
         if size < 0:
             self.seek(0, SEEK_END)
         self.seek(size, SEEK_CUR)
 
-    def truncate(self, size=None):
+    def truncate(self, size: int | None = None) -> None:
         if size is None:
             self._fd.truncate()
         else:
@@ -750,8 +766,8 @@ class RealFile(RandomAccessFile):
     Handles "real" files on a filesystem.
     """
 
-    def __init__(self, fd, mode, close=False, uri=None):
-        super().__init__(fd, mode, close=close, uri=uri)
+    def __init__(self, fd, mode: FileMode, close: bool = False, uri: str | None = None, inner_fd=None):
+        super().__init__(fd, mode, close=close, uri=uri, inner_fd=inner_fd)
 
         if uri is None and hasattr(fd, "name") and isinstance(fd.name, str):
             self._uri = pathlib.Path(fd.name).expanduser().absolute().as_uri()
@@ -850,8 +866,8 @@ class MemoryIO(RandomAccessFile):
     `StringIO.StringIO`.
     """
 
-    def __init__(self, fd, mode, uri=None):
-        super().__init__(fd, mode, uri=uri)
+    def __init__(self, fd, mode: FileMode, uri: str | None = None, inner_fd=None):
+        super().__init__(fd, mode, uri=uri, inner_fd=inner_fd)
 
     def read_into_array(self, size):
         buf = self._fd.getvalue()
@@ -868,7 +884,7 @@ class InputStream(GenericFile):
     Handles an input stream, such as stdin.
     """
 
-    def __init__(self, fd, mode="r", close=False, uri=None):
+    def __init__(self, fd, mode: FileMode = "r", close: bool = False, uri: str | None = None):
         super().__init__(fd, mode, close=close, uri=uri)
         self._fd = fd
         self._buffer = b""
@@ -959,7 +975,7 @@ class OutputStream(GenericFile):
     Handles an output stream, such as stdout.
     """
 
-    def __init__(self, fd, close=False, uri=None):
+    def __init__(self, fd, close: bool = False, uri: str | None = None):
         super().__init__(fd, "w", close=close, uri=uri)
         self._fd = fd
 
@@ -986,10 +1002,32 @@ def get_uri(file_obj):
     return getattr(file_obj, "name", "")
 
 
-def get_file(init, mode="r", uri=None, close=False):
+@overload
+def get_file(
+    init: PathLike | io.IOBase | GenericFile,
+    mode: FileMode = ...,
+    uri: str | None = ...,
+    close: bool = ...,
+) -> GenericFile: ...
+@overload
+@deprecated("Duck-typed file objects are deprecated. Use an instance of IOBase instead.")
+def get_file(
+    init: Reader | Writer,
+    mode: FileMode = ...,
+    uri: str | None = ...,
+    close: bool = ...,
+) -> GenericFile: ...
+
+
+def get_file(
+    init: FileLike,
+    mode: FileMode = "r",
+    uri: str | None = None,
+    close: bool = False,
+) -> GenericFile:
     """
     Returns a `GenericFile` instance suitable for wrapping the given
-    object `init`.
+    object ``init``.
 
     If passed an already open file-like object, it must be opened for
     reading/writing in binary mode.  It is the caller's responsibility
@@ -998,23 +1036,23 @@ def get_file(init, mode="r", uri=None, close=False):
     Parameters
     ----------
     init : object
-        `init` may be:
+        ``init`` may be:
 
-        - A `bytes` or `unicode` file path or ``file:`` or ``http:``
+        - A ``bytes`` or ``unicode`` file path or ``file:`` or ``http:``
           url.
 
-        - A Python 2 `file` object.
+        - A Python 2 ``file`` object.
 
         - An `io.IOBase` object (the default file object on Python 3).
 
-        - A ducktyped object that looks like a file object.  If `mode`
-          is ``"r"``, it must have a ``read`` method.  If `mode` is
-          ``"w"``, it must have a ``write`` method.  If `mode` is
+        - A ducktyped object that looks like a file object.  If ``mode``
+          is ``"r"``, it must have a ``read`` method.  If ``mode`` is
+          ``"w"``, it must have a ``write`` method.  If ``mode`` is
           ``"rw"`` it must have the ``read``, ``write``, ``tell`` and
           ``seek`` methods.
 
         - A `GenericFile` instance, in which case it is wrapped in a
-          `GenericWrapper` instance, so that the file is closed when
+          ``GenericWrapper`` instance, so that the file is closed when
           only when the final layer is unwrapped.
 
     mode : str
@@ -1023,9 +1061,9 @@ def get_file(init, mode="r", uri=None, close=False):
     uri : str
         Sets the base URI of the file object.  This will be used to
         resolve any relative URIs contained in the file.  This is
-        redundant if `init` is a `bytes` or `unicode` object (since it
+        redundant if ``init`` is a ``bytes`` or ``unicode`` object (since it
         will be the uri), and it may be determined automatically if
-        `init` refers to a regular filesystem file.  It is not required
+        ``init`` refers to a regular filesystem file.  It is not required
         if URI resolution is not used in the file.
 
     close : bool
@@ -1044,7 +1082,7 @@ def get_file(init, mode="r", uri=None, close=False):
         msg = "mode must be 'r', 'w' or 'rw'"
         raise ValueError(msg)
 
-    if init in (sys.__stdout__, sys.__stdin__, sys.__stderr__):
+    if isinstance(init, io.TextIOWrapper) and init in (sys.__stdout__, sys.__stdin__, sys.__stderr__):
         init = os.fdopen(init.fileno(), init.mode + "b")
 
     if isinstance(init, (GenericFile, GenericWrapper)):
@@ -1052,7 +1090,10 @@ def get_file(init, mode="r", uri=None, close=False):
             msg = f"File is opened as '{init.mode}', but '{mode}' was requested"
             raise ValueError(msg)
 
-        return GenericWrapper(init)
+        # From a user perspective GenericWrapper is a GenericFile
+        # But we can't make GenericWrapper a subclass of GenericFile because there are places internally
+        # that depend on it not being one
+        return typing.cast("GenericFile", GenericWrapper(init))
 
     if isinstance(init, (str, pathlib.Path)):
         parsed = _patched_urllib_parse.urlparse(str(init))
@@ -1096,13 +1137,14 @@ def get_file(init, mode="r", uri=None, close=False):
             fsspec = None
 
         if fsspec:
-            fd = fsspec.open(init, realmode)
+            # Cast because fsspec doesn't have type hints
+            fd = typing.cast("OpenFile", fsspec.open(init, realmode))
             try:
                 fd = fd.__enter__()
             except NotImplementedError as err:
                 msg = f"Unable to open {init} with mode {mode}"
                 raise ValueError(msg) from err
-            return get_file(fd, uri=uri or init, close=True)
+            return get_file(fd, uri=str(uri or init), close=True)
 
     if isinstance(init, io.BytesIO):
         return MemoryIO(init, mode, uri=uri)
@@ -1110,6 +1152,23 @@ def get_file(init, mode="r", uri=None, close=False):
     if isinstance(init, io.StringIO):
         msg = "io.StringIO objects are not supported.  Use io.BytesIO instead."
         raise TypeError(msg)
+
+    if not isinstance(init, io.IOBase):
+        # Only generate a warning if its an actual duck-typed file.
+        # If its just a random object it will raise a ValueError below anyway.
+        if hasattr(init, "read") or hasattr(init, "write"):
+            warnings.warn(
+                "Duck-typed file objects are deprecated. Use an instance of IOBase instead.",
+                DeprecationWarning,
+            )
+    elif not init.seekable() and mode != "w":
+        warnings.warn(
+            (
+                "Reading from non-seekable files is deprecated. "
+                "Consider implementing seek() or reading the file into a BytesIO instance."
+            ),
+            DeprecationWarning,
+        )
 
     if isinstance(init, io.IOBase):
         if ("r" in mode and not init.readable()) or ("w" in mode and not init.writable()):
@@ -1120,18 +1179,15 @@ def get_file(init, mode="r", uri=None, close=False):
             init2 = init.raw if hasattr(init, "raw") else init
 
             if hasattr(init2, "getvalue"):
-                result = MemoryIO(init2, mode, uri=uri)
-            else:
-                # can we call 'fileno'? if not, we can't memmap so don't
-                # make a RealFile
-                try:
-                    init2.fileno()
-                    result = RealFile(init2, mode, uri=uri, close=close)
-                except io.UnsupportedOperation:
-                    result = RandomAccessFile(init2, mode, uri=uri, close=close)
+                return MemoryIO(init2, mode, uri=uri, inner_fd=init)
 
-            result._secondary_fd = init
-            return result
+            # can we call 'fileno'? if not, we can't memmap so don't
+            # make a RealFile
+            try:
+                init2.fileno()
+                return RealFile(init2, mode, uri=uri, close=close, inner_fd=init)
+            except io.UnsupportedOperation:
+                return RandomAccessFile(init2, mode, uri=uri, close=close, inner_fd=init)
 
         if mode == "w":
             return OutputStream(init, uri=uri, close=close)

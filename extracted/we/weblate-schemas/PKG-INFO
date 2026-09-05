@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate_schemas
-Version: 2026.7
+Version: 2026.8
 Summary: A collection of JSON schemas used by Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT

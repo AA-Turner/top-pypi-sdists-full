@@ -98,13 +98,11 @@ class TestCli(TestCase):
             mock_edit.return_value = "This is line 1"
             self._test_success(
                 content=["This is line 1"],
-                config=dedent(
-                    """\
+                config=dedent("""\
                     [tool.towncrier]
                     package = "foo"
                     filename = "README.md"
-                    """
-                ),
+                    """),
                 additional_args=["--edit"],
             )
             mock_edit.assert_called_once_with(
@@ -123,13 +121,11 @@ class TestCli(TestCase):
             mock_edit.return_value = "This is line 1"
             self._test_success(
                 content=["This is line 1"],
-                config=dedent(
-                    """\
+                config=dedent("""\
                     [tool.towncrier]
                     package = "foo"
                     filename = "README.FIRST"
-                    """
-                ),
+                    """),
                 additional_args=["--edit"],
             )
             mock_edit.assert_called_once_with(
@@ -153,13 +149,11 @@ class TestCli(TestCase):
         argument. The text editor is not invoked, and no eof newline is added if the
         config option is set.
         """
-        config = dedent(
-            """\
+        config = dedent("""\
             [tool.towncrier]
             package = "foo"
             create_eof_newline = false
-            """
-        )
+            """)
         content_line = "This is a content"
         self._test_success(
             content=[content_line],
@@ -190,12 +184,10 @@ class TestCli(TestCase):
     def test_different_directory(self):
         """Ensure non-standard directories are used."""
         runner = CliRunner()
-        config = dedent(
-            """\
+        config = dedent("""\
             [tool.towncrier]
             directory = "releasenotes"
-            """
-        )
+            """)
 
         with runner.isolated_filesystem():
             setup_simple_project(config=config, mkdir_newsfragments=False)
@@ -223,6 +215,46 @@ class TestCli(TestCase):
         self.assertEqual(type(result.exception), SystemExit, result.exception)
         self.assertIn(
             "Expected filename '123.foobar.rst' to be of format", result.output
+        )
+
+    def test_dots_in_issue_identifier_rejected(self):
+        """
+        Extra dots in the issue identifier are rejected.
+
+        ``create`` used to accept ``foo.bar.baz.feature`` because the last
+        component was a known type. ``build`` then treated the whole prefix
+        as the issue name, which is not a valid ``{name}.{type}``.
+        """
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            setup_simple_project()
+            result = runner.invoke(_main, ["foo.bar.baz.feature"])
+
+            self.assertEqual([], os.listdir("foo/newsfragments"))
+
+        self.assertEqual(type(result.exception), SystemExit, result.exception)
+        self.assertIn("must not contain '.'", result.output)
+        self.assertIn("foo.bar.baz", result.output)
+
+    def test_type_not_in_last_two_parts_rejected(self):
+        """
+        A type that is only the first component is not a valid create name.
+
+        ``feature.notatype`` used to pass because the second-to-last part was
+        a known type, but ``build`` cannot parse that basename.
+        """
+        runner = CliRunner()
+
+        with runner.isolated_filesystem():
+            setup_simple_project()
+            result = runner.invoke(_main, ["feature.notatype"])
+
+            self.assertEqual([], os.listdir("foo/newsfragments"))
+
+        self.assertEqual(type(result.exception), SystemExit, result.exception)
+        self.assertIn(
+            "Expected filename 'feature.notatype' to be of format", result.output
         )
 
     @with_isolated_runner
@@ -374,11 +406,9 @@ Created news fragment at {expected}
             mock_edit.assert_called_once()
         expected = os.path.join(os.getcwd(), "foo", "newsfragments", "+")
         self.assertTrue(
-            result.output.startswith(
-                f"""Issue number (`+` if none): +
+            result.output.startswith(f"""Issue number (`+` if none): +
 Fragment type (feature, bugfix, doc, removal, misc): feature
-Created news fragment at {expected}"""
-            ),
+Created news fragment at {expected}"""),
             result.output,
         )
         # Check that the file was created with a random name
@@ -646,8 +676,7 @@ Created news fragment at {expected}
         Path("pyproject.toml").write_text(
             # Important to customize `config.directory` because the default
             # already supports this scenario.
-            "[tool.towncrier]\n"
-            + 'directory = "changelog.d"\n'
+            "[tool.towncrier]\n" + 'directory = "changelog.d"\n'
         )
         Path("foo/foo").mkdir(parents=True)
         Path("foo/foo/__init__.py").write_text("")
@@ -667,3 +696,98 @@ Created news fragment at {expected}
 
         self.assertEqual(0, result.exit_code)
         self.assertTrue(Path("foo/changelog.d/123.feature.rst").exists())
+
+    @with_isolated_runner
+    def test_sub_issue(self, runner):
+        """
+        testing changing files with option --sub-issue
+        """
+        Path("pyproject.toml").write_text(
+            # Important to customize `config.directory` because the default
+            # already supports this scenario.
+            "[tool.towncrier]\n" + 'directory = "changelog.d"\n'
+        )
+        Path("foo/foo").mkdir(parents=True)
+        result = runner.invoke(
+            _main,
+            (
+                "--config",
+                "pyproject.toml",
+                "--dir",
+                "foo",
+                "--content",
+                "111",
+                "--sub-issue",
+                0,
+                "123.feature",
+            ),
+        )
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(Path("foo/changelog.d/123.feature.rst").exists())
+
+        with open("foo/changelog.d/123.feature.rst") as fh:
+            self.assertEqual("111\n", fh.read())
+
+        result = runner.invoke(
+            _main,
+            (
+                "--config",
+                "pyproject.toml",
+                "--dir",
+                "foo",
+                "--content",
+                "222",
+                "--sub-issue",
+                1,
+                "123.feature",
+            ),
+        )
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(Path("foo/changelog.d/123.feature.1.rst").exists())
+
+        with open("foo/changelog.d/123.feature.1.rst") as fh:
+            self.assertEqual("222\n", fh.read())
+
+        result = runner.invoke(
+            _main,
+            (
+                "--config",
+                "pyproject.toml",
+                "--dir",
+                "foo",
+                "--content",
+                "333",
+                "--sub-issue",
+                0,
+                "123.feature",
+            ),
+        )
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(Path("foo/changelog.d/123.feature.rst").exists())
+
+        with open("foo/changelog.d/123.feature.rst") as fh:
+            self.assertEqual("333\n", fh.read())
+
+        result = runner.invoke(
+            _main,
+            (
+                "--config",
+                "pyproject.toml",
+                "--dir",
+                "foo",
+                "--content",
+                "444",
+                "--sub-issue",
+                1,
+                "123.feature",
+            ),
+        )
+
+        self.assertEqual(0, result.exit_code)
+        self.assertTrue(Path("foo/changelog.d/123.feature.1.rst").exists())
+
+        with open("foo/changelog.d/123.feature.1.rst") as fh:
+            self.assertEqual("444\n", fh.read())

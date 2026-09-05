@@ -82,6 +82,10 @@ impl<'a> QueuedExposure<'a> for EnqueueGateExpoOp<'a> {
     fn get_extra_exposure_info_ref(&'a self) -> Option<&'a ExtraExposureInfo> {
         self.evaluation.as_ref()?.base.exposure_info.as_ref()
     }
+
+    fn is_primary_gate_exposure(&self) -> bool {
+        true
+    }
 }
 
 pub struct QueuedGateExposureEvent {

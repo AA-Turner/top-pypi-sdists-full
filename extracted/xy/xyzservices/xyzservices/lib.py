@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import urllib.request
 import uuid
+import warnings
 from typing import Callable
 from urllib.parse import quote
 
@@ -419,14 +420,14 @@ class TileProvider(Bunch):
         --------
         >>> import xyzservices.providers as xyz
 
-        >>> xyz.CartoDB.DarkMatter.build_url()
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+        >>> xyz.OpenStreetMap.Mapnik.build_url()
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 
-        >>> xyz.CartoDB.DarkMatter.build_url(x=9, y=11, z=5)
-        'https://a.basemaps.cartocdn.com/dark_all/5/9/11.png'
+        >>> xyz.OpenStreetMap.Mapnik.build_url(x=9, y=11, z=5)
+        'https://tile.openstreetmap.org/5/9/11.png'
 
-        >>> xyz.CartoDB.DarkMatter.build_url(x=9, y=11, z=5, scale_factor="@2x")
-        'https://a.basemaps.cartocdn.com/dark_all/5/9/11@2x.png'
+        >>> xyz.CartoDB.DarkMatter.build_url(scale_factor="@2x", apikey='my-key')
+        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?key=key'
 
         >>> xyz.MapBox.build_url(accessToken="my_token")
         'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=my_token'
@@ -443,14 +444,23 @@ class TileProvider(Bunch):
 
         provider.update(kwargs)
 
-        if provider.requires_token():
-            raise ValueError(
-                "Token is required for this provider, but not provided. "
-                "You can either update TileProvider or pass respective keywords "
-                "to build_url()."
-            )
+        url = provider.get("url")
 
-        url = provider.pop("url")
+        if provider.requires_token():
+            if provider.name.startswith("CartoDB"):
+                url = url.removesuffix("?key={apikey}")
+                warnings.warn(
+                    "CartoDB tiles now require an API key. "
+                    "Please provide one to continue using the tiles. You can request "
+                    "the key at https://carto.com/basemaps/apikey/.",
+                    stacklevel=2,
+                )
+            else:
+                raise ValueError(
+                    "Token is required for this provider, but not provided. "
+                    "You can either update TileProvider or pass respective keywords "
+                    "to build_url()."
+                )
 
         if scale_factor:
             r = scale_factor

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 18.64.4
+Version: 18.69.2
 Summary: A tool that standardizes and automates Python project setup, configuration, development, and maintenance.
 Keywords: automation,boilerplate,ci-cd,code-quality,configuration,developer-tools,devops,project-setup,project-template,pyrig,scaffolding
 Author: Winipedia
@@ -45,7 +45,7 @@ Description-Content-Type: text/markdown
 
 <!-- project-status -->
 [![CI](https://img.shields.io/github/actions/workflow/status/Winipedia/pyrig/health_check.yml?label=CI&logo=github)](https://github.com/Winipedia/pyrig/actions/workflows/health_check.yml)
-[![CD](https://img.shields.io/github/actions/workflow/status/Winipedia/pyrig/deploy.yml?label=CD&logo=github)](https://github.com/Winipedia/pyrig/actions/workflows/deploy.yml)
+[![CD](https://img.shields.io/github/actions/workflow/status/Winipedia/pyrig/release.yml?label=CD&logo=github)](https://github.com/Winipedia/pyrig/actions/workflows/release.yml)
 [![ProjectTester](https://codecov.io/gh/Winipedia/pyrig/branch/main/graph/badge.svg)](https://codecov.io/gh/Winipedia/pyrig)
 <!-- code-quality -->
 [![ByteOrderMarkerFormatter](https://img.shields.io/badge/BOM-fix--byte--order--marker-orange)](https://github.com/pre-commit/pre-commit-hooks)

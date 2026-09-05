@@ -2226,13 +2226,11 @@ class ParserVisitor(ast.NodeVisitor):
             return_type = None
         else:
             arrow = self.__source_before('->')
-            with self.__type_context():
-                returns = self.__convert(node.returns)
             return_type = py.TypeHint(
                 random_id(),
                 arrow,
                 Markers.EMPTY,
-                returns,
+                self.__convert_type(node.returns),
                 self._type_mapping.type(node.returns)
             )
         body = self.__convert_block(node.body)
@@ -2305,6 +2303,18 @@ class ParserVisitor(ast.NodeVisitor):
         # When extra_parens is non-empty, this is handled differently (prefix is set on the wrapped paren).
         if not extra_parens:
             name = name.replace(prefix=name_prefix)  # ty: ignore[unresolved-attribute]  # recursive call returns unknown
+            # Name the decorator itself, as Java names an annotation type, rather than
+            # leave the reference typed as what applying it returns.
+            referenced = decorator.func if isinstance(decorator, ast.Call) else decorator
+            if isinstance(referenced, (ast.Name, ast.Attribute)):
+                decorator_type = self._type_mapping.decorator_type(referenced)
+                if decorator_type is not None:
+                    name = name.replace(type=decorator_type)  # ty: ignore[unresolved-attribute]  # recursive call returns unknown
+                    if isinstance(name, j.FieldAccess):
+                        # Both halves of a dotted reference name the same decorator
+                        padded = name.padding.name
+                        name = name.padding.replace(_name=padded.replace(
+                            element=padded.element.replace(type=decorator_type)))
 
         # Wrap name in extra parentheses if present
         if extra_parens:
@@ -2324,13 +2334,11 @@ class ParserVisitor(ast.NodeVisitor):
                     self.__pad_right(wrapped, suffix)
                 )
 
-            # Wrap in ExpressionTypeTree to satisfy NameTree type requirement
-            name = py.ExpressionTypeTree(
-                random_id(),
-                Space.EMPTY,
-                Markers.EMPTY,
-                wrapped
-            )
+            name = wrapped
+
+        # PEP 614 allows any expression here, but Annotation.annotation_type is a NameTree
+        if not isinstance(name, NameTree):
+            name = py.ExpressionTypeTree(random_id(), Space.EMPTY, Markers.EMPTY, name)
 
         return j.Annotation(
             random_id(),
@@ -2939,6 +2947,7 @@ class ParserVisitor(ast.NodeVisitor):
                         Markers.EMPTY,
                         converted.replace(prefix=Space.EMPTY)
                     )
+                expression = converted
                 # Unwrap parenthesized literals to get to the Literal inside
                 while isinstance(converted, j.Parentheses):
                     converted = converted.tree
@@ -2954,6 +2963,16 @@ class ParserVisitor(ast.NodeVisitor):
                 quote_start = 0
                 while quote_start < len(source) and source[quote_start] not in ('"', "'"):
                     quote_start += 1
+
+                if 0 < quote_start < len(source):
+                    # The Quoted marker records only the quote style, so a string carrying a
+                    # prefix (r, b, u) stays a literal, where value_source holds the prefix.
+                    return py.ExpressionTypeTree(
+                        random_id(),
+                        expression.prefix,
+                        Markers.EMPTY,
+                        expression.replace(prefix=Space.EMPTY)
+                    )
 
                 if quote_start < len(source):
                     quote_char = source[quote_start]

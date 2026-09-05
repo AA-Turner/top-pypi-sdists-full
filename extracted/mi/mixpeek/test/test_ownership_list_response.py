@@ -46,7 +46,15 @@ class TestOwnershipListResponse(unittest.TestCase):
                         description = '', 
                         alert_classes = [
                             ''
-                            ], )
+                            ], 
+                        alert_escalations = {
+                            'key' : ''
+                            }, 
+                        owner_confirmed = mixpeek.models.owner_confirmation.OwnerConfirmation(
+                            by = '', 
+                            at = '', 
+                            ref = '', 
+                            note = '', ), )
                     ],
                 total = 56
             )
@@ -62,7 +70,15 @@ class TestOwnershipListResponse(unittest.TestCase):
                         description = '', 
                         alert_classes = [
                             ''
-                            ], )
+                            ], 
+                        alert_escalations = {
+                            'key' : ''
+                            }, 
+                        owner_confirmed = mixpeek.models.owner_confirmation.OwnerConfirmation(
+                            by = '', 
+                            at = '', 
+                            ref = '', 
+                            note = '', ), )
                     ],
                 total = 56,
         )

@@ -41,6 +41,18 @@ class TestSessionManagerRegistry(unittest.TestCase):
         self.assertEqual(d.lang, "pt-PT")
         self.assertIs(d, SessionManager.get_default_session())
 
+    def test_default_session_attribute_mirrors_the_registry(self):
+        # Pre-spec readers (hivemind-websocket-client, ovoscope) still touch
+        # SessionManager.default_session directly; it must track the
+        # registry entry it mirrors, not lag behind it.
+        SessionManager.get_default_session()
+        self.assertIs(SessionManager.default_session,
+                      SessionManager.sessions[DEFAULT_SESSION_ID])
+        fresh = SessionManager.reset_default_session()
+        self.assertIs(SessionManager.default_session, fresh)
+        self.assertIs(SessionManager.default_session,
+                      SessionManager.sessions[DEFAULT_SESSION_ID])
+
 
 class TestForwardReplyStamping(unittest.TestCase):
     def setUp(self):
@@ -313,29 +325,29 @@ class TestDefaultSessionStoreMerge(unittest.TestCase):
         # read off the carrier, never off a serialized object, so an
         # unconditional emitter cannot wipe a stored subclass field.
         class RicherSession(Session):
-            def __init__(self, *args, location=None, **kwargs):
+            def __init__(self, *args, unit_prefs=None, **kwargs):
                 super().__init__(*args, **kwargs)
-                self.location = dict(location) if location else None
+                self.unit_prefs = dict(unit_prefs) if unit_prefs else None
 
             def serialize(self):
                 out = super().to_dict()
-                out["location"] = dict(self.location) if self.location else {}
+                out["unit_prefs"] = dict(self.unit_prefs) if self.unit_prefs else {}
                 return out
 
             @classmethod
             def from_dict(cls, payload):
                 payload = dict(payload or {})
-                location = payload.pop("location", None)
+                unit_prefs = payload.pop("unit_prefs", None)
                 sess = super().from_dict(payload)
-                sess.location = dict(location) if location else None
+                sess.unit_prefs = dict(unit_prefs) if unit_prefs else None
                 return sess
 
         SessionManager.session_cls = RicherSession
         try:
             live = self._inbound({"session_id": "default",
-                                  "location": {"city": "Lisbon"}})
+                                  "unit_prefs": {"system": "metric"}})
             self._inbound({"session_id": "default", "lang": "en-US"})
-            self.assertEqual(live.location, {"city": "Lisbon"})
+            self.assertEqual(live.unit_prefs, {"system": "metric"})
             self.assertEqual(live.lang, "en-US")
         finally:
             SessionManager.session_cls = Session
@@ -355,6 +367,23 @@ class TestDefaultSessionStoreMerge(unittest.TestCase):
                        "pipeline": ["stop_high", "converse"]})
         live = self._inbound({"session_id": "default", "pipeline": "abc"})
         self.assertEqual(live.pipeline, ["stop_high", "converse"])
+
+    def test_location_carries_as_a_preference_field(self):
+        # §3.5 / SESSION-2 §2.5: a preference field replaces the stored
+        # value when carried, and an omission leaves it alone -- the same
+        # merge rule as site_id.
+        self._inbound({"session_id": "default",
+                       "location": {"lat": 38.7, "tz": "Europe/Lisbon"}})
+        live = self._inbound({"session_id": "default"})
+        self.assertEqual(live.location, {"lat": 38.7, "tz": "Europe/Lisbon"})
+        live = self._inbound({"session_id": "default",
+                              "location": {"lat": 40.7}})
+        self.assertEqual(live.location, {"lat": 40.7})
+
+    def test_location_with_no_valid_key_counts_as_not_carried(self):
+        self.assertEqual(carried_fields({"location": {"city": "Lisbon"}}), {})
+        self.assertEqual(carried_fields({"location": "Lisbon"}), {})
+        self.assertEqual(carried_fields({"location": []}), {})
 
     def test_non_object_carrier_is_malformed(self):
         # §2.5: a carrier that is not an object has no session identity to
@@ -670,6 +699,160 @@ class TestHandlerWritesRideOnDerivations(unittest.TestCase):
         sess.intent_context = {"shared:t": {"value": 1}}
         self.assertEqual(msg.forward("x").context["session"]["intent_context"],
                          {"shared:t": {"value": 1}})
+
+
+class TestSessionManagerBind(unittest.TestCase):
+    """`bind` lets an orchestrator make its own round session THE session of
+    a Message, so every later `get`/derivation in the round sees that one
+    object rather than one lazily rebuilt from the carrier.
+    """
+
+    def setUp(self):
+        SessionManager.sessions.clear()
+        SessionManager.default_session = None
+
+    def test_bind_makes_forward_stamp_the_bound_object(self):
+        msg = Message("my.skill:intent",
+                      context={"session": {"session_id": "sat-1"}})
+        round_session = Session("sat-1")
+        self.assertIs(SessionManager.bind(msg, round_session), round_session)
+        round_session.intent_context = {"my.skill:t": {"value": 1}}
+        self.assertEqual(
+            msg.forward("x").context["session"]["intent_context"],
+            {"my.skill:t": {"value": 1}})
+
+    def test_bind_makes_reply_and_response_stamp_the_bound_object(self):
+        msg = Message("my.skill:intent",
+                      context={"session": {"session_id": "sat-1"},
+                               "source": "A", "destination": "B"})
+        round_session = Session("sat-1")
+        SessionManager.bind(msg, round_session)
+        round_session.intent_context = {"my.skill:t": {"value": 2}}
+        for derived in (msg.reply("q.answer"), msg.response()):
+            self.assertEqual(derived.context["session"]["intent_context"],
+                             {"my.skill:t": {"value": 2}})
+
+    def test_bind_replaces_a_prior_lazy_binding_from_get(self):
+        msg = Message("my.skill:intent",
+                      context={"session": {"session_id": "sat-1"}})
+        lazy = SessionManager.get(msg)
+        lazy.intent_context = {"my.skill:t": {"value": "stale"}}
+        round_session = Session("sat-1")
+        SessionManager.bind(msg, round_session)
+        round_session.intent_context = {"my.skill:t": {"value": "fresh"}}
+        self.assertIsNot(SessionManager.get(msg), lazy)
+        self.assertIs(SessionManager.get(msg), round_session)
+        self.assertEqual(
+            msg.forward("x").context["session"]["intent_context"],
+            {"my.skill:t": {"value": "fresh"}})
+
+    def test_get_after_bind_returns_the_bound_object(self):
+        msg = Message("u", context={"session": {"session_id": "sat-1"}})
+        round_session = Session("sat-1")
+        SessionManager.bind(msg, round_session)
+        self.assertIs(SessionManager.get(msg), round_session)
+
+    def test_bound_is_a_readonly_peek(self):
+        msg = Message("u", context={"session": {"session_id": "sat-1"}})
+        self.assertIsNone(SessionManager.bound(msg))
+        round_session = Session("sat-1")
+        SessionManager.bind(msg, round_session)
+        self.assertIs(SessionManager.bound(msg), round_session)
+
+    def test_bind_refuses_a_default_shaped_session_that_is_not_the_store(self):
+        # a copy would make get() (returns the binding) and stamp_derived
+        # (falls back to the live store for a default binding) disagree
+        # about the very same Message.
+        msg = Message("u", context={"session": {"session_id": "default"}})
+        impostor = Session()
+        with self.assertRaises(ValueError):
+            SessionManager.bind(msg, impostor)
+
+    def test_bind_accepts_the_registry_default_itself(self):
+        msg = Message("u", context={"session": {"session_id": "default"}})
+        store = SessionManager.get_default_session()
+        self.assertIs(SessionManager.bind(msg, store), store)
+        self.assertIs(SessionManager.get(msg), store)
+
+    def test_bind_refuses_a_session_id_mismatch(self):
+        msg = Message("u", context={"session": {"session_id": "sat-1"}})
+        other = Session("sat-2")
+        with self.assertRaises(ValueError) as cm:
+            SessionManager.bind(msg, other)
+        self.assertIn("sat-1", str(cm.exception))
+        self.assertIn("sat-2", str(cm.exception))
+
+    def test_bind_allows_any_id_on_a_carrier_less_message(self):
+        # §2.1: absent, null, and {} all name nothing yet, so there is no
+        # carrier claim for a bound named session to contradict.
+        for ctx in ({}, {"session": None}, {"session": {}}):
+            with self.subTest(ctx=ctx):
+                msg = Message("u", context=dict(ctx))
+                named = Session("sat-1")
+                self.assertIs(SessionManager.bind(msg, named), named)
+                self.assertIs(SessionManager.get(msg), named)
+
+    def test_bind_on_a_carrier_less_message_rides_the_forward(self):
+        # the caller declared the session by binding it; the derivation
+        # must pick it up even though the source Message named no session
+        # of its own to match against.
+        msg = Message("my.skill:intent", context={})
+        named = Session("sat-1")
+        SessionManager.bind(msg, named)
+        named.intent_context = {"my.skill:t": {"value": 1}}
+        self.assertEqual(
+            msg.forward("x").context["session"],
+            {"session_id": "sat-1",
+             "intent_context": {"my.skill:t": {"value": 1}}})
+
+
+class TestWrongTypedSessionIdIsLogged(unittest.TestCase):
+    def setUp(self):
+        SessionManager.sessions.clear()
+        SessionManager.default_session = None
+
+    def test_wrong_typed_session_id_logs_a_warning_exactly_once(self):
+        with self.assertLogs("ovos_spec_tools.session", level="WARNING") as cm:
+            resolve_session_id({"session_id": 123})
+        self.assertEqual(len(cm.output), 1)
+        self.assertIn("session_id", cm.output[0])
+        self.assertIn("int", cm.output[0])
+
+    def test_wrong_typed_session_id_through_get_logs_once(self):
+        msg = Message("u", context={"session": {"session_id": 123,
+                                                "lang": "pt-PT"}})
+        with self.assertLogs("ovos_spec_tools.session", level="WARNING") as cm:
+            SessionManager.get(msg)
+        warnings = [line for line in cm.output if "session_id" in line]
+        self.assertEqual(len(warnings), 1)
+
+    def test_absent_session_id_is_silent(self):
+        with self.assertRaises(AssertionError):
+            with self.assertLogs("ovos_spec_tools.session", level="WARNING"):
+                resolve_session_id({})
+
+    def test_none_session_id_is_silent(self):
+        with self.assertRaises(AssertionError):
+            with self.assertLogs("ovos_spec_tools.session", level="WARNING"):
+                resolve_session_id({"session_id": None})
+
+    def test_empty_string_session_id_is_silent(self):
+        with self.assertRaises(AssertionError):
+            with self.assertLogs("ovos_spec_tools.session", level="WARNING"):
+                resolve_session_id({"session_id": ""})
+
+    def test_wrong_typed_session_id_through_fold_inbound_logs_once(self):
+        # fold_inbound resolves the id (routing) and then merges the
+        # carrier (carried_fields), both of which used to independently
+        # diagnose `session_id` -- resolve_session_id is now the only one
+        # that does.
+        msg = Message("recognizer_loop:utterance",
+                      context={"session": {"session_id": 123,
+                                          "lang": "pt-PT"}})
+        with self.assertLogs("ovos_spec_tools.session", level="WARNING") as cm:
+            SessionManager.fold_inbound(msg)
+        warnings = [line for line in cm.output if "session_id" in line]
+        self.assertEqual(len(warnings), 1)
 
 
 if __name__ == "__main__":

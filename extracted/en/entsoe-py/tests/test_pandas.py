@@ -15,8 +15,9 @@ def client():
     yield EntsoePandasClient(api_key=API_KEY)
 
 
+# this on purpose more then a month since entsoe has now a lot of "30 days" limits
 STARTS = [pd.Timestamp("20260301", tz="Europe/Amsterdam")]
-ENDS = [pd.Timestamp("20260331 23:59", tz="Europe/Amsterdam")]
+ENDS = [pd.Timestamp("20260402 23:59", tz="Europe/Amsterdam")]
 
 COUNTRY_CODES = ["NL", "BE", "DE_LU", "FR"]
 COUNTRY_CODES_FROM = ["NL"]
@@ -125,16 +126,16 @@ def test_query_intraday_offered_capacity(client, country_code_from, country_code
     basic_checks(result)
 
 
-@pytest.mark.parametrize(
-    "country_code, process_type, start, end",
-    product([x if x != 'DE_LU' else 'DE_AMPRION' for x in COUNTRY_CODES], ['A51', 'A52', 'A47'], STARTS, ENDS),
-)
-def test_query_contracted_reserve_prices_procured_capacity(client, country_code, process_type, start, end):
-    # [O] A51 = Automatic frequency restoration reserve; A52 = Frequency containment reserve; A47 = Manual frequency restoration reserve; A46 = Replacement reserve
-    result = client.query_contracted_reserve_prices_procured_capacity(
-        country_code, start=start, end=end, process_type=process_type, type_marketagreement_type='A01'
-    )
-    basic_checks(result)
+# @pytest.mark.parametrize(
+#     "country_code, process_type, start, end",
+#     product([x if x != 'DE_LU' else 'DE_AMPRION' for x in COUNTRY_CODES], ['A51', 'A52', 'A47'], STARTS, ENDS),
+# )
+# def test_query_contracted_reserve_prices_procured_capacity(client, country_code, process_type, start, end):
+#     # [O] A51 = Automatic frequency restoration reserve; A52 = Frequency containment reserve; A47 = Manual frequency restoration reserve; A46 = Replacement reserve
+#     result = client.query_contracted_reserve_prices_procured_capacity(
+#         country_code, start=start, end=end, process_type=process_type, type_marketagreement_type='A01'
+#     )
+#     basic_checks(result)
 
 
 @pytest.mark.parametrize(

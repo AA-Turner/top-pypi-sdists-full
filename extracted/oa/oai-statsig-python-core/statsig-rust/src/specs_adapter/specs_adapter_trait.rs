@@ -8,6 +8,8 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::remote_config_value_hydrator::RemoteConfigValueHydrator;
+
 #[repr(u8)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SpecsSource {
@@ -123,6 +125,35 @@ pub struct SpecsUpdate {
     pub has_updates: Option<bool>,
 }
 
+/// Internal context used by async adapters that can hydrate remote dynamic
+/// config values before publishing an update. The public shape keeps
+/// SpecsUpdateListener backwards compatible for custom listener
+/// implementations while letting SpecStore fold protobuf hydration into its
+/// parser.
+#[doc(hidden)]
+pub struct SpecsUpdateHydration {
+    pub(crate) hydrator: Arc<RemoteConfigValueHydrator>,
+    pub(crate) source_url: String,
+}
+
+impl SpecsUpdateHydration {
+    pub(crate) fn new(hydrator: Arc<RemoteConfigValueHydrator>, source_url: String) -> Self {
+        Self {
+            hydrator,
+            source_url,
+        }
+    }
+}
+
+/// Advances the sync cursor when an adapter proves the semantic payload checksum is unchanged.
+#[doc(hidden)]
+pub struct SpecsCursorUpdate {
+    pub lcut: u64,
+    pub checksum: String,
+    pub source: SpecsSource,
+    pub source_api: Option<String>,
+}
+
 #[repr(C)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SpecsInfo {
@@ -154,8 +185,33 @@ impl SpecsInfo {
     }
 }
 
+#[async_trait]
 pub trait SpecsUpdateListener: Send + Sync {
     fn did_receive_specs_update(&self, update: SpecsUpdate) -> Result<(), StatsigErr>;
+
+    /// Async adapters use this entry point when they have enough context to
+    /// hydrate remote values. Existing/custom listeners keep their synchronous
+    /// behavior through this default implementation.
+    async fn did_receive_specs_update_async(
+        &self,
+        mut update: SpecsUpdate,
+        hydration: Option<SpecsUpdateHydration>,
+    ) -> Result<(), StatsigErr> {
+        if let Some(hydration) = hydration {
+            hydration
+                .hydrator
+                .hydrate_response(&mut update.data, &hydration.source_url)
+                .await?;
+        }
+
+        self.did_receive_specs_update(update)
+    }
+
+    /// Existing listeners may ignore cursor-only updates. The SDK SpecStore uses this to avoid
+    /// re-reading an unchanged payload when only the upstream LCUT advances.
+    fn did_advance_specs_cursor(&self, _update: SpecsCursorUpdate) -> Result<(), StatsigErr> {
+        Ok(())
+    }
 
     fn get_current_specs_info(&self) -> SpecsInfo;
 }

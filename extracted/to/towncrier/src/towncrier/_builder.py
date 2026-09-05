@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Any, DefaultDict, NamedTuple
+from typing import Any, NamedTuple
 
 from click import ClickException
 from jinja2 import Template
@@ -112,7 +112,7 @@ def find_fragments(
     strict: bool,
 ) -> tuple[Mapping[str, Mapping[tuple[str, str, int], str]], list[tuple[str, str]]]:
     """
-    Sections are a dictonary of section names to paths.
+    Sections are a dictionary of section names to paths.
 
     If strict, raise ClickException if any fragments have an invalid name.
     """
@@ -138,7 +138,7 @@ def find_fragments(
     fragment_files = []
     # Multiple orphan news fragments are allowed per section, so initialize a counter
     # that can be incremented automatically.
-    orphan_fragment_counter: DefaultDict[str | None, int] = defaultdict(int)
+    orphan_fragment_counter: defaultdict[str | None, int] = defaultdict(int)
 
     for key, section_dir in config.sections.items():
         section_dir = get_section_path(section_dir)
@@ -193,9 +193,7 @@ def find_fragments(
 
             if (issue, category, counter) in file_content:
                 raise ValueError(
-                    "multiple files for {}.{} in {}".format(
-                        issue, category, section_dir
-                    )
+                    f"multiple files for {issue}.{category} in {section_dir}"
                 )
             file_content[issue, category, counter] = data
 
@@ -358,7 +356,7 @@ def render_fragments(
     fragments: Mapping[str, Mapping[str, Mapping[str, Sequence[str]]]],
     definitions: Mapping[str, Mapping[str, Any]],
     underlines: Sequence[str],
-    wrap: bool,
+    wrap: bool | int,
     versiondata: Mapping[str, str],
     top_underline: str = "=",
     all_bullets: bool = False,
@@ -441,17 +439,21 @@ def render_fragments(
     )
 
     for line in res.split("\n"):
-        if wrap:
-            done.append(
-                textwrap.fill(
-                    line,
-                    width=79,
-                    subsequent_indent=get_indent(line),
-                    break_long_words=False,
-                    break_on_hyphens=False,
-                )
-            )
-        else:
+        if wrap is False:
             done.append(line)
+            continue
+
+        width = 79 if wrap is True else wrap
+        if width <= 0:
+            width = 79
+        done.append(
+            textwrap.fill(
+                line,
+                width=width,
+                subsequent_indent=get_indent(line),
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
 
     return "\n".join(done)

@@ -1,14 +1,24 @@
+import http.server
+import io
 import os
 import sys
+import threading
 import unittest.mock
 from pathlib import Path
+from typing import BinaryIO
 from typing import Final
+from typing import Literal
 from typing import NamedTuple
 
 import pytest
+import requests
 
+from gdown.download import CHUNK_SIZE
 from gdown.download import GoogleDriveFileToDownload
 from gdown.download import download
+from gdown.exceptions import DownloadError
+
+from .conftest import build_response
 
 DOWNLOAD_URL: Final[str] = (
     "https://raw.githubusercontent.com/wkentaro/gdown/3.1.0/gdown/__init__.py"
@@ -21,15 +31,50 @@ class DownloadEnv(NamedTuple):
 
 
 @pytest.fixture()
-def download_env(tmp_path: Path) -> DownloadEnv:
+def download_env(*, tmp_path: Path) -> DownloadEnv:
     return DownloadEnv(
         file_path=str(tmp_path / "file"),
         url=DOWNLOAD_URL,
     )
 
 
+@pytest.fixture()
+def download_session(
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+) -> unittest.mock.Mock:
+    response = build_response(headers={"Content-Length": "4"}, chunks=[b"data"])
+
+    session = unittest.mock.Mock()
+    session.get.return_value = response
+    monkeypatch.setattr(
+        sys.modules["gdown.download"],
+        "_get_session",
+        lambda **_kwargs: (session, "cookies.txt"),
+    )
+    return session
+
+
+@pytest.fixture()
+def opened_files(*, monkeypatch: pytest.MonkeyPatch) -> list[BinaryIO]:
+    files: list[BinaryIO] = []
+
+    def open_file(path: str, mode: Literal["ab"]) -> BinaryIO:
+        file = open(path, mode)
+        files.append(file)
+        return file
+
+    monkeypatch.setattr(
+        sys.modules["gdown.download"],
+        "open",
+        open_file,
+        raising=False,
+    )
+    return files
+
+
 @pytest.mark.network
-def test_download(download_env: DownloadEnv) -> None:
+def test_download(*, download_env: DownloadEnv) -> None:
     # Usage before https://github.com/wkentaro/gdown/pull/32
     assert (
         download(url=download_env.url, output=download_env.file_path, quiet=False)
@@ -38,7 +83,7 @@ def test_download(download_env: DownloadEnv) -> None:
 
 
 @pytest.mark.network
-def test_download_progress(download_env: DownloadEnv) -> None:
+def test_download_progress(*, download_env: DownloadEnv) -> None:
     reported: list[tuple[int, int | None]] = []
     download(
         url=download_env.url,
@@ -57,8 +102,144 @@ def test_download_progress(download_env: DownloadEnv) -> None:
     assert final_current == os.path.getsize(download_env.file_path)
 
 
+def test_download_closes_resources_when_progress_raises(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+    opened_files: list[BinaryIO],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pbar = unittest.mock.Mock()
+    monkeypatch.setattr(
+        sys.modules["gdown.download"].tqdm, "tqdm", lambda **_kwargs: pbar
+    )
+
+    with pytest.raises(RuntimeError, match="stop"):
+        download(
+            url="https://example.com/file",
+            output=str(tmp_path / "output"),
+            quiet=False,
+            use_cookies=False,
+            progress=unittest.mock.Mock(side_effect=RuntimeError("stop")),
+        )
+
+    pbar.close.assert_called_once_with()
+    assert opened_files[0].closed
+    download_session.close.assert_called_once_with()
+    part_files = list(tmp_path.glob("output*.part"))
+    assert len(part_files) == 1
+    assert part_files[0].read_bytes() == b"data"
+
+
+def test_download_closes_resources_when_resume_request_raises(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+    opened_files: list[BinaryIO],
+) -> None:
+    download_session.get.side_effect = [
+        download_session.get.return_value,
+        requests.ConnectionError("range request failed"),
+    ]
+    part = tmp_path / "output.partial.part"
+    part.write_bytes(b"partial")
+
+    with pytest.raises(requests.ConnectionError, match="range request failed"):
+        download(
+            url="https://example.com/file",
+            output=str(tmp_path / "output"),
+            quiet=True,
+            use_cookies=False,
+            resume=True,
+        )
+
+    assert opened_files[0].closed
+    download_session.close.assert_called_once_with()
+    assert part.read_bytes() == b"partial"
+
+
+def test_download_keeps_caller_output_open_when_progress_raises(
+    *,
+    download_session: unittest.mock.Mock,
+) -> None:
+    output = io.BytesIO()
+
+    with pytest.raises(RuntimeError, match="stop"):
+        download(
+            url="https://example.com/file",
+            output=output,
+            quiet=True,
+            use_cookies=False,
+            progress=unittest.mock.Mock(side_effect=RuntimeError("stop")),
+        )
+
+    assert not output.closed
+    assert output.getvalue() == b"data"
+    download_session.close.assert_called_once_with()
+
+
+def test_download_attempts_all_cleanup_when_closers_raise(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    file = unittest.mock.mock_open()
+    file().tell.return_value = 0
+    file().close.side_effect = OSError("file close failed")
+    pbar = unittest.mock.Mock()
+    pbar.close.side_effect = OSError("pbar close failed")
+    monkeypatch.setattr(sys.modules["gdown.download"], "open", file, raising=False)
+    monkeypatch.setattr(
+        sys.modules["gdown.download"].tqdm, "tqdm", lambda **_kwargs: pbar
+    )
+
+    with pytest.raises(OSError, match="file close failed"):
+        download(
+            url="https://example.com/file",
+            output=str(tmp_path / "output"),
+            quiet=False,
+            use_cookies=False,
+            progress=unittest.mock.Mock(side_effect=RuntimeError("stop")),
+        )
+
+    pbar.close.assert_called_once_with()
+    file().close.assert_called_once_with()
+    download_session.close.assert_called_once_with()
+
+
+def test_download_propagates_pbar_close_error_and_keeps_part(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+    opened_files: list[BinaryIO],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output"
+    pbar = unittest.mock.Mock()
+    pbar.close.side_effect = OSError("pbar close failed")
+    monkeypatch.setattr(
+        sys.modules["gdown.download"].tqdm, "tqdm", lambda **_kwargs: pbar
+    )
+
+    with pytest.raises(OSError, match="pbar close failed"):
+        download(
+            url="https://example.com/file",
+            output=str(output),
+            quiet=False,
+            use_cookies=False,
+        )
+
+    assert opened_files[0].closed
+    download_session.close.assert_called_once_with()
+    assert not output.exists()
+    part_files = list(tmp_path.glob("output*.part"))
+    assert len(part_files) == 1
+    assert part_files[0].read_bytes() == b"data"
+
+
 @pytest.mark.network
-def test_download_output_dir_with_trailing_slash(tmp_path: Path) -> None:
+def test_download_output_dir_with_trailing_slash(*, tmp_path: Path) -> None:
     output_dir = str(tmp_path / "subdir") + "/"
     result = download(url=DOWNLOAD_URL, output=output_dir, quiet=True)
     assert isinstance(result, str)
@@ -67,7 +248,7 @@ def test_download_output_dir_with_trailing_slash(tmp_path: Path) -> None:
 
 
 @pytest.mark.network
-def test_download_output_dir_with_trailing_backslash(tmp_path: Path) -> None:
+def test_download_output_dir_with_trailing_backslash(*, tmp_path: Path) -> None:
     output_dir = str(tmp_path / "subdir") + "\\"
     result = download(url=DOWNLOAD_URL, output=output_dir, quiet=True)
     assert isinstance(result, str)
@@ -77,7 +258,7 @@ def test_download_output_dir_with_trailing_backslash(tmp_path: Path) -> None:
 
 
 @pytest.mark.network
-def test_download_output_existing_dir(tmp_path: Path) -> None:
+def test_download_output_existing_dir(*, tmp_path: Path) -> None:
     output_dir = tmp_path / "existing"
     output_dir.mkdir()
     result = download(url=DOWNLOAD_URL, output=str(output_dir), quiet=True)
@@ -88,7 +269,7 @@ def test_download_output_existing_dir(tmp_path: Path) -> None:
 
 @pytest.mark.network
 def test_download_resume_skips_existing_file(
-    download_env: DownloadEnv, capsys: pytest.CaptureFixture[str]
+    *, download_env: DownloadEnv, capsys: pytest.CaptureFixture[str]
 ) -> None:
     download(url=download_env.url, output=download_env.file_path, quiet=True)
     mtime_before = os.path.getmtime(download_env.file_path)
@@ -105,7 +286,7 @@ def test_download_resume_skips_existing_file(
 
 
 @pytest.mark.network
-def test_download_resume_skips_existing_file_in_dir(tmp_path: Path) -> None:
+def test_download_resume_skips_existing_file_in_dir(*, tmp_path: Path) -> None:
     output_dir = tmp_path / "subdir"
     output_dir.mkdir()
     result = download(url=DOWNLOAD_URL, output=str(output_dir), quiet=True)
@@ -128,7 +309,7 @@ def test_download_resume_skips_existing_file_in_dir(tmp_path: Path) -> None:
     ],
 )
 def test_download_rewrites_google_drive_share_link(
-    tmp_path: Path, share_url: str
+    *, tmp_path: Path, share_url: str
 ) -> None:
     expected_url = "https://drive.google.com/uc?id=0B9P1L--7Wd2vU3VUVlFnbTgtS2c"
 
@@ -138,7 +319,7 @@ def test_download_rewrites_google_drive_share_link(
         "Content-Type": "application/octet-stream",
         "Content-Disposition": 'attachment; filename="test.bin"',
     }
-    mock_response.iter_content = lambda chunk_size: [b"data"]
+    mock_response.iter_content = lambda **_kwargs: [b"data"]
     mock_response.url = expected_url
 
     mock_sess = unittest.mock.Mock()
@@ -156,7 +337,7 @@ def test_download_rewrites_google_drive_share_link(
         assert actual_url == expected_url
 
 
-def test_download_skip_download_returns_file_object(tmp_path: Path) -> None:
+def test_download_skip_download_returns_file_object(*, tmp_path: Path) -> None:
     file_id = "0B9P1L--7Wd2vU3VUVlFnbTgtS2c"
 
     mock_response = unittest.mock.Mock()
@@ -189,7 +370,7 @@ def test_download_skip_download_returns_file_object(tmp_path: Path) -> None:
 
 
 @pytest.mark.network
-def test_download_google_slides_without_extension(tmp_path: Path) -> None:
+def test_download_google_slides_without_extension(*, tmp_path: Path) -> None:
     # The file "gdown" in Google Drive is a Google Slides file with no extension
     # in its filename. When downloading directly, download() resolves the correct
     # .pptx extension from the Content-Disposition header.
@@ -200,3 +381,149 @@ def test_download_google_slides_without_extension(tmp_path: Path) -> None:
     )
     assert isinstance(output, str)
     assert output.endswith(".pptx")
+
+
+def test_download_keeps_part_then_resumes_when_body_ends_before_announced_size(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+) -> None:
+    output = tmp_path / "output"
+    download_session.get.return_value = build_response(
+        headers={"Content-Length": "10"}, chunks=[b"data"]
+    )
+
+    with pytest.raises(DownloadError, match="received 4 bytes.*announced 10 bytes"):
+        download(url="https://example.com/file", output=str(output), quiet=True)
+
+    assert not output.exists()
+    (part,) = tmp_path.glob("output*.part")
+    assert part.read_bytes() == b"data"
+
+    download_session.get.side_effect = [
+        download_session.get.return_value,
+        build_response(headers={"Content-Length": "6"}, chunks=[b"123456"]),
+    ]
+    download(
+        url="https://example.com/file", output=str(output), quiet=True, resume=True
+    )
+
+    assert output.read_bytes() == b"data123456"
+    assert not part.exists()
+
+
+def test_download_counts_resumed_bytes_toward_announced_size(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+) -> None:
+    output = tmp_path / "output"
+    part = tmp_path / "output.partial.part"
+    part.write_bytes(b"partial")
+    download_session.get.side_effect = [
+        build_response(headers={"Content-Length": "11"}, chunks=[b"partial"]),
+        build_response(headers={"Content-Length": "4"}, chunks=[b"da"]),
+    ]
+
+    with pytest.raises(DownloadError, match="received 9 bytes.*announced 11 bytes"):
+        download(
+            url="https://example.com/file", output=str(output), quiet=True, resume=True
+        )
+
+    assert part.read_bytes() == b"partialda"
+
+
+def test_download_fails_when_body_ends_early_for_a_caller_stream(
+    *,
+    download_session: unittest.mock.Mock,
+) -> None:
+    output = io.BytesIO()
+    download_session.get.return_value = build_response(
+        headers={"Content-Length": "10"}, chunks=[b"data"]
+    )
+
+    with pytest.raises(DownloadError, match="received 4 bytes"):
+        download(url="https://example.com/file", output=output, quiet=True)
+
+    assert not output.closed
+    assert output.getvalue() == b"data"
+
+
+def test_download_fails_when_the_transport_reports_a_broken_body(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+) -> None:
+    output = tmp_path / "output"
+    download_session.get.return_value.iter_content.side_effect = (
+        requests.exceptions.ChunkedEncodingError("connection broken")
+    )
+
+    with pytest.raises(DownloadError, match="received 0 bytes"):
+        download(url="https://example.com/file", output=str(output), quiet=True)
+
+    assert not output.exists()
+
+
+@pytest.mark.parametrize(
+    ("headers", "total"),
+    [
+        ({}, None),
+        ({"Content-Length": "not-a-number"}, None),
+        ({"Content-Length": "-1"}, None),
+        # Content-Length counts the compressed wire bytes, not the decoded ones.
+        ({"Content-Length": "10", "Content-Encoding": "gzip"}, 10),
+        # A transfer encoding makes the client ignore Content-Length.
+        ({"Content-Length": "100", "Transfer-Encoding": "chunked"}, 100),
+    ],
+)
+def test_download_accepts_body_when_announced_size_is_not_comparable(
+    *,
+    tmp_path: Path,
+    download_session: unittest.mock.Mock,
+    headers: dict[str, str],
+    total: int | None,
+) -> None:
+    output = tmp_path / "output"
+    download_session.get.return_value = build_response(
+        headers=headers, chunks=[b"data"]
+    )
+    reported: list[tuple[int, int | None]] = []
+
+    download(
+        url="https://example.com/file",
+        output=str(output),
+        quiet=True,
+        progress=lambda current, total: reported.append((current, total)),
+    )
+
+    assert output.read_bytes() == b"data"
+    assert reported == [(4, total)]
+
+
+def test_download_keeps_part_when_the_connection_closes_early(
+    *, tmp_path: Path
+) -> None:
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Length", str(2 * CHUNK_SIZE))
+            self.end_headers()
+            self.wfile.write(b"x" * (CHUNK_SIZE + 1000))
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=server.handle_request, daemon=True).start()
+    output = tmp_path / "output"
+
+    with pytest.raises(DownloadError, match=f"announced {2 * CHUNK_SIZE} bytes"):
+        download(
+            url=f"http://127.0.0.1:{server.server_port}/",
+            output=str(output),
+            quiet=True,
+        )
+
+    server.server_close()
+    assert not output.exists()
+    (part,) = tmp_path.glob("output*.part")
+    # How much of the unfinished chunk survives depends on the HTTP client.
+    assert len(part.read_bytes()) >= CHUNK_SIZE

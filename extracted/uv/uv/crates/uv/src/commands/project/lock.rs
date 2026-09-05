@@ -1109,6 +1109,12 @@ async fn do_lock(
             .with_conflicts(conflicts)
             .with_required_environments(lock_required_environments.into_markers());
 
+            let lock = if preview.is_enabled(PreviewFeature::MissingExcludeNewerPackageLock) {
+                lock.without_unused_exclude_newer_packages()
+            } else {
+                lock
+            };
+
             let lock = if preview.is_enabled(PreviewFeature::LockWithoutMetadata) {
                 lock.without_package_metadata()
             } else {
@@ -1196,7 +1202,18 @@ impl ValidatedLock {
             );
             return Ok(Self::Unusable(lock));
         }
-        if let Some(change) = lock.exclude_newer().compare(&options.exclude_newer) {
+        // Ignore package-specific settings that cannot affect the existing resolution. If the
+        // package is added to the requirements, the requirement checks below will invalidate the
+        // lockfile instead.
+        let locked_exclude_newer = lock
+            .exclude_newer()
+            .clone()
+            .filter_packages(lock.packages().iter().map(Package::name));
+        let exclude_newer = options
+            .exclude_newer
+            .clone()
+            .filter_packages(lock.packages().iter().map(Package::name));
+        if let Some(change) = locked_exclude_newer.compare(&exclude_newer) {
             // If a relative value is used, we won't invalidate on every tick of the clock unless
             // the span duration changed or some other operation causes a new resolution
             if !change.is_relative_timestamp_change() {

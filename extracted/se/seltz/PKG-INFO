@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seltz
-Version: 1.10.0
+Version: 1.12.0
 Summary: Seltz Python SDK for AI-powered search
 Author-email: Seltz <support@seltz.ai>
 Project-URL: Homepage, https://seltz.ai
@@ -170,6 +170,89 @@ async def main():
 
 asyncio.run(main())
 ```
+
+### Agent runs
+
+An agent run researches a question with Seltz search and returns a grounded,
+cited answer. Runs are asynchronous — create one and poll it, or let the SDK
+wait for you:
+
+```python
+from seltz import Seltz
+
+client = Seltz(api_key="your-api-key")
+
+run = client.agent.create_and_wait(
+    "Who are the current CEOs of OpenAI, Anthropic and Mistral AI?"
+)
+print(run.output.text)  # cited markdown; [n] markers cite output.sources
+for source in run.output.sources:
+    print(f"  [{source.id}] {source.url}")
+```
+
+`wait` and `create_and_wait` return once the run reaches a terminal `status`
+(`AGENT_RUN_STATUS_COMPLETED`, `_FAILED`, or `_CANCELLED` — compare with the
+`AgentRunStatus` enum); `run.stop_reason` says why it ended.
+
+Pass an OpenAI-style `response_format` object as `output_schema` to also get
+structured output (`run.output.structured`, a JSON string shaped by your
+schema, with per-field citations in `run.output.grounding`):
+
+```python
+run = client.agent.create_and_wait(
+    "Who are the current CEOs of OpenAI, Anthropic and Mistral AI?",
+    output_schema={
+        "type": "json_schema",
+        "json_schema": {
+            "name": "companies",
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "companies": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "ceo": {"type": "string"},
+                            },
+                        },
+                    }
+                },
+            },
+        },
+    },
+)
+print(run.output.structured)
+```
+
+The lower-level pieces are there when you need them: `client.agent.create`
+returns the pending run at once, `client.agent.get(run_id)` polls it,
+`client.agent.wait(run_id)` polls to completion (an optional `timeout` bounds
+the wait client-side; the run keeps executing), `client.agent.cancel(run_id)`
+stops a run, and `client.agent.list()` pages through past runs newest-first
+via its `next` cursor.
+### Fetch
+
+Turn URLs into LLM-ready Markdown. Up to 20 per call, fetched concurrently:
+
+```python
+from seltz import FetchStatus, Seltz
+
+client = Seltz(api_key="your-api-key")
+
+response = client.fetch(["https://example.com/"])
+
+for result in response.results:
+    if result.status == FetchStatus.FETCH_STATUS_OK:
+        print(result.markdown)
+    else:
+        print(f"{result.requested_url}: {result.error.code}")
+```
+
+A page that cannot be fetched is not a call failure. Every requested URL gets a
+result, in the order requested, and a failed one carries
+`status = FetchStatus.FETCH_STATUS_ERROR` and an `error.code`.
 
 ### Async
 

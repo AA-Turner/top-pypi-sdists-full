@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zuvloop
-Version: 0.0.13
+Version: 0.0.14
 Summary: A libuv event loop for asyncio, written in Zig.
 Project-URL: Source, https://github.com/Kludex/zuvloop
 Author-email: Marcelo Trylesinski <marcelotryle@gmail.com>

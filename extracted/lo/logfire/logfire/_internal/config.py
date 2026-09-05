@@ -19,7 +19,7 @@ from datetime import timedelta
 from importlib.metadata import entry_points
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -65,7 +65,7 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
-from typing_extensions import Self, Unpack, assert_type
+from typing_extensions import Self, assert_type
 
 from logfire._internal.auth import LOGFIRE_TOKEN_REGION_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
@@ -115,7 +115,7 @@ from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
 from .integrations.executors import instrument_executors
-from .interactive import require_answer
+from .interactive import ask_or_default, ask_required, require_answer
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
@@ -126,6 +126,7 @@ from .utils import (
     SeededRandomIdGenerator,
     ensure_data_dir_exists,
     handle_internal_errors,
+    platform_is_aws_lambda,
     platform_is_emscripten,
     suppress_instrumentation,
 )
@@ -306,9 +307,16 @@ class PydanticPlugin:
     * `metrics`: Send only metrics.
     """
     include: set[str] = field(default_factory=set[str])
-    """By default, third party modules are not instrumented. This option allows you to include specific modules."""
+    """By default, third party modules are not instrumented. This option allows you to include specific modules.
+
+    Each entry is a regular expression matched against `module::ModelName` and anchored at the end,
+    so use e.g. `openai.*` rather than `openai`, which would only match a model actually named `openai`.
+    """
     exclude: set[str] = field(default_factory=set[str])
-    """Exclude specific modules from instrumentation."""
+    """Exclude specific modules from instrumentation.
+
+    Matched the same way as `include`.
+    """
 
 
 @dataclass
@@ -487,11 +495,6 @@ class LocalVariablesOptions:
     """
 
 
-class DeprecatedKwargs(TypedDict):
-    # Empty so that passing any additional kwargs makes static type checkers complain.
-    pass
-
-
 def configure(
     *,
     local: bool = False,
@@ -516,7 +519,6 @@ def configure(
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
-    **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
     """Configure the logfire SDK.
 
@@ -602,111 +604,6 @@ def configure(
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
-
-    processors = deprecated_kwargs.pop('processors', None)
-    if processors is not None:  # pragma: no cover
-        raise ValueError(
-            'The `processors` argument has been replaced by `additional_span_processors`. '
-            'Set `send_to_logfire=False` to disable the default processor.'
-        )
-
-    metric_readers = deprecated_kwargs.pop('metric_readers', None)
-    if metric_readers is not None:  # pragma: no cover
-        raise ValueError(
-            'The `metric_readers` argument has been replaced by '
-            '`metrics=logfire.MetricsOptions(additional_readers=[...])`. '
-            'Set `send_to_logfire=False` to disable the default metric reader.'
-        )
-
-    collect_system_metrics = deprecated_kwargs.pop('collect_system_metrics', None)
-    if collect_system_metrics is False:
-        raise ValueError(
-            'The `collect_system_metrics` argument has been removed. System metrics are no longer collected by default.'
-        )
-
-    if collect_system_metrics is not None:
-        raise ValueError(
-            'The `collect_system_metrics` argument has been removed. Use `logfire.instrument_system_metrics()` instead.'
-        )
-
-    scrubbing_callback = deprecated_kwargs.pop('scrubbing_callback', None)
-    scrubbing_patterns = deprecated_kwargs.pop('scrubbing_patterns', None)
-    if scrubbing_callback or scrubbing_patterns:
-        if scrubbing is not None:
-            raise ValueError(
-                'Cannot specify `scrubbing` and `scrubbing_callback` or `scrubbing_patterns` at the same time. '
-                'Use only `scrubbing`.'
-            )
-        warnings.warn(
-            'The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated. '
-            'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
-        )
-        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # pyright: ignore[reportArgumentType]
-
-    project_name = deprecated_kwargs.pop('project_name', None)
-    if project_name is not None:
-        warnings.warn(
-            'The `project_name` argument is deprecated and not needed.',
-        )
-
-    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # pyright: ignore[reportAssignmentType]
-    if trace_sample_rate is not None:
-        if sampling:
-            raise ValueError(
-                'Cannot specify both `trace_sample_rate` and `sampling`. '
-                'Use `sampling.head` instead of `trace_sample_rate`.'
-            )
-        else:
-            sampling = SamplingOptions(head=trace_sample_rate)
-            warnings.warn(
-                'The `trace_sample_rate` argument is deprecated. '
-                'Use `sampling=logfire.SamplingOptions(head=...)` instead.',
-            )
-
-    show_summary = deprecated_kwargs.pop('show_summary', None)
-    if show_summary is not None:  # pragma: no cover
-        warnings.warn(
-            'The `show_summary` argument is deprecated. '
-            'Use `console=False` or `console=logfire.ConsoleOptions(show_project_link=False)` instead.',
-        )
-
-    for key in ('base_url', 'id_generator', 'ns_timestamp_generator'):
-        value: Any = deprecated_kwargs.pop(key, None)
-        if value is None:
-            continue
-        if advanced is not None:
-            raise ValueError(f'Cannot specify `{key}` and `advanced`. Use only `advanced`.')
-        # (this means that specifying two deprecated advanced kwargs at the same time will raise an error)
-        advanced = AdvancedOptions(**{key: value})
-        warnings.warn(
-            f'The `{key}` argument is deprecated. Use `advanced=logfire.AdvancedOptions({key}=...)` instead.',
-            stacklevel=2,
-        )
-
-    additional_metric_readers: Any = deprecated_kwargs.pop('additional_metric_readers', None)
-    if additional_metric_readers:
-        if metrics is not None:
-            raise ValueError(
-                'Cannot specify both `additional_metric_readers` and `metrics`. '
-                'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
-            )
-        warnings.warn(
-            'The `additional_metric_readers` argument is deprecated. '
-            'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.',
-        )
-        metrics = MetricsOptions(additional_readers=additional_metric_readers)
-
-    pydantic_plugin: Any = deprecated_kwargs.pop('pydantic_plugin', None)
-    if pydantic_plugin is not None:
-        warnings.warn(
-            'The `pydantic_plugin` argument is deprecated. Use `logfire.instrument_pydantic()` instead.',
-        )
-        from logfire.integrations.pydantic import set_pydantic_plugin_config
-
-        set_pydantic_plugin_config(pydantic_plugin)
-
-    if deprecated_kwargs:
-        raise TypeError(f'configure() got unexpected keyword arguments: {", ".join(deprecated_kwargs)}')
 
     if local:
         config = LogfireConfig()
@@ -1364,6 +1261,15 @@ class LogfireConfig(_LogfireConfigData):
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
+                    elif platform_is_aws_lambda():
+                        # Skip the check inside AWS Lambda. `configure()` usually runs in the init
+                        # phase, and Lambda may freeze the environment right after init until the
+                        # first invocation arrives (proactive initialization), sometimes minutes
+                        # later. A thread frozen mid-request warns "Logfire API is unreachable" once
+                        # thawed although nothing is wrong, and running the check synchronously would
+                        # slow down every cold start. The check is not essential: the exporters
+                        # report a rejected token on the first export anyway.
+                        pass
                     else:
                         thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
@@ -1599,19 +1505,21 @@ class LogfireConfig(_LogfireConfigData):
             self._ensure_flush_after_aws_lambda()
 
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
-        """Force flush all spans and metrics.
+        """Force flush all telemetry and forwarding pipelines.
 
         Args:
             timeout_millis: The timeout in milliseconds.
 
         Returns:
-            Whether the flush of spans was successful.
+            Whether every component that reports a status flushed successfully.
         """
         self._meter_provider.force_flush(timeout_millis)
-        self._logger_provider.force_flush(timeout_millis)
-        # TODO: Combine non-tracer flush results into the returned status in a follow-up.
-        self._otlp_forwarding.force_flush(timeout_millis)
-        return self._tracer_provider.force_flush(timeout_millis)
+        results = (
+            self._logger_provider.force_flush(timeout_millis),
+            self._otlp_forwarding.force_flush(timeout_millis),
+            self._tracer_provider.force_flush(timeout_millis),
+        )
+        return all(result is not False for result in results)
 
     def shutdown(self, timeout_millis: int = 30_000, flush: bool = True) -> bool:
         """Shut down variables, forwarding, traces, logs, and metrics."""
@@ -2054,10 +1962,13 @@ class LogfireCredentials:
                     f'No {project_message} found for the current user{org_message}.',
                     'logfire projects use PROJECT_NAME --org ORGANIZATION',
                 )
-                expand_search = Prompt.ask(
-                    f'No {project_message} found for the current user{org_message}. Choose from all projects?',
-                    choices=['y', 'n'],
-                    default='y',
+                expand_search = ask_or_default(
+                    lambda: Prompt.ask(
+                        f'No {project_message} found for the current user{org_message}. Choose from all projects?',
+                        choices=['y', 'n'],
+                        default='y',
+                    ),
+                    'y',
                 )
                 if expand_search == 'n':
                     # user didn't want to expand search, print a hint and quit
@@ -2088,10 +1999,13 @@ class LogfireCredentials:
                 f'Several projects are available:\n{project_choices_str}',
                 'logfire projects use PROJECT_NAME --org ORGANIZATION',
             )
-            selected_project_key = Prompt.ask(
-                f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
-                choices=list(project_choices.keys()),
-                default='1',
+            selected_project_key = ask_or_default(
+                lambda: Prompt.ask(
+                    f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
+                    choices=list(project_choices.keys()),
+                    default='1',
+                ),
+                '1',
             )
             project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
             organization = project_info_tuple[0]
@@ -2143,11 +2057,15 @@ class LogfireCredentials:
                         'logfire projects new PROJECT_NAME --org ORGANIZATION',
                         'logfire projects new PROJECT_NAME --default-org',
                     )
-                    organization = Prompt.ask(
-                        '\nTo create and use a new project, please provide the following information:\n'
-                        'Select the organization to create the project in',
-                        choices=organizations,
-                        default=user_default_organization_name or organizations[0],
+                    org_default = user_default_organization_name or organizations[0]
+                    organization = ask_or_default(
+                        lambda: Prompt.ask(
+                            '\nTo create and use a new project, please provide the following information:\n'
+                            'Select the organization to create the project in',
+                            choices=organizations,
+                            default=org_default,
+                        ),
+                        org_default,
                     )
             else:
                 organization = organizations[0]
@@ -2159,8 +2077,12 @@ class LogfireCredentials:
                         f'logfire projects new PROJECT_NAME --org {organization}',
                         'logfire projects new PROJECT_NAME --default-org',
                     )
-                    confirm = Confirm.ask(
-                        f'The project will be created in the organization "{organization}". Continue?', default=True
+                    confirm = ask_or_default(
+                        lambda: Confirm.ask(
+                            f'The project will be created in the organization "{organization}". Continue?',
+                            default=True,
+                        ),
+                        True,
                     )
                     if not confirm:
                         sys.exit(1)
@@ -2182,6 +2104,22 @@ class LogfireCredentials:
             """A runnable `projects new`, carrying the organization already settled on."""
             return f'logfire projects new {name} --org {organization}'
 
+        def ask_project_name(prompt: str) -> str:
+            """Ask for a project name, falling back to `project_name_default` on EOF.
+
+            Unless it is the `...` sentinel, in which case there is no safe name to fall
+            back on (see the comment below), so an exhausted stdin gets the same
+            `NonInteractiveError` guidance `--non-interactive` would rather than silently
+            creating a project called Ellipsis.
+            """
+            if project_name_default is ...:  # pyright: ignore[reportUnnecessaryComparison]  # it really can be
+                return ask_required(
+                    lambda: Prompt.ask(prompt, default=project_name_default),
+                    prompt.strip(),
+                    name_remedy('PROJECT_NAME'),
+                )
+            return ask_or_default(lambda: Prompt.ask(prompt, default=project_name_default), project_name_default)
+
         while True:
             if not project_name:
                 # `project_name_prompt` carries WHY a name is being asked for -- it is
@@ -2196,7 +2134,7 @@ class LogfireCredentials:
                     project_name_prompt.strip(),
                     name_remedy('PROJECT_NAME' if name_rejected else project_name_default),
                 )
-            project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
+            project_name = project_name or ask_project_name(project_name_prompt)
             while project_name and not re.match(PROJECT_NAME_PATTERN, project_name):
                 # A name that was SUPPLIED and is malformed skips the guard above, so
                 # without this the recovery prompt below reads stdin and hangs.
@@ -2206,13 +2144,12 @@ class LogfireCredentials:
                     'a hyphen.',
                     name_remedy('PROJECT_NAME'),
                 )
-                project_name = Prompt.ask(
+                project_name = ask_project_name(
                     "\nThe project name you've entered is invalid. Valid project names:\n"
                     '  * may contain lowercase alphanumeric characters\n'
                     '  * may contain single hyphens\n'
                     '  * may not start or end with a hyphen\n\n'
-                    'Enter the project name you want to use:',
-                    default=project_name_default,
+                    'Enter the project name you want to use:'
                 )
 
             try:
@@ -2262,7 +2199,12 @@ class LogfireCredentials:
 
         projects = client.get_user_projects()
         if projects:
-            use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
+            # `default=True` already says what "no answer" means, same as a real person
+            # pressing Enter would give -- an exhausted stdin gets that same outcome
+            # rather than an EOFError traceback (see `ask_or_default`).
+            use_existing_projects = ask_or_default(
+                lambda: Confirm.ask('Do you want to use one of your existing projects? ', default=True), True
+            )
             if use_existing_projects:  # pragma: no branch
                 credentials = cls.use_existing_project(client=client, projects=projects)
 
@@ -2271,10 +2213,17 @@ class LogfireCredentials:
 
         try:
             result = cls(**credentials, logfire_api_url=client.base_url)
-            Prompt.ask(
-                f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
-                'Press Enter to continue'
-            )
+            # This prompt exists to give a person a beat before moving on -- nothing is
+            # done with the answer either way. When there is no one to press the key,
+            # there is no beat to give, so an exhausted stdin just continues rather than
+            # raising an EOFError traceback after the project was already created.
+            try:
+                Prompt.ask(
+                    f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
+                    'Press Enter to continue'
+                )
+            except EOFError:
+                pass
             return result
         except TypeError as e:  # pragma: no cover
             raise LogfireConfigError(f'Invalid credentials, when initializing project: {e}') from e

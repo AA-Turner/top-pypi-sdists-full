@@ -56,6 +56,16 @@ if TYPE_CHECKING:
     from griffe._internal.docstrings.parsers import DocstringOptions, DocstringStyle
     from griffe._internal.enumerations import Parser
 
+_load_events = (
+    "on_alias",
+    "on_object",
+    "on_module",
+    "on_class",
+    "on_function",
+    "on_attribute",
+    "on_type_alias",
+)
+
 
 class GriffeLoader:
     """The Griffe loader, allowing to load data from modules."""
@@ -78,6 +88,7 @@ class GriffeLoader:
         allow_inspection: bool = True,
         force_inspection: bool = False,
         store_source: bool = True,
+        prefer_stubs_docs: bool = False,
     ) -> None:
         """Initialize the loader.
 
@@ -90,6 +101,9 @@ class GriffeLoader:
             modules_collection: A collection of modules.
             allow_inspection: Whether to allow inspecting modules when visiting them is not possible.
             store_source: Whether to store code source in the lines collection.
+            prefer_stubs_docs: Whether to give precedence to stubs docstrings
+                rather than source docstrings. When both are present, the stubs one
+                will override the source one.
         """
         self.extensions: Extensions = extensions or load_extensions()
         """Loaded Griffe extensions."""
@@ -100,6 +114,7 @@ class GriffeLoader:
         self.lines_collection: LinesCollection = lines_collection or LinesCollection()
         """Collection of source code lines."""
         self.modules_collection: ModulesCollection = modules_collection or ModulesCollection()
+        self.modules_collection._psd = prefer_stubs_docs
         """Collection of modules."""
         self.allow_inspection: bool = allow_inspection
         """Whether to allow inspecting (importing) modules for which we can't find sources."""
@@ -107,6 +122,8 @@ class GriffeLoader:
         """Whether to force inspecting (importing) modules, even when sources were found."""
         self.store_source: bool = store_source
         """Whether to store source code in the lines collection."""
+        self.prefer_stubs_docs: bool = prefer_stubs_docs
+        """Whether to give precedence to stubs docstrings rather than source ones."""
         self._search_paths: Sequence[str | Path] | None = search_paths
         self._time_stats: dict = {
             "time_spent_visiting": 0,
@@ -247,7 +264,8 @@ class GriffeLoader:
         obj = self.modules_collection.get_member(obj_path)
         self.extensions.call("on_package", pkg=module, loader=self)
         self.extensions.call("on_module", mod=module, loader=self)
-        self._fire_load_events(module)
+        if self.extensions.has_hooks(*_load_events):
+            self._fire_load_events(module)
         return obj
 
     def resolve_aliases(
@@ -564,7 +582,7 @@ class GriffeLoader:
             # then we need to load the entire stubs package to merge everything.
             submodules = submodules and package.stubs.parent != package.path.parent
             stubs = self._load_module(package.name, package.stubs, submodules=submodules)
-            return merge_stubs(top_module, stubs)
+            return merge_stubs(top_module, stubs, prefer_stubs_docs=self.prefer_stubs_docs)
         return top_module
 
     def _load_module(
@@ -776,6 +794,7 @@ def load(
     force_inspection: bool = False,
     store_source: bool = True,
     find_stubs_package: bool = False,
+    prefer_stubs_docs: bool = False,
     resolve_aliases: bool = False,
     resolve_external: bool | None = None,
     resolve_implicit: bool = False,
@@ -834,6 +853,9 @@ def load(
         find_stubs_package: Whether to search for stubs-only package.
             If both the package and its stubs are found, they'll be merged together.
             If only the stubs are found, they'll be used as the package itself.
+        prefer_stubs_docs: Whether to give precedence to stubs docstrings
+            rather than source docstrings. When both are present, the stubs one
+            will override the source one.
         resolve_aliases: Whether to resolve aliases.
         resolve_external: Whether to try to load unspecified modules to resolve aliases.
             Default value (`None`) means to load external modules only if they are the private sibling
@@ -853,6 +875,7 @@ def load(
         allow_inspection=allow_inspection,
         force_inspection=force_inspection,
         store_source=store_source,
+        prefer_stubs_docs=prefer_stubs_docs,
     )
     result = loader.load(
         objspec,
@@ -881,6 +904,7 @@ def load_git(
     allow_inspection: bool = True,
     force_inspection: bool = False,
     find_stubs_package: bool = False,
+    prefer_stubs_docs: bool = False,
     resolve_aliases: bool = False,
     resolve_external: bool | None = None,
     resolve_implicit: bool = False,
@@ -917,6 +941,9 @@ def load_git(
         find_stubs_package: Whether to search for stubs-only package.
             If both the package and its stubs are found, they'll be merged together.
             If only the stubs are found, they'll be used as the package itself.
+        prefer_stubs_docs: Whether to give precedence to stubs docstrings
+            rather than source docstrings. When both are present, the stubs one
+            will override the source one.
         resolve_aliases: Whether to resolve aliases.
         resolve_external: Whether to try to load unspecified modules to resolve aliases.
             Default value (`None`) means to load external modules only if they are the private sibling
@@ -947,6 +974,7 @@ def load_git(
             resolve_aliases=resolve_aliases,
             resolve_external=resolve_external,
             resolve_implicit=resolve_implicit,
+            prefer_stubs_docs=prefer_stubs_docs,
         )
 
 
@@ -965,6 +993,7 @@ def load_pypi(
     allow_inspection: bool = True,
     force_inspection: bool = False,
     find_stubs_package: bool = False,
+    prefer_stubs_docs: bool = False,
     resolve_aliases: bool = False,
     resolve_external: bool | None = None,
     resolve_implicit: bool = False,
@@ -988,6 +1017,9 @@ def load_pypi(
         find_stubs_package: Whether to search for stubs-only package.
             If both the package and its stubs are found, they'll be merged together.
             If only the stubs are found, they'll be used as the package itself.
+        prefer_stubs_docs: Whether to give precedence to stubs docstrings
+            rather than source docstrings. When both are present, the stubs one
+            will override the source one.
         resolve_aliases: Whether to resolve aliases.
         resolve_external: Whether to try to load unspecified modules to resolve aliases.
             Default value (`None`) means to load external modules only if they are the private sibling
@@ -1072,4 +1104,5 @@ def load_pypi(
         resolve_aliases=resolve_aliases,
         resolve_external=resolve_external,
         resolve_implicit=resolve_implicit,
+        prefer_stubs_docs=prefer_stubs_docs,
     )

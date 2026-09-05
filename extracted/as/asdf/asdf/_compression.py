@@ -1,15 +1,25 @@
+from __future__ import annotations
+
 import bz2
 import struct
+import typing
 import warnings
 import zlib
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from .config import get_config
 from .exceptions import AsdfWarning
 
+if TYPE_CHECKING:
+    from io import IOBase
 
-def validate(compression):
+    from asdf.generic_io import GenericFile
+    from asdf.typing import ByteArray1D, Compression
+
+
+def validate(compression: str | bytes | None) -> str | None:
     """
     Validate the compression string.
 
@@ -115,6 +125,9 @@ class Lz4Compressor:
                         )  # use numpy instead of bytearray so we can avoid zero initialization
                         _pos = 0
                     newbytes = min(_size - _pos, len(blk))  # don't fill past the buffer len!
+
+                    # Older versions of python seem to treat memoryview specializations weirdly
+                    # pyrefly: ignore[no-matching-overload]
                     _buffer[_pos : _pos + newbytes] = np.frombuffer(blk[:newbytes], dtype=np.byte)
                     _pos += newbytes
                     blk = blk[newbytes:]
@@ -202,7 +215,7 @@ def _get_all_compression_extension_labels():
     return labels
 
 
-def _get_compressor(label):
+def _get_compressor(label: str) -> Any:
     ext_comp = _get_compressor_from_extensions(label)
 
     if ext_comp is not None:
@@ -221,7 +234,7 @@ def _get_compressor(label):
     return comp
 
 
-def to_compression_header(compression):
+def to_compression_header(compression: Compression) -> bytes:
     """
     Converts a compression string to the four byte field in a block
     header.
@@ -235,7 +248,9 @@ def to_compression_header(compression):
     return compression
 
 
-def decompress(fd, used_size, data_size, compression, config=None):
+def decompress(
+    fd: GenericFile, used_size: int, data_size: int, compression: str, config: dict[Any, Any] | None = None
+) -> ByteArray1D:
     """
     Decompress binary data in a file
 
@@ -264,7 +279,7 @@ def decompress(fd, used_size, data_size, compression, config=None):
     """
     buffer = np.empty((data_size,), np.uint8)
 
-    compression = validate(compression)
+    compression = typing.cast("str", validate(compression))
     decoder = _get_compressor(compression)
     if config is None:
         config = {}
@@ -279,7 +294,12 @@ def decompress(fd, used_size, data_size, compression, config=None):
     return buffer
 
 
-def compress(fd, data, compression, config=None):
+def compress(
+    fd: GenericFile | IOBase,
+    data: ByteArray1D | bytes | bytearray,
+    compression: str | bytes,
+    config: dict[str, Any] | None = None,
+) -> None:
     """
     Compress array data and write to a file.
 
@@ -298,7 +318,7 @@ def compress(fd, data, compression, config=None):
         Any kwarg parameters to pass to the underlying compression
         function
     """
-    compression = validate(compression)
+    compression = typing.cast("str", validate(compression))
     encoder = _get_compressor(compression)
     if config is None:
         config = {}
@@ -308,13 +328,17 @@ def compress(fd, data, compression, config=None):
     # - 1D: so that len(data) works, not just data.nbytes
     # - itemsize: should preserve data.itemsize for compressors that want to use the record size
     # - memoryview: don't incur the expense of a memcpy, such as with tobytes()
-    data = memoryview(data)
-    if not data.contiguous:
-        data = memoryview(data.tobytes())  # make a contiguous copy
-    data = memoryview(np.frombuffer(data, dtype=data.format))  # get a 1D array that preserves byteorder
-    if not data.contiguous:
+    view = memoryview(data)  # pyrefly: ignore[bad-argument-type]
+    if not view.contiguous:
+        view = memoryview(view.tobytes())  # make a contiguous copy
+
+    # get a 1D array that preserves byteorder
+    # Note: in Python < 3.12 numpy typing doesn't correctly reflect that arrays support buffer protocol
+    # See also: https://github.com/numpy/numpy/issues/26783
+    view = memoryview(np.frombuffer(view, dtype=view.format))  # pyrefly: ignore[bad-argument-type]
+    if not view.contiguous:
         # the data will be contiguous by construction, but better safe than sorry!
-        raise ValueError(data.contiguous)
+        raise ValueError(view.contiguous)
 
     compressed = encoder.compress(data, **config)
     # Write block by block
@@ -322,7 +346,9 @@ def compress(fd, data, compression, config=None):
         fd.write(comp)
 
 
-def get_compressed_size(data, compression, config=None):
+def get_compressed_size(
+    data: ByteArray1D | bytes | bytearray, compression: str, config: dict[str, Any] | None = None
+) -> int:
     """
     Returns the number of bytes required when the given data is
     compressed.
@@ -346,6 +372,6 @@ def get_compressed_size(data, compression, config=None):
             self.count += len(data)
 
     bcf = _ByteCountingFile()
-    compress(bcf, data, compression, config=config)
+    compress(bcf, data, compression, config=config)  # pyrefly: ignore [bad-argument-type]
 
     return bcf.count

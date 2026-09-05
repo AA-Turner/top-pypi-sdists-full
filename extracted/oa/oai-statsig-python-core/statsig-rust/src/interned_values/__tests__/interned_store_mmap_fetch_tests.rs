@@ -15,10 +15,15 @@ use crate::{
         },
         mmap_data_v2::{ArchivedMmapDataV2, MmapDataV2},
     },
-    specs_response::spec_types::SpecsResponseFull,
+    specs_response::{
+        spec_types::SpecsResponseFull,
+        statsig_config_specs::{self as pb, return_value},
+    },
 };
 use memmap2::Mmap;
+use prost::Message;
 use rusty_fork::rusty_fork_test;
+use sha2::{Digest, Sha256};
 #[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 #[cfg(target_os = "linux")]
@@ -27,7 +32,7 @@ use std::{
     collections::HashMap,
     fs,
     fs::File,
-    io::Read,
+    io::{Read, Write},
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -36,7 +41,7 @@ use std::{
 };
 use wiremock::{
     Mock, MockServer, Request, ResponseTemplate,
-    matchers::{method, path},
+    matchers::{header, method, path},
 };
 
 const MMAP_FETCH_SDK_KEY: &str = "interned-store-fetch-mmap";
@@ -49,6 +54,7 @@ const OTHER_MMAP_FETCH_SDK_KEY: &str = "interned-store-fetch-mmap-other";
 const MMAP_NUMERIC_SDK_KEY: &str = "interned-store-numeric-mmap";
 const MMAP_PROTO_NUMERIC_SDK_KEY: &str = "interned-store-proto-numeric-mmap";
 const MMAP_PROTO_GENERATION_SDK_KEY: &str = "interned-store-conditional-proto-mmap";
+const MMAP_REMOTE_PROTO_SDK_KEY: &str = "interned-store-remote-proto-mmap";
 const MMAP_NO_UPDATE_SDK_KEY: &str = "interned-store-conditional-no-update-mmap";
 const MMAP_GENERATION_SDK_KEY: &str = "interned-store-conditional-generation-mmap";
 const MMAP_STALE_SDK_KEY: &str = "interned-store-conditional-stale-mmap";
@@ -63,6 +69,7 @@ const EVAL_PROJ_JSON: &str = include_str!("../../../tests/data/eval_proj_dcs.jso
 const EVAL_PROJ_PROTO: &[u8] = include_bytes!("../../../tests/data/eval_proj_dcs.pb.br");
 const BIG_NUMBER_JSON: &str = include_str!("../../../tests/data/big_number_dcs.json");
 const LEGACY_V1_TEST_BYTES: &[u8] = b"legacy v1 artifact";
+const DOWNLOAD_PATH_PREFIX: &str = "/v1/dynamic_config_value/";
 
 fn config_json_with_cursor(lcut: u64, checksum: Option<&str>) -> String {
     let mut config = serde_json::from_str::<serde_json::Value>(EVAL_PROJ_JSON).unwrap();
@@ -93,6 +100,77 @@ fn config_response(body: String, lcut: u64, checksum: Option<&str>) -> ResponseT
     response
 }
 
+fn remote_protobuf_config_response(
+    server: &MockServer,
+    download_path: &str,
+    sha: &str,
+    byte_length: usize,
+) -> Vec<u8> {
+    let placeholder = serde_json::to_vec(&format!("{}{download_path}", server.uri())).unwrap();
+    let top_level = pb::SpecsTopLevel {
+        has_updates: true,
+        time: 1,
+        company_id: "company".to_string(),
+        response_format: "dcs-v2".to_string(),
+        checksum: "remote-mmap-checksum".to_string(),
+        rest: br#"{"experiment_to_layer":{},"condition_map":{}}"#.to_vec(),
+        may_have_remote_config_metadata: Some(true),
+    };
+    let dynamic_config = pb::Spec {
+        salt: "salt".to_string(),
+        enabled: true,
+        entity: pb::EntityType::EntityDynamicConfig as i32,
+        default_value: Some(pb::ReturnValue {
+            value: Some(return_value::Value::RawValue(placeholder)),
+        }),
+        remote_config_metadata: Some(pb::RemoteConfigValueMetadata {
+            sha256: sha.to_string(),
+            byte_length: byte_length as u64,
+            content_type: "application/json".to_string(),
+            compression: "none".to_string(),
+        }),
+        ..Default::default()
+    };
+    let envelopes = [
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::TopLevel as i32,
+            data: Some(top_level.encode_to_vec()),
+            ..Default::default()
+        },
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
+            name: "large_config".to_string(),
+            checksum: "remote-config-checksum".to_string(),
+            data: Some(dynamic_config.encode_to_vec()),
+        },
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::Done as i32,
+            ..Default::default()
+        },
+    ];
+    let mut uncompressed = Vec::new();
+    for envelope in envelopes {
+        envelope.encode_length_delimited(&mut uncompressed).unwrap();
+    }
+
+    let mut compressed = Vec::new();
+    {
+        let mut writer = brotli::CompressorWriter::new(&mut compressed, 4096, 5, 22);
+        writer.write_all(&uncompressed).unwrap();
+    }
+    compressed
+}
+
+fn lowercase_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        result.push(HEX[(byte >> 4) as usize] as char);
+        result.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    result
+}
+
 fn query_params(request: &Request) -> HashMap<String, String> {
     request
         .url
@@ -102,14 +180,13 @@ fn query_params(request: &Request) -> HashMap<String, String> {
 }
 
 #[tokio::test]
-async fn fetch_and_write_mmap_uses_authoritative_sdk_key_path() {
+async fn fetch_and_write_mmap_uses_header_auth_and_authoritative_storage_key() {
     let server = MockServer::start().await;
     let v1_path = legacy_mmap_v1_path_for_sdk_key(MMAP_FETCH_SDK_KEY);
     let _ = fs::remove_file(&v1_path);
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_FETCH_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
+        .and(header("statsig-api-key", MMAP_FETCH_SDK_KEY))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
@@ -162,17 +239,17 @@ async fn fetch_and_write_mmap_uses_authoritative_sdk_key_path() {
 }
 
 #[tokio::test]
-async fn conditional_fetch_sends_cursor_and_preserves_artifact_on_no_update() {
+async fn conditional_fetch_preserves_artifact_on_legacy_proto_header_no_update() {
     let server = MockServer::start().await;
     let initial_body = config_json_with_cursor(100, Some("checksum100"));
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_NO_UPDATE_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
+        .and(header("statsig-api-key", MMAP_NO_UPDATE_SDK_KEY))
         .respond_with(move |request: &Request| {
             if query_params(request).contains_key("sinceTime") {
                 ResponseTemplate::new(200)
-                    .insert_header("content-type", "application/json")
+                    .insert_header("content-type", "application/octet-stream")
+                    .insert_header("content-encoding", "statsig-br")
                     .insert_header("x-cache-hit", "true")
                     .insert_header("x-since-time", "100")
                     .set_body_string(r#"{"has_updates":false}"#)
@@ -243,9 +320,7 @@ async fn conditional_fetch_publishes_higher_lcut_and_same_lcut_checksum_repair()
     let higher_body = config_json_with_cursor(101, Some("checksum101"));
     let repair_body = config_json_with_cursor(101, Some("checksum102"));
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_GENERATION_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(move |request: &Request| {
             let query = query_params(request);
             match query.get("checksum").map(String::as_str) {
@@ -316,9 +391,7 @@ async fn conditional_fetch_publishes_higher_lcut_and_same_lcut_checksum_repair()
 async fn conditional_fetch_ignores_stale_response_and_rejects_malformed_identity() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_STALE_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(config_response(
             config_json_with_cursor(100, Some("checksum100")),
             100,
@@ -344,9 +417,7 @@ async fn conditional_fetch_ignores_stale_response_and_rejects_malformed_identity
 
     server.reset().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_STALE_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
@@ -368,9 +439,7 @@ async fn conditional_fetch_ignores_stale_response_and_rejects_malformed_identity
 
     server.reset().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_STALE_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
@@ -390,9 +459,7 @@ async fn conditional_fetch_ignores_stale_response_and_rejects_malformed_identity
 
     server.reset().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_STALE_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
@@ -418,9 +485,7 @@ async fn conditional_fetch_supports_an_empty_optional_checksum() {
     let server = MockServer::start().await;
     let initial_body = config_json_with_cursor(200, None);
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_NO_CHECKSUM_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(move |request: &Request| {
             if query_params(request).contains_key("sinceTime") {
                 ResponseTemplate::new(200)
@@ -474,9 +539,7 @@ async fn conditional_fetch_publishes_same_lcut_checksum_without_header() {
     let initial_body = config_json_with_cursor(300, None);
     let repaired_body = config_json_with_cursor(300, Some("repairchecksum"));
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_SAME_LCUT_REPAIR_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(move |request: &Request| {
             if query_params(request).contains_key("sinceTime") {
                 config_response(repaired_body.clone(), 300, None)
@@ -552,9 +615,7 @@ async fn conditional_fetch_publishes_same_lcut_checksum_without_header() {
 async fn conditional_fetch_rejects_explicit_empty_checksum_conflicts() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(config_response(
             config_json_with_cursor(400, Some("checksum400")),
             400,
@@ -584,9 +645,7 @@ async fn conditional_fetch_rejects_explicit_empty_checksum_conflicts() {
 
     server.reset().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(config_response(
             config_json_with_cursor(401, Some("checksum401")),
             401,
@@ -607,9 +666,7 @@ async fn conditional_fetch_rejects_explicit_empty_checksum_conflicts() {
 
     server.reset().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
@@ -642,9 +699,7 @@ async fn conditional_fetch_accepts_protobuf_generation_without_checksum_header()
 
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_PROTO_GENERATION_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/octet-stream")
@@ -684,6 +739,55 @@ async fn conditional_fetch_accepts_protobuf_generation_without_checksum_header()
     );
 }
 
+#[tokio::test]
+async fn fetch_and_write_mmap_hydrates_remote_protobuf_before_publishing() {
+    let server = MockServer::start().await;
+    let remote_value = br#"{"large":"mmap"}"#;
+    let sha = lowercase_hex(&Sha256::digest(remote_value));
+    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+
+    Mock::given(method("GET"))
+        .and(path(download_path.clone()))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "application/json")
+                .set_body_bytes(remote_value),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/v2/download_config_specs"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "application/octet-stream")
+                .insert_header("content-encoding", "statsig-br")
+                .set_body_bytes(remote_protobuf_config_response(
+                    &server,
+                    &download_path,
+                    &sha,
+                    remote_value.len(),
+                )),
+        )
+        .mount(&server)
+        .await;
+
+    InternedStore::fetch_and_write_mmap_with_specs_url(
+        MMAP_REMOTE_PROTO_SDK_KEY,
+        &format!("{}/v2/download_config_specs", server.uri()),
+    )
+    .await
+    .unwrap();
+
+    let file = File::open(mmap_v2_path_for_sdk_key(MMAP_REMOTE_PROTO_SDK_KEY)).unwrap();
+    let mmap = unsafe { Mmap::map(&file).unwrap() };
+    let archived = rkyv::access::<ArchivedMmapDataV2, rkyv::rancor::Error>(&mmap).unwrap();
+    assert!(matches!(
+        archived.find_returnable_value_for_test("large"),
+        Some(ArchivedRkyvValue::String(value)) if value.as_str() == "mmap"
+    ));
+}
+
 rusty_fork_test! {
     #[test]
     fn same_key_refresh_lock_prevents_delayed_response_rollback() {
@@ -701,9 +805,7 @@ rusty_fork_test! {
                 let first_body = config_json_with_marker(101, "checksum101", STALE_MARKER);
                 let second_body = config_json_with_marker(102, "checksum102", NEWEST_MARKER);
                 Mock::given(method("GET"))
-                    .and(path(format!(
-                        "/v2/download_config_specs/{MMAP_CONCURRENT_SAME_KEY}.json"
-                    )))
+                    .and(path("/v2/download_config_specs"))
                     .respond_with(move |_request: &Request| {
                         match response_index.fetch_add(1, Ordering::SeqCst) {
                             0 => config_response(first_body.clone(), 101, Some("checksum101"))
@@ -774,7 +876,8 @@ rusty_fork_test! {
                 let server = MockServer::start().await;
                 for sdk_key in [MMAP_CONCURRENT_A_SDK_KEY, MMAP_CONCURRENT_B_SDK_KEY] {
                     Mock::given(method("GET"))
-                        .and(path(format!("/v2/download_config_specs/{sdk_key}.json")))
+                        .and(path("/v2/download_config_specs"))
+                        .and(header("statsig-api-key", sdk_key))
                         .respond_with(
                             ResponseTemplate::new(200)
                                 .insert_header("content-type", "application/json")
@@ -819,9 +922,7 @@ rusty_fork_test! {
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let server = MockServer::start().await;
             Mock::given(method("GET"))
-                .and(path(format!(
-                    "/v2/download_config_specs/{MMAP_V2_PUBLIC_SDK_KEY}.json"
-                )))
+                .and(path("/v2/download_config_specs"))
                 .respond_with(
                     ResponseTemplate::new(200)
                         .insert_header("content-type", "application/json")
@@ -850,9 +951,7 @@ rusty_fork_test! {
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let server = MockServer::start().await;
             Mock::given(method("GET"))
-                .and(path(format!(
-                    "/v2/download_config_specs/{MMAP_NUMERIC_SDK_KEY}.json"
-                )))
+                .and(path("/v2/download_config_specs"))
                 .respond_with(
                     ResponseTemplate::new(200)
                         .insert_header("content-type", "application/json")
@@ -886,9 +985,7 @@ rusty_fork_test! {
         tokio::runtime::Runtime::new().unwrap().block_on(async {
             let server = MockServer::start().await;
             Mock::given(method("GET"))
-                .and(path(format!(
-                    "/v2/download_config_specs/{MMAP_PROTO_NUMERIC_SDK_KEY}.json"
-                )))
+                .and(path("/v2/download_config_specs"))
                 .respond_with(
                     ResponseTemplate::new(200)
                         .insert_header("content-type", "application/octet-stream")
@@ -924,9 +1021,7 @@ rusty_fork_test! {
 async fn fetch_and_write_mmap_replaces_v2_and_leaves_v1_untouched() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_REPLACE_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
@@ -1014,9 +1109,7 @@ async fn uid_10001_can_preload_artifact_written_by_uid_1000() {
 
     let server = MockServer::start().await;
     Mock::given(method("GET"))
-        .and(path(format!(
-            "/v2/download_config_specs/{MMAP_CROSS_UID_SDK_KEY}.json"
-        )))
+        .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")

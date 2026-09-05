@@ -91,10 +91,9 @@ class Recorder(object):
                     break
 
                 except PermissionError:
-                    if self._show_msg:
-                        print('\r文件被打开，保存失败，请关闭，程序会自动重试。', end='')
+                    print('\r文件被打开，保存失败，请关闭，程序会自动重试。', end='')
 
-                except Exception as e:
+                except Exception:
                     try:
                         with open('failed_data.txt', 'a+', encoding='utf-8') as f:
                             f.write(str(self.data) + '\n')
@@ -102,14 +101,18 @@ class Recorder(object):
                         from traceback import print_exc
                         print_exc()
                     except ImportError:
+                        self._handler.clear()
                         return None
-                    except :
+                    except:
                         print('未保存数据：', self.data)
+                        self._handler.clear()
                         return None
+                    self._handler.clear()
                     return None
 
                 finally:
                     self._pause_write = False
+                    self._pause_add = False
 
                 sleep(.3)
 

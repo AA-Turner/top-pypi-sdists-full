@@ -525,6 +525,19 @@ def test_empty_repr():
     assert repr(h) == hrepr
 
 
+def test_empty_mean_repr_has_no_sum_line():
+    # Mean/WeightedMean accumulators have no __bool__, so an empty sum is
+    # still truthy; the repr must not print a spurious "# Sum:" for it.
+    h = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.Mean())
+    assert "# Sum:" not in repr(h)
+
+    h2 = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.WeightedMean())
+    assert "# Sum:" not in repr(h2)
+
+    h.fill([0.5], sample=[1.0])
+    assert "# Sum:" in repr(h)
+
+
 def test_str():
     h1 = bh.Histogram(bh.axis.Regular(3, 0, 1))
     h1.view(True)[...] = [0, 1, 3, 2, 1]
@@ -672,6 +685,32 @@ def test_int_storage_division_promotes_to_double(storage):
     assert a is a_orig
     assert a.storage_type is bh.storage.Double
     assert a.view() == approx(expected)
+
+
+@pytest.mark.parametrize("storage", [bh.storage.Int64, bh.storage.AtomicInt64])
+def test_int_storage_mul_by_float_promotes_to_double(storage):
+    # A non-integer scalar multiply must promote like division, instead of
+    # leaking a numpy UFuncTypeError from the in-place int64 view multiply.
+    a = bh.Histogram(bh.axis.Integer(0, 3), storage=storage())
+    a[:] = (1, 2, 3)
+
+    result = a * 0.5
+    assert result.storage_type is bh.storage.Double
+    assert result.view() == approx(np.array([0.5, 1.0, 1.5]))
+    # operand is unchanged
+    assert a.storage_type is storage
+
+    # multiplying by an integer scalar keeps the int storage
+    int_result = a * 2
+    assert int_result.storage_type is storage
+    assert int_result.view() == approx(np.array([2, 4, 6]))
+
+    # in-place multiply promotes storage but keeps the same object
+    a_orig = a
+    a *= 0.5
+    assert a is a_orig
+    assert a.storage_type is bh.storage.Double
+    assert a.view() == approx(np.array([0.5, 1.0, 1.5]))
 
 
 def test_mixed_int_double_division():
@@ -1309,6 +1348,26 @@ def test_rank0_sum_empty():
     assert h.sum(flow=True) == 3
 
 
+def test_rank0_project():
+    # project() drives the same rank-0-UB indexed range as sum()/empty() above,
+    # and unlike those it cannot be avoided by picking a coverage. The identity
+    # is the only valid projection of a rank-0 histogram.
+    h = bh.Histogram()
+    h.fill()
+    assert h.project().ndim == 0
+    assert h.project().sum() == 1
+
+
+def test_rank0_reduce():
+    # reduce() drives the same rank-0-UB indexed range. Nothing public reaches
+    # it on a rank-0 histogram today (__getitem__ only reduces when it has
+    # slices to apply), so exercise the binding directly.
+    h = bh.Histogram()
+    h.fill()
+    assert h._reduce().ndim == 0
+    assert h._reduce().sum() == 1
+
+
 @pytest.mark.parametrize(
     "dtype",
     [np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64],
@@ -1910,3 +1969,148 @@ def test_fill_noncontiguous_str_category():
     h2 = bh.Histogram(bh.axis.StrCategory(cat))
     h2.fill(np.array(["a", "b", "c"])[::-1])
     assert h2.view(flow=True) == approx(expected2.view(flow=True))
+
+
+@pytest.mark.parametrize(
+    ("dtype", "value"),
+    [(np.int64, 2**32 + 3), (np.uint32, 2**31 + 3), (np.uint64, 2**32 + 3)],
+)
+def test_fill_int_axis_out_of_range(dtype, value):
+    # Regression test: wide integers were narrowed to int32 and wrapped silently
+    h = bh.Histogram(bh.axis.Integer(0, 5))
+    with pytest.raises(ValueError):
+        h.fill(np.array([value], dtype=dtype))
+    assert h.sum(flow=True) == 0
+
+    c = bh.Histogram(bh.axis.IntCategory([1, 2, 3]))
+    with pytest.raises(ValueError):
+        c.fill(np.array([value], dtype=dtype))
+    assert c.sum(flow=True) == 0
+
+
+def test_index_int_axis_out_of_range():
+    with pytest.raises(ValueError):
+        bh.axis.Integer(0, 5).index(np.array([2**32 + 3]))
+    with pytest.raises(ValueError):
+        bh.axis.IntCategory([1, 2, 3]).index(np.array([2**32 + 2]))
+
+
+def test_fill_int_axis_scalar_out_of_range():
+    h = bh.Histogram(bh.axis.Integer(0, 5))
+    with pytest.raises((ValueError, TypeError)):
+        h.fill(2**32 + 3)
+    assert h.sum(flow=True) == 0
+
+
+@pytest.mark.parametrize(
+    "dtype", [np.bool_, np.int8, np.uint8, np.int16, np.uint16, np.int32, np.int64]
+)
+def test_fill_int_axis_dtypes(dtype):
+    h = bh.Histogram(bh.axis.Integer(0, 5))
+    h.fill(np.array([0, 1, 1], dtype=dtype))
+    assert h.view() == approx(np.array([1, 2, 0, 0, 0]))
+
+    b = bh.Histogram(bh.axis.Boolean())
+    b.fill(np.array([0, 1, 1], dtype=dtype))
+    assert b.view() == approx(np.array([1, 2]))
+
+
+def test_compare_ndarray_metadata():
+    # Metadata that gives no plain bool from == must not abort the interpreter
+    array = np.arange(3)
+    h = bh.Histogram(bh.axis.Regular(3, 0, 1, metadata=array))
+    h_same = bh.Histogram(bh.axis.Regular(3, 0, 1, metadata=array))
+    h_other = bh.Histogram(bh.axis.Regular(3, 0, 1, metadata=np.arange(3)))
+
+    assert h == h_same
+    assert h != h_other
+    assert (h + h_same).sum() == 0
+    assert h.copy(deep=False) == h
+
+    with pytest.raises(ValueError, match="axes"):
+        h + h_other
+
+
+@pytest.mark.parametrize(
+    "axis_type", [bh.axis.StrCategory, bh.axis.IntCategory], ids=["str", "int"]
+)
+def test_growth_axis_survives_merge(axis_type):
+    # An axis held by the user must not dangle when a merge replaces it
+    values = ["a", "b", "c"] if axis_type is bh.axis.StrCategory else [1, 2, 3]
+
+    h = bh.Histogram(axis_type([], growth=True))
+    h.fill(values[:1])
+    ax = h.axes[0]
+    assert ax.size == 1
+
+    h2 = bh.Histogram(axis_type([], growth=True))
+    h2.fill(values[1:])
+    h += h2
+
+    # The old axis is a snapshot of the merged-from state
+    assert ax.size == 1
+    assert ax.index(values[0]) == 0
+
+    assert h.axes[0].size == 3
+    assert list(h.axes[0]) == values
+
+
+def test_growth_axis_size_after_fill():
+    h = bh.Histogram(bh.axis.Regular(2, 0, 1, growth=True))
+    assert h.axes[0].size == 2
+    h.fill([0.5, 2.5])
+    assert h.axes[0].size == 6
+    assert h.axes[0].size == h.view().size
+
+
+def test_view_after_growth():
+    # A growing fill moves the storage; the view must follow the new size
+    h = bh.Histogram(bh.axis.Integer(0, 5, growth=True))
+    h.fill(np.arange(1000))
+
+    assert h.view().sum() == 1000
+    assert h.view(flow=True).size == 1000
+
+
+def test_setitem_with_growth_axis():
+    h = bh.Histogram(bh.axis.Regular(4, 0, 1, growth=True))
+    h[...] = np.arange(4)
+    assert h.view() == approx(np.arange(4))
+
+    h[1] = 10
+    assert h[1] == 10
+    assert h.view() == approx([0, 10, 2, 3])
+
+    h[np.array([0, 2])] = [5, 6]
+    assert h.view() == approx([5, 10, 6, 3])
+
+
+def test_inplace_op_with_growth_axis():
+    h = bh.Histogram(bh.axis.Regular(4, 0, 1, growth=True))
+    h.fill([0.1, 0.6])
+    h *= 2
+    assert h.sum() == 4
+    h /= 2
+    assert h.sum() == 2
+    assert h.axes[0].size == 4
+
+
+@pytest.mark.parametrize("deep", [False, True], ids=["shallow", "deep"])
+def test_copy_growth_axis_metadata_is_independent(deep):
+    h = bh.Histogram(bh.axis.Regular(4, 0, 1, growth=True, metadata="original"))
+    h2 = h.copy(deep=deep)
+    h2.axes[0].metadata = "changed"
+
+    assert h.axes[0].metadata == "original"
+    assert h2.axes[0].metadata == "changed"
+
+
+def test_growth_axis_metadata_write_through():
+    h = bh.Histogram(bh.axis.StrCategory([], growth=True))
+    h.axes[0].metadata = "label"
+    assert h.axes[0].metadata == "label"
+    h.fill(["a"])
+    assert h.axes[0].metadata == "label"
+
+    # The copy of a growth axis must hold the same dict as the stored axis
+    assert h.axes[0].__dict__ is h.axes[0].__dict__

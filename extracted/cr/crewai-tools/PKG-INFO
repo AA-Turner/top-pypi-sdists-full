@@ -1,14 +1,14 @@
 Metadata-Version: 2.5
 Name: crewai-tools
-Version: 1.15.18
+Version: 1.15.20
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI
 Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 Requires-Python: <3.14,>=3.10
-Requires-Dist: beautifulsoup4~=4.13.4
-Requires-Dist: crewai==1.15.18
+Requires-Dist: beautifulsoup4<5,>=4.13.4
+Requires-Dist: crewai==1.15.20
 Requires-Dist: pymupdf~=1.26.6
 Requires-Dist: python-docx~=1.2.0
 Requires-Dist: pytube~=15.0.0
@@ -45,7 +45,7 @@ Requires-Dist: exa-py>=1.8.7; extra == 'exa-py'
 Provides-Extra: firecrawl-py
 Requires-Dist: firecrawl-py>=1.8.0; extra == 'firecrawl-py'
 Provides-Extra: github
-Requires-Dist: gitpython<4,>=3.1.58; extra == 'github'
+Requires-Dist: gitpython<4,>=3.1.59; extra == 'github'
 Requires-Dist: pygithub==1.59.1; extra == 'github'
 Provides-Extra: hyperbrowser
 Requires-Dist: hyperbrowser>=0.18.0; extra == 'hyperbrowser'
@@ -85,7 +85,7 @@ Requires-Dist: sqlalchemy>=2.0.40; extra == 'singlestore'
 Provides-Extra: snowflake
 Requires-Dist: cryptography>=43.0.3; extra == 'snowflake'
 Requires-Dist: snowflake-connector-python>=3.12.4; extra == 'snowflake'
-Requires-Dist: snowflake-sqlalchemy>=1.7.3; extra == 'snowflake'
+Requires-Dist: snowflake-sqlalchemy>=1.11.0; extra == 'snowflake'
 Provides-Extra: spider-client
 Requires-Dist: spider-client>=0.1.25; extra == 'spider-client'
 Provides-Extra: sqlalchemy
@@ -97,8 +97,9 @@ Requires-Dist: tavily-python~=0.7.14; extra == 'tavily-python'
 Provides-Extra: weaviate-client
 Requires-Dist: weaviate-client>=4.10.2; extra == 'weaviate-client'
 Provides-Extra: xml
-Requires-Dist: nltk>=3.10.0; extra == 'xml'
-Requires-Dist: unstructured[all-docs,local-inference]>=0.17.2; extra == 'xml'
+Requires-Dist: nltk>=3.10.3; extra == 'xml'
+Requires-Dist: unstructured[all-docs,local-inference]>=0.17.2; (python_version < '3.11') and extra == 'xml'
+Requires-Dist: unstructured[all-docs,local-inference]>=0.24.0; (python_version >= '3.11') and extra == 'xml'
 Description-Content-Type: text/markdown
 
 <div align="center">

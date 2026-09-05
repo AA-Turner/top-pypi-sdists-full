@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import os
+import signal
 from typing import TYPE_CHECKING, Literal
 
 from plato.computer_use.base import (
@@ -33,6 +35,31 @@ if TYPE_CHECKING:
     from plato.computer_use.base import ActionRecorderLike
 
 _log = logging.getLogger(__name__)
+
+
+def _kill_process_group(proc: asyncio.subprocess.Process) -> None:
+    """SIGKILL the whole process group led by ``proc``.
+
+    ``proc.kill()`` signals only the ``/bin/sh -c ...`` we spawned. dash forks
+    rather than execs for most command lines, so the actual command (``sleep``,
+    a compiler, whatever) survives, is reparented to PID 1 and keeps the write
+    ends of our stdout/stderr pipes open — a follow-up ``communicate()`` then
+    blocks until the command finishes on its own, i.e. the timeout buys nothing.
+    Spawning with ``start_new_session=True`` puts the shell and everything it
+    forks into their own process group, so one ``killpg`` takes the lot down.
+    """
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except ProcessLookupError:
+        pass  # Already gone (or already reaped) — nothing to kill.
+    except OSError:
+        # No process group of our own (shouldn't happen with
+        # start_new_session=True); fall back to killing just the child.
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+
 
 # Map DesktopComputer scroll directions to SDK ScrollDirection enum
 _SCROLL_DIR_MAP = {
@@ -342,16 +369,18 @@ class RemoteDesktopComputer(_ActionRecorderMixin):
                     command,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    # Own process group, so the timeout path can kill the shell
+                    # AND everything it forked (see _kill_process_group).
+                    start_new_session=True,
                 )
                 out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             except TimeoutError:
-                # Kill the still-running child; wait_for cancelled communicate()
-                # but does not terminate the subprocess, which would otherwise
-                # linger holding its pipes.
+                # wait_for cancelled communicate() but did not terminate the
+                # subprocess, which would otherwise linger holding its pipes.
                 if proc is not None:
-                    proc.kill()
+                    _kill_process_group(proc)
                     try:
-                        await proc.communicate()
+                        await proc.wait()  # reap, so we leave no zombie
                     except Exception:
                         pass
                 return ToolResult(error=f"runtime bash timed out after {timeout}s: {command!r}")

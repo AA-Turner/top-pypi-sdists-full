@@ -14067,7 +14067,7 @@ class PnpmWorkspaceYaml(
         shamefully_hoist: typing.Optional[builtins.bool] = None,
         shared_workspace_lockfile: typing.Optional[builtins.bool] = None,
         shell_emulator: typing.Optional[builtins.bool] = None,
-        side_effects_cache: typing.Optional[builtins.bool] = None,
+        side_effects_cache: typing.Any = None,
         side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
         state_dir: typing.Optional[builtins.str] = None,
         store_dir: typing.Optional[builtins.str] = None,
@@ -14079,6 +14079,7 @@ class PnpmWorkspaceYaml(
         symlink: typing.Optional[builtins.bool] = None,
         sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         tag: typing.Optional[builtins.str] = None,
+        tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union["PnpmWorkspaceYamlSchemaTasks", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_lockfile: typing.Optional[builtins.bool] = None,
         trust_policy: typing.Optional["PnpmWorkspaceYamlSchemaTrustPolicy"] = None,
         trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14241,8 +14242,8 @@ class PnpmWorkspaceYaml(
         :param shamefully_hoist: (experimental) By default, pnpm creates a semistrict node_modules, meaning dependencies have access to undeclared dependencies but modules outside of node_modules do not.
         :param shared_workspace_lockfile: (experimental) If this is enabled, pnpm creates a single pnpm-lock.yaml file in the root of the workspace.
         :param shell_emulator: (experimental) When true, pnpm will use a JavaScript implementation of a bash-like shell to execute scripts.
-        :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks.
-        :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages.
+        :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks. When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version. An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
+        :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages. The older spelling of sideEffectsCache: { read: true, write: false }.
         :param state_dir: (experimental) The location where all the packages are saved on the disk.
         :param store_dir: (experimental) The location where all the packages are saved on the disk.
         :param strict_dep_builds: (experimental) When strictDepBuilds is enabled, the installation will exit with a non-zero exit code if any dependencies have unreviewed build scripts (aka postinstall scripts).
@@ -14253,6 +14254,7 @@ class PnpmWorkspaceYaml(
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
         :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
+        :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
@@ -14431,6 +14433,7 @@ class PnpmWorkspaceYaml(
             symlink=symlink,
             sync_injected_deps_after_scripts=sync_injected_deps_after_scripts,
             tag=tag,
+            tasks=tasks,
             trust_lockfile=trust_lockfile,
             trust_policy=trust_policy,
             trust_policy_exclude=trust_policy_exclude,
@@ -14637,6 +14640,7 @@ class PnpmWorkspaceYaml(
         "symlink": "symlink",
         "sync_injected_deps_after_scripts": "syncInjectedDepsAfterScripts",
         "tag": "tag",
+        "tasks": "tasks",
         "trust_lockfile": "trustLockfile",
         "trust_policy": "trustPolicy",
         "trust_policy_exclude": "trustPolicyExclude",
@@ -14802,7 +14806,7 @@ class PnpmWorkspaceYamlSchema:
         shamefully_hoist: typing.Optional[builtins.bool] = None,
         shared_workspace_lockfile: typing.Optional[builtins.bool] = None,
         shell_emulator: typing.Optional[builtins.bool] = None,
-        side_effects_cache: typing.Optional[builtins.bool] = None,
+        side_effects_cache: typing.Any = None,
         side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
         state_dir: typing.Optional[builtins.str] = None,
         store_dir: typing.Optional[builtins.str] = None,
@@ -14814,6 +14818,7 @@ class PnpmWorkspaceYamlSchema:
         symlink: typing.Optional[builtins.bool] = None,
         sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         tag: typing.Optional[builtins.str] = None,
+        tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union["PnpmWorkspaceYamlSchemaTasks", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_lockfile: typing.Optional[builtins.bool] = None,
         trust_policy: typing.Optional["PnpmWorkspaceYamlSchemaTrustPolicy"] = None,
         trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14976,8 +14981,8 @@ class PnpmWorkspaceYamlSchema:
         :param shamefully_hoist: (experimental) By default, pnpm creates a semistrict node_modules, meaning dependencies have access to undeclared dependencies but modules outside of node_modules do not.
         :param shared_workspace_lockfile: (experimental) If this is enabled, pnpm creates a single pnpm-lock.yaml file in the root of the workspace.
         :param shell_emulator: (experimental) When true, pnpm will use a JavaScript implementation of a bash-like shell to execute scripts.
-        :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks.
-        :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages.
+        :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks. When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version. An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
+        :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages. The older spelling of sideEffectsCache: { read: true, write: false }.
         :param state_dir: (experimental) The location where all the packages are saved on the disk.
         :param store_dir: (experimental) The location where all the packages are saved on the disk.
         :param strict_dep_builds: (experimental) When strictDepBuilds is enabled, the installation will exit with a non-zero exit code if any dependencies have unreviewed build scripts (aka postinstall scripts).
@@ -14988,6 +14993,7 @@ class PnpmWorkspaceYamlSchema:
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
         :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
+        :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
@@ -15181,6 +15187,7 @@ class PnpmWorkspaceYamlSchema:
             check_type(argname="argument symlink", value=symlink, expected_type=type_hints["symlink"])
             check_type(argname="argument sync_injected_deps_after_scripts", value=sync_injected_deps_after_scripts, expected_type=type_hints["sync_injected_deps_after_scripts"])
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
+            check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
             check_type(argname="argument trust_lockfile", value=trust_lockfile, expected_type=type_hints["trust_lockfile"])
             check_type(argname="argument trust_policy", value=trust_policy, expected_type=type_hints["trust_policy"])
             check_type(argname="argument trust_policy_exclude", value=trust_policy_exclude, expected_type=type_hints["trust_policy_exclude"])
@@ -15504,6 +15511,8 @@ class PnpmWorkspaceYamlSchema:
             self._values["sync_injected_deps_after_scripts"] = sync_injected_deps_after_scripts
         if tag is not None:
             self._values["tag"] = tag
+        if tasks is not None:
+            self._values["tasks"] = tasks
         if trust_lockfile is not None:
             self._values["trust_lockfile"] = trust_lockfile
         if trust_policy is not None:
@@ -17026,18 +17035,23 @@ class PnpmWorkspaceYamlSchema:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def side_effects_cache(self) -> typing.Optional[builtins.bool]:
+    def side_effects_cache(self) -> typing.Any:
         '''(experimental) Use and cache the results of (pre/post)install hooks.
+
+        When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version.
+        An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#sideEffectsCache
         '''
         result = self._values.get("side_effects_cache")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def side_effects_cache_readonly(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Only use the side effects cache if present, do not create it for new packages.
+
+        The older spelling of sideEffectsCache: { read: true, write: false }.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#sideEffectsCacheReadonly
@@ -17150,6 +17164,20 @@ class PnpmWorkspaceYamlSchema:
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tasks(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PnpmWorkspaceYamlSchemaTasks"]]:
+        '''(experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``).
+
+        A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#tasks
+        '''
+        result = self._values.get("tasks")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PnpmWorkspaceYamlSchemaTasks"]], result)
 
     @builtins.property
     def trust_lockfile(self) -> typing.Optional[builtins.bool]:
@@ -18169,6 +18197,71 @@ class PnpmWorkspaceYamlSchemaSupportedArchitectures:
 
     def __repr__(self) -> str:
         return "PnpmWorkspaceYamlSchemaSupportedArchitectures(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.PnpmWorkspaceYamlSchemaTasks",
+    jsii_struct_bases=[],
+    name_mapping={"concurrency": "concurrency", "depends_on": "dependsOn"},
+)
+class PnpmWorkspaceYamlSchemaTasks:
+    def __init__(
+        self,
+        *,
+        concurrency: typing.Optional[jsii.Number] = None,
+        depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param concurrency: (experimental) A positive integer limiting how many instances of this named task may run across workspace projects at once. This limit is separate from workspaceConcurrency.
+        :param depends_on: (experimental) Tasks this task depends on. Each entry is either the task in the same project (e.g. ``build``) or the task in each selected workspace dependency of the project (e.g. ``^build``).
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__11922318df2eb4c2d78131a285a39e0b5aa239597cdde9c9c386144852a5c473)
+            check_type(argname="argument concurrency", value=concurrency, expected_type=type_hints["concurrency"])
+            check_type(argname="argument depends_on", value=depends_on, expected_type=type_hints["depends_on"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if concurrency is not None:
+            self._values["concurrency"] = concurrency
+        if depends_on is not None:
+            self._values["depends_on"] = depends_on
+
+    @builtins.property
+    def concurrency(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) A positive integer limiting how many instances of this named task may run across workspace projects at once.
+
+        This limit is separate from workspaceConcurrency.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#concurrency
+        '''
+        result = self._values.get("concurrency")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def depends_on(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Tasks this task depends on.
+
+        Each entry is either the task in the same project (e.g. ``build``) or the task in each selected workspace dependency of the project (e.g. ``^build``).
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchemaTasks#dependsOn
+        '''
+        result = self._values.get("depends_on")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PnpmWorkspaceYamlSchemaTasks(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -26236,6 +26329,7 @@ class NodeConfigFileOptions(NodeConfigSchema):
         "symlink": "symlink",
         "sync_injected_deps_after_scripts": "syncInjectedDepsAfterScripts",
         "tag": "tag",
+        "tasks": "tasks",
         "trust_lockfile": "trustLockfile",
         "trust_policy": "trustPolicy",
         "trust_policy_exclude": "trustPolicyExclude",
@@ -26401,7 +26495,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         shamefully_hoist: typing.Optional[builtins.bool] = None,
         shared_workspace_lockfile: typing.Optional[builtins.bool] = None,
         shell_emulator: typing.Optional[builtins.bool] = None,
-        side_effects_cache: typing.Optional[builtins.bool] = None,
+        side_effects_cache: typing.Any = None,
         side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
         state_dir: typing.Optional[builtins.str] = None,
         store_dir: typing.Optional[builtins.str] = None,
@@ -26413,6 +26507,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         symlink: typing.Optional[builtins.bool] = None,
         sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         tag: typing.Optional[builtins.str] = None,
+        tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union["PnpmWorkspaceYamlSchemaTasks", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_lockfile: typing.Optional[builtins.bool] = None,
         trust_policy: typing.Optional["PnpmWorkspaceYamlSchemaTrustPolicy"] = None,
         trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -26575,8 +26670,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param shamefully_hoist: (experimental) By default, pnpm creates a semistrict node_modules, meaning dependencies have access to undeclared dependencies but modules outside of node_modules do not.
         :param shared_workspace_lockfile: (experimental) If this is enabled, pnpm creates a single pnpm-lock.yaml file in the root of the workspace.
         :param shell_emulator: (experimental) When true, pnpm will use a JavaScript implementation of a bash-like shell to execute scripts.
-        :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks.
-        :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages.
+        :param side_effects_cache: (experimental) Use and cache the results of (pre/post)install hooks. When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version. An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
+        :param side_effects_cache_readonly: (experimental) Only use the side effects cache if present, do not create it for new packages. The older spelling of sideEffectsCache: { read: true, write: false }.
         :param state_dir: (experimental) The location where all the packages are saved on the disk.
         :param store_dir: (experimental) The location where all the packages are saved on the disk.
         :param strict_dep_builds: (experimental) When strictDepBuilds is enabled, the installation will exit with a non-zero exit code if any dependencies have unreviewed build scripts (aka postinstall scripts).
@@ -26587,6 +26682,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         :param symlink: (experimental) When symlink is set to false, pnpm creates a virtual store directory without any symlinks. It is a useful setting together with nodeLinker=pnp.
         :param sync_injected_deps_after_scripts: (experimental) Injected workspace dependencies are collections of hardlinks, which don't add or remove the files when their sources change.
         :param tag: (experimental) If you pnpm add a package and you don't provide a specific version, then it will install the package at the version registered under the tag from this setting.
+        :param tasks: (experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``). A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
         :param trust_lockfile: (experimental) A new trustLockfile setting controls whether pnpm install re-applies the ``minimumReleaseAge`` / ``trustPolicy: 'no-downgrade'`` checks to every entry in the loaded lockfile. When true, the install treats the lockfile as already-trusted and skips the verification pass — useful for closed-source projects where every commit comes from a trusted author. The default is false, so verification stays on by default.
         :param trust_policy: (experimental) When set to no-downgrade, pnpm will fail if a package's trust level has decreased compared to previous releases. For example, if a package was previously published by a trusted publisher but now only has provenance or no trust evidence, installation will fail. This helps prevent installing potentially compromised versions.
         :param trust_policy_exclude: (experimental) You can now list one or more specific packages or versions that pnpm should allow to install, even if those packages don't satisfy the trust policy requirement.
@@ -26780,6 +26876,7 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             check_type(argname="argument symlink", value=symlink, expected_type=type_hints["symlink"])
             check_type(argname="argument sync_injected_deps_after_scripts", value=sync_injected_deps_after_scripts, expected_type=type_hints["sync_injected_deps_after_scripts"])
             check_type(argname="argument tag", value=tag, expected_type=type_hints["tag"])
+            check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
             check_type(argname="argument trust_lockfile", value=trust_lockfile, expected_type=type_hints["trust_lockfile"])
             check_type(argname="argument trust_policy", value=trust_policy, expected_type=type_hints["trust_policy"])
             check_type(argname="argument trust_policy_exclude", value=trust_policy_exclude, expected_type=type_hints["trust_policy_exclude"])
@@ -27103,6 +27200,8 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
             self._values["sync_injected_deps_after_scripts"] = sync_injected_deps_after_scripts
         if tag is not None:
             self._values["tag"] = tag
+        if tasks is not None:
+            self._values["tasks"] = tasks
         if trust_lockfile is not None:
             self._values["trust_lockfile"] = trust_lockfile
         if trust_policy is not None:
@@ -28625,18 +28724,23 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def side_effects_cache(self) -> typing.Optional[builtins.bool]:
+    def side_effects_cache(self) -> typing.Any:
         '''(experimental) Use and cache the results of (pre/post)install hooks.
+
+        When a pre/post install script modify the contents of a package (e.g. build output), pnpm saves the modified package in the global store. On future installs on the same machine, pnpm reuses this cached, prebuilt version.
+        An object is the canonical way to declare the remote tier; ``sideEffectsCache: true`` is the shorthand for reading and writing.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#sideEffectsCache
         '''
         result = self._values.get("side_effects_cache")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def side_effects_cache_readonly(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Only use the side effects cache if present, do not create it for new packages.
+
+        The older spelling of sideEffectsCache: { read: true, write: false }.
 
         :stability: experimental
         :schema: PnpmWorkspaceYamlSchema#sideEffectsCacheReadonly
@@ -28749,6 +28853,20 @@ class PnpmWorkspaceYamlOptions(PnpmWorkspaceYamlSchema):
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tasks(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PnpmWorkspaceYamlSchemaTasks"]]:
+        '''(experimental) Configure dependency relationships and per-task concurrency limits for recursive runs (``pnpm -r run <script>``).
+
+        A task is a script in one workspace project; it becomes ready after every task it depends on completes successfully. A task with no entry under tasks defaults to depending on the same task in its workspace dependencies, but once a task has an entry, an omitted dependsOn is the same as ``dependsOn: []``.
+
+        :stability: experimental
+        :schema: PnpmWorkspaceYamlSchema#tasks
+        '''
+        result = self._values.get("tasks")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PnpmWorkspaceYamlSchemaTasks"]], result)
 
     @builtins.property
     def trust_lockfile(self) -> typing.Optional[builtins.bool]:
@@ -29055,6 +29173,7 @@ __all__ = [
     "PnpmWorkspaceYamlSchemaSavePrefix",
     "PnpmWorkspaceYamlSchemaSaveWorkspaceProtocol",
     "PnpmWorkspaceYamlSchemaSupportedArchitectures",
+    "PnpmWorkspaceYamlSchemaTasks",
     "PnpmWorkspaceYamlSchemaTrustPolicy",
     "PnpmWorkspaceYamlSchemaUpdate",
     "PnpmWorkspaceYamlSchemaUpdateConfig",
@@ -30537,7 +30656,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     shamefully_hoist: typing.Optional[builtins.bool] = None,
     shared_workspace_lockfile: typing.Optional[builtins.bool] = None,
     shell_emulator: typing.Optional[builtins.bool] = None,
-    side_effects_cache: typing.Optional[builtins.bool] = None,
+    side_effects_cache: typing.Any = None,
     side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
     state_dir: typing.Optional[builtins.str] = None,
     store_dir: typing.Optional[builtins.str] = None,
@@ -30549,6 +30668,7 @@ def _typecheckingstub__2098b1b8773738a237232b163e5af035f5b36bc50fe697693830c7eef
     symlink: typing.Optional[builtins.bool] = None,
     sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     tag: typing.Optional[builtins.str] = None,
+    tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union[PnpmWorkspaceYamlSchemaTasks, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_lockfile: typing.Optional[builtins.bool] = None,
     trust_policy: typing.Optional[PnpmWorkspaceYamlSchemaTrustPolicy] = None,
     trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -30720,7 +30840,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     shamefully_hoist: typing.Optional[builtins.bool] = None,
     shared_workspace_lockfile: typing.Optional[builtins.bool] = None,
     shell_emulator: typing.Optional[builtins.bool] = None,
-    side_effects_cache: typing.Optional[builtins.bool] = None,
+    side_effects_cache: typing.Any = None,
     side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
     state_dir: typing.Optional[builtins.str] = None,
     store_dir: typing.Optional[builtins.str] = None,
@@ -30732,6 +30852,7 @@ def _typecheckingstub__8c0d18b78abd4d7d7b8c60a5b9e4c40e284c9830427750e4fc61011e0
     symlink: typing.Optional[builtins.bool] = None,
     sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     tag: typing.Optional[builtins.str] = None,
+    tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union[PnpmWorkspaceYamlSchemaTasks, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_lockfile: typing.Optional[builtins.bool] = None,
     trust_policy: typing.Optional[PnpmWorkspaceYamlSchemaTrustPolicy] = None,
     trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -30818,6 +30939,14 @@ def _typecheckingstub__645b4c4db2557fa13ad01633c54fab0621aa15adcf6dab7209176c06f
     cpu: typing.Optional[typing.Sequence[builtins.str]] = None,
     libc: typing.Optional[typing.Sequence[builtins.str]] = None,
     os: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11922318df2eb4c2d78131a285a39e0b5aa239597cdde9c9c386144852a5c473(
+    *,
+    concurrency: typing.Optional[jsii.Number] = None,
+    depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -31686,7 +31815,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     shamefully_hoist: typing.Optional[builtins.bool] = None,
     shared_workspace_lockfile: typing.Optional[builtins.bool] = None,
     shell_emulator: typing.Optional[builtins.bool] = None,
-    side_effects_cache: typing.Optional[builtins.bool] = None,
+    side_effects_cache: typing.Any = None,
     side_effects_cache_readonly: typing.Optional[builtins.bool] = None,
     state_dir: typing.Optional[builtins.str] = None,
     store_dir: typing.Optional[builtins.str] = None,
@@ -31698,6 +31827,7 @@ def _typecheckingstub__8b43c6e9a1feb513673408cec48906696415a56b44bbb2d9306ac7cbb
     symlink: typing.Optional[builtins.bool] = None,
     sync_injected_deps_after_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     tag: typing.Optional[builtins.str] = None,
+    tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union[PnpmWorkspaceYamlSchemaTasks, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_lockfile: typing.Optional[builtins.bool] = None,
     trust_policy: typing.Optional[PnpmWorkspaceYamlSchemaTrustPolicy] = None,
     trust_policy_exclude: typing.Optional[typing.Sequence[builtins.str]] = None,

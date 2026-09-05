@@ -1,10 +1,8 @@
-#[cfg(test)]
-use std::path::Path;
 use std::{
     borrow::Cow,
     collections::{HashMap, hash_map::Entry},
     marker::PhantomData,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         Arc, OnceLock, Weak,
         atomic::{AtomicBool, Ordering},
@@ -44,7 +42,10 @@ use crate::{
     observability::ops_stats::OpsStatsForInstance,
     specs_adapter::{SpecsInfo, SpecsSyncTrigger, StatsigHttpSpecsAdapter},
     specs_response::{
-        proto_specs::deserialize_protobuf,
+        proto_specs::{
+            ProtobufHydrationContext, ProtobufUpdate, deserialize_protobuf,
+            deserialize_protobuf_for_store_with_hydration,
+        },
         spec_types::{Spec, SpecsResponseFull},
         specs_hash_map::{SpecPointer, SpecsHashMap},
     },
@@ -74,7 +75,10 @@ use mmap_reader::{
     get_returnable as get_returnable_from_mmap, get_spec as get_mmap_spec,
     get_string as get_string_from_mmap,
 };
-use mmap_writer::{acquire_mmap_write_lock, write_mmap_artifacts};
+use mmap_writer::{
+    acquire_mmap_graph_write_lock, acquire_mmap_write_lock, write_mmap_artifacts,
+    write_resolved_mmap_artifacts,
+};
 #[cfg(test)]
 pub(crate) use mmap_writer::{acquire_mmap_write_lock_for_test, write_mmap_v2_for_test};
 
@@ -511,12 +515,66 @@ impl InternedStore {
             .fetch_specs_from_network(specs_info, SpecsSyncTrigger::Manual)
             .await
             .map_err(StatsigErr::NetworkError)?;
-        let result = write_mmap_artifacts(
-            &mut response.data,
-            previous,
-            &mmap_v2_path_for_sdk_key(sdk_key),
-            &mmap_manifest_path_for_sdk_key(sdk_key),
-        );
+        let result = if super::mmap_sync::is_protobuf_response(&response.data) {
+            // The integrated async parser hydrates protobuf values while it
+            // walks the original compressed stream. Hold the graph lock across
+            // that await because parsing fills process-global intern tables
+            // that mmap serialization drains immediately afterward.
+            let graph_guard = acquire_mmap_graph_write_lock().await;
+            if !super::mmap_sync::protobuf_response_needs_parse(&response.data, previous)? {
+                Ok(MmapWriteOutcome::NoUpdate)
+            } else {
+                let current_specs = SpecsResponseFull::default();
+                let mut next_specs = SpecsResponseFull::default();
+                let source_url = response.request_url.clone();
+                let (update, _, _) = deserialize_protobuf_for_store_with_hydration(
+                    adapter.ops_stats(),
+                    &current_specs,
+                    Default::default(),
+                    &mut next_specs,
+                    &mut response.data,
+                    ProtobufHydrationContext {
+                        hydrator: adapter.remote_config_value_hydrator(),
+                        source_url: &source_url,
+                        mmap_project_id: MmapProjectId::for_sdk_key(sdk_key),
+                        capture_hydrated_data_store_bytes: false,
+                        preserve_session_update_mode: false,
+                    },
+                )
+                .await?;
+                if matches!(update, ProtobufUpdate::Materialized { .. }) {
+                    match super::mmap_sync::resolve_parsed_protobuf_response(
+                        &response.data,
+                        next_specs,
+                        previous,
+                    )? {
+                        Some(resolved) => write_resolved_mmap_artifacts(
+                            &graph_guard,
+                            resolved,
+                            &mmap_v2_path_for_sdk_key(sdk_key),
+                            &mmap_manifest_path_for_sdk_key(sdk_key),
+                        ),
+                        None => Ok(MmapWriteOutcome::NoUpdate),
+                    }
+                } else {
+                    Err(StatsigErr::InvalidOperation(
+                        "Mmap protobuf fetch did not produce a full snapshot".to_string(),
+                    ))
+                }
+            }
+        } else {
+            // JSON hydration can rewrite the response in place before the
+            // synchronous mmap parser consumes it.
+            adapter.hydrate_network_response(&mut response).await?;
+            let graph_guard = acquire_mmap_graph_write_lock().await;
+            write_mmap_artifacts(
+                &graph_guard,
+                &mut response.data,
+                previous,
+                &mmap_v2_path_for_sdk_key(sdk_key),
+                &mmap_manifest_path_for_sdk_key(sdk_key),
+            )
+        };
 
         drop(response);
         drop(adapter);
@@ -572,6 +630,34 @@ impl InternedStore {
         optional_sdk_keys: &[&str],
         options: &MmapPreloadOptions,
     ) -> Result<MmapPreloadReport, StatsigErr> {
+        Self::preload_mmap_multi_from_directory(required_sdk_keys, optional_sdk_keys, options, None)
+    }
+
+    /// Preloads one SDK-key-specific committed artifact from an explicit directory.
+    ///
+    /// The configured SDK key is still authenticated against the artifact's project
+    /// identity; the directory only determines where the committed files are located.
+    pub fn preload_mmap_with_options_from_directory(
+        sdk_key: &str,
+        options: &MmapPreloadOptions,
+        directory: &Path,
+    ) -> Result<MmapPreloadReport, StatsigErr> {
+        Self::preload_mmap_multi_from_directory(&[sdk_key], &[], options, Some(directory))
+    }
+
+    /// Reports whether the installed reader contains this exact SDK-key project.
+    ///
+    /// Callers must not treat an installed reader for another project as a match.
+    pub fn has_preloaded_mmap_project(sdk_key: &str) -> bool {
+        mmap_reader::has_project(MmapProjectId::for_sdk_key(sdk_key))
+    }
+
+    fn preload_mmap_multi_from_directory(
+        required_sdk_keys: &[&str],
+        optional_sdk_keys: &[&str],
+        options: &MmapPreloadOptions,
+        directory: Option<&Path>,
+    ) -> Result<MmapPreloadReport, StatsigErr> {
         if required_sdk_keys.is_empty() {
             return Err(StatsigErr::InvalidOperation(
                 "At least one required interned mmap SDK key must be provided".to_string(),
@@ -585,7 +671,7 @@ impl InternedStore {
 
         let mut builder = MmapRegistryBuilder::new();
         for sdk_key in required_sdk_keys {
-            let file = open_committed_mmap_for_sdk_key(sdk_key)?;
+            let file = open_committed_mmap_for_sdk_key(sdk_key, directory)?;
             builder.add_file(MmapProjectId::for_sdk_key(sdk_key), file)?;
         }
 
@@ -595,7 +681,7 @@ impl InternedStore {
             skipped_optional: Vec::new(),
         };
         for (index, sdk_key) in optional_sdk_keys.iter().enumerate() {
-            let result = open_committed_mmap_for_sdk_key(sdk_key)
+            let result = open_committed_mmap_for_sdk_key(sdk_key, directory)
                 .and_then(|file| builder.add_file(MmapProjectId::for_sdk_key(sdk_key), file));
             match result {
                 Ok(()) => report.loaded += 1,
@@ -615,19 +701,75 @@ impl InternedStore {
     }
 }
 
-fn open_committed_mmap_for_sdk_key(sdk_key: &str) -> Result<std::fs::File, StatsigErr> {
+fn open_committed_mmap_for_sdk_key(
+    sdk_key: &str,
+    directory: Option<&Path>,
+) -> Result<std::fs::File, StatsigErr> {
     // TODO: Bind the manifest to the full SDK-key digest and verify it here. These
     // paths use a 32-bit hash, so colliding keys can overwrite each other's artifact.
-    let v2_path = mmap_v2_path_for_sdk_key(sdk_key);
-    let manifest_path = mmap_manifest_path_for_sdk_key(sdk_key);
-    open_committed_mmap_v2(
-        &manifest_path,
-        &legacy_mmap_v1_path_for_sdk_key(sdk_key),
-        &v2_path,
-    )?
-    .ok_or_else(|| {
+    let (manifest_path, legacy_path, v2_path) = committed_mmap_paths(sdk_key, directory);
+    open_committed_mmap_v2(&manifest_path, &legacy_path, &v2_path)?.ok_or_else(|| {
         StatsigErr::InvalidOperation("No committed interned mmap V2 artifact was found".to_string())
     })
+}
+
+fn committed_mmap_paths(sdk_key: &str, directory: Option<&Path>) -> (PathBuf, PathBuf, PathBuf) {
+    match directory {
+        Some(directory) => {
+            let root = directory.join(MMAP_DIRECTORY);
+            let artifact_id = hashing::djb2(sdk_key);
+            (
+                root.join(format!("{artifact_id}_interned_store_manifest.json")),
+                root.join(format!("{artifact_id}_v1_interned_store.mmap")),
+                root.join(format!(
+                    "{artifact_id}_v{}_interned_store.mmap",
+                    super::mmap_data_v2::MmapDataV2::FORMAT_VERSION
+                )),
+            )
+        }
+        None => (
+            mmap_manifest_path_for_sdk_key(sdk_key),
+            legacy_mmap_v1_path_for_sdk_key(sdk_key),
+            mmap_v2_path_for_sdk_key(sdk_key),
+        ),
+    }
+}
+
+#[cfg(test)]
+mod preload_directory_tests {
+    use std::path::Path;
+
+    use super::{MMAP_DIRECTORY, committed_mmap_paths};
+
+    #[test]
+    fn explicit_artifact_directory_preserves_existing_file_names_without_mutating_environment() {
+        let sdk_key = "secret-directory-selection";
+        let default_directory = std::env::temp_dir();
+        assert_eq!(
+            committed_mmap_paths(sdk_key, None),
+            committed_mmap_paths(sdk_key, Some(&default_directory))
+        );
+
+        let custom_directory = Path::new("/private/custom-artifact-root");
+        let (manifest, legacy, current) = committed_mmap_paths(sdk_key, Some(custom_directory));
+        let artifact_id = crate::hashing::djb2(sdk_key);
+        let root = custom_directory.join(MMAP_DIRECTORY);
+        assert_eq!(
+            manifest,
+            root.join(format!("{artifact_id}_interned_store_manifest.json"))
+        );
+        assert_eq!(
+            legacy,
+            root.join(format!("{artifact_id}_v1_interned_store.mmap"))
+        );
+        assert_eq!(
+            current,
+            root.join(format!(
+                "{artifact_id}_v{}_interned_store.mmap",
+                super::super::mmap_data_v2::MmapDataV2::FORMAT_VERSION
+            ))
+        );
+    }
 }
 
 #[cfg(test)]

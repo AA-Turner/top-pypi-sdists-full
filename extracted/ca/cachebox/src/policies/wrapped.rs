@@ -53,6 +53,16 @@ impl<P: PolicyExt> Wrapped<P> {
     pub fn policy(&self) -> parking_lot::MutexGuard<'_, P> {
         self.inner.lock()
     }
+
+    /// Acquires the mutex only if it is free, returning `None` otherwise.
+    ///
+    /// For callers that must never wait for the lock, such as `__traverse__`:
+    /// the thread holding the lock may be running Python code, and a garbage
+    /// collection pass landing there would deadlock the whole process.
+    #[inline(always)]
+    pub fn try_policy(&self) -> Option<parking_lot::MutexGuard<'_, P>> {
+        self.inner.try_lock()
+    }
 }
 
 #[inline(always)]
@@ -298,13 +308,13 @@ impl<P: PolicyExt> Wrapped<P> {
             return Err(new_py_error!(PyValueError, "global_ttl is negative"));
         }
 
-        let builded = tuple.get_item(3)?.cast_into::<pyo3::types::PyTuple>()?;
+        let built = tuple.get_item(3)?.cast_into::<pyo3::types::PyTuple>()?;
 
         let (shared, inner) = P::from_pickle(
             maxsize,
             getsizeof,
             global_ttl.map(std::time::Duration::from_secs_f64),
-            builded,
+            built,
         )?;
 
         Ok(Self {

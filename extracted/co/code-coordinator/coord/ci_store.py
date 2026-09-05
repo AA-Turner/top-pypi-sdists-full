@@ -27,6 +27,8 @@ stub through ``ci_store=`` without touching subprocess at all.
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import time
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
@@ -74,12 +76,81 @@ class JobRun:
     (same name, fetched via ``gh api repos/{repo}/actions/runs/{id}/jobs``)
     with its steps. ``runner_name`` is empty when GitHub never assigned this
     job a runner at all — the "cancelled at the queue timeout" signature.
+
+    ``job_id`` (#3114) is the numeric Actions job id — distinct from both
+    the check's own id and the run id it belongs to — needed to fetch this
+    job's own log text (``gh api repos/{repo}/actions/jobs/{id}/logs``, see
+    :func:`coord.github_ops.get_job_log`). Defaults to ``""`` so every
+    pre-#3114 ``JobRun(...)`` construction (all keyword-based; see
+    :meth:`coord.ci_github.GitHubCi._fetch_jobs`) keeps working unchanged.
     """
 
     name: str
     conclusion: str | None
     runner_name: str
     steps: list[JobStep] = field(default_factory=list)
+    job_id: str = ""
+
+
+@dataclass
+class CIFailureDetail:
+    """Structured detail behind a CONFIRMED CI failure (#3114) — the failing
+    job/step/log-excerpt a ci-fix briefing can use in place of a bare
+    ``checks_summary`` one-liner.
+
+    Built by :func:`coord.ci_github.build_ci_failure_detail`, which is
+    best-effort throughout: any field below can come back empty when the
+    underlying data wasn't available (no job matched the check, the log
+    fetch failed/was throttled, ...) — a caller must treat an all-empty
+    instance the same as "no detail", not as evidence of anything.
+    """
+
+    check_name: str
+    job_name: str = ""
+    step_name: str = ""
+    log_excerpt: str = ""
+    run_url: str = ""
+    truncated: bool = False
+
+
+def ci_failure_detail_to_json(detail: "CIFailureDetail | None") -> str:
+    """Serialize *detail* for :class:`coord.merge_queue.QueuedMerge`'s
+    ``ci_fix_detail_json`` cache column (#3114 review fix).
+
+    ``None`` (a fetch was attempted and genuinely found nothing — not to be
+    confused with "never attempted", which the column represents as SQL
+    NULL / Python ``None`` at the ``QueuedMerge`` level) encodes to the JSON
+    literal ``"null"`` so :func:`ci_failure_detail_from_json` can tell the
+    two apart: a stored ``"null"`` string means "fetched, no detail",
+    whereas the column itself being unset means "never fetched for this
+    SHA".
+    """
+    if detail is None:
+        return "null"
+    return json.dumps(dataclasses.asdict(detail))
+
+
+def ci_failure_detail_from_json(raw: str | None) -> "CIFailureDetail | None":
+    """Inverse of :func:`ci_failure_detail_to_json`. Fails soft: malformed or
+    unexpected JSON (a hand-edited DB row, a future/older schema) decodes to
+    ``None`` — "no cached detail" — rather than raising, matching
+    :func:`coord.ci_github.build_ci_failure_detail`'s own best-effort
+    posture.
+    """
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        return None
+    try:
+        return CIFailureDetail(**data)
+    except TypeError:
+        return None
 
 
 @dataclass

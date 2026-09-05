@@ -3,17 +3,55 @@ from __future__ import annotations
 import secrets
 import time
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field
+
+from ._chat_types import ContentType, Role, SerializedDep, StructuredBlock
+from ._history_client import TurnDict
+from ._typing_extensions import NotRequired, TypedDict
 
 TitleSource = Literal["llm", "user"]
 
 
-def new_conversation_record(*, title: str) -> ConversationRecord:
+class StoredSegmentDict(TypedDict):
+    """Serialized form of a ``StoredSegment`` (``model_dump(exclude_none=True)``)."""
+
+    content: str
+    content_type: ContentType
+    html_deps: NotRequired[list[SerializedDep]]
+
+
+class AttachmentDict(TypedDict):
+    """Serialized form of an :class:`~shinychat._attachments.Attachment`."""
+
+    mime: str
+    name: str
+    size: int
+    data_url: str
+
+
+class StoredUiMessage(TypedDict):
+    """A serialized :class:`StoredMessage` persisted in a node's ``ui`` list.
+
+    Matches ``StoredMessage.model_dump(exclude_none=True)`` plus the
+    ``version`` marker. ``segments`` is interleaved: string segment dicts
+    and structured blocks in content order. Empty ``attachments`` is
+    dropped, so it is ``NotRequired``.
+    """
+
+    role: Role
+    segments: list[StoredSegmentDict | StructuredBlock]
+    version: int
+    attachments: NotRequired[list[AttachmentDict]]
+
+
+def new_conversation_record(
+    *, title: str, id: str | None = None
+) -> ConversationRecord:
     now = utcnow()
     return ConversationRecord(
-        id=new_conversation_id(),
+        id=id if id is not None else new_conversation_id(),
         title=title,
         created_at=now,
         updated_at=now,
@@ -41,10 +79,40 @@ class ConversationNode(BaseModel):
     # Render cache: StoredMessage dicts produced during this exchange.
     # None => re-render from turns on restore (lossy but never broken).
     ui: list[dict[str, Any]] | None = None
+    # Which child was last on the active path below this node. Lets
+    # subtree_leaf() return to the descendant the user last viewed inside this
+    # subtree when they navigate back into it, instead of the newest leaf.
+    # None => never descended here (or leaf) => fall back to newest child.
+    selected_child: str | None = None
+
+    def ui_message_count(self) -> int:
+        # Client-facing message count for this node. Must mirror replay_ui's
+        # `node.ui or [<fallback>]`: a missing/empty `ui` still renders one
+        # fabricated message, so index math (node_id_for_message_index,
+        # _send_sibling_metadata) stays aligned with what the client reports.
+        return len(self.ui) if self.ui else 1
 
 
 MIN_SCHEMA_VERSION = 1
 MAX_SCHEMA_VERSION = 1
+
+# Version marker on stored UI message dicts. The marker's presence, not its
+# value, is what counts. Old or absent markers are discarded and re-derived
+# from turns at replay time.
+STORED_UI_VERSION = 1
+
+
+def is_stored_ui_versioned(ui: list[dict[str, Any]] | None) -> bool:
+    """Whether a node's stored UI carries the version marker.
+
+    Checks the first message only. Derived messages always lead a node's
+    UI list. Unversioned entries after them are client-snapshot messages
+    preserved from the save-time snapshot.
+    """
+    if not ui:
+        return False
+    first = ui[0]
+    return isinstance(first, dict) and first.get("version") is not None
 
 
 class UnsupportedSchemaVersionError(ValueError):
@@ -119,12 +187,69 @@ class ConversationRecord(BaseModel):
         ids.reverse()
         return ids
 
-    def path_turns(self) -> list[dict[str, Any]]:
-        return [
-            turn
-            for node_id in self.path_node_ids()
-            for turn in self.nodes[node_id].turns
-        ]
+    def path_turns(self) -> list[TurnDict]:
+        return cast(
+            list[TurnDict],
+            [
+                turn
+                for node_id in self.path_node_ids()
+                for turn in self.nodes[node_id].turns
+            ],
+        )
+
+    def children_of(self, node_id: str | None) -> list[str]:
+        if node_id is None:
+            children = [
+                nid for nid, node in self.nodes.items() if node.parent is None
+            ]
+            children.sort(key=lambda nid: int(nid.split("_")[1]))
+            return children
+        return list(self.nodes[node_id].children)
+
+    def siblings_of(self, node_id: str) -> list[str]:
+        parent = self.nodes[node_id].parent
+        return self.children_of(parent)
+
+    def set_current_leaf(self, node_id: str | None) -> None:
+        # Move the active leaf and record, at every node on the new path, which
+        # child leads toward that leaf. subtree_leaf() replays those pointers so
+        # navigating back into a sibling subtree returns to the last-viewed
+        # descendant. Off-path nodes are untouched, so each subtree keeps its
+        # own remembered position.
+        self.current_leaf = node_id
+        path = self.path_node_ids()
+        for i, nid in enumerate(path):
+            self.nodes[nid].selected_child = (
+                path[i + 1] if i + 1 < len(path) else None
+            )
+
+    def subtree_leaf(self, node_id: str) -> str:
+        children = self.children_of(node_id)
+        if not children:
+            return node_id
+        selected = self.nodes[node_id].selected_child
+        next_id = selected if selected in children else children[-1]
+        return self.subtree_leaf(next_id)
+
+    def path_sibling_metadata(self) -> dict[str, tuple[int, int]]:
+        result: dict[str, tuple[int, int]] = {}
+        for nid in self.path_node_ids():
+            siblings = self.siblings_of(nid)
+            if len(siblings) > 1:
+                result[nid] = (siblings.index(nid), len(siblings))
+        return result
+
+    def node_id_for_message_index(self, index: int) -> tuple[str, int]:
+        if index < 0:
+            raise IndexError(f"Message index {index} out of range")
+        path = self.path_node_ids()
+        cumulative = 0
+        for i, nid in enumerate(path):
+            n_ui = self.nodes[nid].ui_message_count()
+            if index < cumulative + n_ui:
+                return nid, i
+            cumulative += n_ui
+        raise IndexError(f"Message index {index} out of range")
 
     def append_linear(
         self,
@@ -137,7 +262,7 @@ class ConversationRecord(BaseModel):
         self.nodes[node_id] = node
         if self.current_leaf is not None:
             self.nodes[self.current_leaf].children.append(node_id)
-        self.current_leaf = node_id
+        self.set_current_leaf(node_id)
         self.updated_at = utcnow()
         return node_id
 

@@ -7,20 +7,24 @@ requires = [
 [dependency-groups]
 dev = [
   {include-group = "lint"},
-  {include-group = "test"}
+  {include-group = "test"},
+  {include-group = "types"}
 ]
 lint = [
   {include-group = "pre-commit"}
 ]
 pre-commit = [
-  "prek==0.4.13"
+  "prek==0.5.0"
 ]
 test = [
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2",
   "pytest==9.1.1",
-  "fedora-messaging",
+  "fedora-messaging>=3.9.1",
   "jsonschema[format]"
+]
+types = [
+  "ty==0.0.78"
 ]
 
 [project]
@@ -55,7 +59,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate_schemas"
 requires-python = ">=3.10"
-version = "2026.7"
+version = "2026.8"
 
 [[project.authors]]
 email = "michal@weblate.org"
@@ -104,21 +108,20 @@ docstring-code-format = true
 extend-safe-fixes = [
   "ANN",
   "D",
-  "FA102",
+  "future-required-type-annotation",
   "FLY",
   "SIM",
   "TCH",
   "UP"
 ]
 ignore = [
-  "COM",  # CONFIG: No trailing commas
-  "CPY001",
-  "D203",  # CONFIG: incompatible with D211
-  "D206",  # CONFIG: formatter
-  "E501",  # CONFIG: using formatter
-  "D212",  # CONFIG: incompatible with D213
-  "ANN003",  # Missing type annotation for `**kwargs`
-  "DOC"  # TODO: Ignore all pydoclint rules for now
+  "COM", # CONFIG: No trailing commas
+  "missing-copyright-notice",
+  "incorrect-blank-line-before-class", # CONFIG: incompatible with D211
+  "docstring-tab-indentation", # CONFIG: formatter
+  "line-too-long", # CONFIG: using formatter
+  "multi-line-summary-first-line", # CONFIG: incompatible with D213
+  "DOC" # TODO: Ignore all pydoclint rules for now
 ]
 preview = true
 select = ["ALL"]
@@ -127,7 +130,7 @@ select = ["ALL"]
 max-complexity = 16
 
 [tool.ruff.lint.per-file-ignores]
-"weblate_schemas/tests/**.py" = ["S101"]
+"weblate_schemas/tests/**.py" = ["assert"]
 
 [tool.rumdl]
 disable = [
@@ -152,3 +155,6 @@ zip-safe = false
 
 [tool.setuptools.packages.find]
 namespaces = true
+
+[tool.ty.src]
+include = ["weblate_schemas"]

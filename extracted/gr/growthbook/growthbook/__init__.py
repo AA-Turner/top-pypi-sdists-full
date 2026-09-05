@@ -13,6 +13,7 @@ from .common_types import (
     JSONValue,
     Options,
     Result,
+    TrackingBuffer,
     TrackingCallback,
     UserContext,
 )
@@ -28,7 +29,12 @@ from .growthbook import (
     feature_repo,
 )
 
-from .common_types import AbstractAsyncStickyBucketService
+from .common_types import (
+    AbstractAsyncStickyBucketService,
+    ContextualBanditAssignment,
+    ContextualBanditContext,
+    ContextualBanditDefinition,
+)
 
 from .growthbook_client import (
     GrowthBookClient,
@@ -57,12 +63,16 @@ __all__ = [
     "Options",
     "UserContext",
     "FeatureRefreshStrategy",
+    "TrackingBuffer",
     # Data model
     "Experiment",
     "Result",
     "Feature",
     "FeatureResult",
     "FeatureRule",
+    "ContextualBanditAssignment",
+    "ContextualBanditContext",
+    "ContextualBanditDefinition",
     # Typing helpers
     "JSONValue",
     "TrackingCallback",
@@ -99,5 +109,5 @@ __all__ = [
 ]
 
 # x-release-please-start-version
-__version__ = "3.0.0"
+__version__ = "3.1.0"
 # x-release-please-end

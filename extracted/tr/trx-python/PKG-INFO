@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trx-python
-Version: 0.4.0
+Version: 0.5.0
 Summary: A community-oriented file format for tractography
 Author: The TRX developers
 License: BSD License
@@ -25,11 +25,15 @@ Requires-Dist: deepdiff
 Requires-Dist: nibabel>=5
 Requires-Dist: numpy>=1.22
 Requires-Dist: typer>=0.9
+Provides-Extra: utils
+Requires-Dist: dipy; extra == "utils"
+Requires-Dist: fury<2.0.0,>=0.10.0; extra == "utils"
 Provides-Extra: dev
 Requires-Dist: spin>=0.13; extra == "dev"
 Requires-Dist: setuptools_scm; extra == "dev"
 Provides-Extra: doc
 Requires-Dist: matplotlib; extra == "doc"
+Requires-Dist: myst-parser; extra == "doc"
 Requires-Dist: numpydoc; extra == "doc"
 Requires-Dist: pydata-sphinx-theme>=0.16.1; extra == "doc"
 Requires-Dist: sphinx>=8.2.0; extra == "doc"
@@ -46,6 +50,7 @@ Requires-Dist: pytest>=7; extra == "test"
 Requires-Dist: pytest-console-scripts>=0; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Provides-Extra: all
+Requires-Dist: trx-python[utils]; extra == "all"
 Requires-Dist: trx-python[dev]; extra == "all"
 Requires-Dist: trx-python[doc]; extra == "all"
 Requires-Dist: trx-python[style]; extra == "all"

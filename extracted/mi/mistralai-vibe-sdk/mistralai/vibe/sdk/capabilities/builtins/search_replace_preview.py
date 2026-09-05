@@ -203,7 +203,9 @@ def _line_windows(
             line_end = next_break.end() if next_break is not None else len(content)
         window_start = (
             previous_line_start
-            if span_start > 0 and content[span_start - 1] == "\r"
+            if span_start > 0
+            and content[span_start - 1] == "\r"
+            and content[span_start : span_start + 1] != "\n"
             else line_start
         )
         while line_end <= span_end and line_end < len(content):

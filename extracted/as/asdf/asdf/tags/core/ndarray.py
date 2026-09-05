@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 import mmap
 import sys
+import typing
 
 import numpy as np
 from numpy import ma
 
 from asdf import util
 from asdf._jsonschema import ValidationError
+
+if typing.TYPE_CHECKING:
+    from asdf.typing import NDArray
 
 _STRUCTURED_DATATYPE_KEYS = {"name", "datatype", "byteorder", "shape"}
 
@@ -162,6 +168,12 @@ def inline_data_asarray(inline, dtype=None):
     # there.
     if dtype is not None and dtype.fields is not None:
 
+        def is_empty(arr):
+            if isinstance(arr, list):
+                return all(is_empty(x) for x in arr)
+
+            return False
+
         def find_innermost_match(line, depth=0):
             if not isinstance(line, list) or not len(line):
                 msg = "data can not be converted to structured array"
@@ -173,15 +185,15 @@ def inline_data_asarray(inline, dtype=None):
             else:
                 return depth
 
-        depth = find_innermost_match(inline)
-
         def convert_to_tuples(line, data_depth, depth=0):
             if data_depth == depth:
                 return tuple(line)
 
             return [convert_to_tuples(x, data_depth, depth + 1) for x in line]
 
-        inline = convert_to_tuples(inline, depth)
+        if not is_empty(inline):
+            depth = find_innermost_match(inline)
+            inline = convert_to_tuples(inline, depth)
 
         return np.asarray(inline, dtype=dtype)
 
@@ -229,6 +241,18 @@ def numpy_array_to_list(array):
     return ascii_to_unicode(tolist(array))
 
 
+def inline_array_relax_empty_shape(array: NDArray, shape: tuple[int | str, ...] | None) -> NDArray:
+    if shape is None or any(isinstance(s, str) for s in shape):
+        return array
+
+    # unfortunately above lines do not trigger correct type-narrowing
+    shape = typing.cast("tuple[int, ...]", shape)
+    if array.size == 0 and np.prod(shape) == 0:
+        array = array.reshape(shape)
+
+    return array
+
+
 class NDArrayType:
     def __init__(self, source, shape, dtype, offset, strides, order, mask, data_callback=None):
         self._source = source
@@ -239,6 +263,11 @@ class NDArrayType:
         if isinstance(source, list):
             self._array = inline_data_asarray(source, dtype)
             self._array = self._apply_mask(self._array, self._mask)
+
+            # inline arrays with zero-length dimensions outside the last axis don't round-trip correctly
+            # https://github.com/asdf-format/asdf/issues/2071
+            self._array = inline_array_relax_empty_shape(self._array, shape)
+
             # single element structured arrays can have shape == ()
             # https://github.com/asdf-format/asdf/issues/1540
             if shape is not None and (

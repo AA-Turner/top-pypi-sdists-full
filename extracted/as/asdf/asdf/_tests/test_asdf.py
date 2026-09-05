@@ -1,5 +1,7 @@
 import os
+import pickle
 
+import numpy as np
 import pytest
 
 from asdf import config_context
@@ -52,7 +54,7 @@ class TestExtension:
         return self._url_mapping
 
     @property
-    def extension_uri(self):
+    def extension_uri(self) -> str | None:
         return self._extension_uri
 
     @property
@@ -120,7 +122,8 @@ def test_asdf_file_extensions():
     msg = r"[The extensions parameter must be an extension.*, Extension must implement the Extension interface]"
     for arg in (object(), [object()]):
         with pytest.raises(TypeError, match=msg):
-            AsdfFile(extensions=arg)
+            # Ignore typing here because type is intentionally wrong
+            AsdfFile(extensions=arg)  # pyrefly: ignore[bad-argument-type]
 
 
 def test_asdf_file_version_requirement():
@@ -174,6 +177,8 @@ def test_open_asdf_extensions(tmp_path):
 
     msg = r"[The extensions parameter must be an extension.*, Extension must implement the Extension interface]"
     for arg in (object(), [object()]):
+        # Intentionally incorrect extension type
+        # pyrefly: ignore[no-matching-overload]
         with pytest.raises(TypeError, match=msg), open_asdf(path, extensions=arg) as af:
             pass
 
@@ -376,3 +381,12 @@ def test_fsspec_http(httpserver):
     with fsspec.open(fn) as f:
         af = open_asdf(f)
         assert_tree_match(tree, af.tree)
+
+
+def test_asdf_file_pickle_from_dict():
+    """Verify that an AsdfFile created from a dict (with no file descriptor) can be pickled"""
+    tree = {"a": 1, "b": {"c": 2, "d": np.ones((10, 10))}}
+    af = AsdfFile(tree)
+    pkl = pickle.dumps(af)
+    loaded = pickle.loads(pkl)  # noqa: S301
+    assert_tree_match(af.tree, loaded.tree)

@@ -11,7 +11,7 @@ def sampling_statsig_setup(httpserver: HTTPServer):
     mock_scrapi = MockScrapi(httpserver)
     dcs_content = get_test_data_resource("dcs_with_analytical_exposure_sampling.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json",
+        "/v2/download_config_specs",
         response=dcs_content,
         method="GET",
     )

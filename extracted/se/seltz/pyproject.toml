@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seltz"
-version = "1.10.0"
+version = "1.12.0"
 description = "Seltz Python SDK for AI-powered search"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -86,6 +86,8 @@ split-on-trailing-comma = true
 exclude = ["src/seltz_public_api"]
 
 [tool.mypy]
-files = ["src/seltz"]
+# examples/ and tests/ are checked too: nothing else type-checks them, and a
+# broken sample is the kind of defect a reader hits before any test does.
+files = ["src/seltz", "examples", "tests"]
 ignore_missing_imports = true
 exclude = "src/seltz_public_api/"

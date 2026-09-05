@@ -655,6 +655,13 @@ def _forward_data(src, dst, name: str = "") -> None:
             pass
 
 
+#: How long ``Tunnel``'s accept loop blocks before re-checking ``_running``.
+#: This is what bounds ``Tunnel.stop()``: a blocked ``accept()`` does not wake
+#: when the listening socket is closed from another thread, so stop() waits out
+#: at most one poll interval.
+_TUNNEL_ACCEPT_POLL_S = 0.2
+
+
 class Tunnel:
     """A TCP tunnel to a remote port on a sandbox VM.
 
@@ -736,7 +743,7 @@ class Tunnel:
             assert server is not None, "Server must be initialized before accept_loop"
             while self._running:
                 try:
-                    server.settimeout(1.0)
+                    server.settimeout(_TUNNEL_ACCEPT_POLL_S)
                     client_sock, client_addr = server.accept()
                     threading.Thread(
                         target=handle_client,

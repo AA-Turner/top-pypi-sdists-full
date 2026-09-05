@@ -43,7 +43,7 @@ impl FastUserData {
         let unit_type_hash = unit_id_type.map_or(0, |id_type| self.get_unit_id_hash(id_type));
         let custom_ids_hash_sum = self.sum_custom_id_hashes();
 
-        hashing::hash_one(vec![
+        hashing::hash_u64_slice(&[
             user_id_hash,
             stable_id_hash,
             unit_type_hash,

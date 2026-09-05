@@ -12,13 +12,19 @@ class JSONLHandler(TextLikeHandler):
         """向数据添加left和right数据的方法"""
         ...
 
-    def _handle_data(self, data: Any) -> Any:
+    def _handle_data(self, data: Any) -> list:
+        """格式化数据，以列表格式返回
+        :param data: 初始数据
+        :return: 数据组成的列表
+        """
         ...
 
     def _record_fast(self) -> None:
+        """执行快速记录到文件"""
         ...
 
     def _record_slow(self) -> None:
+        """执行慢速记录到文件"""
         ...
 
 

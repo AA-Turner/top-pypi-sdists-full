@@ -4,6 +4,7 @@ import sys
 import tarfile
 import zipfile
 from pathlib import Path
+from typing import Literal
 
 import pytest
 
@@ -11,13 +12,13 @@ from gdown.extractall import extractall
 
 
 @pytest.fixture
-def _tmp_extract_dir(tmp_path: Path) -> str:
+def _tmp_extract_dir(*, tmp_path: Path) -> str:
     d = tmp_path / "extract"
     d.mkdir()
     return str(d)
 
 
-def test_zip_normal(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_zip_normal(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     zip_path = str(tmp_path / "normal.zip")
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr("hello.txt", "hello world")
@@ -27,24 +28,27 @@ def test_zip_normal(tmp_path: Path, _tmp_extract_dir: str) -> None:
 
     assert os.path.exists(os.path.join(_tmp_extract_dir, "hello.txt"))
     assert os.path.exists(os.path.join(_tmp_extract_dir, "subdir", "nested.txt"))
-    assert len(result) == 2
+    assert result == [
+        os.path.join(_tmp_extract_dir, "hello.txt"),
+        os.path.join(_tmp_extract_dir, "subdir", "nested.txt"),
+    ]
 
 
-def test_tar_normal(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_tar_normal(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     tar_path = str(tmp_path / "normal.tar")
     with tarfile.open(name=tar_path, mode="w") as tf:
         data = b"hello world"
-        info = tarfile.TarInfo(name="hello.txt")
+        info = tarfile.TarInfo(name="subdir/nested.txt")
         info.size = len(data)
         tf.addfile(tarinfo=info, fileobj=io.BytesIO(data))
 
     result = extractall(path=tar_path, to=_tmp_extract_dir)
 
-    assert os.path.exists(os.path.join(_tmp_extract_dir, "hello.txt"))
-    assert len(result) == 1
+    assert os.path.exists(os.path.join(_tmp_extract_dir, "subdir", "nested.txt"))
+    assert result == [os.path.join(_tmp_extract_dir, "subdir", "nested.txt")]
 
 
-def test_zip_path_traversal(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_zip_path_traversal(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     zip_path = str(tmp_path / "evil.zip")
     with zipfile.ZipFile(zip_path, "w") as zf:
         info = zipfile.ZipInfo(filename="../evil.txt")
@@ -57,7 +61,7 @@ def test_zip_path_traversal(tmp_path: Path, _tmp_extract_dir: str) -> None:
     assert not os.path.exists(evil_path)
 
 
-def test_zip_absolute_path(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_zip_absolute_path(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     zip_path = str(tmp_path / "evil.zip")
     with zipfile.ZipFile(zip_path, "w") as zf:
         info = zipfile.ZipInfo(filename="/tmp/evil.txt")
@@ -67,7 +71,7 @@ def test_zip_absolute_path(tmp_path: Path, _tmp_extract_dir: str) -> None:
         extractall(path=zip_path, to=_tmp_extract_dir)
 
 
-def test_tar_absolute_path(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_tar_absolute_path(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     evil_path = str(tmp_path / "outside" / "evil.txt")
     tar_path = str(tmp_path / "evil.tar")
     with tarfile.open(name=tar_path, mode="w") as tf:
@@ -80,15 +84,16 @@ def test_tar_absolute_path(tmp_path: Path, _tmp_extract_dir: str) -> None:
     # Python 3.12+ Unix: data filter strips the leading '/' and extracts safely.
     # Python 3.12+ Windows: data filter raises AbsolutePathError (TarError)
     #   because drive-letter paths (C:\...) remain absolute after stripping.
-    try:
+    if sys.version_info >= (3, 12) and os.name != "nt":
         extractall(path=tar_path, to=_tmp_extract_dir)
-    except (ValueError, tarfile.TarError):
-        pass
+    else:
+        with pytest.raises((ValueError, tarfile.TarError)):
+            extractall(path=tar_path, to=_tmp_extract_dir)
 
     assert not os.path.exists(evil_path)
 
 
-def test_tar_path_traversal(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_tar_path_traversal(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     tar_path = str(tmp_path / "evil.tar")
     with tarfile.open(name=tar_path, mode="w") as tf:
         data = b"malicious content"
@@ -107,7 +112,7 @@ def test_tar_path_traversal(tmp_path: Path, _tmp_extract_dir: str) -> None:
     assert not os.path.exists(evil_path)
 
 
-def test_tar_symlink_rejected(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_tar_symlink_rejected(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     tar_path = str(tmp_path / "symlink.tar")
     with tarfile.open(name=tar_path, mode="w") as tf:
         info = tarfile.TarInfo(name="evil_link")
@@ -123,7 +128,7 @@ def test_tar_symlink_rejected(tmp_path: Path, _tmp_extract_dir: str) -> None:
             extractall(path=tar_path, to=_tmp_extract_dir)
 
 
-def test_tar_hardlink_rejected(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_tar_hardlink_rejected(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     tar_path = str(tmp_path / "hardlink.tar")
     with tarfile.open(name=tar_path, mode="w") as tf:
         info = tarfile.TarInfo(name="evil_link")
@@ -139,7 +144,7 @@ def test_tar_hardlink_rejected(tmp_path: Path, _tmp_extract_dir: str) -> None:
             extractall(path=tar_path, to=_tmp_extract_dir)
 
 
-def test_tar_special_file_rejected(tmp_path: Path, _tmp_extract_dir: str) -> None:
+def test_tar_special_file_rejected(*, tmp_path: Path, _tmp_extract_dir: str) -> None:
     tar_path = str(tmp_path / "fifo.tar")
     with tarfile.open(name=tar_path, mode="w") as tf:
         info = tarfile.TarInfo(name="evil_fifo")
@@ -152,3 +157,48 @@ def test_tar_special_file_rejected(tmp_path: Path, _tmp_extract_dir: str) -> Non
     else:
         with pytest.raises(ValueError, match="is a special file"):
             extractall(path=tar_path, to=_tmp_extract_dir)
+
+
+@pytest.mark.parametrize(
+    "suffix, write_mode",
+    [
+        (".tar.gz", "w:gz"),
+        (".tgz", "w:gz"),
+        (".tar.bz2", "w:bz2"),
+        (".tbz", "w:bz2"),
+    ],
+)
+def test_tar_compressed_normal(
+    *,
+    suffix: str,
+    write_mode: Literal["w:gz", "w:bz2"],
+    tmp_path: Path,
+    _tmp_extract_dir: str,
+) -> None:
+    tar_path = str(tmp_path / f"normal{suffix}")
+    with tarfile.open(name=tar_path, mode=write_mode) as tf:
+        data = b"hello world"
+        info = tarfile.TarInfo(name="hello.txt")
+        info.size = len(data)
+        tf.addfile(tarinfo=info, fileobj=io.BytesIO(data))
+
+    result = extractall(path=tar_path, to=_tmp_extract_dir)
+
+    assert os.path.exists(os.path.join(_tmp_extract_dir, "hello.txt"))
+    assert len(result) == 1
+
+
+def test_unsupported_format(*, tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="no appropriate extractor"):
+        extractall(path=str(tmp_path / "archive.rar"))
+
+
+def test_to_none_defaults_to_archive_parent(*, tmp_path: Path) -> None:
+    zip_path = str(tmp_path / "a.zip")
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("hello.txt", "hello world")
+
+    result = extractall(path=zip_path)
+
+    assert os.path.exists(os.path.join(str(tmp_path), "hello.txt"))
+    assert result == [os.path.join(str(tmp_path), "hello.txt")]

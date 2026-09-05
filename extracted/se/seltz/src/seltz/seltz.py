@@ -1,12 +1,29 @@
 import os
 from types import TracebackType
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Type, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Type,
+    Union,
+)
 
 from ._types import OMIT, Omit
 from .client import AsyncSeltzClient, SeltzClient
 from .exceptions import SeltzConfigurationError
-from .services import AnswerResponse, AnswerStreamResponse, SearchResponse
+from .services import (
+    AnswerResponse,
+    AnswerStreamResponse,
+    FetchResponse,
+    SearchResponse,
+)
+from .services.agent_service import AgentService, AsyncAgentService
 from .services.answer_service import AnswerService, AsyncAnswerService
+from .services.fetch_service import AsyncFetchService, FetchService
 from .services.monitor_service import AsyncMonitorService, MonitorService
 from .services.search_service import AsyncSearchService, SearchService
 
@@ -56,11 +73,18 @@ class Seltz:
         self._search = SearchService(self._client.channel, api_key)
         self._answer = AnswerService(self._client.channel, api_key)
         self._monitor = MonitorService(self._client.channel, api_key)
+        self._agent = AgentService(self._client.channel, api_key)
+        self._fetch = FetchService(self._client.channel, api_key)
 
     @property
     def monitor(self) -> MonitorService:
         """Monitor CRUD, run history and the two record cursors."""
         return self._monitor
+
+    @property
+    def agent(self) -> AgentService:
+        """Agent runs: create, poll, list, cancel."""
+        return self._agent
 
     def search(
         self,
@@ -271,6 +295,64 @@ class Seltz:
             system_prompt=system_prompt,
         )
 
+    def fetch(
+        self,
+        urls: Iterable[str],
+        *,
+        formats: Union[Iterable[str], Omit] = OMIT,
+        tier: Union[str, Omit] = OMIT,
+        timeout_ms: Union[int, Omit] = OMIT,
+    ) -> FetchResponse:
+        """Fetch the content of up to 20 URLs.
+
+        A failure to fetch one page is not a call failure. The response carries
+        one result per requested URL, in the order requested, and a page that
+        could not be fetched arrives as that result's
+        ``status = FetchStatus.FETCH_STATUS_ERROR`` with an ``error.code``.
+        Correlate on ``result.requested_url`` rather than on position.
+
+        Args:
+            urls (Iterable[str]):
+                The URLs to fetch. At least one, at most 20. Each must be an
+                absolute http or https URL of at most 2048 bytes, and no two
+                may be equal.
+
+            formats (Iterable[str], optional):
+                Representations to return. Must be one of: "markdown".
+                Omitted from the request when not provided, which the service
+                reads as ["markdown"].
+
+            tier (str, optional):
+                The service tier, which selects the price. Omitted from the
+                request when not provided, which the service reads as "pro".
+
+            timeout_ms (int, optional):
+                Wall-clock budget for one URL, in milliseconds. Applies per
+                URL, not to the batch. Omitted from the request when not
+                provided.
+
+        Raises:
+            SeltzAuthenticationError: If the API key is invalid.
+            SeltzConnectionError: If the connection to the API fails.
+            SeltzTimeoutError: If the request times out.
+            SeltzRateLimitError: If the rate limit is exceeded.
+            SeltzAPIError: For other API errors.
+
+        Returns:
+            FetchResponse: One ``FetchResult`` per requested URL.
+
+        Examples:
+            response = seltz.fetch(["https://example.com/"])
+            response = seltz.fetch(["https://example.com/"], timeout_ms=15000)
+        """
+
+        return self._fetch.fetch(
+            urls,
+            formats=formats,
+            tier=tier,
+            timeout_ms=timeout_ms,
+        )
+
     def close(self) -> None:
         """Close the underlying gRPC channel and release its resources."""
         self._client.channel.close()
@@ -332,11 +414,18 @@ class AsyncSeltz:
         self._search = AsyncSearchService(self._client.channel, api_key)
         self._answer = AsyncAnswerService(self._client.channel, api_key)
         self._monitor = AsyncMonitorService(self._client.channel, api_key)
+        self._agent = AsyncAgentService(self._client.channel, api_key)
+        self._fetch = AsyncFetchService(self._client.channel, api_key)
 
     @property
     def monitor(self) -> AsyncMonitorService:
         """Monitor CRUD, run history and the two record cursors."""
         return self._monitor
+
+    @property
+    def agent(self) -> AsyncAgentService:
+        """Agent runs: create, poll, list, cancel."""
+        return self._agent
 
     async def search(
         self,
@@ -544,6 +633,64 @@ class AsyncSeltz:
             model=model,
             response_format=response_format,
             system_prompt=system_prompt,
+        )
+
+    async def fetch(
+        self,
+        urls: Iterable[str],
+        *,
+        formats: Union[Iterable[str], Omit] = OMIT,
+        tier: Union[str, Omit] = OMIT,
+        timeout_ms: Union[int, Omit] = OMIT,
+    ) -> FetchResponse:
+        """Fetch the content of up to 20 URLs.
+
+        A failure to fetch one page is not a call failure. The response carries
+        one result per requested URL, in the order requested, and a page that
+        could not be fetched arrives as that result's
+        ``status = FetchStatus.FETCH_STATUS_ERROR`` with an ``error.code``.
+        Correlate on ``result.requested_url`` rather than on position.
+
+        Args:
+            urls (Iterable[str]):
+                The URLs to fetch. At least one, at most 20. Each must be an
+                absolute http or https URL of at most 2048 bytes, and no two
+                may be equal.
+
+            formats (Iterable[str], optional):
+                Representations to return. Must be one of: "markdown".
+                Omitted from the request when not provided, which the service
+                reads as ["markdown"].
+
+            tier (str, optional):
+                The service tier, which selects the price. Omitted from the
+                request when not provided, which the service reads as "pro".
+
+            timeout_ms (int, optional):
+                Wall-clock budget for one URL, in milliseconds. Applies per
+                URL, not to the batch. Omitted from the request when not
+                provided.
+
+        Raises:
+            SeltzAuthenticationError: If the API key is invalid.
+            SeltzConnectionError: If the connection to the API fails.
+            SeltzTimeoutError: If the request times out.
+            SeltzRateLimitError: If the rate limit is exceeded.
+            SeltzAPIError: For other API errors.
+
+        Returns:
+            FetchResponse: One ``FetchResult`` per requested URL.
+
+        Examples:
+            response = await seltz.fetch(["https://example.com/"])
+            response = await seltz.fetch(["https://example.com/"], timeout_ms=15000)
+        """
+
+        return await self._fetch.fetch(
+            urls,
+            formats=formats,
+            tier=tier,
+            timeout_ms=timeout_ms,
         )
 
     async def close(self) -> None:

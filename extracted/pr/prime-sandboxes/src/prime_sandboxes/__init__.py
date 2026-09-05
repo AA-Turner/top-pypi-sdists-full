@@ -30,6 +30,7 @@ from .models import (
     AdvancedConfigs,
     BackgroundJob,
     BackgroundJobStatus,
+    BackgroundJobStatusSnapshot,
     BatchSandboxStatusResponse,
     BuildImageRequest,
     BuildImageResponse,
@@ -79,7 +80,7 @@ from .models import (
 from .process import AsyncSandboxProcess
 from .sandbox import AsyncSandboxClient, AsyncTemplateClient, SandboxClient, TemplateClient
 
-__version__ = "0.2.40"
+__version__ = "0.2.41"
 
 # Deprecated alias for backward compatibility
 TimeoutError = APITimeoutError
@@ -117,6 +118,7 @@ __all__ = [
     "AdvancedConfigs",
     "BackgroundJob",
     "BackgroundJobStatus",
+    "BackgroundJobStatusSnapshot",
     "BatchSandboxStatusResponse",
     "SandboxStatusSnapshot",
     "SandboxStatusLookupError",

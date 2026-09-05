@@ -22,10 +22,29 @@ _CURRENT_HOL_GUARD_SHIM = "current-hol-guard"
 
 
 def _desktop_core_shim_for_executable(executable: Path) -> Path | None:
-    versions_dir = executable.parent.parent
-    if versions_dir.name != "versions":
+    executable_name = executable.name.lower()
+    if executable_name not in {"hol-guard", "hol-guard.exe"}:
         return None
-    parent = versions_dir.parent
+    parent = None
+    for ancestor in executable.parents:
+        ancestor_name = ancestor.name.lower()
+        try:
+            relative_parts = executable.relative_to(ancestor).parts
+        except ValueError:
+            continue
+        if ancestor_name == "versions" and len(relative_parts) == 2:
+            parent = ancestor.parent
+            break
+        if ancestor_name != "bundled":
+            continue
+        if len(relative_parts) == 3 and relative_parts[1] == "bin":
+            parent = ancestor.parent
+            break
+        if len(relative_parts) == 4 and relative_parts[1:3] == ("lib", "hol-guard-core"):
+            parent = ancestor.parent
+            break
+    if parent is None:
+        return None
     unix = parent / _CURRENT_HOL_GUARD_SHIM
     windows = parent / f"{_CURRENT_HOL_GUARD_SHIM}.cmd"
     if os.name == "nt":

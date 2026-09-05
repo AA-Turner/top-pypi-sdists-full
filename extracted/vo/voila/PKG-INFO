@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: voila
-Version: 0.5.12
+Version: 0.5.13
 Summary: Voilà turns Jupyter notebooks into standalone web applications
 Project-URL: Homepage, https://github.com/voila-dashboards/voila
 Author: Voila Development Team
@@ -208,7 +208,7 @@ Voilà is built upon Jupyter standard formats and protocols, and is agnostic to 
 
 ## The Voilà Gallery
 
-The [Voilà Gallery](https://voila-gallery.org) is a collection of live dashboards and applications built with Voilà and Jupyter widgets.
+The [Voilà Gallery](https://voila-gallery.github.io/) is a collection of live dashboards and applications built with Voilà and Jupyter widgets.
 
 Most of the examples rely on widget libraries such as ipywidgets, ipyleaflet, ipyvolume, bqplot and ipympl, and showcase how to build complex web applications entirely based on notebooks.
 

@@ -64,7 +64,7 @@ def test_bulk_evaluate_all_entities_matches_gcir(httpserver: HTTPServer):
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     specs = json.loads(dcs_content)
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json", response=dcs_content, method="GET"
+        "/v2/download_config_specs", response=dcs_content, method="GET"
     )
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
 
@@ -198,7 +198,7 @@ def test_bulk_evaluate_filter_semantics(httpserver: HTTPServer):
     mock_scrapi = MockScrapi(httpserver)
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json", response=dcs_content, method="GET"
+        "/v2/download_config_specs", response=dcs_content, method="GET"
     )
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
 
@@ -251,7 +251,7 @@ def test_bulk_evaluate_options_can_skip_local_overrides(httpserver: HTTPServer):
     mock_scrapi = MockScrapi(httpserver)
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json", response=dcs_content, method="GET"
+        "/v2/download_config_specs", response=dcs_content, method="GET"
     )
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
 

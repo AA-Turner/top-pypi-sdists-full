@@ -3,6 +3,7 @@
 use colored::*;
 use rumdl_lib::config as rumdl_config;
 use rumdl_lib::rule::Rule;
+use rumdl_lib::rules::MD013Config;
 
 /// Arguments for printing check results
 pub struct PrintResultsArgs<'a> {
@@ -169,6 +170,102 @@ fn origin_display(file: &str, project_root: Option<&std::path::Path>) -> String 
     normalize(&canonical)
 }
 
+/// What a section with no entries shows under its header.
+///
+/// A bare header with nothing under it reads as output that got cut off rather
+/// than as "nothing is configured here", and these printers exist to state the
+/// effective configuration rather than leave it inferred. An empty list already
+/// renders as `enable = []` for the same reason; a TOML table has no equivalent
+/// spelling, so it is said in a comment.
+const EMPTY_SECTION: &str = "# (none)";
+
+/// Render the `[per-file-ignores]` section as `pattern = [rules]` lines.
+fn per_file_ignores_lines(
+    sourced: &rumdl_config::SourcedConfig,
+    root: Option<&std::path::Path>,
+) -> Vec<(String, String)> {
+    let label = provenance_label(&sourced.per_file_ignores, root);
+    let mut lines = vec![("[per-file-ignores]".to_string(), String::new())];
+    for (pattern, rules) in &sourced.per_file_ignores.value {
+        lines.push((format!("{pattern:?} = {rules:?}"), label.clone()));
+    }
+    if sourced.per_file_ignores.value.is_empty() {
+        lines.push((EMPTY_SECTION.to_string(), label));
+    }
+    lines
+}
+
+/// Render the `[per-file-flavor]` section as `pattern = "flavor"` lines.
+fn per_file_flavor_lines(
+    sourced: &rumdl_config::SourcedConfig,
+    root: Option<&std::path::Path>,
+) -> Vec<(String, String)> {
+    let label = provenance_label(&sourced.per_file_flavor, root);
+    let mut lines = vec![("[per-file-flavor]".to_string(), String::new())];
+    for (pattern, flavor) in &sourced.per_file_flavor.value {
+        lines.push((format!("{pattern:?} = \"{flavor}\""), label.clone()));
+    }
+    if sourced.per_file_flavor.value.is_empty() {
+        lines.push((EMPTY_SECTION.to_string(), label));
+    }
+    lines
+}
+
+/// Render the `[code-block-tools]` section.
+///
+/// The section nests (`[code-block-tools.languages.python]`), which the flat
+/// `key = value` shape used everywhere else cannot represent, so it is rendered
+/// as the TOML it would be written as and the provenance label goes on the value
+/// lines. The whole section merges as a single value, so one label describes all
+/// of them.
+///
+/// Values are shown as written even when they came from a file whose text is not
+/// quoted back in warnings: this output answers a question the user asked about
+/// their own configuration, the same reason rule option values are shown here in
+/// full.
+fn code_block_tools_lines(
+    sourced: &rumdl_config::SourcedConfig,
+    root: Option<&std::path::Path>,
+) -> Vec<(String, String)> {
+    let label = provenance_label(&sourced.code_block_tools, root);
+    let mut document = toml::map::Map::new();
+    let value = match toml::Value::try_from(&sourced.code_block_tools.value) {
+        Ok(value) => value,
+        Err(_) => return Vec::new(),
+    };
+    document.insert("code-block-tools".to_string(), value);
+    // `to_string`, not `to_string_pretty`: pretty rendering breaks an array over
+    // several lines, and each of those lines then gets the provenance label
+    // repeated beside it, closing bracket included. Every other section here
+    // prints an array inline, so this one does too.
+    let rendered = match toml::to_string(&toml::Value::Table(document)) {
+        Ok(rendered) => rendered,
+        Err(_) => return Vec::new(),
+    };
+    let rows: Vec<(String, String)> = rendered
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            if line.starts_with('[') {
+                (line.to_string(), String::new())
+            } else {
+                (line.to_string(), label.clone())
+            }
+        })
+        .collect();
+
+    // `[code-block-tools.languages]` and its siblings are tables, so a section
+    // holding no entries renders as a header with nothing under it.
+    let mut lines = Vec::with_capacity(rows.len());
+    for (index, row) in rows.iter().enumerate() {
+        lines.push(row.clone());
+        if row.0.starts_with('[') && rows.get(index + 1).is_none_or(|next| next.0.starts_with('[')) {
+            lines.push((EMPTY_SECTION.to_string(), label.clone()));
+        }
+    }
+    lines
+}
+
 /// Print configuration with provenance information, excluding default values
 pub fn print_config_with_provenance_no_defaults(sourced: &rumdl_config::SourcedConfig, _all_rules: &[Box<dyn Rule>]) {
     let g = &sourced.global;
@@ -277,6 +374,20 @@ pub fn print_config_with_provenance_no_defaults(sourced: &rumdl_config::SourcedC
         ));
         has_global_section = true;
     }
+    if g.extend_enable.source != rumdl_config::ConfigSource::Default {
+        global_lines.push((
+            format!("extend_enable = {:?}", g.extend_enable.value),
+            provenance_label(&g.extend_enable, root),
+        ));
+        has_global_section = true;
+    }
+    if g.extend_disable.source != rumdl_config::ConfigSource::Default {
+        global_lines.push((
+            format!("extend_disable = {:?}", g.extend_disable.value),
+            provenance_label(&g.extend_disable, root),
+        ));
+        has_global_section = true;
+    }
 
     if has_global_section {
         all_lines.push(("[global]".to_string(), String::new()));
@@ -288,14 +399,21 @@ pub fn print_config_with_provenance_no_defaults(sourced: &rumdl_config::SourcedC
     if sourced.per_file_ignores.source != rumdl_config::ConfigSource::Default
         && !sourced.per_file_ignores.value.is_empty()
     {
-        all_lines.push(("[per-file-ignores]".to_string(), String::new()));
-        for (pattern, rules) in &sourced.per_file_ignores.value {
-            let rules_str = format!("{rules:?}");
-            all_lines.push((
-                format!("{pattern:?} = {rules_str}"),
-                provenance_label(&sourced.per_file_ignores, root),
-            ));
-        }
+        all_lines.extend(per_file_ignores_lines(sourced, root));
+        all_lines.push((String::new(), String::new()));
+    }
+
+    // Handle per-file flavors if non-default
+    if sourced.per_file_flavor.source != rumdl_config::ConfigSource::Default
+        && !sourced.per_file_flavor.value.is_empty()
+    {
+        all_lines.extend(per_file_flavor_lines(sourced, root));
+        all_lines.push((String::new(), String::new()));
+    }
+
+    // Handle code block tools if non-default
+    if sourced.code_block_tools.source != rumdl_config::ConfigSource::Default {
+        all_lines.extend(code_block_tools_lines(sourced, root));
         all_lines.push((String::new(), String::new()));
     }
 
@@ -325,6 +443,12 @@ pub fn print_config_with_provenance_no_defaults(sourced: &rumdl_config::SourcedC
                 lines.push((format!("{key} = {value_str}"), provenance_label(sv, root)));
             }
         }
+        // MD013's effective limit differs from its default exactly when the
+        // global setting is not itself the default, which is the condition this
+        // listing of non-default values is selecting on.
+        if sourced.global.line_length.source != rumdl_config::ConfigSource::Default {
+            apply_inherited_md013_line_length(&rule_name, &mut lines, sourced, root);
+        }
         if !lines.is_empty() {
             all_lines.push((format!("[{rule_name}]"), String::new()));
             all_lines.extend(lines);
@@ -349,6 +473,49 @@ pub fn print_config_with_provenance_no_defaults(sourced: &rumdl_config::SourcedC
             println!("{left:<max_left$} {right}");
         }
     }
+}
+
+/// The `[MD013]` `line-length` line when the `[global]` setting supplies it.
+///
+/// MD013 measures against `[global] line-length` unless it sets its own, so the
+/// value printed under `[MD013]` is neither the option's default nor necessarily
+/// what the rule's own section says. The number comes from the same
+/// [`MD013Config::from_document_config`] the rule is built with, and the
+/// provenance from the global setting it was taken from.
+fn inherited_md013_line_length(
+    sourced: &rumdl_config::SourcedConfig,
+    root: Option<&std::path::Path>,
+) -> Option<(String, String)> {
+    let config: rumdl_config::Config = sourced.clone().into_validated_unchecked().into();
+    if !rumdl_lib::rule_config_serde::load_rule_config::<MD013Config>(&config).line_length_is_default() {
+        return None;
+    }
+    let resolved = MD013Config::from_document_config(&config).line_length;
+    Some((
+        format!("line-length = {}", resolved.get()),
+        provenance_label(&sourced.global.line_length, root),
+    ))
+}
+
+/// Replace a rule's `line-length` line with the value inherited from `[global]`.
+///
+/// A no-op for every rule but MD013, and for an MD013 that sets its own limit.
+fn apply_inherited_md013_line_length(
+    rule_name: &str,
+    lines: &mut Vec<(String, String)>,
+    sourced: &rumdl_config::SourcedConfig,
+    root: Option<&std::path::Path>,
+) {
+    if rule_name != "MD013" {
+        return;
+    }
+    let Some(inherited) = inherited_md013_line_length(sourced, root) else {
+        return;
+    };
+    // Both spellings reach here: a section prints the key as the user wrote it.
+    lines.retain(|(text, _)| !(text.starts_with("line-length =") || text.starts_with("line_length =")));
+    lines.push(inherited);
+    lines.sort_by(|a, b| a.0.cmp(&b.0));
 }
 
 /// Print configuration with provenance information
@@ -391,8 +558,57 @@ pub fn print_config_with_provenance(sourced: &rumdl_config::SourcedConfig, all_r
         format!("flavor = \"{}\"", g.flavor.value),
         format!("[from {}]", format_provenance(g.flavor.source)),
     ));
+    global_lines.push((
+        format!("line_length = {}", g.line_length.value.get()),
+        provenance_label(&g.line_length, root),
+    ));
+    global_lines.push((
+        format!("force_exclude = {}", g.force_exclude.value),
+        provenance_label(&g.force_exclude, root),
+    ));
+    global_lines.push((format!("cache = {}", g.cache.value), provenance_label(&g.cache, root)));
+    global_lines.push((
+        format!("fixable = {:?}", g.fixable.value),
+        provenance_label(&g.fixable, root),
+    ));
+    global_lines.push((
+        format!("unfixable = {:?}", g.unfixable.value),
+        provenance_label(&g.unfixable, root),
+    ));
+    global_lines.push((
+        format!("extend_enable = {:?}", g.extend_enable.value),
+        provenance_label(&g.extend_enable, root),
+    ));
+    global_lines.push((
+        format!("extend_disable = {:?}", g.extend_disable.value),
+        provenance_label(&g.extend_disable, root),
+    ));
+    // `output_format` and `cache_dir` have no default to stand in for an unset
+    // value, so they are shown only once something has set them.
+    if let Some(ref output_format) = g.output_format {
+        global_lines.push((
+            format!("output_format = {:?}", output_format.value),
+            provenance_label(output_format, root),
+        ));
+    }
+    if let Some(ref cache_dir) = g.cache_dir {
+        global_lines.push((
+            format!("cache_dir = {:?}", cache_dir.value),
+            provenance_label(cache_dir, root),
+        ));
+    }
     global_lines.push((String::new(), String::new()));
     all_lines.extend(global_lines);
+
+    // The remaining sections are always shown, defaults included: this output is
+    // the whole effective configuration, and a section left out reads as one that
+    // does not exist.
+    all_lines.extend(per_file_ignores_lines(sourced, root));
+    all_lines.push((String::new(), String::new()));
+    all_lines.extend(per_file_flavor_lines(sourced, root));
+    all_lines.push((String::new(), String::new()));
+    all_lines.extend(code_block_tools_lines(sourced, root));
+    all_lines.push((String::new(), String::new()));
 
     let mut rule_names: Vec<_> = all_rules.iter().map(|r| r.name().to_string()).collect();
     rule_names.sort();
@@ -446,6 +662,7 @@ pub fn print_config_with_provenance(sourced: &rumdl_config::SourcedConfig, all_r
                 }
             }
         }
+        apply_inherited_md013_line_length(&rule_name, &mut lines, sourced, root);
         if !lines.is_empty() {
             all_lines.push((format!("[{rule_name}]"), String::new()));
             all_lines.extend(lines);

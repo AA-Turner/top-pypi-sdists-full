@@ -99,7 +99,11 @@ function extensionEffectiveState(effective, extension2) {
   if (effective.health !== "protected") return "disabled";
   if (effective.global_lockdown) return "disabled";
   if (extension2.required) return "enabled";
-  return explicitControlState(effective, "extension", extension2.extension_id) ?? "enabled";
+  const explicit = explicitControlState(effective, "extension", extension2.extension_id);
+  if (extension2.trust_class === "external" || extension2.activation === "opt-in") {
+    return explicit === "enabled" ? "enabled" : "disabled";
+  }
+  return explicit ?? "enabled";
 }
 function permissionEffectiveState(effective, extension2, permission2) {
   const projected = effective.projection?.permissions.find((item) => item.permission_id === permission2.permission_id);
@@ -123,6 +127,15 @@ function extensionStateLabel(effective, extension2) {
   if (managedExplicitControlState(effective, "extension", extension2.extension_id) !== null) return "Managed";
   if (extension2.required) return "Required";
   return extensionEffectiveState(effective, extension2) === "enabled" ? "Allowed" : "Blocked";
+}
+function catalogRowSecondLine(extension2, state) {
+  if (state === "Managed" || state === "Lockdown" || state === "Unavailable") return state;
+  if (extension2.trust_class === "external" && state !== "Allowed" && state !== "Required") {
+    return "Off until you turn it on";
+  }
+  if (state === "Blocked") return state;
+  const executables = extension2.executables.join(" · ").trim();
+  return executables || extension2.description;
 }
 function controlProvenance(effective, kind, targetId2) {
   const managedSource2 = effective.managed_controls?.authority_mode === "managed-restrictive" ? `Managed by ${effective.managed_controls.workspace_id}` : "Synced from Guard Cloud";
@@ -813,6 +826,23 @@ function optionalString(value, label) {
 function catalogText(value) {
   return typeof value === "string" && value.trim() ? value : null;
 }
+function publisher(value, label) {
+  const item = record$2(value, label);
+  const url = item.url;
+  return {
+    id: string$1(item.id, `${label}.id`),
+    displayName: string$1(item.displayName, `${label}.displayName`),
+    ...url === void 0 ? {} : { url: string$1(url, `${label}.url`) }
+  };
+}
+function icon(value, label) {
+  if (value === void 0 || value === null) return { kind: "none" };
+  const item = record$2(value, label);
+  const kind = enumValue(item.kind, `${label}.kind`, ["react-icon", "svg-ref", "none"]);
+  const name = item.name === void 0 ? void 0 : string$1(item.name, `${label}.name`);
+  const background = item.background === void 0 ? void 0 : string$1(item.background, `${label}.background`);
+  return { kind, ...name ? { name } : {}, ...background ? { background } : {} };
+}
 function bool$1(value, label) {
   if (typeof value !== "boolean") throw new ExtensionControlProtocolError(`${label} must be boolean`);
   return value;
@@ -943,6 +973,10 @@ function extension(value, label) {
     description: string$1(item.description, `${label}.description`),
     enabled: bool$1(item.enabled, `${label}.enabled`),
     required: bool$1(item.required, `${label}.required`),
+    trust_class: item.trust_class === void 0 ? "first-party" : enumValue(item.trust_class, `${label}.trust_class`, ["first-party", "trusted-library", "external"]),
+    activation: item.activation === void 0 ? "default-on" : enumValue(item.activation, `${label}.activation`, ["default-on", "opt-in"]),
+    publisher: item.publisher === void 0 ? { id: "hol", displayName: "Hashgraph Online" } : publisher(item.publisher, `${label}.publisher`),
+    icon: icon(item.icon, `${label}.icon`),
     source: enumValue(item.source, `${label}.source`, ["built-in", "local-admin", "signed-cloud"]),
     version: version(item.version, `${label}.version`),
     aliases: idList$1(item.aliases, `${label}.aliases`, EXTENSION_ID),
@@ -3253,6 +3287,7 @@ function ProtectionModuleRow(props) {
       /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex flex-wrap items-center gap-2", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { className: "text-sm text-brand-dark", children: props.name }),
         props.required ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-brand-dark/55", children: "Required by Guard" }) : null,
+        props.external ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-brand-dark/55", children: "External" }) : null,
         props.managed ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-brand-dark/55", children: props.managedLabel ?? "Synced from Guard Cloud" }) : null,
         props.custom ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-brand-dark/55", children: "Custom" }) : null
       ] }),
@@ -4023,7 +4058,7 @@ function protectionCenterLoadError(message) {
     detail: message.trim() || "Guard could not load protection settings. Local protection continues. Try again."
   };
 }
-function authorityNoticeView(health) {
+function authorityNoticeView(health, approvalGateReady) {
   switch (health) {
     case "tampered":
     case "recovery-required":
@@ -4066,6 +4101,34 @@ function authorityNoticeView(health) {
         terminalSummary: "Run this in your terminal to rebuild the trusted settings."
       };
     default:
+      if (approvalGateReady === null) {
+        return {
+          tone: "info",
+          title: "Checking approval setup",
+          body: "Guard is checking whether this device is ready to enroll trusted protection settings. Enrollment steps will appear when the check finishes. If this takes too long, check again.",
+          action: { kind: "none" },
+          actionLabel: null,
+          actionDetail: null,
+          command: "",
+          commandLabel: "",
+          copyButtonLabel: "",
+          terminalSummary: ""
+        };
+      }
+      if (!approvalGateReady) {
+        return {
+          tone: "info",
+          title: "Set up approval before enrollment",
+          body: "Extension controls require a local approval password or Authenticator before this device can create trusted protection settings. Set up approval first, then return here to enroll.",
+          action: { kind: "configure-approval" },
+          actionLabel: "Set up approval",
+          actionDetail: null,
+          command: "",
+          commandLabel: "",
+          copyButtonLabel: "",
+          terminalSummary: ""
+        };
+      }
       return {
         tone: "info",
         title: "Finish setting up protection",
@@ -4082,14 +4145,15 @@ function authorityNoticeView(health) {
 }
 function ProtectionAuthorityNotice(props) {
   const health = props.effective.health;
-  if (health === "protected") return null;
-  const view = authorityNoticeView(health);
+  const approvalGateReady = props.approvalGate === null ? null : props.approvalGate.configured && props.approvalGate.enabled;
+  const view = authorityNoticeView(health, approvalGateReady);
   const [proofOpen, setProofOpen] = reactExports.useState(false);
   const [pendingAction, setPendingAction] = reactExports.useState(null);
   const [copyState, setCopyState] = reactExports.useState("idle");
   reactExports.useEffect(() => {
     if (props.status) setProofOpen(false);
   }, [props.status]);
+  if (health === "protected") return null;
   const gatePending = props.approvalGate === null;
   const copyCommand = async () => {
     try {
@@ -4115,6 +4179,10 @@ function ProtectionAuthorityNotice(props) {
               "aria-busy": props.busy,
               disabled: props.busy || gatePending,
               onClick: () => {
+                if (view.action.kind === "configure-approval") {
+                  props.onOpenApprovalSettings();
+                  return;
+                }
                 setPendingAction(view.action.kind === "repair" ? "repair" : "acknowledge");
                 setProofOpen(true);
               },
@@ -4122,7 +4190,7 @@ function ProtectionAuthorityNotice(props) {
               children: gatePending && !props.error ? "Loading approval settings…" : view.actionLabel
             }
           ) : null,
-          view.action.kind === "none" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          view.action.kind === "none" && view.command ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "button",
             {
               type: "button",
@@ -4150,7 +4218,7 @@ function ProtectionAuthorityNotice(props) {
         props.busy ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: `mt-3 text-sm font-medium ${warning2 ? "text-amber-950" : "text-brand-dark"}`, children: pendingAction === "acknowledge" ? "Confirming the limited state…" : "Repairing local protection…" }) : null,
         props.error ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "alert", className: "mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800", children: props.error }) : null,
         props.status ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "mt-3 text-sm font-medium text-brand-dark", children: props.status }) : null,
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("details", { className: "mt-4", children: [
+        view.command ? /* @__PURE__ */ jsxRuntimeExports.jsxs("details", { className: "mt-4", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("summary", { className: `cursor-pointer text-sm font-semibold ${warning2 ? "text-amber-950" : "text-brand-dark"}`, children: view.commandLabel }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: `mt-2 text-sm leading-6 ${warning2 ? "text-amber-950/80" : "text-brand-dark/70"}`, children: view.terminalSummary }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-2 flex flex-col gap-2 sm:flex-row sm:items-center", children: [
@@ -4170,10 +4238,10 @@ function ProtectionAuthorityNotice(props) {
               }
             )
           ] })
-        ] })
+        ] }) : null
       ] })
     ] }),
-    proofOpen && view.action.kind !== "none" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+    proofOpen && (view.action.kind === "repair" || view.action.kind === "acknowledge") ? /* @__PURE__ */ jsxRuntimeExports.jsx(
       ApprovalProofModal,
       {
         title: view.action.kind === "repair" ? "Repair protection" : "Acknowledge limited state",
@@ -4763,11 +4831,6 @@ function sourceIsManaged(effective, extensionId) {
     (control) => control.target_kind === "extension" && control.target_id === extensionId
   ));
 }
-function catalogRowSecondLine(extension2, state) {
-  if (state === "Blocked" || state === "Managed" || state === "Lockdown" || state === "Unavailable") return state;
-  const executables = extension2.executables.join(" · ").trim();
-  return executables || extension2.description;
-}
 function CatalogExtensionRow(props) {
   const handleOpen = reactExports.useCallback(() => {
     props.onOpen(props.extension);
@@ -4782,6 +4845,7 @@ function CatalogExtensionRow(props) {
       description: props.extension.description,
       behavior: catalogRowSecondLine(props.extension, extensionStateLabel(props.effective, props.extension)),
       required: props.extension.required,
+      external: props.extension.trust_class === "external",
       managed: cloudSource || sourceIsManaged(props.effective, props.extension.extension_id),
       managedLabel: cloudSource ? source : void 0,
       executables: props.extension.executables,
@@ -5115,6 +5179,18 @@ function requiredLine(extension2) {
   if (!extension2.required) return null;
   return "Required by Guard — this protection stays on. The command patterns below can still follow recommended settings or be blocked on this device.";
 }
+function availabilityCopy(extension2, enabled) {
+  if (extension2.trust_class === "external") {
+    if (enabled) {
+      return "Matching commands follow the protection settings below. Turn off to leave this community tool inactive.";
+    }
+    return "This community tool stays off until you turn it on.";
+  }
+  if (enabled) {
+    return "Matching commands follow the protection settings below. Turn off to block every command this tool owns on this device.";
+  }
+  return "Every command this tool owns is blocked on this device. Turn on to follow the protection settings below.";
+}
 function protectionStateLabel(state) {
   return state.charAt(0).toUpperCase() + state.slice(1);
 }
@@ -5217,9 +5293,7 @@ function ProtectionModuleDetail(props) {
     };
   }, [props.extension.extension_id, props.extension.rules]);
   const requiredNote = requiredLine(props.extension);
-  const extensionEnabled = !props.effective.layers.some(
-    (layer) => layer.controls.some((control) => control.target_kind === "extension" && control.target_id === props.extension.extension_id && control.state === "disabled")
-  );
+  const extensionEnabled = extensionEffectiveState(props.effective, props.extension) === "enabled";
   const requestExtensionChange = props.extension.required ? void 0 : props.onRequestExtensionChange;
   const activeTab = canonicalProtectionDetailTab(props.urlState?.tab ?? "overview");
   const protectionView = buildLocalProtectionView(
@@ -5312,7 +5386,7 @@ function ProtectionModuleDetail(props) {
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-semibold text-brand-dark", children: "Commands available" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs leading-5 text-brand-dark/75", children: extensionEnabled ? "Matching commands follow the protection settings below. Turn off to block every command this tool owns on this device." : "Every command this tool owns is blocked on this device. Turn on to follow the protection settings below." })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs leading-5 text-brand-dark/75", children: availabilityCopy(props.extension, extensionEnabled) })
         ] })
       ] }) : null,
       orgManaged ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-3 text-sm text-brand-dark/80", children: "Your organization controls part of this protection. Local changes cannot weaken organization policy." }) : null,
@@ -5671,7 +5745,7 @@ function ProtectionCenterWorkspace(props) {
   const [recoveryBusy, setRecoveryBusy] = reactExports.useState(false);
   const [recoveryError, setRecoveryError] = reactExports.useState(null);
   const [recoveryStatus, setRecoveryStatus] = reactExports.useState(null);
-  const { resolvedApprovalGate, resolveApprovalGate } = useResolvedApprovalGate(null);
+  const { resolvedApprovalGate, resolveApprovalGate, refreshApprovalGate } = useResolvedApprovalGate(null);
   const aliasRedirected = reactExports.useRef(null);
   const overviewKeepAlive = reactExports.useRef(false);
   const localClis = useLocalCliCatalog();
@@ -5815,10 +5889,13 @@ function ProtectionCenterWorkspace(props) {
   const handleCheckAgain = reactExports.useCallback(() => {
     void load();
     setRecoveryError(null);
-    void resolveApprovalGate({ failClosed: true }).catch(() => {
+    void refreshApprovalGate({ failClosed: true }).catch(() => {
       setRecoveryError("Guard could not load the local approval settings yet. Check the connection and try again, or run `hol-guard command controls recover-authority` in your terminal.");
     });
-  }, [load, resolveApprovalGate]);
+  }, [load, refreshApprovalGate]);
+  const handleOpenApprovalSettings = reactExports.useCallback(() => {
+    props.onNavigate("/settings?section=approval");
+  }, [props.onNavigate]);
   const authorityNeedsAttention = state.kind === "ready" && state.effective.health !== "protected";
   reactExports.useEffect(() => {
     if (!authorityNeedsAttention) return;
@@ -5852,7 +5929,8 @@ function ProtectionCenterWorkspace(props) {
         status: recoveryStatus,
         approvalGate: resolvedApprovalGate,
         onAction: handleAuthorityAction,
-        onCheckAgain: handleCheckAgain
+        onCheckAgain: handleCheckAgain,
+        onOpenApprovalSettings: handleOpenApprovalSettings
       }
     ) : null,
     state.kind === "ready" && recoveryStatus && !healthBroken && !showOverview ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { role: "status", className: "mb-3 text-sm font-medium text-emerald-800", children: recoveryStatus }) : null,

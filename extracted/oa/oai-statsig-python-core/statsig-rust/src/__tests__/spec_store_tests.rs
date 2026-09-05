@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, mpsc};
 use std::time::Duration;
@@ -8,14 +8,17 @@ use async_trait::async_trait;
 use brotli::enc::BrotliEncoderParams;
 use parking_lot::Mutex;
 use prost::Message;
+use rusty_fork::rusty_fork_test;
 use serial_test::serial;
 
 use crate::{
     ClientInitResponseOptions, FeatureGateEvaluationOptions, GCIRResponseFormat, SpecStore,
-    SpecsSource, SpecsUpdate, SpecsUpdateListener, Statsig, StatsigErr, StatsigOptions,
-    StatsigRuntime, StatsigUser,
+    SpecsCursorUpdate, SpecsSource, SpecsUpdate, SpecsUpdateListener, Statsig, StatsigErr,
+    StatsigOptions, StatsigRuntime, StatsigUser,
     data_store_interface::{DataStoreResponse, DataStoreTrait, RequestPath},
     id_lists_adapter::{IdListMetadata, IdListUpdate, IdListsUpdateListener},
+    interned_string::InternedString,
+    interned_values::interned_store::{preload_mmap_v2_multi_for_test, write_mmap_v2_for_test},
     networking::ResponseData,
     observability::{
         observability_client_adapter::MetricType,
@@ -24,6 +27,7 @@ use crate::{
     output_logger::{
         LogLevel, OutputLogProvider, initialize_output_logger, shutdown_output_logger,
     },
+    scoped_snapshot_registry::EvaluationEngine,
     sdk_event_emitter::{SdkEvent, SdkEventEmitter},
     specs_response::{spec_types::SpecsResponseFull, statsig_config_specs as pb},
 };
@@ -170,6 +174,36 @@ fn apply_eval_project(spec_store: &SpecStore) {
         .unwrap();
 }
 
+fn json_specs_with_dynamic_config(config: serde_json::Value) -> Vec<u8> {
+    serde_json::to_vec(&serde_json::json!({
+        "experiment_to_layer": {},
+        "condition_map": {},
+        "dynamic_configs": {
+            "config": config
+        },
+        "feature_gates": {},
+        "layer_configs": {},
+        "has_updates": true,
+        "time": 1
+    }))
+    .unwrap()
+}
+
+fn json_dynamic_config(
+    default_value: serde_json::Value,
+    rules: serde_json::Value,
+) -> serde_json::Value {
+    serde_json::json!({
+        "type": "dynamic_config",
+        "salt": "salt",
+        "defaultValue": default_value,
+        "enabled": true,
+        "rules": rules,
+        "idType": "userID",
+        "entity": "dynamic_config",
+    })
+}
+
 fn initialized_spec_store(name: &str) -> SpecStore {
     let spec_store = SpecStore::new(
         name,
@@ -180,6 +214,236 @@ fn initialized_spec_store(name: &str) -> SpecStore {
     );
     apply_eval_project(&spec_store);
     spec_store
+}
+
+rusty_fork_test! {
+#[test]
+fn spec_store_preserves_session_update_mode_only_when_opted_in() {
+    let mut artifact_config = json_dynamic_config(serde_json::json!({}), serde_json::json!([]));
+    artifact_config["checksum"] = serde_json::json!("same-checksum");
+    let artifact_payload = json_specs_with_dynamic_config(artifact_config.clone());
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("session-update-mode.mmap");
+    write_mmap_v2_for_test(&artifact_payload, &path).unwrap();
+    preload_mmap_v2_multi_for_test(&[("session-update-mode", &path)]).unwrap();
+
+    artifact_config["sessionUpdateMode"] = serde_json::json!("live");
+    let payload = json_specs_with_dynamic_config(artifact_config);
+    let config_name = InternedString::from_string("config".to_string());
+
+    let default_store = SpecStore::new(
+        "session-update-mode",
+        "session-update-mode".to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        None,
+    );
+    default_store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(payload.clone()),
+            source: SpecsSource::Network,
+            received_at: 2000,
+            source_api: Some("initial".to_string()),
+            has_updates: None,
+        })
+        .unwrap();
+    assert_eq!(
+        default_store
+            .load_data()
+            .snapshot
+            .dynamic_configs
+            .get(&config_name)
+            .unwrap()
+            .session_update_mode(),
+        None
+    );
+
+    let options = StatsigOptions::builder()
+        .preserve_dcs_session_update_mode(Some(true))
+        .build();
+    let preserving_store = SpecStore::new(
+        "session-update-mode",
+        "session-update-mode".to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        Some(&options),
+    );
+    preserving_store
+        .set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(payload),
+            source: SpecsSource::Network,
+            received_at: 2000,
+            source_api: Some("initial".to_string()),
+            has_updates: None,
+        })
+        .unwrap();
+    assert_eq!(
+        preserving_store
+            .load_data()
+            .snapshot
+            .dynamic_configs
+            .get(&config_name)
+            .unwrap()
+            .session_update_mode(),
+        Some("live")
+    );
+}
+}
+
+#[test]
+fn rejects_unhydrated_json_remote_config_metadata_before_publishing() {
+    for config in [
+        {
+            let mut config = json_dynamic_config(
+                serde_json::json!("https://statsigcdn.openai.com/v1/dynamic_config_value/test"),
+                serde_json::json!([]),
+            );
+            config
+                .as_object_mut()
+                .unwrap()
+                .insert("remoteConfigMetadata".to_string(), serde_json::json!({}));
+            config
+        },
+        json_dynamic_config(
+            serde_json::json!({}),
+            serde_json::json!([{
+                "name": "rule",
+                "passPercentage": 100.0,
+                "returnValue": "https://statsigcdn.openai.com/v1/dynamic_config_value/test",
+                "id": "rule",
+                "conditions": [],
+                "idType": "userID",
+                "remoteConfigMetadata": {},
+            }]),
+        ),
+    ] {
+        let spec_store = SpecStore::new(
+            "unhydrated-json-metadata",
+            "unhydrated-json-metadata".to_string(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            None,
+        );
+        let result = spec_store.set_values(SpecsUpdate {
+            data: ResponseData::from_bytes(json_specs_with_dynamic_config(config)),
+            source: SpecsSource::Bootstrap,
+            received_at: 2_000,
+            source_api: None,
+            has_updates: None,
+        });
+
+        assert!(matches!(
+            result,
+            Err(StatsigErr::JsonParseError(_, message))
+                if message.contains("before hydration")
+        ));
+    }
+}
+
+#[test]
+fn rejects_escaped_unhydrated_json_remote_config_metadata_before_publishing() {
+    let mut config = json_dynamic_config(
+        serde_json::json!("https://statsigcdn.openai.com/v1/dynamic_config_value/test"),
+        serde_json::json!([]),
+    );
+    config
+        .as_object_mut()
+        .unwrap()
+        .insert("remoteConfigMetadata".to_string(), serde_json::json!({}));
+    let payload = String::from_utf8(json_specs_with_dynamic_config(config))
+        .unwrap()
+        .replace("\"remoteConfigMetadata\"", "\"\\u0072emoteConfigMetadata\"");
+    let spec_store = SpecStore::new(
+        "escaped-json-metadata",
+        "escaped-json-metadata".to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        None,
+    );
+
+    let result = spec_store.set_values(SpecsUpdate {
+        data: ResponseData::from_bytes(payload.into_bytes()),
+        source: SpecsSource::Bootstrap,
+        received_at: 2_000,
+        source_api: None,
+        has_updates: None,
+    });
+
+    assert!(matches!(
+        result,
+        Err(StatsigErr::JsonParseError(_, message))
+            if message.contains("before hydration")
+    ));
+}
+
+#[test]
+fn rejects_unhydrated_json_metadata_without_decoding_raw_numbers() {
+    let config = json_dynamic_config(
+        serde_json::json!({}),
+        serde_json::json!([{
+            "name": "rule",
+            "passPercentage": 100.0,
+            "returnValue": "https://statsigcdn.openai.com/v1/dynamic_config_value/test",
+            "id": "rule",
+            "conditions": [],
+            "idType": "userID",
+            "remoteConfigMetadata": {},
+        }]),
+    );
+    // Keep this number as a raw lexeme. Production serde_json::Value rejects
+    // it without arbitrary_precision, while the Spec path accepts RawValue.
+    let payload = String::from_utf8(json_specs_with_dynamic_config(config))
+        .unwrap()
+        .replacen(
+            "\"defaultValue\":{}",
+            "\"defaultValue\":{\"large\":1e400}",
+            1,
+        );
+    assert!(payload.contains("\"large\":1e400"));
+
+    let spec_store = SpecStore::new(
+        "raw-number-json-metadata",
+        "raw-number-json-metadata".to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        None,
+    );
+    let result = spec_store.set_values(SpecsUpdate {
+        data: ResponseData::from_bytes(payload.into_bytes()),
+        source: SpecsSource::Bootstrap,
+        received_at: 2_000,
+        source_api: None,
+        has_updates: None,
+    });
+
+    assert!(matches!(
+        result,
+        Err(StatsigErr::JsonParseError(_, message))
+            if message.contains("before hydration")
+    ));
+}
+
+#[test]
+fn allows_remote_config_metadata_as_nested_user_json() {
+    let spec_store = SpecStore::new(
+        "nested-json-metadata",
+        "nested-json-metadata".to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        None,
+    );
+    let result = spec_store.set_values(SpecsUpdate {
+        data: ResponseData::from_bytes(json_specs_with_dynamic_config(json_dynamic_config(
+            serde_json::json!({ "remoteConfigMetadata": "ordinary user data" }),
+            serde_json::json!([]),
+        ))),
+        source: SpecsSource::Bootstrap,
+        received_at: 2_000,
+        source_api: None,
+        has_updates: None,
+    });
+
+    assert!(result.is_ok());
 }
 
 fn common_fields_json(values: &SpecsResponseFull) -> serde_json::Value {
@@ -303,6 +567,51 @@ fn protobuf_delta(
                 "application/octet-stream".to_string(),
             ),
             ("content-encoding".to_string(), "statsig-br".to_string()),
+        ])),
+    )
+}
+
+fn zstd_delta(mut brotli_delta: ResponseData) -> ResponseData {
+    let brotli_bytes = brotli_delta.read_to_bytes().unwrap();
+    let mut encoded = Vec::new();
+    brotli::Decompressor::new(
+        brotli_bytes.as_slice(),
+        crate::specs_response::proto_stream_reader::BUFFER_SIZE,
+    )
+    .read_to_end(&mut encoded)
+    .unwrap();
+
+    ResponseData::from_bytes_with_headers(
+        zstd::stream::encode_all(encoded.as_slice(), 3).unwrap(),
+        Some(HashMap::from([
+            (
+                "content-type".to_string(),
+                "application/octet-stream".to_string(),
+            ),
+            ("content-encoding".to_string(), "statsig-zstd".to_string()),
+            ("x-deltas-used".to_string(), "true".to_string()),
+        ])),
+    )
+}
+
+fn zstd_full(mut brotli_full: ResponseData) -> ResponseData {
+    let brotli_bytes = brotli_full.read_to_bytes().unwrap();
+    let mut encoded = Vec::new();
+    brotli::Decompressor::new(
+        brotli_bytes.as_slice(),
+        crate::specs_response::proto_stream_reader::BUFFER_SIZE,
+    )
+    .read_to_end(&mut encoded)
+    .unwrap();
+
+    ResponseData::from_bytes_with_headers(
+        zstd::stream::encode_all(encoded.as_slice(), 3).unwrap(),
+        Some(HashMap::from([
+            (
+                "content-type".to_string(),
+                "application/octet-stream".to_string(),
+            ),
+            ("content-encoding".to_string(), "statsig-zstd".to_string()),
         ])),
     )
 }
@@ -801,7 +1110,7 @@ fn test_specs_updated_callback_runs_without_holding_store_lock() {
         event_emitter.clone(),
         None,
     ));
-    let callback_store = spec_store.clone();
+    let callback_store = Arc::downgrade(&spec_store);
 
     event_emitter.subscribe(SdkEvent::SPECS_UPDATED, move |event| {
         let SdkEvent::SpecsUpdated { source, values, .. } = event else {
@@ -810,7 +1119,10 @@ fn test_specs_updated_callback_runs_without_holding_store_lock() {
         assert_eq!(source, &SpecsSource::Network);
         assert!(values.time > 0);
 
-        callback_store.set_source(SpecsSource::Bootstrap);
+        callback_store
+            .upgrade()
+            .expect("spec store should remain alive while its update callback runs")
+            .set_source(SpecsSource::Bootstrap);
     });
 
     let (completed_tx, completed_rx) = mpsc::channel();
@@ -906,6 +1218,91 @@ fn test_checksum_only_delta_reuses_snapshot_and_suppresses_side_effects() {
         public_values.feature_gates.len(),
         before.snapshot.feature_gates.len()
     );
+}
+
+#[test]
+fn test_zstd_delta_materializes_through_spec_store() {
+    let spec_store = initialized_spec_store("zstd-delta-test");
+    let before = spec_store.load_data();
+    let deleted_name = before
+        .snapshot
+        .dynamic_configs
+        .keys()
+        .next()
+        .unwrap()
+        .as_str()
+        .to_string();
+    let next_lcut = before.lcut() + 1;
+
+    apply_delta(
+        &spec_store,
+        zstd_delta(protobuf_delta(
+            &before.snapshot,
+            next_lcut,
+            "zstd-materialized-delta",
+            DeltaOverrides {
+                deletions: pb::RulesetsResponseDeletions {
+                    dynamic_configs: vec![deleted_name.clone()],
+                    ..pb::RulesetsResponseDeletions::default()
+                },
+                ..DeltaOverrides::default()
+            },
+        )),
+        SpecsSource::Network,
+        "zstd-api",
+    )
+    .unwrap();
+
+    let after = spec_store.load_data();
+    assert_eq!(after.lcut(), next_lcut);
+    assert!(
+        !after
+            .snapshot
+            .dynamic_configs
+            .keys()
+            .any(|name| name.as_str() == deleted_name)
+    );
+}
+
+#[tokio::test]
+async fn test_full_zstd_materializes_and_writes_zstd_data_store_key() {
+    let data_store = Arc::new(TestDataStore::new(true));
+    let options = StatsigOptions {
+        data_store: Some(data_store.clone()),
+        ..StatsigOptions::default()
+    };
+    let spec_store = SpecStore::new(
+        "full-zstd-test",
+        "statsig|/v2/download_config_specs|plain_text|full-zstd-test".to_string(),
+        StatsigRuntime::get_runtime(),
+        Arc::new(SdkEventEmitter::default()),
+        Some(&options),
+    );
+
+    let result = spec_store.set_values(SpecsUpdate {
+        data: zstd_full(ResponseData::from_bytes(
+            include_bytes!("../../tests/data/eval_proj_dcs.pb.br").to_vec(),
+        )),
+        source: SpecsSource::Network,
+        received_at: 2000,
+        source_api: None,
+        has_updates: None,
+    });
+
+    assert!(result.is_ok());
+    assert!(spec_store.load_data().lcut() > 0);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let calls = data_store.calls.lock();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].0, "set_bytes");
+    assert!(
+        calls[0]
+            .1
+            .as_deref()
+            .is_some_and(|value| value.contains("|statsig-zstd|"))
+    );
+    assert_eq!(calls[1].0, "support_polling_updates_for");
 }
 
 #[tokio::test]
@@ -1261,6 +1658,102 @@ fn test_cursor_only_delta_updates_evaluation_lcut_without_changing_result() {
         let response: serde_json::Value = serde_json::from_str(&response).unwrap();
         assert_eq!(response["time"], serde_json::json!(next_lcut));
     }
+}
+
+#[test]
+#[serial]
+fn test_snapshot_evaluation_session_pins_cursor_and_evaluates() {
+    let statsig = Statsig::new(
+        "snapshot-session-test",
+        Some(Arc::new(StatsigOptions {
+            disable_all_logging: Some(true),
+            disable_network: Some(true),
+            ..StatsigOptions::default()
+        })),
+    );
+    let spec_store = statsig.get_context().spec_store;
+    apply_eval_project(&spec_store);
+    let before = spec_store.load_data();
+    let gate_name = before
+        .snapshot
+        .feature_gates
+        .keys()
+        .next()
+        .unwrap()
+        .as_str()
+        .to_string();
+    let session = statsig.snapshot_evaluation_session();
+    let user = StatsigUser::with_user_id("snapshot-user");
+    let checksum = spec_store
+        .get_current_specs_info()
+        .checksum
+        .unwrap_or_default();
+
+    let evaluation = session
+        .with_evaluator(&user, None, |evaluator| evaluator.evaluate_gate(&gate_name))
+        .unwrap();
+    assert!(evaluation.evaluation.is_some());
+
+    spec_store
+        .did_advance_specs_cursor(SpecsCursorUpdate {
+            lcut: before.lcut() + 1,
+            checksum,
+            source: SpecsSource::Network,
+            source_api: Some("cursor-api".to_string()),
+        })
+        .unwrap();
+
+    assert_eq!(session.lcut(), before.lcut());
+    assert_eq!(
+        statsig.snapshot_evaluation_session().lcut(),
+        before.lcut() + 1
+    );
+}
+
+#[test]
+fn test_snapshot_session_precomputes_gcir_plan() {
+    let engine = EvaluationEngine::from_fixture(
+        include_str!("../../tests/data/eval_proj_dcs.json").to_string(),
+        None,
+    )
+    .expect("fixture evaluation engine should initialize");
+
+    assert!(
+        engine
+            .snapshot_evaluation_data()
+            .gcir_evaluation_plan
+            .get()
+            .is_some()
+    );
+}
+
+#[test]
+fn test_external_cursor_update_reuses_snapshot_and_gcir_plan() {
+    let spec_store = initialized_spec_store("external-cursor-test");
+    let before = spec_store.load_data();
+    let hashing = crate::hashing::HashUtil::new();
+    let _ = before.gcir_evaluation_plan(&hashing);
+    let checksum = spec_store
+        .get_current_specs_info()
+        .checksum
+        .unwrap_or_default();
+
+    spec_store
+        .did_advance_specs_cursor(SpecsCursorUpdate {
+            lcut: before.lcut() + 1,
+            checksum,
+            source: SpecsSource::Adapter("scoped-source".to_string()),
+            source_api: Some("external-store".to_string()),
+        })
+        .unwrap();
+
+    let after = spec_store.load_data();
+    assert_eq!(after.lcut(), before.lcut() + 1);
+    assert!(Arc::ptr_eq(&before.snapshot, &after.snapshot));
+    assert!(Arc::ptr_eq(
+        &before.gcir_evaluation_plan,
+        &after.gcir_evaluation_plan
+    ));
 }
 
 #[test]

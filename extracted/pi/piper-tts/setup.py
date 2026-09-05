@@ -42,7 +42,7 @@ HTTP_DATA_FILES = [
 
 setup(
     name="piper-tts",
-    version="1.7.0",
+    version="1.8.0",
     description="Fast and local neural text-to-speech engine",
     url="http://github.com/OHF-voice/piper1-gpl",
     license="GPL-3.0-or-later",
@@ -108,6 +108,19 @@ setup(
         ],
         "ja": [
             "pyopenjtalk-plus>=0.4,<1",
+        ],
+        "th": [
+            # Thai word segmentation + G2P. espeak-ng's Thai voice is a
+            # placeholder (see piper.phonemize_thai) and cannot be trained on.
+            # Capped below 1.11: that release pins "scikit-learn~=1.2.0", which
+            # has no wheels for current Pythons and whose compiled extensions
+            # predate the numpy 2 ABI, so it builds from source and then dies
+            # with "numpy.dtype size changed" on import. 1.10 leaves
+            # scikit-learn unpinned. Lift the cap once tltk relaxes it.
+            "tltk>=1.6.8,<1.11",
+            # tltk imports pandas but does not declare it (as of 1.10).
+            "pandas>=2,<3",
+            "unicode-rbnf>=2.4.0,<3",
         ],
     },
     packages=[

@@ -7,6 +7,7 @@ use crate::{
     hashing::{self, opt_bool_to_hashable},
     interned_string::InternedString,
     specs_response::explicit_params::ExplicitParameters,
+    specs_response::spec_types::SharedControlExperiments,
 };
 
 use serde::{Deserialize, Serialize};
@@ -59,6 +60,8 @@ pub struct ExtraExposureInfo {
     pub has_seen_analytical_gates: Option<bool>,
     pub override_config_name: Option<InternedString>,
     pub version: Option<u32>,
+    #[serde(skip)]
+    pub rule_pass_percentage: Option<f64>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -271,6 +274,19 @@ pub struct LayerEvaluation {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parameter_rule_ids: Option<HashMap<InternedString, InternedString>>,
+
+    #[serde(skip_serializing)]
+    pub shared_control_experiments: Option<SharedControlExperiments>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SharedControlLayerExposure {
+    pub allocated_experiment_name: InternedString,
+    pub control_group_id: InternedString,
+    pub secondary_exposures: Vec<SecondaryExposure>,
+    pub explicit_parameters: ExplicitParameters,
+    #[serde(flatten)]
+    pub exposure_info: ExtraExposureInfo,
 }
 
 impl GCIRHashable for LayerEvaluation {

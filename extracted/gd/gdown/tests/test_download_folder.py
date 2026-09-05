@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest.mock
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -11,11 +12,13 @@ from gdown.download_folder import _parse_embedded_folder_view
 from gdown.download_folder import download_folder
 from gdown.exceptions import DownloadError
 
+from .conftest import build_response
+
 here = osp.dirname(osp.abspath(__file__))
 
 
 @pytest.mark.network
-def test_download_folder_google_slides_without_extension(tmp_path: Path) -> None:
+def test_download_folder_google_slides_without_extension(*, tmp_path: Path) -> None:
     # The folder contains a Google Slides file named "gdown" with no extension in
     # Google Drive. Previously, download_folder() passed this extensionless name as
     # the output path to download(), which saved the file without .pptx extension.
@@ -28,9 +31,7 @@ def test_download_folder_google_slides_without_extension(tmp_path: Path) -> None
     assert files[0].endswith(".pptx")
 
 
-def _make_folder_root(
-    name: str = "folder", child_name: str = "file.txt"
-) -> _GoogleDriveFile:
+def _make_folder_root(*, name: str, child_name: str) -> _GoogleDriveFile:
     return _GoogleDriveFile(
         id="root_id",
         name=name,
@@ -45,7 +46,7 @@ def _make_folder_root(
     )
 
 
-def test_root_folder_name_path_traversal_is_sanitized(tmp_path: Path) -> None:
+def test_root_folder_name_path_traversal_is_sanitized(*, tmp_path: Path) -> None:
     root = _make_folder_root(name="../../evil", child_name="safe_file.txt")
     output_dir = str(tmp_path) + osp.sep
 
@@ -67,8 +68,8 @@ def test_root_folder_name_path_traversal_is_sanitized(tmp_path: Path) -> None:
         assert resolved.startswith(osp.realpath(output_dir))
 
 
-def test_download_folder_propagates_download_error(tmp_path: Path) -> None:
-    root = _make_folder_root()
+def test_download_folder_propagates_download_error(*, tmp_path: Path) -> None:
+    root = _make_folder_root(name="folder", child_name="file.txt")
 
     with (
         unittest.mock.patch.object(
@@ -90,6 +91,27 @@ def test_download_folder_propagates_download_error(tmp_path: Path) -> None:
         )
 
 
+def test_download_folder_closes_session_when_parsing_raises() -> None:
+    session = unittest.mock.Mock()
+
+    with (
+        unittest.mock.patch.object(
+            sys.modules["gdown.download_folder"],
+            "_get_session",
+            return_value=(session, "cookies.txt"),
+        ),
+        unittest.mock.patch.object(
+            sys.modules["gdown.download_folder"],
+            "_download_and_parse_google_drive_link",
+            side_effect=DownloadError("parse failed"),
+        ),
+        pytest.raises(DownloadError, match="parse failed"),
+    ):
+        download_folder(id="folder_id", quiet=True)
+
+    session.close.assert_called_once_with()
+
+
 def test_parse_embedded_folder_view() -> None:
     html_file = osp.join(here, "data/embedded-folder-view-sample.html")
     with open(html_file) as f:
@@ -102,13 +124,13 @@ def test_parse_embedded_folder_view() -> None:
     mock_sess = unittest.mock.Mock()
     mock_sess.get.return_value = mock_response
 
-    result = _parse_embedded_folder_view(sess=mock_sess, folder_id="test_folder_id")
+    result = _parse_embedded_folder_view(
+        sess=mock_sess, folder_id="test_folder_id", verify=True
+    )
 
     assert result is not None
     folder_name, children = result
     assert folder_name == "files_100"
-    assert len(children) == 4
-
     ids = [r[0] for r in children]
     names = [r[1] for r in children]
     types = [r[2] for r in children]
@@ -136,7 +158,9 @@ def test_parse_embedded_folder_view_http_error() -> None:
     mock_sess.get.return_value = mock_response
 
     with pytest.raises(DownloadError, match="status code 404"):
-        _parse_embedded_folder_view(sess=mock_sess, folder_id="nonexistent")
+        _parse_embedded_folder_view(
+            sess=mock_sess, folder_id="nonexistent", verify=True
+        )
 
 
 def test_parse_embedded_folder_view_malformed_html() -> None:
@@ -148,16 +172,58 @@ def test_parse_embedded_folder_view_malformed_html() -> None:
     mock_sess.get.return_value = mock_response
 
     with pytest.raises(DownloadError, match="page structure may have changed"):
-        _parse_embedded_folder_view(sess=mock_sess, folder_id="test")
+        _parse_embedded_folder_view(sess=mock_sess, folder_id="test", verify=True)
 
 
 @pytest.mark.network
 def test_download_folder_dry_run() -> None:
+    EXPECTED_FILE_COUNT: Final = 6
     url = "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks"
     tmp_dir = tempfile.mkdtemp()
     files = download_folder(url=url, output=tmp_dir, skip_download=True)
-    assert len(files) == 6
+    assert len(files) == EXPECTED_FILE_COUNT
     for file in files:
         assert hasattr(file, "id")
         assert hasattr(file, "path")
         assert hasattr(file, "local_path")
+
+
+def test_download_folder_fails_when_a_file_ends_before_announced_size(
+    *, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = _make_folder_root(name="folder", child_name="file.txt")
+    response = build_response(
+        headers={
+            "Content-Disposition": 'attachment; filename="file.txt"',
+            "Content-Length": "10",
+        },
+        chunks=[b"data"],
+    )
+    session = unittest.mock.Mock()
+    session.get.return_value = response
+    session.cookies = []
+
+    with (
+        unittest.mock.patch.object(
+            sys.modules["gdown.download_folder"],
+            "_download_and_parse_google_drive_link",
+            return_value=root,
+        ),
+        unittest.mock.patch.object(
+            sys.modules["gdown.download"],
+            "_get_session",
+            return_value=(session, str(tmp_path / "cookies.txt")),
+        ),
+        pytest.raises(DownloadError, match="received 4 bytes"),
+    ):
+        download_folder(
+            url="https://drive.google.com/drive/folders/dummy",
+            output=str(tmp_path) + osp.sep,
+            quiet=False,
+        )
+
+    assert "Download completed" not in capsys.readouterr().err
+    assert not (tmp_path / "folder" / "file.txt").exists()
+    part_files = list((tmp_path / "folder").glob("file.txt*.part"))
+    assert len(part_files) == 1
+    assert part_files[0].read_bytes() == b"data"

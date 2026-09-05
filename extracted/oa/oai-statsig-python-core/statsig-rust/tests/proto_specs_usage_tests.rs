@@ -18,6 +18,10 @@ const DEMO_PROJ_GATE_COUNT: usize = 7 /* demo_proj_dcs.json['feature_gates'].fil
 
 const EVAL_PROJ_PROTO_BYTES: &[u8] = include_bytes!("../tests/data/eval_proj_dcs.pb.br");
 const DEMO_PROJ_PROTO_BYTES: &[u8] = include_bytes!("../tests/data/demo_proj_dcs.pb.br");
+// Minimized from the live DCS payload for test_exp_5050_targeting/test_experiment_group,
+// then regenerated through the protobuf writer so it carries the fixed condition enum.
+const EXPERIMENT_GROUP_PROTO_BYTES: &[u8] =
+    include_bytes!("../tests/data/experiment_group_condition.pb.br");
 
 const INSTANT_SYNC_INTERVAL_MS: u32 = 1;
 const DELAYED_SYNC_INTERVAL_MS: u32 = 100;
@@ -46,6 +50,29 @@ async fn test_proto_specs_initialize() {
 }
 
 #[tokio::test]
+async fn test_proto_specs_evaluate_experiment_group_condition_for_control_user() {
+    let (mock_scrapi, statsig) = setup("secret-proto-experiment-group", None).await;
+    restub_dcs_with_proto(&mock_scrapi, EXPERIMENT_GROUP_PROTO_BYTES).await;
+
+    statsig.initialize().await.unwrap();
+
+    let user = (0..100)
+        .map(|index| StatsigUser::with_user_id(format!("experiment-group-user-{index}")))
+        .find(|user| {
+            statsig
+                .get_experiment(user, "test_exp_5050_targeting")
+                .group_name
+                .as_deref()
+                == Some("Control")
+        })
+        .expect("fixture should assign at least one test user to Control");
+
+    let experiment = statsig.get_experiment(&user, "test_exp_5050_targeting");
+    assert_eq!(experiment.group_name.as_deref(), Some("Control"));
+    assert!(statsig.check_gate(&user, "test_experiment_group"));
+}
+
+#[tokio::test]
 async fn test_proto_specs_request_accept_encoding_header() {
     std::env::set_var("STATSIG_RUNNING_TESTS", "true");
 
@@ -65,7 +92,10 @@ async fn test_proto_specs_request_accept_encoding_header() {
         .and_then(|header| header.to_str().ok())
         .unwrap_or("");
 
-    assert_eq!(accept_encoding, "statsig-br, gzip, deflate, br");
+    assert_eq!(
+        accept_encoding,
+        "statsig-zstd, statsig-br, gzip, deflate, br"
+    );
 }
 
 #[tokio::test]

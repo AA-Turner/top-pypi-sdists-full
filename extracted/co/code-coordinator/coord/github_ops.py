@@ -2679,6 +2679,39 @@ def get_run_jobs(repo: str, run_id: str) -> list[dict]:
     return data["jobs"]
 
 
+def get_job_log(repo: str, job_id: str) -> str:
+    """Return the plain-text log for Actions job *job_id* on *repo* (#3114).
+
+    The single ``gh`` sink for :func:`coord.ci_github.build_ci_failure_detail`
+    — the call that backs a ci-fix briefing's log excerpt. ``gh api
+    repos/{repo}/actions/jobs/{id}/logs`` redirects to a blob-storage URL
+    carrying the job's raw text log, not JSON; ``gh api`` follows the
+    redirect and prints the body verbatim, so this goes through :func:`_gh`
+    directly rather than :func:`_gh_json` — there is nothing to JSON-decode
+    here, unlike every other read in this module.
+
+    Raises the same as :func:`_gh` on any failure — missing/timed-out/
+    rate-limited ``gh``, or a non-zero exit (e.g. the run's log retention
+    window has expired). The sole caller,
+    :func:`coord.ci_github.build_ci_failure_detail`, treats any raise as "no
+    log available" and degrades to the summary-only briefing — this is
+    never called from the polling path, only once at CI-fix dispatch time.
+
+    No server-side tail: this downloads the job's ENTIRE log before
+    :func:`coord.ci_github._bound_log_excerpt` truncates it client-side. A
+    GitHub Actions job log can run to many MB, and this call shares
+    :func:`_gh`'s single subprocess timeout with every other ``gh``
+    invocation — so a very verbose job's log can time out this fetch
+    outright (fails soft to no detail, same as any other raise here, but
+    means the noisiest/most-verbose failures are the ones likeliest to get
+    no excerpt at all).
+    """
+    return _gh(
+        "api", f"repos/{repo}/actions/jobs/{job_id}/logs",
+        caller="github_ops.get_job_log",
+    )
+
+
 def rerun_workflow_run(repo: str, run_id: str) -> bool:
     """Re-run Actions workflow run *run_id* on *repo* via ``gh run rerun``.
 

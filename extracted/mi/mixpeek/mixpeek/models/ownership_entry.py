@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from mixpeek.models.owner_confirmation import OwnerConfirmation
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -34,7 +35,9 @@ class OwnershipEntry(BaseModel):
     runbook_text: Optional[StrictStr] = Field(default=None, description="Inline minimal procedure when no doc exists yet.")
     description: Optional[StrictStr] = None
     alert_classes: Optional[List[StrictStr]] = Field(default=None, description="Alert names (infra/gke/alerting-rules.yaml) covered.")
-    __properties: ClassVar[List[str]] = ["id", "owner", "escalation", "runbook", "runbook_text", "description", "alert_classes"]
+    alert_escalations: Optional[Dict[str, StrictStr]] = Field(default=None, description="Per-alert escalation overrides. Keys must appear in alert_classes. Use when one alert in a subsystem pulls in a different responder than the subsystem default.")
+    owner_confirmed: Optional[OwnerConfirmation] = Field(default=None, description="The owner agreed to this line, and where they said so. Absent means unconfirmed, which is NOT the same as wrong.")
+    __properties: ClassVar[List[str]] = ["id", "owner", "escalation", "runbook", "runbook_text", "description", "alert_classes", "alert_escalations", "owner_confirmed"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -75,6 +78,9 @@ class OwnershipEntry(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of owner_confirmed
+        if self.owner_confirmed:
+            _dict['owner_confirmed'] = self.owner_confirmed.to_dict()
         return _dict
 
     @classmethod
@@ -93,7 +99,9 @@ class OwnershipEntry(BaseModel):
             "runbook": obj.get("runbook"),
             "runbook_text": obj.get("runbook_text"),
             "description": obj.get("description"),
-            "alert_classes": obj.get("alert_classes")
+            "alert_classes": obj.get("alert_classes"),
+            "alert_escalations": obj.get("alert_escalations"),
+            "owner_confirmed": OwnerConfirmation.from_dict(obj["owner_confirmed"]) if obj.get("owner_confirmed") is not None else None
         })
         return _obj
 

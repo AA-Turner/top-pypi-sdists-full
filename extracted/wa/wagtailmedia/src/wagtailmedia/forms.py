@@ -1,7 +1,9 @@
 from django import forms
 from django.forms.models import modelform_factory
+from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
+from wagtail import VERSION as WAGTAIL_VERSION
 from wagtail.admin import widgets
 from wagtail.admin.forms.collections import (
     BaseCollectionMemberForm,
@@ -10,8 +12,7 @@ from wagtail.admin.forms.collections import (
 )
 from wagtail.models import Collection
 
-from wagtailmedia.models import Media, MediaType
-from wagtailmedia.permissions import permission_policy as media_permission_policy
+from wagtailmedia.models import Media, MediaType, get_media_model
 from wagtailmedia.settings import wagtailmedia_settings
 
 
@@ -45,12 +46,23 @@ class BaseMediaForm(BaseCollectionMemberForm):
             "thumbnail": forms.ClearableFileInput,
         }
 
-    permission_policy = media_permission_policy
+    @cached_property
+    def permission_policy(self):
+        if WAGTAIL_VERSION >= (8, 0):
+            from wagtail.permissions import policy_registry
+
+            return policy_registry.get_by_type(get_media_model())
+        else:
+            from wagtailmedia.permissions import get_permission_policy
+
+            return get_permission_policy()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if file_accept_value := self.get_file_accept_value(self.instance.type):
+        if "file" in self.fields and (
+            file_accept_value := self.get_file_accept_value(self.instance.type)
+        ):
             self.fields["file"].widget.attrs["accept"] = file_accept_value
 
         if self.instance.type == "audio":
@@ -95,8 +107,11 @@ def get_media_base_form():
     return base_form
 
 
-def get_media_form(model):
-    fields = model.admin_form_fields
+def get_media_form(model, fields=None):
+    if fields is None:
+        fields = model.admin_form_fields
+    fields = list(fields)
+
     if "collection" not in fields:
         # force addition of the 'collection' field, because leaving it out can
         # cause dubious results when multiple collections exist (e.g adding the

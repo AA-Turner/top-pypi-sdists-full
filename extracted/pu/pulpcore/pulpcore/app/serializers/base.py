@@ -6,12 +6,10 @@ from collections import namedtuple
 from gettext import gettext as _
 from logging import getLogger
 from typing import List, TypedDict
-from urllib.parse import urljoin
 
 from cryptography.x509 import load_pem_x509_certificate
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.validators import URLValidator
 from django.db import IntegrityError
 from django.db.models import Model
 from django.urls.exceptions import NoReverseMatch
@@ -452,8 +450,8 @@ class ModelSerializer(
 
     This ensures that all Serializers provide values for the 'pulp_href` field.
 
-    The class provides a default for the ``ref_name`` attribute in the
-    ModelSerializers's ``Meta`` class. This ensures that the OpenAPI definitions
+    The class provides a default for the `ref_name` attribute in the
+    ModelSerializers's `Meta` class. This ensures that the OpenAPI definitions
     of plugins are namespaced properly.
 
     """
@@ -475,37 +473,6 @@ class ModelSerializer(
         read_only=True,
     )
 
-    def _validate_relative_path(self, path):
-        """
-        Validate a relative path (eg from a url) to ensure it forms a valid url and does not begin
-        or end with slashes nor contain spaces
-
-        Args:
-            path (str): A relative path to validate
-
-        Returns:
-            str: the validated path
-
-        Raises:
-            django.core.exceptions.ValidationError: if the relative path is invalid
-
-        """
-        # in order to use django's URLValidator we need to construct a full url
-        base = "http://localhost"  # use a scheme/hostname we know are valid
-
-        if " " in path:
-            raise serializers.ValidationError(detail=_("Relative path cannot contain spaces."))
-
-        validate = URLValidator()
-        validate(urljoin(base, path))
-
-        if path != path.strip("/"):
-            raise serializers.ValidationError(
-                detail=_("Relative path cannot begin or end with slashes.")
-            )
-
-        return path
-
     def save(self, **kwargs):
         try:
             return super().save(**kwargs)
@@ -519,17 +486,17 @@ class ModelSerializer(
     def __init_subclass__(cls, **kwargs):
         """Set default attributes in subclasses.
 
-        Sets the default for the ``ref_name`` attribute for a ModelSerializers's
-        ``Meta`` class.
+        Sets the default for the `ref_name` attribute for a ModelSerializers's
+        `Meta` class.
 
-        If the ``Meta.ref_name`` attribute is not yet defined, set it according
-        to the best practice established within Pulp: ``<app label>.<model class
-        name>``. ``app_label`` is used to create a per plugin namespace.
+        If the `Meta.ref_name` attribute is not yet defined, set it according
+        to the best practice established within Pulp: `<app label>.<model class
+        name>`. `app_label` is used to create a per plugin namespace.
 
-        Serializers in pulpcore (``app_label`` is 'core') will not be
+        Serializers in pulpcore (`app_label` is 'core') will not be
         namespaced, i.e. ref_name is not set in this case.
 
-        The ``ref_name`` default value is computed using ``Meta.model``. If that
+        The `ref_name` default value is computed using `Meta.model`. If that
         is not defined (because the class must be subclassed to be useful),
         `ref_name` is not set.
 

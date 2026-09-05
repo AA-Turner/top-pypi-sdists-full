@@ -248,6 +248,17 @@ class TestRegular(Axis):
         ax = bh.axis.Regular(4, 1.1, 2.2, transform=bh.axis.transform.Pow(0.5))
         assert repr(ax) == "Regular(4, 1.1, 2.2, transform=pow(0.5))"
 
+    def test_repr_large_bin_count(self):
+        # A large bin count must print as an integer, not "1e+06"
+        ax = bh.axis.Regular(1_000_000, 0, 1)
+        assert repr(ax) == "Regular(1000000, 0, 1)"
+
+    def test_copy_does_not_alias_metadata(self):
+        a = bh.axis.Regular(3, 0, 1)
+        b = copy.copy(a)
+        b.label = "x"
+        assert a.metadata is None
+
     def test_getitem(self):
         a = bh.axis.Regular(2, 1.0, 2.0)
         ref = [1.0, 1.5, 2.0]
@@ -842,6 +853,28 @@ class TestCategory(Axis):
         assert a.centers == approx([0.5, 1.5, 2.5])
         assert a.widths == approx([1, 1, 1])
 
+    def test_non_ascii(self):
+        # non-ASCII strings must round-trip through construction, indexing,
+        # and fill by list/ndarray, not just scalar fill
+        labels = ["é", "日本", "a"]
+        a = bh.axis.StrCategory(labels)
+        assert list(a) == labels
+        assert a.index("é") == 0
+        assert a.index("日本") == 1
+
+        h = bh.Histogram(a)
+        h.fill(["é", "日本", "a", "é"])
+        assert h.view() == approx([2, 1, 1])
+
+        h2 = bh.Histogram(bh.axis.StrCategory(labels))
+        h2.fill(np.array(["é", "日本", "a", "é"]))
+        assert h2.view() == approx([2, 1, 1])
+
+        h3 = bh.Histogram(bh.axis.StrCategory(labels))
+        for label in labels:
+            h3.fill(label)
+        assert h3.view() == approx([1, 1, 1])
+
 
 class TestBoolean(Axis):
     def test_init(self):
@@ -907,6 +940,46 @@ class TestBoolean(Axis):
         assert a.edges == approx([0.0, 1.0, 2.0])
         assert a.centers == approx([0.5, 1.5])
         assert a.widths == approx([1, 1])
+
+    def test_value(self):
+        a = bh.axis.Boolean()
+        assert a.value(0) == 0
+        assert a.value(1) == 1
+        assert a.value([0, 1]) == approx([0, 1])
+
+
+def test_metadata_compare_no_bool():
+    # Metadata that does not give a plain bool from == must not abort
+    array = np.arange(3)
+    assert bh.axis.Regular(3, 0, 1, metadata=array) == bh.axis.Regular(
+        3, 0, 1, metadata=array
+    )
+    assert bh.axis.Regular(3, 0, 1, metadata=array) != bh.axis.Regular(
+        3, 0, 1, metadata=np.arange(3)
+    )
+    assert not bh.axis.Regular(3, 0, 1, metadata=np.arange(3)) == bh.axis.Regular(  # noqa: SIM201
+        3, 0, 1, metadata=np.arange(3)
+    )
+
+    # A copy keeps the same metadata object, so it stays equal
+    ax = bh.axis.Regular(3, 0, 1, metadata=array)
+    assert copy.copy(ax) == ax
+
+
+def test_metadata_compare_raises():
+    class Bad:
+        def __eq__(self, other):
+            raise RuntimeError("no compare")
+
+        __hash__ = None
+
+    bad = Bad()
+    assert bh.axis.Regular(3, 0, 1, metadata=bad) == bh.axis.Regular(
+        3, 0, 1, metadata=bad
+    )
+    assert bh.axis.Regular(3, 0, 1, metadata=bad) != bh.axis.Regular(
+        3, 0, 1, metadata=Bad()
+    )
 
 
 # Issue #1143 regression tests

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: chatlas
-Version: 0.22.0
+Version: 0.23.0
 Summary: A simple and consistent interface for chatting with LLMs
 Project-URL: Homepage, https://posit-dev.github.io/chatlas
 Project-URL: Documentation, https://posit-dev.github.io/chatlas
@@ -44,7 +44,7 @@ Requires-Dist: databricks-sdk; extra == 'databricks'
 Provides-Extra: dev
 Requires-Dist: anthropic[bedrock]>=1.0.0; extra == 'dev'
 Requires-Dist: databricks-sdk; extra == 'dev'
-Requires-Dist: google-genai>=1.14.0; extra == 'dev'
+Requires-Dist: google-genai>=2.0.0; extra == 'dev'
 Requires-Dist: htmltools>=0.7.0; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: matplotlib; extra == 'dev'
 Requires-Dist: narwhals; extra == 'dev'
@@ -78,7 +78,7 @@ Provides-Extra: eval
 Requires-Dist: inspect-ai; (python_version >= '3.10') and extra == 'eval'
 Provides-Extra: github
 Provides-Extra: google
-Requires-Dist: google-genai>=1.14.0; extra == 'google'
+Requires-Dist: google-genai>=2.0.0; extra == 'google'
 Provides-Extra: groq
 Provides-Extra: mcp
 Requires-Dist: mcp>=2.0.0; (python_version >= '3.10') and extra == 'mcp'
@@ -102,7 +102,7 @@ Requires-Dist: pytest>=8.3.2; extra == 'test'
 Requires-Dist: syrupy>=4; extra == 'test'
 Requires-Dist: vcrpy>=6.0.0; extra == 'test'
 Provides-Extra: vertex
-Requires-Dist: google-genai>=1.14.0; extra == 'vertex'
+Requires-Dist: google-genai>=2.0.0; extra == 'vertex'
 Description-Content-Type: text/markdown
 
 # chatlas <a href="https://posit-dev.github.io/chatlas"><img src="https://posit-dev.github.io/chatlas/logos/hex/logo.png" align="right" height="138" alt="chatlas website" /></a>

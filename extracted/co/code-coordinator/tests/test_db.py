@@ -169,11 +169,13 @@ class TestIssueCommentsSchema:
     ) -> None:
         """The Azure-blob offload seam column exists but is never populated
         by current code — reserved for a future body_ref migration."""
-        cols = {
-            r[1] for r in isolated_conn.execute(
-                "PRAGMA table_info(issue_comments)"
-            ).fetchall()
-        }
+        # #3083: goes through the seam, not `PRAGMA` — `isolated_conn` is an
+        # alias for the autouse `coord_db` fixture, so under
+        # COORD_TEST_BACKEND=postgres this is a psycopg connection and a
+        # literal PRAGMA is a syntax error. The neighbouring pre-migration
+        # checks below keep their raw PRAGMA on purpose: those run against a
+        # hand-built SQLite *file*, which is SQLite on every backend.
+        cols = {name for name, _type in sql.table_columns(isolated_conn, "issue_comments")}
         assert "body_ref" in cols
 
 
@@ -214,8 +216,12 @@ _GATE_COLUMNS = {
 }
 
 
-def _drive_queue_columns(conn: sqlite3.Connection) -> set[str]:
-    return {r[1] for r in conn.execute("PRAGMA table_info(drive_queue)").fetchall()}
+def _drive_queue_columns(conn) -> set[str]:
+    """#3083: through the seam, because this helper is handed *both* kinds of
+    connection — a raw SQLite file DB (the pre-migration checks) and the
+    autouse fixture connection, which is psycopg under
+    COORD_TEST_BACKEND=postgres and cannot parse a literal PRAGMA."""
+    return {name for name, _type in sql.table_columns(conn, "drive_queue")}
 
 
 class TestDriveQueueDeployGateColumns:
@@ -667,8 +673,9 @@ _PRE_1892_MERGE_QUEUE_TABLE = """
 """
 
 
-def _merge_queue_columns(conn: sqlite3.Connection) -> set[str]:
-    return {r[1] for r in conn.execute("PRAGMA table_info(merge_queue)").fetchall()}
+def _merge_queue_columns(conn) -> set[str]:
+    """#3083: through the seam — see :func:`_drive_queue_columns`."""
+    return {name for name, _type in sql.table_columns(conn, "merge_queue")}
 
 
 class TestMergeQueueCiInfraRerunsColumn:
@@ -2362,7 +2369,13 @@ class TestUatStateAndReasonColumns:
 # #2786 bumped this to (6, 74): `assignments.num_turns`.
 # #2987 bumped this to (7, 76): `portal_sync_state.relayed_answer_
 # watermark_at` / `relayed_answer_watermark_rowid`.
-_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (8, 78)
+# #3114 bumped this to (9, 80): `merge_queue.ci_fix_detail_sha` /
+# `ci_fix_detail_json`.
+# #3113 bumped this to (10, 80): a new `review_claims` TABLE (not a column —
+# `_MIGRATE_ADD_COLUMNS`'s length is unchanged at 80, so only the version
+# moved, to force `_ensure_schema`'s `CREATE TABLE IF NOT EXISTS` to run once
+# more on an existing database).
+_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (10, 80)
 
 
 class TestMigrateAddColumnsVersionGuard:

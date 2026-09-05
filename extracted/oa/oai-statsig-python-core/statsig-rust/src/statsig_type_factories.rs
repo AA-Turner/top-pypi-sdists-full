@@ -178,6 +178,7 @@ pub fn make_layer(
         __user: user,
         __event_logger_ptr: event_logger_ptr,
         __disable_exposure: disable_exposure,
+        __shared_control_exposures: Vec::new(),
         __version: version,
         __exposure_info: exposure_info,
         __parameter_rule_ids: parameter_rule_ids,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iomete-sqlalchemy"
-version = "1.0.22"
+version = "1.0.23"
 description = "SQLAlchemy dialect for IOMETE via Arrow Flight SQL"
 readme = "README.md"
 license = { text = "Apache-2.0" }

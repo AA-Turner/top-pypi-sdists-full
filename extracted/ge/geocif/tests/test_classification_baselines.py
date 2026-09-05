@@ -348,3 +348,58 @@ class TestTrainingDataAlignment(unittest.TestCase):
                               logger=logging.getLogger("test_align"))
         X = ModelTrainer(obj)._prepare_training_data(df)
         self.assertEqual(len(X), 3)
+
+
+class TestTabPFNClassifierDispatch(unittest.TestCase):
+    """tabpfn must fit a CLASSIFIER (not a regressor) under CLASSIFICATION."""
+
+    def test_regression_builds_regressor(self):
+        pytest.importorskip("tabpfn")
+        from geocif.ml import trainers
+        import inspect
+        src = inspect.getsource(trainers.auto_train)
+        self.assertIn("TabPFNClassifier", src)
+        self.assertIn('model_type == "CLASSIFICATION"', src)
+
+    def test_classification_routes_to_proba(self):
+        """_predict_with_confidence_intervals must prefer predict_proba."""
+        from geocif.geocif import Geocif
+
+        class _M:
+            def predict(self, X):
+                return np.array([1, 0])
+
+            def predict_proba(self, X):
+                return np.array([[0.2, 0.8], [0.7, 0.3]])
+
+        stub = SimpleNamespace(
+            model_type="CLASSIFICATION", model=_M(), dispatch_name="tabpfn",
+            estimate_ci_for_all=True, forecast_season=2026, today_year=2026,
+            logger=logging.getLogger("t"),
+        )
+        stub._predict_classification_with_proba = MethodType(
+            Geocif._predict_classification_with_proba, stub)
+        stub._predict_with_confidence_intervals = MethodType(
+            Geocif._predict_with_confidence_intervals, stub)
+        y, ci, hp = stub._predict_with_confidence_intervals(pd.DataFrame({"a": [1, 2]}), None)
+        np.testing.assert_array_equal(y, np.array([1, 0]))
+        self.assertEqual(np.asarray(ci).shape, (2, 2))   # proba, not an interval
+
+    def test_regression_tabpfn_unaffected(self):
+        from geocif.geocif import Geocif
+        called = {}
+
+        class _M:
+            def predict(self, X):
+                return np.array([1.0])
+
+        stub = SimpleNamespace(
+            model_type="REGRESSION", model=_M(), dispatch_name="tabpfn",
+            estimate_ci_for_all=True, forecast_season=2026, today_year=2026,
+            logger=logging.getLogger("t"),
+        )
+        stub._predict_tabpfn_with_quantiles = lambda X: called.setdefault("q", True)
+        stub._predict_with_confidence_intervals = MethodType(
+            Geocif._predict_with_confidence_intervals, stub)
+        stub._predict_with_confidence_intervals(pd.DataFrame({"a": [1]}), None)
+        self.assertTrue(called.get("q"), "regression tabpfn must keep the quantile path")

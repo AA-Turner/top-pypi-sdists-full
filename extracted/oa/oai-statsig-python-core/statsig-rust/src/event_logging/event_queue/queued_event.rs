@@ -24,6 +24,10 @@ pub trait QueuedExposure<'a> {
     fn create_exposure_sampling_key(&self) -> ExposureSamplingKey;
     fn get_rule_id_ref(&'a self) -> &'a str;
     fn get_extra_exposure_info_ref(&'a self) -> Option<&'a ExtraExposureInfo>;
+
+    fn is_primary_gate_exposure(&self) -> bool {
+        false
+    }
 }
 
 pub enum QueuedEvent {

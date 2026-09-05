@@ -773,6 +773,67 @@ def split_session_title(title: str, enc_key: str | None, fallback: str) -> tuple
         return fallback, None
 
 
+def seal_session_intent(intent: str, enc_key: str | None) -> str | None:
+    """Encrypted companion blob for ``sessions.intent`` (the full first user
+    prompt). Same rule as :func:`split_session_title`: prompt text is content
+    and rides ONLY the E2E-encrypted field; a node with no key sends nothing.
+    Never raises."""
+    text = (intent or "").strip()
+    if not text or not enc_key:
+        return None
+    try:
+        return encrypt_payload({"intent": text}, enc_key)
+    except Exception:
+        return None
+
+
+def _trail_decorate_cloud_session_rows(rows: list, enc_key: str | None) -> None:
+    """Attach the Trail outcome fields to cloud ``/ingest/sessions`` rows.
+
+    * ``intent_blob``: the session's intent, sealed with the node key (the
+      same encrypted channel that carries ``title_blob`` /
+      ``display_name_blob``). Never a plaintext ``intent`` key.
+    * ``commits`` / ``prs``: plaintext COUNTS from the git join. Subjects and
+      PR titles stay local; a count is not content.
+
+    One store read per batch for each; best-effort, never raises, and leaves
+    rows untouched when the store is unavailable.
+    """
+    if not rows:
+        return
+    try:
+        from clawmetry import local_store as _ls
+        store = _ls.get_store()
+    except Exception:
+        return
+    if store is None:
+        return
+    intents: dict = {}
+    counts: dict = {}
+    try:
+        intents = store.query_session_intents() or {}
+    except Exception:
+        intents = {}
+    try:
+        counts = store.query_session_git_counts() or {}
+    except Exception:
+        counts = {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        sid = str(r.get("session_id") or "")
+        if not sid:
+            continue
+        r.pop("intent", None)  # belt and braces: never plaintext
+        blob = seal_session_intent(intents.get(sid, ""), enc_key)
+        if blob:
+            r["intent_blob"] = blob
+        c = counts.get(sid)
+        if c:
+            r["commits"] = int(c.get("commits") or 0)
+            r["prs"] = int(c.get("prs") or 0)
+
+
 def decrypt_payload(blob: str, key_b64: str) -> dict:
     """Decrypt a blob produced by encrypt_payload. Used by clients."""
     cipher = _get_aesgcm(key_b64)
@@ -2925,8 +2986,118 @@ def sync_sessions(config: dict, state: dict, paths: dict) -> int:
         except Exception as e:
             log.warning(f"Session sync error ({fname}): {e}")
 
+    # Inputs & context: the trajectory sidecars this loop deliberately skips
+    # (they would mint phantom sessions) are the ONLY place OpenClaw writes
+    # what the agent was given. Read just that event type out of them.
+    try:
+        total += _sync_trajectory_context(sessions_dir, state, node_id)
+    except Exception as _e:
+        log.debug("trajectory context sync skipped: %s", _e)
+
     _record_sync_progress("sessions", total, total)
     return total
+
+
+# Per-cycle cap on context.compiled lines read out of trajectory sidecars.
+# Each line can be hundreds of KB (it repeats the conversation), so this is a
+# byte budget as much as a line budget.
+_TRAJECTORY_CTX_MAX_LINES_PER_CYCLE = 400
+_TRAJECTORY_CTX_MAX_LINE_BYTES = 4 * 1024 * 1024
+
+
+def _trajectory_sidecars(sessions_dir) -> list[str]:
+    """``<sid>.trajectory.jsonl`` files next to the session transcripts.
+    Empty when the directory is missing or the runtime never wrote one
+    (``OPENCLAW_TRAJECTORY=0``)."""
+    out: list[str] = []
+    try:
+        for fname in os.listdir(str(sessions_dir)):
+            if fname.endswith(".trajectory.jsonl"):
+                out.append(os.path.join(str(sessions_dir), fname))
+    except OSError:
+        pass
+    return out
+
+
+def _sync_trajectory_context(sessions_dir, state: dict, node_id: str,
+                             agent_type: str = "openclaw") -> int:
+    """Ingest ``context.compiled`` events from OpenClaw trajectory sidecars.
+
+    The sidecar line shape (openclaw dist, run-attempt ``recordEvent``)::
+
+        {traceSchema: "openclaw-trajectory", schemaVersion: 1, type, ts, seq,
+         sessionId, sessionKey, runId, workspaceDir, provider, modelId,
+         modelApi, data: {systemPrompt, prompt, messages, tools[], ...}}
+
+    Only ``type == "context.compiled"`` lines are read; every other trajectory
+    event is already represented by the canonical transcript, and ingesting
+    the sidecar wholesale is what produced phantom ``<uuid>.trajectory``
+    sessions before. The session id is the sidecar's own ``sessionId`` (the
+    same uuid as ``<sid>.jsonl``), so the rows join the real session. Each
+    line becomes one ``events`` row (shrunk: see
+    ``session_context.compact_raw_event_data``) and, via the store's ingest
+    chokepoint, its ``session_context`` rows. Progress is a per-file line
+    cursor in ``state["trajectory_ctx_cursor"]``. Returns lines ingested."""
+    files = _trajectory_sidecars(sessions_dir)
+    if not files:
+        return 0
+    from clawmetry import local_store as _ls
+    store = _ls.get_store()
+    cursors: dict = state.setdefault("trajectory_ctx_cursor", {})
+    files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    ingested = 0
+    for fpath in files:
+        if ingested >= _TRAJECTORY_CTX_MAX_LINES_PER_CYCLE:
+            break
+        fname = os.path.basename(fpath)
+        sid_from_name = fname[: -len(".trajectory.jsonl")]
+        start = int(cursors.get(fname, 0) or 0)
+        cursor = start
+        try:
+            with open(fpath, "r", errors="replace") as fh:
+                for i, raw in enumerate(islice(fh, start, None), start=start):
+                    cursor = i + 1
+                    if not raw or len(raw) > _TRAJECTORY_CTX_MAX_LINE_BYTES:
+                        continue
+                    # Cheap pre-filter before json.loads on a large line.
+                    if '"context.compiled"' not in raw:
+                        continue
+                    try:
+                        obj = json.loads(raw)
+                    except Exception:
+                        continue
+                    if not isinstance(obj, dict) or obj.get("type") != "context.compiled":
+                        continue
+                    sid = str(obj.get("sessionId") or sid_from_name)
+                    ts = obj.get("ts") or obj.get("timestamp") or ""
+                    if not ts:
+                        continue
+                    seq = obj.get("seq")
+                    eid = f"{sid}:ctx:{seq}" if seq is not None else f"{sid}:ctx:{ts}"
+                    store.ingest({
+                        "id": eid,
+                        "agent_type": agent_type,
+                        "node_id": node_id,
+                        "agent_id": "main",
+                        "session_id": sid,
+                        "workspace_id": obj.get("workspaceDir"),
+                        "event_type": "context.compiled",
+                        "ts": str(ts),
+                        "data": obj,
+                        "model": obj.get("modelId") or None,
+                    })
+                    ingested += 1
+                    if ingested >= _TRAJECTORY_CTX_MAX_LINES_PER_CYCLE:
+                        break
+            cursors[fname] = cursor
+        except Exception as _e:
+            log.debug("trajectory context read failed (%s): %s", fname, _e)
+    if ingested:
+        try:
+            store.flush()
+        except Exception:
+            pass
+    return ingested
 
 
 def _parse_openclaw_subagent_index(index) -> dict:
@@ -4232,6 +4403,18 @@ def _local_ingest_session_batch(
         })
     if rows:
         store.ingest_many(rows)
+        # Trail: the session's intent is the FULL first user prompt (the
+        # title is its 80-char truncation). First wins inside the store, so
+        # a later batch of the same session cannot overwrite it; a session
+        # row that does not exist yet is picked up by the daemon's lazy
+        # back-fill. Non-fatal.
+        try:
+            from clawmetry import event_shape as _event_shape
+            _intent = _event_shape.first_user_prompt(rows)
+            if _intent:
+                store.update_session_intent(session_id, _intent, source="events")
+        except Exception as _e:
+            log.debug("session intent update skipped (non-fatal): %s", _e)
     # Stamp where this session is running. Runs after ingest_many so a session
     # row created by this same batch is already there to update. Non-fatal and
     # non-blocking: a session with no location is a cosmetic gap, never a
@@ -13170,6 +13353,11 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
                                               float(_t.get("cost_usd") or 0.0))
             except Exception as _e:
                 log.debug("event-cost bridge skipped (push uses JSONL value): %s", _e)
+            # Trail: sealed intent + plaintext commit/PR counts.
+            try:
+                _trail_decorate_cloud_session_rows(rows, config.get("encryption_key"))
+            except Exception as _e:
+                log.debug("trail decoration skipped (non-fatal): %s", _e)
             _post("/ingest/sessions", {"node_id": node_id, "sessions": rows}, api_key)
             return len(rows)
 
@@ -14114,16 +14302,19 @@ def _family_ingest_rev() -> str:
     means an upgrade re-ingests every session once instead of trusting a
     mark written by older extraction code. "" when pro is absent.
 
-    The ``/cwd1`` salt is OSS-side: 2026-08-19 the family upsert started
+    The ``/ctx1`` salt is OSS-side: 2026-08-19 the family upsert started
     persisting ``cwd``/``git_branch`` (kill/pause pid resolution reads them),
-    and only a rev change makes existing sessions re-ingest to backfill the
-    column. Bump the salt when the OSS extraction changes without a pro
-    release.
+    and 2026-09-04 the ``context.compiled`` event each adapter prepends
+    started landing under its own runtime (Inputs & context). Only a rev
+    change makes an already-ingested session re-read its transcript, so
+    without a bump the "What the agent was given" panel stays empty for every
+    session that had already been seen. Bump the salt when the OSS extraction
+    changes without a pro release.
     """
     try:
         import importlib.metadata as _ilm
 
-        return _ilm.version("clawmetry-pro") + "/cwd1"
+        return _ilm.version("clawmetry-pro") + "/ctx1"
     except Exception:
         return ""
 
@@ -15104,6 +15295,14 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 _fcwd = ((getattr(s, "cwd", "") or "").strip() or None) \
                     or _session_cwd(metadata)
                 _fbranch = _session_git_branch(metadata)
+                # Trail: full first user prompt (redacted + capped by the
+                # store). None when the adapter exposes no user turn, so the
+                # upsert's COALESCE keeps whatever the row already has.
+                try:
+                    from clawmetry import event_shape as _event_shape
+                    _fintent = _event_shape.first_user_prompt(_events) or None
+                except Exception:
+                    _fintent = None
                 # Local upsert (the sessions list reads this).
                 try:
                     store.ingest_session({
@@ -15112,6 +15311,8 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                         "node_id": node_id,
                         "agent_id": "main",
                         "title": _row_title,
+                        "intent": _fintent,
+                        "intent_source": "adapter" if _fintent else None,
                         "started_at": started,
                         "last_active_at": ended or started,
                         "ended_at": _fended,
@@ -15385,6 +15586,13 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
     # Push session rows to cloud so the cloud Sessions list shows them. Mirrors
     # sync_session_metadata's cloud push; best-effort and never blocks.
     if cloud_session_rows and api_key:
+        # Trail: sealed intent + plaintext commit/PR counts, same channel
+        # as ``title_blob``.
+        try:
+            _trail_decorate_cloud_session_rows(
+                cloud_session_rows, config.get("encryption_key"))
+        except Exception as _e:
+            log.debug("trail decoration skipped (non-fatal): %s", _e)
         try:
             _post(
                 "/ingest/sessions",
@@ -16622,6 +16830,49 @@ def _build_usage_snapshot():
         out["costBreakdown"] = _safe(_try_local_store_cost_breakdown)
     except Exception:
         out["costBreakdown"] = {}
+    return out
+
+
+def _build_session_context_snapshot(limit_sessions: int = 60):
+    """Inputs & context slice for the hosted dashboard (cm-cloud interceptor
+    for /api/sessions/<id>/context). Metadata only: kind, sha256, size,
+    turns, timestamps and the tool / MCP NAMES from ``summary``. Prompt
+    CONTENT is deliberately absent even though this snapshot is E2E
+    encrypted: a 64 KB system prompt per session would multiply the blob,
+    and the UI says plainly that the full text stays on the machine. A
+    160-char redacted preview rides along so the card is never blank."""
+    out: dict = {}
+    try:
+        from clawmetry import local_store as _ls
+        store = _ls.get_store()
+        rows = store._fetch(
+            """
+            SELECT agent_type, session_id, kind, sha256, size_bytes, summary,
+                   first_ts, last_ts, turns, content
+            FROM session_context
+            WHERE session_id IN (
+                SELECT session_id FROM session_context
+                GROUP BY session_id ORDER BY MAX(last_ts) DESC LIMIT ?
+            )
+            ORDER BY session_id, kind, first_ts
+            """,
+            [int(limit_sessions)],
+        )
+        for at, sid, kind, sha, size, summary, fts, lts, turns, blob in rows:
+            item = {
+                "kind": kind, "sha256": sha, "size_bytes": size,
+                "summary": summary, "first_ts": fts, "last_ts": lts,
+                "turns": turns,
+            }
+            if kind in ("system_prompt", "user_prompt") and blob is not None:
+                try:
+                    item["preview"] = bytes(blob).decode("utf-8", "ignore")[:160]
+                except Exception:
+                    pass
+            bucket = out.setdefault(str(sid), {"agent_type": at, "items": []})
+            bucket["items"].append(item)
+    except Exception:
+        return {}
     return out
 
 
@@ -20016,11 +20267,107 @@ def _emit_stuck_signals(store, state: dict) -> int:
 # ZERO cloud/firmware changes. Detection only — never a kill; the incident text
 # tells the human they can Stop/Pause from the dashboard or device.
 DETECT_EVAL_INTERVAL_SEC = int(os.environ.get("CLAWMETRY_DETECT_INTERVAL", "60"))
+# Behaviour Signals (WO-58): how often the daemon evaluates the six preset
+# signals over NEW turns. Bounded per pass (see behaviour_signals.py), so a
+# 60s cadence keeps the surface within a minute of a transcript landing.
+SIGNALS_EVAL_INTERVAL_SEC = int(os.environ.get("CLAWMETRY_SIGNALS_INTERVAL", "60"))
 # loop_signals' device-alert gate is repeat_count>=5 (see _build_device_summary).
 # Map detector severity to a count that clears that gate so an incident actually
 # surfaces; the count is illustrative (it is the alert's "how loud", not a tool
 # tally for the discrepancy/failure kinds).
 _DETECT_SEVERITY_COUNT = {"critical": 12, "warning": 8, "info": 5}
+
+
+# ── Non-determinism replay scheduler (opt-in) ───────────────────────────────
+# Measures the second way an agent goes rogue: the same input, a different
+# answer. ``eval_regression_replay`` already knows how to re-run one failed
+# session and judge it; this schedules it and turns N replays of one session
+# into an agreement percentage. It is OFF by default and stays off without
+# the env flag, because a replay re-runs the user's agent for real money.
+REPLAY_ENABLE_ENV = "CLAWMETRY_REGRESSION_REPLAY"
+REPLAY_TICK_INTERVAL_SEC = int(os.environ.get("CLAWMETRY_REGRESSION_REPLAY_INTERVAL_SEC", "3600"))
+REPLAY_DAILY_BUDGET_ENV = "CLAWMETRY_REGRESSION_REPLAY_DAILY_BUDGET"
+REPLAY_MAX_PER_TICK_ENV = "CLAWMETRY_REGRESSION_REPLAY_MAX_PER_TICK"
+REPLAY_RUNS_PER_SESSION_ENV = "CLAWMETRY_REGRESSION_REPLAY_RUNS"
+REPLAY_DEFAULT_DAILY_BUDGET = 5
+REPLAY_DEFAULT_MAX_PER_TICK = 1
+REPLAY_DEFAULT_RUNS_PER_SESSION = 3
+
+
+def _regression_replay_enabled() -> bool:
+    """True ONLY when the operator set ``CLAWMETRY_REGRESSION_REPLAY=1``.
+    Absent, empty, "0", "false": off. Nothing else can turn it on."""
+    return (os.environ.get(REPLAY_ENABLE_ENV) or "").strip().lower() in ("1", "true", "yes")
+
+
+def _replay_budget_state(state: dict, now: float) -> dict:
+    """Per-UTC-day spend counter kept in daemon state (survives restarts)."""
+    import datetime as _dt
+    day = _dt.datetime.fromtimestamp(now, tz=_dt.timezone.utc).strftime("%Y-%m-%d")
+    b = state.get("replay_budget")
+    if not isinstance(b, dict) or b.get("day") != day:
+        b = {"day": day, "used": 0}
+        state["replay_budget"] = b
+    return b
+
+
+def _maybe_run_regression_replay(store, state: dict, now: float = None,
+                                 replay_fn=None) -> int:
+    """One scheduler tick. Returns replays performed (0 when disabled, out of
+    budget, or nothing to replay). Enforces, in order: the env flag, the
+    per-day budget, the per-tick cap. Then refreshes each replayed session's
+    agreement stats. Never raises into the daemon loop.
+
+    ``replay_fn`` is injectable for tests; the default is
+    ``eval_regression_replay.run_regression``."""
+    if not _regression_replay_enabled():
+        return 0
+    now = time.time() if now is None else now
+    try:
+        daily = max(0, int(os.environ.get(REPLAY_DAILY_BUDGET_ENV) or REPLAY_DEFAULT_DAILY_BUDGET))
+        per_tick = max(1, int(os.environ.get(REPLAY_MAX_PER_TICK_ENV) or REPLAY_DEFAULT_MAX_PER_TICK))
+        runs_per = max(1, int(os.environ.get(REPLAY_RUNS_PER_SESSION_ENV) or REPLAY_DEFAULT_RUNS_PER_SESSION))
+    except (TypeError, ValueError):
+        daily, per_tick, runs_per = REPLAY_DEFAULT_DAILY_BUDGET, REPLAY_DEFAULT_MAX_PER_TICK, REPLAY_DEFAULT_RUNS_PER_SESSION
+    budget = _replay_budget_state(state, now)
+    remaining = daily - int(budget.get("used") or 0)
+    if remaining <= 0:
+        log.debug("replay: daily budget of %d used; next UTC day", daily)
+        return 0
+    # Each session is replayed ``runs_per`` times so agreement means
+    # something; the budget counts individual replays.
+    sessions_now = max(0, min(per_tick, remaining // runs_per))
+    if sessions_now <= 0:
+        return 0
+    try:
+        from clawmetry import eval_regression_replay as _rr
+    except Exception as e:  # noqa: BLE001
+        log.warning("replay: eval_regression_replay import failed: %s", e)
+        return 0
+    fn = replay_fn or _rr.run_regression
+    replayed = 0
+    touched: set = set()
+    for _ in range(runs_per):
+        try:
+            run = fn(limit=sessions_now, store=store)
+        except Exception as e:  # noqa: BLE001
+            log.warning("replay: run_regression failed: %s", e)
+            break
+        results = list(getattr(run, "results", None) or [])
+        if not results:
+            break
+        replayed += len(results)
+        for r in results:
+            sid = getattr(r, "session_id", None) or (r.get("session_id") if isinstance(r, dict) else None)
+            if sid:
+                touched.add(str(sid))
+    budget["used"] = int(budget.get("used") or 0) + replayed
+    for sid in touched:
+        try:
+            _rr.update_agreement_stats(store, sid)
+        except Exception as e:  # noqa: BLE001
+            log.debug("replay: agreement update failed for %s: %s", sid, e)
+    return replayed
 
 
 def _candidate_active_sessions(store) -> list[dict]:
@@ -20091,7 +20438,8 @@ def _guard_enforcement_allowed() -> bool:
 # or where its workspace root is — and all three change what an incident MEANS.
 # The daemon already touches every candidate session on this tick, so gathering
 # them here is free, where a per-session store read would not be.
-def _detector_session_facts(sessions: list, state: dict, now: float) -> dict:
+def _detector_session_facts(sessions: list, state: dict, now: float,
+                            store=None) -> dict:
     """``session_id -> {cost_usd, bad_for_seconds, session_seconds, cwd,
     runtime, agent_id}``.
 
@@ -20103,6 +20451,7 @@ def _detector_session_facts(sessions: list, state: dict, now: float) -> dict:
     if not isinstance(first_seen, dict):
         first_seen = {}
         state["detector_first_seen"] = first_seen
+    pending_by_sid = _pending_approvals_by_session(store) if store is not None else {}
     facts: dict = {}
     for s in sessions or []:
         if not isinstance(s, dict):
@@ -20132,15 +20481,48 @@ def _detector_session_facts(sessions: list, state: dict, now: float) -> dict:
         except Exception:
             session_seconds = 0.0
         started = first_seen.get(sid)
+        # How long since the session last did anything, for blocked_on_user:
+        # a question asked two minutes ago is a conversation, one asked an
+        # hour ago is a silent stop.
+        idle_seconds = 0.0
+        try:
+            la = s.get("last_active_at") or s.get("started_at")
+            if la:
+                idle_seconds = max(0.0, float(_seconds_since(la)))
+        except Exception:
+            idle_seconds = 0.0
         facts[sid] = {
             "cost_usd": cost,
             "bad_for_seconds": max(0.0, now - started) if started else 0.0,
             "session_seconds": session_seconds,
+            "idle_seconds": idle_seconds,
+            "pending_approvals": int(pending_by_sid.get(sid, 0)),
             "runtime": _detector_runtime(sid, s.get("agent_type") or ""),
             "cwd": cwd,
             "agent_id": str(s.get("agent_id") or ""),
         }
     return facts
+
+
+def _pending_approvals_by_session(store) -> dict:
+    """``session_id -> pending approval count`` from the approvals table.
+
+    One read per tick (not per session). Any runtime that routes approvals
+    through ClawMetry (OpenClaw HITL, the Claude Code permission mirror, the
+    proxy) lands here, which is what makes ``blocked_on_user`` runtime-neutral
+    instead of a Claude Code OTel special case. Never raises; {} on error."""
+    try:
+        rows = store.query_approvals(status="pending", limit=500) or []
+    except Exception:
+        return {}
+    out: dict = {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        sid = str(r.get("requestor_session_id") or "").strip()
+        if sid:
+            out[sid] = out.get(sid, 0) + 1
+    return out
 
 
 # ── Learned baselines: what "normal" looks like for this cohort ────────────
@@ -20341,6 +20723,54 @@ def _git_scan_tick(store) -> int:
     return done
 
 
+# ── Trail lazy back-fill (schema v15) ──────────────────────────────────────
+
+#: Seconds between back-fill batches. Short on purpose: each batch is small.
+TRAIL_BACKFILL_INTERVAL_SEC = int(os.environ.get("CLAWMETRY_TRAIL_BACKFILL_INTERVAL", "20"))
+#: Events classified per batch (FLYWHEEL 1e: bounded work per tick).
+TRAIL_BACKFILL_EVENTS = int(os.environ.get("CLAWMETRY_TRAIL_BACKFILL_EVENTS", "500"))
+#: Sessions whose intent is derived per batch.
+TRAIL_BACKFILL_SESSIONS = int(os.environ.get("CLAWMETRY_TRAIL_BACKFILL_SESSIONS", "25"))
+
+
+#: Once a batch finds nothing to do, the next scan waits this long. New
+#: events are typed on INSERT and new sessions get their intent at ingest,
+#: so an idle store only needs an occasional sweep for stragglers.
+TRAIL_BACKFILL_IDLE_SEC = int(os.environ.get("CLAWMETRY_TRAIL_BACKFILL_IDLE", "600"))
+_TRAIL_BACKFILL_STATE: dict = {"idle_until": 0.0}
+
+
+def _trail_backfill_tick() -> dict:
+    """One bounded back-fill batch for the typed event columns and the
+    session intents. Returns ``{events, sessions}`` counts; never raises
+    into the daemon loop (the caller logs at debug)."""
+    out = {"events": 0, "sessions": 0}
+    if os.environ.get("CLAWMETRY_TRAIL_BACKFILL", "1").strip().lower() in (
+        "0", "false", "no", ""
+    ):
+        return out
+    if time.time() < float(_TRAIL_BACKFILL_STATE.get("idle_until") or 0.0):
+        return out
+    from clawmetry import local_store as _ls
+    store = _ls.get_store()
+    if store is None:
+        return out
+    try:
+        out["events"] = int(store.backfill_event_shapes(limit=TRAIL_BACKFILL_EVENTS) or 0)
+    except Exception as e:  # noqa: BLE001
+        log.debug("trail back-fill: events failed: %s", e)
+    try:
+        out["sessions"] = int(store.backfill_session_intents(limit=TRAIL_BACKFILL_SESSIONS) or 0)
+    except Exception as e:  # noqa: BLE001
+        log.debug("trail back-fill: intents failed: %s", e)
+    if out["events"] or out["sessions"]:
+        log.info("trail back-fill: %d event(s) typed, %d intent(s) set",
+                 out["events"], out["sessions"])
+    else:
+        _TRAIL_BACKFILL_STATE["idle_until"] = time.time() + TRAIL_BACKFILL_IDLE_SEC
+    return out
+
+
 def _epoch_of(ts: Any) -> int:
     """Epoch seconds for a session timestamp string; 0 when undecidable."""
     s = str(ts or "").strip()
@@ -20423,8 +20853,21 @@ def _apply_guard_policies(store, state: dict, incidents: list,
 
         # Record BEFORE acting. The row is the latch, so closing it first
         # means a crash mid-signal can never re-fire on the next tick.
-        if not actuating:
-            detail = "recorded (no action for this policy type)"
+        if action == "alert":
+            # A human is the actuator here. Deliver through the same
+            # channels the built-in monitors use (banner, Telegram, and any
+            # entitled webhook) and say exactly where it went, or why not.
+            inc = _incident_for_decision(incidents, d)
+            try:
+                from clawmetry import incident_alerts as _ia
+                res = _ia.deliver_incident(store, inc, source="policy",
+                                           force=True, policy_id=pid)
+            except Exception as _ae:  # noqa: BLE001
+                res = {"delivered": False, "delivered_via": [],
+                       "reason": f"alert failed: {type(_ae).__name__}"}
+            detail = str(res.get("reason") or "alert: nothing delivered")[:400]
+        elif not actuating:
+            detail = "recorded (monitor mode: watched, no action taken)"
         elif not enforce_env:
             detail = (f"DRY RUN: would {action} — set {_GUARD_ENFORCE}=1 "
                       f"to enforce")
@@ -20468,6 +20911,29 @@ def _apply_guard_policies(store, state: dict, incidents: list,
                  "ok" if ok else "FAILED", rdetail[:120], _ladder_suffix(d))
 
     return acted
+
+
+def _incident_for_decision(incidents: list, decision: dict) -> dict:
+    """The incident a policy decision was made on, so an ``alert`` action
+    delivers the detector's own words (title, detail, spend at risk) rather
+    than the policy's summary. Falls back to a minimal incident built from
+    the decision when no exact (session, kind) match is found."""
+    sid = str(decision.get("session_id") or "")
+    kind = str(decision.get("kind") or "")
+    for inc in incidents or []:
+        if not isinstance(inc, dict):
+            continue
+        if str(inc.get("session_id") or "") == sid and (
+                not kind or str(inc.get("kind") or "") == kind):
+            return inc
+    return {
+        "kind": kind or "policy", "session_id": sid,
+        "runtime": decision.get("runtime") or "",
+        "severity": "warning",
+        "title": str(decision.get("reason") or "Guard policy matched"),
+        "detail": str(decision.get("reason") or ""),
+        "evidence": decision.get("evidence") or {},
+    }
 
 
 def _record_policy_step(store, **kw) -> None:
@@ -20578,7 +21044,7 @@ def _emit_detector_incidents(store, state: dict) -> int:
     # Facts (spend, how long it has been bad, workspace root) are built BEFORE
     # the loop so a detector can price an incident and judge a path escape on
     # the same tick it finds it.
-    facts_by_session = _detector_session_facts(candidates, state, now)
+    facts_by_session = _detector_session_facts(candidates, state, now, store=store)
     first_seen_memo = state.setdefault("detector_first_seen", {})
     if not isinstance(first_seen_memo, dict):
         first_seen_memo = {}
@@ -20658,6 +21124,16 @@ def _emit_detector_incidents(store, state: dict) -> int:
                 continue
             sev = str(inc.get("severity") or "warning")
             count = _DETECT_SEVERITY_COUNT.get(sev, 5)
+            # Tell a human. warning/critical only; deduped per (session,
+            # kind) on a DuckDB latch so a restart cannot re-page anyone.
+            # Runs BEFORE the row write so the row can carry where it went.
+            delivered_via: list = []
+            try:
+                from clawmetry import incident_alerts as _ia
+                _res = _ia.deliver_incident(store, inc, source="detector")
+                delivered_via = list(_res.get("delivered_via") or [])
+            except Exception as _ie:  # noqa: BLE001
+                log.debug("detectors: alert delivery skipped: %s", _ie)
             try:
                 store.ingest_loop_signal(
                     session_id=sid,
@@ -20680,6 +21156,10 @@ def _emit_detector_incidents(store, state: dict) -> int:
                         "spend_at_risk_usd": inc.get("spend_at_risk_usd"),
                         "spend_basis": inc.get("spend_basis"),
                         "burn_rate_usd_per_min": inc.get("burn_rate_usd_per_min"),
+                        # Which humans were told, this tick. Empty means the
+                        # cooldown latch held or nothing is configured; the
+                        # incident_alerts table has the last delivery time.
+                        "delivered_via": delivered_via,
                     },
                 )
                 memo[memo_key] = now
@@ -20772,6 +21252,10 @@ _LOOPS_KIND_BY_SIGNATURE = {
     "daemon_detect_no_progress": "no_progress",
     "daemon_detect_repeated_tool_failure": "repeated_tool_failure",
     "daemon_detect_action_discrepancy": "action_discrepancy",
+    # The silent-failure kinds (rate_limited / blocked_on_user / crashed) are
+    # deliberately NOT here: this slice is the device's LOOP river. They reach
+    # people through incident_alerts and the Guard tab (which reads
+    # details.kind directly), not through a whirlpool glyph.
 }
 _LOOPS_VALID_KINDS = frozenset(_LOOPS_KIND_BY_SIGNATURE.values())
 
@@ -21199,6 +21683,48 @@ def _build_evals_judge_status() -> dict | None:
     except Exception as e:
         log.debug("snapshot: evals judge status failed: %s", e)
         return None
+
+
+_COHORT_SLICE_CACHE: dict = {"at": 0.0, "body": None}
+_COHORT_SLICE_TTL_SECS = 600
+
+
+def _build_cohort_suggested_slice(store, *, days: int = 28) -> dict:
+    """Suggested cohort comparisons with their computed results (WO-60).
+
+    Mirrors GET /api/cohort-compare/suggested so the hosted dashboard renders
+    the same cards from ``sp.cohortSuggested``. Built on the daemon's OWN
+    store handle, capped to 5 suggestions, and recomputed at most every ten
+    minutes: the session scan is the whole cohort universe and ten-minute
+    freshness is plenty for a question asked once a day. Raises to the
+    caller's honest-empty on failure.
+    """
+    now = time.time()
+    cached = _COHORT_SLICE_CACHE.get("body")
+    if cached is not None and now - float(_COHORT_SLICE_CACHE.get("at") or 0) < _COHORT_SLICE_TTL_SECS:
+        return cached
+    from datetime import datetime, timedelta, timezone
+
+    from clawmetry.cohort_compare import session_view
+    from routes.cohort import SUGGESTED_CAP, build_suggested_payload
+
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime(
+        "%Y-%m-%dT%H:%M:%S")
+    rows = [r for r in (store.query_cohort_sessions(since=since) or [])
+            if isinstance(r, dict)]
+    views = [session_view(r) for r in rows]
+    body = build_suggested_payload(
+        views,
+        signals_available=any("signals" in r for r in rows),
+        context_available=any("instructions_hash" in r for r in rows),
+        runtime=None, cap=SUGGESTED_CAP,
+    )
+    body["store_available"] = True
+    body["session_count"] = len(views)
+    body["generated_at"] = int(now)
+    _COHORT_SLICE_CACHE["at"] = now
+    _COHORT_SLICE_CACHE["body"] = body
+    return body
 
 
 def _build_bench_slice(store, *, days: int = 30) -> dict:
@@ -21816,6 +22342,19 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     except Exception as _e_bench:
         log.debug("snapshot: bench slice failed: %s", _e_bench)
 
+    # Cohort compare (WO-60): the suggested comparisons with their verdicts,
+    # so the hosted Compare surface leads with real cards. Arbitrary filters
+    # stay local (the cloud has no store to run them against) and the UI
+    # says so. Best-effort; honest empty on any failure.
+    cohort_slice = {"schema": 1, "suggestions": [], "store_available": False}
+    try:
+        from clawmetry import local_store as _ls_cohort
+        _cohort_store = _ls_cohort.get_store()
+        if _cohort_store is not None:
+            cohort_slice = _build_cohort_suggested_slice(_cohort_store)
+    except Exception as _e_cohort:
+        log.debug("snapshot: cohort slice failed: %s", _e_cohort)
+
     # Eval (LLM-judge) scores, so the hosted dashboard's Eval card populates from
     # the encrypted snapshot (cloud stays blind; E2E preserved). Built on the
     # daemon's own store handle. Best-effort; empty until evals run (needs a
@@ -21978,6 +22517,49 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     except Exception as _e_rr:
         log.debug("snapshot: repo-readiness slice failed: %s", _e_rr)
 
+    # Behaviour Signals (WO-58): the same shape /api/signals serves, per
+    # window (1d / 7d / 30d) and per runtime, so the hosted dashboard renders
+    # the identical numbers. No per-session lists ride the snapshot. Same
+    # store handle as above; a failure here leaves both slices empty and
+    # never breaks the snapshot.
+    _signals_slice: dict = {}
+    _signals_by_rt: dict = {}
+    try:
+        from clawmetry import behaviour_signals as _bsig_snap
+        from clawmetry import local_store as _ls_sig
+        _sig_store = _ls_sig.get_store()
+        if _sig_store is not None:
+            _signals_slice, _signals_by_rt = _bsig_snap.build_snapshot_slices(_sig_store)
+    except Exception as _e_sig:
+        log.debug("snapshot: signals slice failed: %s", _e_sig)
+
+    # Signal shifts (WO-62): open issues + the last 20 resolved, each with
+    # its plain-words headline, so the hosted Signals tab shows the same
+    # "Open issues" block. No session ids, no text. Never breaks the snapshot.
+    _signal_issues_slice: dict = {}
+    try:
+        from clawmetry import signal_shifts as _shifts_snap
+        from clawmetry import local_store as _ls_issues
+        _iss_store = _ls_issues.get_store()
+        if _iss_store is not None:
+            _signal_issues_slice = _shifts_snap.build_snapshot_slice(_iss_store)
+    except Exception as _e_iss:
+        log.debug("snapshot: signalIssues slice failed: %s", _e_iss)
+
+    # Briefs (WO-62): the list the hosted Signals tab shows, in the shape
+    # GET /api/briefs serves (capped at 50; title and question are the only
+    # free text). Read-only on the cloud: saving, running and deleting a
+    # brief stay on the local dashboard. Never breaks the snapshot.
+    _briefs_slice: dict = {}
+    try:
+        from clawmetry import briefs as _briefs_snap
+        from clawmetry import local_store as _ls_briefs_snap
+        _br_store = _ls_briefs_snap.get_store()
+        if _br_store is not None:
+            _briefs_slice = _briefs_snap.build_snapshot_slice(_br_store)
+    except Exception as _e_br:
+        log.debug("snapshot: briefs slice failed: %s", _e_br)
+
     from clawmetry.providers_pricing import provider_for_model as _pfm
     payload = {
         "system": system,
@@ -22007,6 +22589,16 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # ``scope: "all_runtimes"`` so a hosted renderer labels it instead of
         # passing node-wide data off as runtime-scoped.
         "repoReadiness": _readiness_slice,
+        # WO-58 Behaviour Signals: rates + coverage + headline per window,
+        # node-wide and per runtime (the cloud serves signalsByRuntime[rt]
+        # for ?runtime= and falls back to the node-wide slice).
+        "signals": _signals_slice,
+        "signalsByRuntime": _signals_by_rt,
+        # WO-62 Signal shifts: issues opened when a rate left its band.
+        "signalIssues": _signal_issues_slice,
+        # WO-62 Briefs: saved questions with a schedule and a channel, read-only
+        # on the cloud (manage them on the local dashboard).
+        "briefs": _briefs_slice,
         "subagentCounts": {
             "active": active_count,
             "idle": len([s for s in subagents_list if s["status"] == "idle"]),
@@ -22022,6 +22614,9 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # Harness Engineering bench: verdict stamps, $/done, profiles,
         # recommendations, head-to-head. Read by cm-cloud-bench as sp.bench.
         "bench": bench_slice,
+        # Suggested cohort comparisons + verdicts. Read by the hosted Compare
+        # surface as sp.cohortSuggested (WO-60).
+        "cohortSuggested": cohort_slice,
         "autonomy": _build_autonomy_snapshot(),
         "flowRuns": _build_flow_runs_snapshot(),
         "flowLanes": _build_flow_lanes_snapshot(),
@@ -22050,6 +22645,9 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         "cronHealthSummary": _build_cron_health_summary_snapshot(),
         "harness": _build_harness_snapshot(),
         "usage": _build_usage_snapshot(),
+        # Inputs & context per session (Trail triad). Read by the cloud
+        # cm-cloud-session-context interceptor for /api/sessions/<id>/context.
+        "sessionContext": _build_session_context_snapshot(),
         "approvalsAudit": _build_approvals_audit_snapshot(),
         # Security tab: tamper-evident hash-chain verify + Enterprise audit
         # feed. Both are local-only data (DuckDB chain / SQLite audit.db) so
@@ -22210,6 +22808,17 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         }
     except Exception as _att_e:  # noqa: BLE001
         log.debug("attention snapshot slice failed (continuing): %s", _att_e)
+
+    # Agent self-reports (WO-59): counts per category per runtime plus the
+    # honesty rollup. No summaries ride the snapshot; those stay on the
+    # node. Built on the daemon's own store handle. Best-effort: the
+    # snapshot must still ship on a store without the table.
+    try:
+        from clawmetry import self_diagnostics as _sd
+        from clawmetry import local_store as _ls_sd
+        payload["selfReports"] = _sd.snapshot_slice(_ls_sd.get_store())
+    except Exception as _sd_e:  # noqa: BLE001
+        log.debug("selfReports snapshot slice failed (continuing): %s", _sd_e)
 
     log.info(
         f"System snapshot: {len(subagents_list)} subagents ({active_count} active)"
@@ -23413,7 +24022,19 @@ def run_daemon() -> None:
     # start surfaces immediately.
     last_stuck_eval = 0.0
     last_detect_eval = 0.0
+    last_signals_eval = 0.0
+    # Briefs (WO-62): scheduled Dives questions posted to a channel. One
+    # daemon thread, idempotent start, CLAWMETRY_BRIEFS=0 keeps it off.
+    try:
+        from clawmetry import briefs as _briefs_mod
+        from clawmetry import local_store as _ls_briefs
+        if _briefs_mod.start_scheduler(_ls_briefs.get_store, state=state):
+            log.info("briefs: scheduler started")
+    except Exception as _be:
+        log.debug("briefs: scheduler not started: %s", _be)
     last_git_scan = 0.0
+    last_replay_tick = 0.0
+    last_trail_backfill = 0.0
 
     while True:
         try:
@@ -23738,6 +24359,19 @@ def run_daemon() -> None:
                             log.info(
                                 f"detectors: {n_det} incident(s) emitted"
                             )
+                        # Self-diagnostics (WO-59): place each agent
+                        # self-report next to the independent record for
+                        # the same session, if one exists. Same store
+                        # handle, same tick, read-mostly; never raises.
+                        try:
+                            from clawmetry import self_diagnostics as _sd
+                            n_cor = _sd.corroborate_pending(store_for_det)
+                            if n_cor:
+                                log.info(
+                                    f"self-diagnostics: {n_cor} report(s) corroborated"
+                                )
+                        except Exception as _sde:  # noqa: BLE001
+                            log.debug(f"self-diagnostics: tick errored: {_sde}")
                     except Exception as _de:
                         log.warning(
                             f"detectors: tick errored: {_de}"
@@ -23747,6 +24381,56 @@ def run_daemon() -> None:
                         save_state(state)
                     except Exception:
                         pass
+
+            # ── Behaviour Signals (WO-58) ──
+            # What people and agents SAY about a run: six preset keyword /
+            # structural signals over every new user + assistant turn in the
+            # store, for every runtime. Judge-free, bounded per pass, and the
+            # matched text is never stored (clawmetry/behaviour_signals.py).
+            # Own opt-out (CLAWMETRY_SIGNALS=0); never raises into the cycle.
+            if os.environ.get("CLAWMETRY_SIGNALS", "1") != "0":
+                now_sig = time.time()
+                if (now_sig - last_signals_eval) >= SIGNALS_EVAL_INTERVAL_SEC:
+                    try:
+                        from clawmetry import behaviour_signals as _bsig
+                        from clawmetry import local_store as _ls_sig
+                        store_for_sig = _ls_sig.get_store()
+                        n_sig = _bsig.run_tick(store_for_sig, state)
+                        if n_sig:
+                            log.info(f"signals: {n_sig} match(es) recorded")
+                        # Signal shifts (WO-62): did any (signal, runtime)
+                        # rate leave its learned band? Opens / reopens an
+                        # issue row and hands it to the local alert path.
+                        # Same opt-out, same cadence, never raises.
+                        _signal_shift_pass(store_for_sig, config, state)
+                    except Exception as _sge:
+                        log.warning(f"signals: tick errored: {_sge}")
+                    last_signals_eval = now_sig
+                    try:
+                        save_state(state)
+                    except Exception:
+                        pass
+            # ── Non-determinism replay (OPT-IN, costs money) ──
+            # Re-runs a failed session's first prompt through the user's
+            # agent and judges it, N times, to measure how often the agent
+            # agrees with itself. OFF unless CLAWMETRY_REGRESSION_REPLAY=1:
+            # every replay is a real agent call on the user's bill.
+            now_replay = time.time()
+            if (now_replay - last_replay_tick) >= REPLAY_TICK_INTERVAL_SEC:
+                last_replay_tick = now_replay
+                try:
+                    if _regression_replay_enabled():
+                        from clawmetry import local_store as _ls_rp
+                        _n_rp = _maybe_run_regression_replay(
+                            _ls_rp.get_store(), state)
+                        if _n_rp:
+                            log.info("replay: %d session(s) replayed", _n_rp)
+                            try:
+                                save_state(state)
+                            except Exception:
+                                pass
+                except Exception as _rpe:  # noqa: BLE001
+                    log.warning("replay: tick errored: %s", _rpe)
 
             # ── Git outcome scan (REQ-OBS-CEA-022) ──
             # The output half of the cost story: what the agent's work
@@ -23768,6 +24452,21 @@ def run_daemon() -> None:
                     save_state(state)
                 except Exception:
                     pass
+
+            # ── Trail lazy back-fill (schema v15) ──
+            # Typed event columns (role / block_kind / tool_name / is_error)
+            # and sessions.intent for rows written before v15. Bounded per
+            # tick (TRAIL_BACKFILL_EVENTS rows, TRAIL_BACKFILL_SESSIONS
+            # sessions) so a multi-GB store is classified over minutes in
+            # the background instead of in one startup scan; idles to zero
+            # work once every row is stamped.
+            now_trail = time.time()
+            if (now_trail - last_trail_backfill) >= TRAIL_BACKFILL_INTERVAL_SEC:
+                try:
+                    _trail_backfill_tick()
+                except Exception as _te:
+                    log.debug("trail back-fill: tick errored: %s", _te)
+                last_trail_backfill = now_trail
 
             # ── Eval scheduler (issue #1619 Phase 1) ──
             # Sister of the alerts evaluator. Picks unscored completed
@@ -25051,6 +25750,54 @@ def _alerts_quality_window_minutes(rules: list) -> int:
     return widest
 
 
+def _alerts_signal_windows(rules: list, store) -> tuple:
+    """``(signals, signals_by_runtime)`` for ``alert_evaluator.evaluate``:
+    one ``query_signal_rate_window`` result per enabled ``signal_rate_above``
+    rule, keyed by rule id (scoped rules land under their runtime). Returns
+    ``(None, None)`` when no such rule exists so the common case pays
+    nothing. Never raises."""
+    try:
+        from clawmetry import alert_evaluator
+    except Exception:
+        return None, None
+    sig_types = getattr(alert_evaluator, "SIGNAL_RULE_TYPES", frozenset())
+    node: dict = {}
+    by_rt: dict = {}
+    for raw in (rules or []):
+        try:
+            if not raw.get("enabled", True):
+                continue
+            cond = raw.get("condition_json")
+            if isinstance(cond, str):
+                cond = json.loads(cond)
+            if not isinstance(cond, dict):
+                continue
+            rtype = cond.get("type") or cond.get("alert_type")
+            if rtype not in sig_types:
+                continue
+            fields = alert_evaluator.signal_rule_fields(
+                {"condition": cond, "threshold": cond.get("threshold_value",
+                                                          cond.get("threshold"))})
+            if not fields.get("signal"):
+                continue
+            rt = alert_evaluator._rule_runtime(raw)
+            win = store.query_signal_rate_window(
+                signal=fields["signal"], window_minutes=fields["window_minutes"],
+                runtime=(None if rt == "all" else rt),
+            ) or {}
+            rid = str(raw.get("id") or "")
+            if rt == "all":
+                node[rid] = win
+            else:
+                by_rt.setdefault(rt, {})[rid] = win
+        except Exception as e:  # noqa: BLE001
+            log.debug("alerts: signal window for rule %r skipped: %s", raw.get("id"), e)
+            continue
+    if not node and not by_rt:
+        return None, None
+    return node, by_rt
+
+
 # ── Local-only alerting (licensed self-hosted nodes, no cloud account) ───────
 # A self-hosted Pro/Enterprise customer (signed CLAW1 license at
 # ~/.clawmetry/license.key, empty api_key, optional ~/.clawmetry/nocloud
@@ -25321,6 +26068,91 @@ def _post_local_alert_webhook(url: str, payload: dict) -> bool:
         return False
 
 
+def _deliver_signal_shift(match: dict, config: dict) -> bool:
+    """Deliver one ``signal_shift`` match through the SAME local path user
+    rules use: banner row in the fleet DB (with the rule's cooldown) and the
+    generic webhook when the entitlement allows it. Never raises."""
+    ok = False
+    try:
+        ok = _persist_local_alert_banner(match)
+    except Exception as e:
+        log.debug("signal shifts: banner persist failed: %s", e)
+    try:
+        from clawmetry import entitlements as _entitlements
+        if _entitlements.get_entitlement().allows_feature("alert_webhooks"):
+            url = _local_alerts_webhook_url()
+            if url and ok:
+                rule = match.get("rule") or {}
+                payload = {
+                    "rule_id":       rule.get("id"),
+                    "rule_name":     rule.get("name") or "",
+                    "node_id":       (config or {}).get("node_id") or "",
+                    "event_id":      (match.get("event") or {}).get("id"),
+                    "event_summary": (match.get("summary") or "")[:500],
+                    "evaluated_at":  _iso_now(),
+                    "metadata":      match.get("metadata") or {},
+                    "source":        "clawmetry-local",
+                }
+                _post_local_alert_webhook(url, payload)
+    except Exception as e:
+        log.debug("signal shifts: webhook skipped: %s", e)
+    log.info("signal shifts: %s", (match.get("summary") or "")[:200])
+    return ok
+
+
+def _signal_shift_pass(store, config: dict, state: dict) -> dict:
+    """Run ``signal_shifts.run_shift_tick`` once. Kept as its own function
+    so the daemon loop stays one line and tests can call it. Never raises."""
+    try:
+        from clawmetry import signal_shifts as _shifts
+        stats = _shifts.run_shift_tick(
+            store, node_id=str((config or {}).get("node_id") or ""),
+            deliver=lambda m: _deliver_signal_shift(m, config))
+        if stats.get("opened") or stats.get("reopened"):
+            log.info("signal shifts: opened=%s reopened=%s (checked %s pairs)",
+                     stats.get("opened"), stats.get("reopened"), stats.get("checked"))
+        if isinstance(state, dict):
+            state["signal_shifts_last"] = {"ts": time.time(), **stats}
+        return stats
+    except Exception as e:
+        log.warning("signal shifts: pass failed: %s", e)
+        return {}
+
+
+def _alerts_loop_signals_slice(store, rules, alert_evaluator):
+    """The ``loop_signals`` rows the silent-failure rule types read, fetched
+    only when at least one such rule is enabled (otherwise ``None`` and those
+    types no-fire). Window = the widest ``window_minutes`` across them, 30 by
+    default. Never raises."""
+    try:
+        types = getattr(alert_evaluator, "ATTENTION_RULE_TYPES", frozenset())
+        widest = 0
+        for r in rules or []:
+            cond = r.get("condition_json") if isinstance(r, dict) else None
+            if isinstance(cond, str):
+                try:
+                    cond = json.loads(cond)
+                except Exception:
+                    cond = None
+            if not isinstance(cond, dict):
+                continue
+            t = cond.get("type") or cond.get("alert_type")
+            if t not in types:
+                continue
+            try:
+                wm = int(cond.get("window_minutes") or 0)
+            except (TypeError, ValueError):
+                wm = 0
+            widest = max(widest, wm or getattr(
+                alert_evaluator, "DEFAULT_ATTENTION_WINDOW_MINUTES", 30))
+        if widest <= 0:
+            return None
+        return store.query_recent_loop_signals(limit=200, since_minutes=widest) or []
+    except Exception as e:  # noqa: BLE001
+        log.debug("alerts: loop_signals slice unavailable: %s", e)
+        return None
+
+
 def _evaluate_alerts_local(config: dict, state: dict) -> int:
     """Local DuckDB evaluation -> LOCAL delivery for licensed self-hosted
     nodes (no ``cm_`` cloud token).
@@ -25415,10 +26247,14 @@ def _evaluate_alerts_local(config: dict, state: dict) -> int:
         except Exception:
             quality_by_runtime = None
 
+    sig_node, sig_by_rt = _alerts_signal_windows(rules, store)
+    loop_sigs = _alerts_loop_signals_slice(store, rules, alert_evaluator)
     try:
         matches = alert_evaluator.evaluate(
             rules, events, last_eval_state, quality,
             quality_by_runtime=quality_by_runtime,
+            signals=sig_node, signals_by_runtime=sig_by_rt,
+            loop_signals=loop_sigs,
         )
     except Exception as e:
         log.warning("alerts(local): evaluator errored: %s", e)
@@ -25558,8 +26394,12 @@ def evaluate_alerts(config: dict, state: dict) -> int:
             log.warning("alerts: query_session_quality_window failed: %s", e)
             quality = None
 
+    sig_node, sig_by_rt = _alerts_signal_windows(rules, store)
+    loop_sigs = _alerts_loop_signals_slice(store, rules, alert_evaluator)
     try:
-        matches = alert_evaluator.evaluate(rules, events, last_eval_state, quality)
+        matches = alert_evaluator.evaluate(rules, events, last_eval_state, quality,
+                                           signals=sig_node, signals_by_runtime=sig_by_rt,
+                                           loop_signals=loop_sigs)
     except Exception as e:
         log.warning("alerts: evaluator errored: %s", e)
         state["alerts_last_eval_ts"] = _iso_now()

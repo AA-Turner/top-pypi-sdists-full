@@ -20,7 +20,7 @@ def setup_server(httpserver: HTTPServer):
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-forking-test.json",
+        "/v2/download_config_specs",
         response=dcs_content,
         method="GET",
     )

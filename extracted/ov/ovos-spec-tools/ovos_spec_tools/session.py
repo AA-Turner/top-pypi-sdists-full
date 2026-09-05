@@ -97,11 +97,13 @@ DEFAULT_CONVERSE_HANDLERS_CAP = 64
 
 
 #: The field names whose semantics OVOS-SESSION-1 itself owns
-#: (§3.1 ``session_id`` + §3.2 language signals + §3.3 ``site_id``).
+#: (§3.1 ``session_id`` + §3.2 language signals + §3.3 ``site_id`` +
+#: §3.5 ``location``).
 SESSION1_OWNED_FIELDS = frozenset({
     "session_id", "site_id", "lang",
     "secondary_langs", "output_lang",
     "stt_lang", "request_lang", "detected_lang",
+    "location",
 })
 
 
@@ -177,6 +179,34 @@ def _is_bcp47(value: Any) -> bool:
         c.isspace() for c in value)
 
 
+def _sanitize_location(raw: Any) -> Optional[Dict[str, Any]]:
+    """Validate the OVOS-SESSION-1 §3.5 ``location`` keys.
+
+    ``location`` carries only ``lat``/``lon``/``tz`` (§3.5: "``location``
+    carries only these three keys"). Per §2 a malformed key is dropped as
+    if omitted rather than rejecting the whole object: a wrong-typed or
+    out-of-range ``lat``/``lon``, or a non-string/empty ``tz``, is simply
+    left out. An unlisted key is tolerated (§2.4) but not re-emitted, since
+    this field defines no wire representation for it. A value that is not
+    a non-empty object, or one whose three keys are all malformed/absent,
+    normalizes to ``None`` — object-with-none-of-the-three is wire-equivalent
+    to omission.
+    """
+    if not isinstance(raw, dict) or not raw:
+        return None
+    out: Dict[str, Any] = {}
+    lat = raw.get("lat")
+    if isinstance(lat, (int, float)) and not isinstance(lat, bool) and -90 <= lat <= 90:
+        out["lat"] = float(lat)
+    lon = raw.get("lon")
+    if isinstance(lon, (int, float)) and not isinstance(lon, bool) and -180 <= lon <= 180:
+        out["lon"] = float(lon)
+    tz = raw.get("tz")
+    if isinstance(tz, str) and tz:
+        out["tz"] = tz
+    return out or None
+
+
 def parse_session_payload(
         payload: Union[str, bytes, bytearray, Dict[str, Any]]
 ) -> Dict[str, Any]:
@@ -240,6 +270,14 @@ def carried_fields(carrier: Dict[str, Any]) -> Dict[str, Any]:
         if name not in SESSION1_REGISTERED_FIELDS:
             out[name] = value
             continue
+        if name == "session_id":
+            # :func:`resolve_session_id` is the one place that diagnoses
+            # this field — it already logs a §2 WARN for a present,
+            # non-null, wrong-typed value — so this probe carries a
+            # well-formed string through without repeating that warning.
+            if isinstance(value, str) and value:
+                out[name] = value
+            continue
         if name == "intent_context":
             if isinstance(value, dict) and value:
                 out[name] = value
@@ -264,10 +302,22 @@ def resolve_session_id(carrier: Dict[str, Any]) -> str:
     non-string — is malformed and reads as omitted (§2.1), which resolves
     to the reserved ``"default"`` id (§3.1). A well-formed string, the
     literal ``"default"`` included, is returned as-is.
+
+    A *present*, non-``null`` value that is not a string is a client bug —
+    the wire sent a wrong type for the field — and SESSION-1 §2 asks a
+    consumer to log that at WARN, naming the field and the type received,
+    so the fallback to ``"default"`` does not hide it. Absence and an
+    explicit ``null``/``""`` are the spec's own omission cases, not a wrong
+    type, and stay silent.
     """
     session_id = carrier.get("session_id")
     if isinstance(session_id, str) and session_id:
         return session_id
+    if session_id is not None and not isinstance(session_id, str):
+        _log.warning(
+            "OVOS-SESSION-1 §2: wrong type for `session_id` (got %s); "
+            "falling back to %r", type(session_id).__name__,
+            DEFAULT_SESSION_ID)
     return DEFAULT_SESSION_ID
 
 
@@ -361,6 +411,15 @@ class Session:
     :param request_lang: §3.2.5 — language the emitter reported (hint).
     :param detected_lang: §3.2.6 — language a detector classified.
     :param site_id: §3.3 — opaque group / location identifier.
+    :param location: §3.5 — an object carrying zero or more of ``lat``
+        (number, [-90, 90]), ``lon`` (number, [-180, 180]) and ``tz`` (a
+        non-empty IANA zone string). All three are optional; a key that
+        fails its own check is dropped as if omitted, an unlisted key is
+        tolerated but not re-emitted, and a value with none of the three
+        set is wire-equivalent to omission. This field is a resolution-class
+        preference (OVOS-SESSION-2 §2.5) that the client owns; per §4.1 a
+        consumer MUST NOT materialize the deployment-configured location
+        default into it.
     :param pipeline: OVOS-PIPELINE-1 §5 — ordered pipeline-plugin ids.
     :param intent_context: OVOS-CONTEXT-1 §2 — the declarative intent
         context object (opaque to this module).
@@ -404,6 +463,7 @@ class Session:
                  request_lang: Optional[str] = None,
                  detected_lang: Optional[str] = None,
                  site_id: Optional[str] = None,
+                 location: Optional[Dict[str, Any]] = None,
                  pipeline: Optional[List[str]] = None,
                  intent_context: Optional[Dict[str, Any]] = None,
                  blacklisted_skills: Optional[List[str]] = None,
@@ -476,6 +536,9 @@ class Session:
         self.request_lang = request_lang
         self.detected_lang = detected_lang
         self.site_id = site_id
+        # §3.5: key-wise validated, malformed keys dropped, never a hard
+        # error — see :func:`_sanitize_location`.
+        self.location = _sanitize_location(location)
 
         # --- other-spec list/object override fields (carried opaquely) ------
         self.pipeline = self._as_str_list(pipeline)
@@ -738,6 +801,8 @@ class Session:
             out["detected_lang"] = self.detected_lang
         if self.site_id is not None:
             out["site_id"] = self.site_id
+        if self.location:
+            out["location"] = dict(self.location)
 
         # other-spec list/object override fields (omit-when-empty, §3.4)
         for name in _LIST_OVERRIDE_FIELDS:
@@ -889,97 +954,30 @@ class Session:
 class SessionManager:
     """Orchestrator-side session state, per OVOS-SESSION-2.
 
-    .. note::
-        ``SessionManager`` is an **implementation detail, not part of any
-        spec**. OVOS-SESSION-1 fixes the wire contract (§4) and
-        OVOS-SESSION-2 fixes who owns what; this class is one way for an
-        orchestrator to honour both inside a single process. Nothing on the
-        wire depends on it.
+    ``SessionManager`` is an implementation detail, not part of any spec.
+    Exactly one session is authoritative here — the reserved ``"default"``
+    id (§3.1), held as the default-session store (§2.3 / §5). Every other
+    session is client-owned (§2.5) and the orchestrator is stateless for
+    it (§2.2): its state arrives whole on each inbound Message and leaves
+    on the derived ones, so ``sessions`` only ever holds the default entry.
 
-    What is stored, and what is not
-    -------------------------------
-    Exactly one session is authoritative here: the reserved ``"default"``
-    id (SESSION-1 §3.1), which the orchestrator owns as persistent
-    in-process state — the **default-session store** of SESSION-2 §2.3 /
-    §5. Every other session is client-owned (§2.5) and the orchestrator is
-    stateless for it (§2.2): its state arrives whole on each inbound
-    Message and leaves on the derived ones. ``sessions`` therefore holds
-    exactly one entry, the default session; a named id never enters it. The
-    working session for a named utterance lives in the utterance flow that
-    holds it, which is the only place with an end-of-utterance to discard
-    it at.
-
-    The three ways state enters
-    ---------------------------
-    :meth:`fold_inbound` is the arrival: the orchestrator calls it once per
-    inbound utterance (PIPELINE-1 §6) and it performs the §5.1 merge of the
-    raw carrier into the default store, or builds the transient session for
-    a named id. :meth:`update` is the derivation chain: transformer,
-    pipeline (``Match.updated_session``) and handler mutations write the
-    working session back (§2.6, §5.1 third bullet). :meth:`handle_sync` is
-    the out-of-band path: ``ovos.session.sync`` carries a snapshot in
-    ``Message.data`` that the orchestrator must merge (§2.7, §6.2).
-
-    :meth:`get` writes nothing into the store. It answers "which session
-    does this Message refer to", and a read that quietly mutated the store
-    would make the answer depend on how many times it was asked. The
-    session it answers with is bound to the Message that was asked about,
-    so asking twice about one Message gives back the same object and a
-    mutation made through it is the one :meth:`stamp_derived` puts on the
-    wire. The binding lives on the Message and dies with it — no id-keyed
-    state survives the Message, so §2.2 statelessness for named ids holds.
-
-    Why stamping ``forward`` / ``reply`` is always correct
-    -----------------------------------------------------
-    ``Message.forward`` / ``Message.reply`` deep-copy the *originating*
-    message's context, including its ``session`` snapshot (MSG-1 §5.1 /
-    §5.2). But that snapshot was frozen when the originating message was
-    built — possibly before the current handler mutated the session. So at
-    derivation time the registry re-stamps a **default-session** Message
-    with the store (:meth:`sync_message_session`). Either the store carries
-    a mutation the frozen snapshot predates, in which case stamping
-    propagates it, or nothing changed, in which case stamping re-serializes
-    the same state. It is a meaningful refresh or a no-op, never a discard.
-
-    The store is not the refresh source for a named id, and must not be:
-    the process holds nothing authoritative for one (§2.2), and stamping
-    from anything it happened to keep would eventually stamp a past round
-    onto the current one — silently re-activating handlers the client
-    dropped. What a named derivation refreshes from instead is the session
-    bound to the message it derives from, if a component asked for one:
-    that object *is* the carrier the message arrived with, and a handler
-    that mutated it is exactly the case CONTEXT-1 §5.3 wants carried out
-    on ``forward``. A message nobody asked about carries its named carrier
-    verbatim.
-
-    Canonical example
-    -----------------
-    The universal handler shape — read, mutate, derive, emit::
-
-        sess = SessionManager.get(message)   # read the session this message names
-        sess.add_active_handler("my.skill")  # mutate it
-        SessionManager.update(sess)          # write the mutation back (§2.6)
-        reply = message.forward("my.skill.activate")
-        #   forward() deep-copied message.context["session"] — the PRE-activation
-        #   snapshot. On the default session the re-stamp comes from the store
-        #   and on a named session from the session bound to ``message`` by the
-        #   ``get`` above, so either way the activation rides out on the wire.
-        bus.emit(reply)
-
-    Pluggability
-    ------------
-    ``session_cls`` lets a downstream layer (e.g. ovos-bus-client, whose
-    ``Session`` adds legacy projections) point the registry at a subclass so
-    the sessions it builds are the richer object. Construction goes through
-    ``deserialize`` to stay agnostic of subclass ``__init__`` signatures.
+    State enters through :meth:`fold_inbound` (arrival, §5.1 first bullet),
+    :meth:`update` (derivation-chain writes, §2.6 / §5.1 third bullet) and
+    :meth:`handle_sync` (the out-of-band ``ovos.session.sync`` merge,
+    §2.7 / §6.2). :meth:`get` is a pure read; see OVOS-SESSION-2 §2.2 / §5.1
+    for the full read/write/propagation model, and ``session_cls`` lets a
+    downstream layer (e.g. ovos-bus-client) point the registry at a
+    ``Session`` subclass.
     """
 
     #: Session class the registry builds; override downstream to a subclass.
     session_cls = Session
-    #: the singleton for the reserved "default" id (lazily materialized).
-    default_session: Optional["Session"] = None
     #: id -> the one live Session object for that id.
     sessions: Dict[str, "Session"] = {}
+    #: Kept for readers of the pre-spec attribute; the registry (``sessions``)
+    #: is authoritative and this is only ever written to mirror it, never
+    #: read internally. Removed in 2.0.0.
+    default_session: Optional["Session"] = None
     # Reentrant: a write into the default-session store runs update_from
     # while holding this lock, and update_from runs full deserialization
     # (Session.__init__ -> config load, subclass projections, and any
@@ -1008,11 +1006,10 @@ class SessionManager:
         """Return (materializing once) the singleton for the reserved default id.
 
         The shared ``sessions`` dict is the single source of truth — keyed off
-        ``sessions[DEFAULT_SESSION_ID]``, never a per-class ``default_session``
-        mirror. This matters when a subclass (ovos-bus-client) and this base
-        both reach the registry: a class-attribute mirror would shadow per class
-        and diverge, whereas the dict is one shared object. ``default_session``
-        is kept as a convenience mirror but is always re-synced from the dict.
+        ``sessions[DEFAULT_SESSION_ID]``. This matters when a subclass
+        (ovos-bus-client) and this base both reach the registry: a
+        class-attribute mirror would shadow per class and diverge, whereas the
+        dict is one shared object.
         """
         sess = cls.sessions.get(DEFAULT_SESSION_ID)
         if sess is None:
@@ -1118,42 +1115,66 @@ class SessionManager:
             return stored if stored is sess else stored.update_from(sess)
 
     @classmethod
+    def bind(cls, message: "object", session: "Session") -> "Session":
+        """Bind ``session`` as the session of ``message``, replacing any prior binding.
+
+        Lets an orchestrator hold one round session end to end: every later
+        :meth:`get` and :meth:`stamp_derived` in the round sees this exact
+        object, mutations included. See OVOS-SESSION-2 §2.2 / §5.1 for the
+        full write model.
+        """
+        if session.is_default and session is not cls.get_default_session():
+            # A default-shaped Session that isn't the registry's own store
+            # would make get() (returns the binding) and stamp_derived()
+            # (reads the store directly) disagree about the same Message.
+            raise ValueError(
+                "bind() refuses a default-shaped Session that is not the "
+                "registry's own default store, or stamp_derived would "
+                "disagree with get() about the same Message; obtain it via "
+                "SessionManager.get_default_session() and bind that object")
+        carrier = cls._carrier(message)
+        if carrier:
+            carrier_id = resolve_session_id(carrier)
+            session_id = session.resolved_session_id()
+            if carrier_id != session_id:
+                # A carrier naming one id and a binding for another are two
+                # conflicting claims about the Message's session; a
+                # carrier-less Message makes no claim to contradict.
+                raise ValueError(
+                    f"bind() session id {session_id!r} does not match "
+                    f"the message's own carrier id {carrier_id!r}")
+        message._bound_session = session
+        return session
+
+    @classmethod
+    def bound(cls, message: "object") -> Optional["Session"]:
+        """The session currently bound to ``message``, or ``None`` if none is.
+
+        A read-only peek at the same attribute :meth:`get` and :meth:`bind`
+        use, for callers that need to tell "nothing bound yet" apart from
+        triggering :meth:`get`'s side effect of binding one.
+        """
+        return getattr(message, "_bound_session", None)
+
+    @classmethod
     def get(cls, message: Optional["object"] = None) -> "Session":
         """Return the session a Message refers to, without writing anything.
 
-        A pure read. A Message naming the default session — including one
-        with no session carrier at all — resolves to the store (§5); a
-        Message naming a session id resolves to the session built from its
-        own carrier, since the orchestrator holds no state for it (§2.2).
-        Calling this twice never moves the store, which is what makes it
-        safe to call anywhere in a component.
-
-        The session is bound to the Message it was asked about and the
-        binding is reused on later calls, so a component that reads, mutates
-        and then derives — the CONTEXT-1 §5.3 handler shape — has its
-        mutation on the object :meth:`stamp_derived` serializes onto the
-        derived Message. The binding is a per-Message attribute, not
-        registry state: it is unreachable from any other Message, is not
-        keyed on ``session_id``, and is collected with the Message, so the
-        orchestrator still holds nothing for a named id between utterances
-        (§2.2). A carrier rewritten to a different id after the fact drops
-        the stale binding.
-
-        After a ``get``, the bound session is the authority for anything
-        derived from that Message: write to the session object, not to the
-        carrier dict, since a field edited straight into
-        ``message.context["session"]`` is overwritten by the bound session
-        when :meth:`stamp_derived` runs.
-
-        Arrivals go through :meth:`fold_inbound` and derivation-chain
-        writes through :meth:`update`.
+        A pure read: a Message naming the default session (or none)
+        resolves to the store (§5); one naming another id resolves to the
+        session built from its own carrier (§2.2). The result is bound to
+        the Message and reused on later calls, so a component that reads,
+        mutates and derives has its mutation picked up by
+        :meth:`stamp_derived`. See OVOS-SESSION-2 §2.2 / §5.1 for the
+        binding and propagation rules.
         """
         if message is None:
             return cls.get_default_session()
         carrier = cls._carrier(message)
         session_id = resolve_session_id(carrier)
-        bound = getattr(message, "_bound_session", None)
-        if bound is not None and bound.resolved_session_id() == session_id:
+        bound = cls.bound(message)
+        if bound is not None and (
+                not carrier or bound.resolved_session_id() == session_id):
             return bound
         sess = (cls.get_default_session() if session_id == DEFAULT_SESSION_ID
                 else cls._session_from_carrier(carrier))
@@ -1222,40 +1243,33 @@ class SessionManager:
         whenever the two name the same id: once a component has read the
         session off a Message, an edit written straight into
         ``message.context["session"]`` does not reach the derivation. The
-        session object is the thing to write to.
+        session object is the thing to write to. A derived Message with no
+        session snapshot of its own has made no competing claim either —
+        :meth:`bind` allows binding a named session onto a carrier-less
+        Message for exactly this reason — so an absent snapshot also
+        inherits the binding rather than being routed through the
+        default-store fallback below.
 
         With no binding, or a binding for another id, this falls back to
         :meth:`sync_message_session`: the default store still stamps and a
         named carrier still travels verbatim.
         """
-        bound = getattr(source, "_bound_session", None)
+        bound = cls.bound(source)
         if bound is not None and not bound.is_default:
             snap = message.context.get("session")
-            if (isinstance(snap, dict)
+            if snap is None or (isinstance(snap, dict)
                     and resolve_session_id(snap) == bound.resolved_session_id()):
                 message.context["session"] = cls._wire_dict(bound)
                 return message
         return cls.sync_message_session(message)
 
     @classmethod
-    def sync_message_session(cls, message: "object",
-                             default_session_id: str = DEFAULT_SESSION_ID
-                             ) -> "object":
-        """Stamp an outgoing/derived message with the live session for its own id.
+    def sync_message_session(cls, message: "object") -> "object":
+        """Stamp a derived message with the live default-session store.
 
-        The outbound half of the contract (see the class docstring for *why*
-        this is always either a refresh or a no-op). Keyed off the message's
-        **own** ``session_id`` so a derived message addressed to a different
-        Only the **default** session is stamped, because it is the only one
-        OVOS-SESSION-2 gives the orchestrator authority over: it is the store
-        (§5), authoritative by definition, so its state replaces whatever
-        snapshot the derived message copied. A message with no session at all
-        gets that stamp too (§4.3).
-
-        A **named** session is carried through verbatim. It is client-owned
-        (§2.5) and the orchestrator is stateless for it (§2.2), so its
-        carrier is the only authority there is — the message says what the
-        session is, and this process has nothing truer to replace it with.
+        A named carrier travels verbatim (§2.2 / §2.5, client-owned); a
+        message with no session, or one naming the default id, gets the
+        store's current state (§4.3).
         """
         ctx = message.context
         snap = ctx.get("session")
@@ -1273,5 +1287,6 @@ class SessionManager:
         """Replace the default session with a fresh empty one and return it."""
         with cls._lock:
             sess = cls.session_cls.deserialize({"session_id": DEFAULT_SESSION_ID})
-            cls.default_session = cls.sessions[DEFAULT_SESSION_ID] = sess
+            cls.sessions[DEFAULT_SESSION_ID] = sess
+            cls.default_session = sess
         return sess

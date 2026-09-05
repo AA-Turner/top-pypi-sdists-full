@@ -20,7 +20,7 @@ from pydantic import (
 
 from mistralai.vibe.sdk.agent.execution.compaction import (
     COMPACTION_STREAM_NAME,
-    _latest_user_message_index,
+    _recent_user_messages_for_compaction,
     has_compactable_history,
     make_compaction_entry,
     run_compaction,
@@ -248,10 +248,13 @@ class ContextOverflowed(BaseModel):
 
 
 class StartCompaction(BaseModel):
-    """Mark the beginning of a compaction. ``preserve_latest_user`` keeps the latest user message
-    after the sentinel (threshold compaction) or folds it into the summary (overflow)."""
+    """Mark the beginning of a compaction.
 
-    preserve_latest_user: bool
+    Recent user messages are retained within a fixed token budget. Context-overflow
+    retries are tracked separately so compaction cannot enter a retry loop.
+    """
+
+    retry_context_overflow: bool = True
     telemetry: _LLMRequestTelemetry = Field(default_factory=_LLMRequestTelemetry)
 
 
@@ -307,7 +310,7 @@ class CallCompactionLLM(BaseModel):
     tools: dict[str, Any]
     threshold: int
     telemetry: _LLMRequestTelemetry = Field(default_factory=_LLMRequestTelemetry)
-    preserve_latest_user: bool = True
+    retry_context_overflow: bool = True
     compaction_prompt: str | None = None
 
     # Stream namespace for the workflow activity (not serialized state). The workflow
@@ -567,7 +570,6 @@ class AgentModule(StateModule):
             return self.reduce(
                 state,
                 StartCompaction(
-                    preserve_latest_user=True,
                     telemetry=telemetry.preserve_for_post_compaction(),
                 ),
             )
@@ -660,7 +662,7 @@ class AgentModule(StateModule):
                 return self.reduce(
                     state,
                     StartCompaction(
-                        preserve_latest_user=False,
+                        retry_context_overflow=False,
                         telemetry=telemetry.preserve_for_post_compaction(),
                     ),
                 )
@@ -676,18 +678,18 @@ class AgentModule(StateModule):
                 return (final, [])
 
             case StartCompaction(
-                preserve_latest_user=preserve_latest_user,
+                retry_context_overflow=retry_context_overflow,
                 telemetry=telemetry,
             ):
                 history = state.history
-                anchor = _latest_user_message_index(state) if preserve_latest_user else len(history)
+                retained_user_messages = _recent_user_messages_for_compaction(state)
                 running = make_compaction_entry(
                     "running",
                     threshold=self._auto_compact_threshold,
                     old_context_tokens=estimate_context_tokens(state, self._tools_serialized),
                 )
                 running_state = state.model_copy(
-                    update={"history": [*history[:anchor], running, *history[anchor:]]}
+                    update={"history": [*history, running, *retained_user_messages]}
                 )
                 return (
                     running_state,
@@ -704,7 +706,7 @@ class AgentModule(StateModule):
                                     )
                                 }
                             ),
-                            preserve_latest_user=preserve_latest_user,
+                            retry_context_overflow=retry_context_overflow,
                             compaction_prompt=self._compaction_prompt,
                         )
                     ],
@@ -1094,7 +1096,7 @@ async def _handle_call_compaction_llm(
     return [
         CompactionStatusUpdated(
             entry=outcome.entry,
-            retry_context_overflow=effect.preserve_latest_user,
+            retry_context_overflow=effect.retry_context_overflow,
             telemetry=effect.telemetry,
             error=outcome.error,
             stream_scope=scoped_sink.scope,

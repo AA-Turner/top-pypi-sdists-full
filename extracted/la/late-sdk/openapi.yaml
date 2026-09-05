@@ -1544,7 +1544,10 @@ components:
         details:
           type: object
           additionalProperties: true
-          description: Additional structured context (e.g. field-level validation errors).
+          description: >-
+            Additional structured context (e.g. field-level validation errors), for example
+            `privateReplyConsumed` on the private-reply endpoint's 400 when the comment's
+            single reply is already spent.
     CommentAutomationAudience:
       type: object
       description: |
@@ -5965,6 +5968,8 @@ components:
         bidStrategy: { $ref: '#/components/schemas/BidStrategy' }
         bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required when bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP. May also be sent alone, WITHOUT bidStrategy, to set the cap on an ad set joining a COST_CAP / LOWEST_COST_WITH_BID_CAP campaign (the strategy is inherited from the campaign). On POST /v1/ads/create that shape requires existingCampaignId and is a 400 otherwise; on POST /v1/ads/boost it is promoted to LOWEST_COST_WITH_BID_CAP." }
         roasAverageFloor: { type: number, description: "Decimal ROAS multiplier (2.0 = 2.0x). Required when bidStrategy is LOWEST_COST_WITH_MIN_ROAS; sending it without bidStrategy is a 400." }
+        dailyMinSpendTarget: { type: number, description: "Meta daily_min_spend_target on the ad set being created: the least it should spend per day, in whole currency units. It reserves a share of a CAMPAIGN budget, so it requires budgetLevel campaign or an existingCampaignId whose campaign has the budget (Advantage campaign budget / CBO); with an ad-set budget it is a 400, because Meta rejects a spend limit on an ad set that owns its budget. A target, not a guarantee. Mutually exclusive with lifetimeMinSpendTarget: the flavour must match the campaign budget type. Rejected with 400 on POST /v1/ads/boost and in adSetId attach mode: use PUT /v1/ads/ad-sets/{adSetId} for an ad set that already exists." }
+        lifetimeMinSpendTarget: { type: number, description: "Meta lifetime_min_spend_target: the lifetime-budget flavour of dailyMinSpendTarget, in whole currency units. Same rules and same rejections." }
     LinkedInAdsPlatformData:
       type: object
       additionalProperties: false
@@ -8934,7 +8939,7 @@ components:
         ads:
           type: array
           items: { $ref: '#/components/schemas/Ad' }
-          description: "Individual ads within this ad set (capped at 100). Returns a subset of Ad fields from the aggregation: `_id`, `name`, `platform`, `status`, `configuredStatus`, `reviewStatus`, `budget`, `metrics`, `creative`, `goal` and the `platform*` ids are always included; `targeting` and `schedule` may be absent. `configuredStatus` (the ad's own on/off toggle) and `reviewStatus` (the platform's review verdict) are part of this contract, not incidental: a rejected ad is only distinguishable from a healthy one through `reviewStatus`. When `timeIncrement=1&dailyLevel=ad`, each entry also carries a `daily[]` array of `AdDailyMetrics`."
+          description: "Individual ads within this ad set (capped at 100). When the ad set has more than 100 ads these are the 100 highest-spending over the requested date range, so this array depends on `fromDate`/`toDate`; `adCount` is always the true ad set size. Returns a subset of Ad fields from the aggregation: `_id`, `name`, `platform`, `status`, `configuredStatus`, `reviewStatus`, `budget`, `metrics`, `creative`, `goal` and the `platform*` ids are always included; `targeting` and `schedule` may be absent. `configuredStatus` (the ad's own on/off toggle) and `reviewStatus` (the platform's review verdict) are part of this contract, not incidental: a rejected ad is only distinguishable from a healthy one through `reviewStatus`. When `timeIncrement=1&dailyLevel=ad`, each entry also carries a `daily[]` array of `AdDailyMetrics`."
         daily:
           type: array
           items: { $ref: '#/components/schemas/AdDailyMetrics' }
@@ -10248,11 +10253,12 @@ webhooks:
         Fired when Meta's automatic event identification (opt-in during
         Embedded Signup; not available for EU/UK/JP businesses) detects a
         lead or purchase in a Click-to-WhatsApp conversation. Branch on
-        `eventName` (`LeadSubmitted` | `Purchase`). Carries the `ctwa_clid`
-        even on coexistence numbers where the inbound referral omits it (this
-        webhook is the only surface that delivers it there); the clid is also
-        written back onto the conversation, so POST /v1/whatsapp/conversions
-        becomes usable for the thread.
+        `eventName` (`LeadSubmitted` | `Purchase`). Carries the `ctwa_clid`.
+        Meta omits that clid on a minority of referrals on any number
+        (coexistence or not, most often WhatsApp Status placements); when it
+        does, this event can supply it and Zernio writes it back onto the
+        conversation, so POST /v1/whatsapp/conversions becomes usable for the
+        thread.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -16986,6 +16992,14 @@ paths:
                         tokenExpiresAt: { type: string, format: date-time }
                         needsReconnect: { type: boolean }
                         issues: { type: array, items: { type: string } }
+                        messagingRestriction:
+                          type: [object, "null"]
+                          description: 'Observed from Meta''s own error subcodes on our own sends (2534122, 1893063, 2534029), not a live probe. Set on the first refused send and cleared when a later send succeeds, so it lags reality by one send in each direction.'
+                          properties:
+                            subcode: { type: integer }
+                            message: { type: string }
+                            firstSeenAt: { type: string, format: date-time }
+                            lastSeenAt: { type: string, format: date-time }
               example:
                 summary:
                   total: 5
@@ -17147,6 +17161,14 @@ paths:
                     type: array
                     items: { type: string }
                     description: Actionable recommendations to fix issues
+                  messagingRestriction:
+                    type: [object, "null"]
+                    description: 'Observed from Meta''s own error subcodes on our own sends (2534122, 1893063, 2534029), not a live probe. Set on the first refused send and cleared when a later send succeeds, so it lags reality by one send in each direction.'
+                    properties:
+                      subcode: { type: integer }
+                      message: { type: string }
+                      firstSeenAt: { type: string, format: date-time }
+                      lastSeenAt: { type: string, format: date-time }
                   platformConnection:
                     type: object
                     description: 'WhatsApp accounts only. Live probe of the Meta link behind the channel, performed at request time (the same read as GET /v1/whatsapp/number-info).'
@@ -17817,7 +17839,7 @@ paths:
           in: query
           schema: { type: string, format: uri }
           description: |
-            Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+            Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
             On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
             `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason` and
@@ -17918,7 +17940,7 @@ paths:
                 authUrl: "https://www.facebook.com/v21.0/dialog/oauth?client_id=..."
                 state: "user123-profile456-1234567890-https://yourdomain.com/callback"
         '400':
-          description: "Missing/invalid parameters (e.g., invalid profileId format)"
+          description: "Missing/invalid parameters (e.g., invalid profileId format, or a non-absolute redirect_url)"
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403':
@@ -18033,8 +18055,9 @@ paths:
           description: |
             Custom URL the browser is sent to once the OAuth flow finishes. Honored on
             every ads platform, including the separate-token (`tiktok`, `twitter`) and
-            standalone (`googleads`) flows. Accepts an http(s) URL, a custom app scheme
-            for mobile deeplinks (e.g. myapp://callback), or a relative path. On success
+            standalone (`googleads`) flows. MUST be an absolute http(s) URL or a custom
+            app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is
+            rejected with 400 INVALID_REDIRECT_URL. On success
             `tiktok`, `twitter` and `googleads` land on the URL unchanged, while the
             same-token platforms (`facebook`, `instagram`, `linkedin`, `pinterest`)
             append `connected`, `profileId`, `accountId`, `username` and, on API-key
@@ -18133,7 +18156,7 @@ paths:
                     authUrl: "https://business-api.tiktok.com/portal/auth?app_id=..."
                     state: "user123-profile456-account789-1234567890"
         '400':
-          description: "Platform doesn't support ads, or missing accountId for X Ads"
+          description: "Platform doesn't support ads, missing accountId for X Ads, or a non-absolute redirect_url"
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: "Ads access required (Ads add-on on legacy plans, included on usage-based plans), or no access to profile"
@@ -18173,7 +18196,7 @@ paths:
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
-          description: 'Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. On failure an `error` query param is appended.'
+          description: 'Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. On failure an `error` query param is appended.'
       responses:
         '200':
           description: OAuth authorization URL to redirect the merchant to
@@ -18190,7 +18213,7 @@ paths:
                     type: string
                     description: State parameter for security (handled automatically)
         '400':
-          description: 'Invalid `profileId` format, `shop` is not a myshopify.com store domain, or `redirect_url` uses a script-executing scheme.'
+          description: 'Invalid `profileId` format, `shop` is not a myshopify.com store domain, or `redirect_url` is not an absolute http(s) URL or custom app scheme.'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403':
@@ -28106,6 +28129,13 @@ paths:
                       subcode: { type: integer, description: "Meta error_subcode" }
                       fbtraceId: { type: string, description: "Meta fbtrace_id, quote this in a Meta bug report" }
                       type: { type: string, description: "Meta error type (e.g. OAuthException)" }
+        '500':
+          description: >-
+            The platform rejected or failed the send. Zernio does NOT retry a
+            send internally: a message send is not idempotent, and an opaque
+            upstream failure (for example WhatsApp 131000) does not say whether
+            the message was delivered. Retrying this request may deliver the
+            message twice. Retry only if your use case tolerates a duplicate.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -29708,7 +29738,9 @@ paths:
         cards and attachments to commenters who do not follow the account (Meta code 2, subcode
         1545133, returned here as a non-retryable 400 that says so), and the failed call still
         consumes the comment's single private reply. To reach non-followers send plain text and
-        add buttons once they reply. `quickReplies` and `buttons` are mutually exclusive.
+        add buttons once they reply. `quickReplies` and `buttons` are mutually exclusive. When
+        the comment's single private reply is spent (by this call or an earlier one) the 400
+        carries `details.privateReplyConsumed: true`; never retry it.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -29842,31 +29874,54 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  code:
-                    type: string
-                    enum: [PLATFORM_LIMITATION]
+                $ref: '#/components/schemas/ErrorResponse'
               examples:
                 platformNotSupported:
                   summary: Platform not supported
                   value:
                     error: "Private replies to comments are only supported on Instagram and Facebook."
-                    code: "PLATFORM_LIMITATION"
-                alreadyReplied:
-                  summary: Already sent a private reply
+                    type: "invalid_request_error"
+                    code: "invalid_field_value"
+                    param: "accountId"
+                followGated:
+                  summary: "Media refused, commenter does not follow the account (reply consumed)"
                   value:
-                    error: "A private reply has already been sent to this comment, or the 7-day reply window has expired. Only one private reply per comment is allowed within 7 days."
+                    error: "Instagram refused this private reply because it carries a card, buttons or an attachment and the commenter does not follow this account. Meta delivers only plain text to non-followers. This attempt consumed the comment's single private reply, so do not retry it; send a text-only private reply to reach non-followers."
+                    type: "platform_error"
+                    code: "platform_api_error"
+                    platform: "instagram"
+                    platformError:
+                      code: 2
+                      error_subcode: 1545133
+                      is_transient: false
+                      message: "Service temporarily unavailable"
+                      error_user_title: "Your message can't be delivered"
+                      error_user_msg: "You can't send media to Jejum de Daniel unless they follow you."
+                    details:
+                      privateReplyConsumed: true
+                alreadyReplied:
+                  summary: "Already sent a private reply (reply consumed, Meta subcode 2534023)"
+                  value:
+                    error: "A private reply has already been sent to this comment. Instagram only allows one private reply per comment."
+                    type: "platform_error"
+                    code: "platform_api_error"
+                    platform: "instagram"
+                    details:
+                      privateReplyConsumed: true
                 commentTooOld:
                   summary: Comment older than 7 days
                   value:
-                    error: "The comment is older than 7 days. Private replies can only be sent within 7 days of the comment being posted."
+                    error: "The comment is older than 7 days. Instagram only allows private replies within 7 days of the comment being posted."
+                    type: "platform_error"
+                    code: "platform_api_error"
+                    platform: "instagram"
                 missingMessage:
                   summary: Missing message
                   value:
                     error: "message is required and must be a non-empty string"
+                    type: "invalid_request_error"
+                    code: "missing_required_field"
+                    param: "message"
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
@@ -41116,7 +41171,8 @@ paths:
         Platform notes: on Meta a budget here is campaign-level (CBO) by definition; omit it
         for ABO (each ad set carries its own budget), and `specialAdCategories` /
         `bidStrategy` are Meta-only (400 elsewhere). Google, X and OpenAI require a budget
-        (422 without one; OpenAI accepts only `budgetType: lifetime`). LinkedIn creates the
+        (422 without one; OpenAI accepts only `budgetType: lifetime`, Google only
+        `budgetType: daily`). LinkedIn creates the
         campaign GROUP (our campaign level) and rejects a budget, which lives on the
         campaign (ad set) level there; it comes back `status: DRAFT`. TikTok campaigns are
         created without a status and report `ENABLE`. Created `PAUSED` unless
@@ -41794,6 +41850,25 @@ paths:
                     billingEvent: { type: string, description: "Meta ad-set billing_event (e.g. IMPRESSIONS, LINK_CLICKS, THRUPLAY)." }
                     startDate: { type: string, description: "Ad set start_time (ISO 8601)." }
                     endDate: { type: string, description: "Ad set end_time (ISO 8601)." }
+                    dailyMinSpendTarget:
+                      type: number
+                      description: |
+                        Meta `daily_min_spend_target`: the least this ad set should spend per day, in whole
+                        currency units of the ad account. It reserves a share of a CAMPAIGN budget for one ad
+                        set, so it requires a campaign using Advantage campaign budget (CBO). On an ad set
+                        that owns its budget (ABO) this returns 409 — move the budget to the campaign with
+                        `PUT /v1/ads/campaigns/{campaignId}` first. Meta treats it as a target, not a
+                        guarantee, and rejects the combined minimum of a campaign's ad sets going over the
+                        campaign budget.
+                        Mutually exclusive with `lifetimeMinSpendTarget` (400): the flavour must match the
+                        campaign budget type, a daily budget takes a daily target.
+                        Read it back with `GET /v1/ads/ad-sets/{adSetId}?fields=daily_min_spend_target`.
+                    lifetimeMinSpendTarget:
+                      type: number
+                      description: |
+                        Meta `lifetime_min_spend_target`: the lifetime-budget flavour of
+                        `dailyMinSpendTarget`, in whole currency units. Send this one when the campaign
+                        budget is a lifetime budget. Same rules and same rejections.
                     promotedObject:
                       type: object
                       description: "Meta ad-set promoted_object, forwarded verbatim (same shape as /v1/ads/create). Unknown keys are rejected with 400."
@@ -45279,7 +45354,7 @@ paths:
                                 items: { type: string, enum: [mobile, desktop] }
                 audienceId: { type: string, description: Custom audience ID for targeting }
                 campaignType: { type: string, enum: [display, search], default: display, description: Google only }
-                keywords: { type: array, items: { type: string }, description: "Google Search only. BROAD-match keywords on the new ad group (first 20)." }
+                keywords: { type: array, maxItems: 1000, items: { type: string, maxLength: 80 }, description: "Google Search only. BROAD-match keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.keywords, which also sets match types." }
                 negativeKeywords: { type: array, items: { type: string, maxLength: 80 }, description: "Google Search only; other platforms return 400. BROAD-match negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords." }
                 additionalHeadlines: { type: array, items: { type: string }, description: "Google Search RSA only. Extra headlines." }
                 additionalDescriptions: { type: array, items: { type: string }, description: "Google Search RSA only. Extra descriptions." }
@@ -45431,6 +45506,9 @@ paths:
                     Sending the bid fields in BOTH places returns a 400
                     (`mutually_exclusive_fields`), and sending any of them in
                     `adSetId` attach mode is a 400 too (the ad set already has its bid).
+                    `dailyMinSpendTarget` / `lifetimeMinSpendTarget` set the new ad set's
+                    minimum spend and live here only; they are rejected in `adSetId` attach
+                    mode as well.
                   oneOf:
                     - $ref: '#/components/schemas/LinkedInAdsPlatformData'
                     - $ref: '#/components/schemas/MetaAdsPlatformData'

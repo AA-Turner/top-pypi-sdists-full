@@ -37,6 +37,13 @@ pub(crate) fn spec_content_hash(spec: &Spec) -> u64 {
         );
         push_optional_bool(&mut values, rule.is_experiment_group);
         push_optional_hash(&mut values, rule.sampling_rate);
+        if let Some(shared_control_experiments) = &rule.shared_control_experiments {
+            values.push(shared_control_experiments.len() as u64);
+            for experiment in shared_control_experiments.iter() {
+                values.push(experiment.name.hash);
+                values.push(experiment.control_group_id.hash);
+            }
+        }
     }
     values.push(spec.id_type.hash);
     push_strings(

@@ -198,7 +198,11 @@ def ensure_statistics_files(inputs, logger, parser):
             obj = geocif.Geocif(logger=logger, parser=parser, project_name=project_name)
             file_path = obj._get_statistics_file_path(country, crop)
 
-            if not file_path.exists() or obj.update_input_file:
+            if (
+                not file_path.exists()
+                or obj.update_input_file
+                or obj._statistics_file_stale(country, crop, file_path)
+            ):
                 logger.info(f"Pre-creating statistics file: {country} {crop}")
                 try:
                     obj._create_statistics_file(country, crop, file_path)

@@ -170,6 +170,27 @@ SQLITE_CONNECT_ALLOWLIST: dict[str, Classification] = {
         "unit under test is a filesystem operation on a SQLite database file. "
         "Postgres has no analogue to back up this way.",
     ),
+    "test_backup.py": Classification(
+        9, (BUCKET_A,),
+        "#3118's off-site backup lane. Every site builds or re-opens a real "
+        "on-disk SQLite *file* whose SQLite-ness is the subject: make_source_db "
+        "sets `PRAGMA journal_mode=WAL` so the `VACUUM INTO`-over-`cp` test can "
+        "hold a `BEGIN IMMEDIATE` write transaction open across a snapshot (the "
+        "second site) and prove the uncommitted row is excluded; the rest "
+        "re-open a snapshot or a restored file to assert `PRAGMA "
+        "integrity_check` says `ok`, or mutate the live db between two pushes "
+        "to prove restic's chunked dedup only ships the delta. The autouse "
+        "coord_db fixture cannot serve any of them — `VACUUM INTO`, "
+        "`journal_mode`, and a torn-file-under-concurrent-writes scenario all "
+        "need a path on disk, not a connection — and scratch_database() is out "
+        "for the usual backend-following reason: under "
+        "COORD_TEST_BACKEND=postgres these would be asserting on a database "
+        "that has no VACUUM INTO and no integrity_check. The Postgres arm of "
+        "the same lane (pg_dump/pg_restore) is tested separately, through a "
+        "fake `runner`, and adds no site here. Same subject as "
+        "test_deploy_coord_db_backup.py directly above, and filed A alongside "
+        "it.",
+    ),
     "test_test_orchestrator.py": Classification(
         2, (BUCKET_A,),
         "Judgement call: _migrate_add_columns idempotency + PRAGMA "
@@ -218,7 +239,7 @@ SQLITE_CONNECT_ALLOWLIST: dict[str, Classification] = {
         "HTTP write path.",
     ),
     "test_portal_store.py": Classification(
-        10, (BUCKET_C,),
+        12, (BUCKET_C,),
         "The portal daemon-endpoint pattern, once per endpoint under test: a "
         "file board.db opened with check_same_thread=False (TestClient runs "
         "the handler on a worker thread the autouse connection cannot serve) "
@@ -255,7 +276,20 @@ SQLITE_CONNECT_ALLOWLIST: dict[str, Classification] = {
         "same two reasons: TestClient runs the handler on a worker thread the "
         "autouse connection cannot serve (hence check_same_thread=False), and "
         "the same file has to be handed to SqliteStore *by path* for the read "
-        "side, which scratch_database() cannot yield.",
+        "side, which scratch_database() cannot yield. "
+        "+2 for #3110's two `/portal-link` write-guard seams: "
+        "TestFanInGuard3110.test_daemon_endpoint_refuses_without_force_and_"
+        "accepts_with_it proves a POST that would fan one submission_id out "
+        "to a second target is refused (400) unless `force` is set — the "
+        "write that mailed a real customer 161 duplicate emails — and "
+        "TestUnlink3110.test_daemon_delete_endpoint covers the new DELETE "
+        "`/portal-link`, the daemon side of `coord portal unlink` that "
+        "replaces the hand sqlite edit the incident needed. Both are the same daemon-endpoint shape as every entry "
+        "above, and for exactly the same two reasons: the refusal is enforced "
+        "inside the handler, which TestClient runs on a worker thread the "
+        "autouse connection cannot serve (check_same_thread=False), and the "
+        "read-back has to go through the SqliteStore the app opened *by "
+        "path*, which scratch_database() cannot yield.",
     ),
     "test_milestone_gate.py": Classification(
         3, (BUCKET_C,),

@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-from dataclasses import dataclass, field
+import json
+import logging
+import threading
+from copy import deepcopy
+from dataclasses import dataclass, field, replace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -31,6 +35,8 @@ from typing_extensions import Required
 # runtime, so this is cycle-free.
 from .plugins.base import PluginLike
 
+logger = logging.getLogger("growthbook")
+
 # Generic feature/experiment value type. Deliberately unbounded: a JSONValue
 # bound would reject TypedDict/dataclass-shaped fallbacks (see JS SDK issue #1729,
 # where the equivalent bound was shipped and then reverted).
@@ -55,6 +61,33 @@ class Filter(TypedDict, total=False):
     ranges: Required[List[Tuple[float, float]]]
     hashVersion: int
     attribute: str
+
+
+# Contextual bandit payload types. The server ships a top-level
+# "contextualBandits" map keyed by bandit id; each entry holds per-leaf
+# weight vectors computed server-side (Thompson sampling within decision-tree
+# leaves). The SDK only picks the first leaf whose condition matches and
+# buckets with that leaf's weights — no model evaluation happens client-side.
+
+class ContextualBanditContext(TypedDict, total=False):
+    leafId: Required[int]
+    condition: Dict[str, Any]
+    weights: Required[List[float]]
+
+
+class ContextualBanditDefinition(TypedDict, total=False):
+    banditVersion: int
+    contexts: List[ContextualBanditContext]
+
+
+# Assignment metadata attached to an Experiment/Result for a contextual
+# bandit rule. banditVersion is omitted (never None) when the definition
+# doesn't carry one — serialization must match the JS SDK byte-for-byte.
+class ContextualBanditAssignment(TypedDict, total=False):
+    leafId: Required[int]
+    variationWeights: Required[List[float]]
+    banditVersion: int
+
 
 class Experiment(Generic[T]):
     def __init__(
@@ -85,6 +118,7 @@ class Experiment(Generic[T]):
         minBucketVersion: Optional[int] = None,
         parentConditions: Optional[List[Dict[str, Any]]] = None,
         customFields: Optional[Dict[str, Any]] = None,
+        contextualBandit: Optional[ContextualBanditAssignment] = None,
         # NoReturn makes literal unknown kwargs a checker error (like TS excess
         # property checks) while **dict payload splats (typed Any) still pass;
         # at runtime unknown payload keys are swallowed as before.
@@ -113,6 +147,7 @@ class Experiment(Generic[T]):
         # Custom Fields defined for the experiment in the GrowthBook UI.
         # Arrives from the API as a flat dict (e.g. {"cfl_abc123": "value"}).
         self.customFields = customFields or {}
+        self.contextualBandit = contextualBandit
 
         self.fallbackAttribute = None
         if not self.disableStickyBucketing:
@@ -130,7 +165,9 @@ class Experiment(Generic[T]):
             "variations": self.variations,
             "weights": self.weights,
             "active": self.active,
-            "coverage": self.coverage or 1,
+            # None means "no coverage set" and reads as full coverage, but an
+            # explicit 0 must survive serialization (`or` would coerce it to 1).
+            "coverage": self.coverage if self.coverage is not None else 1,
             "condition": self.condition,
             "namespace": self.namespace,
             "force": self.force,
@@ -156,6 +193,8 @@ class Experiment(Generic[T]):
             obj["parentConditions"] = self.parentConditions
         if self.customFields:
             obj["customFields"] = self.customFields
+        if self.contextualBandit is not None:
+            obj["contextualBandit"] = self.contextualBandit
 
         return obj
 
@@ -194,6 +233,9 @@ class Result(Generic[T]):
         meta: Optional[VariationMeta] = None,
         bucket: Optional[float] = None,
         stickyBucketUsed: bool = False,
+        leafId: Optional[int] = None,
+        variationWeights: Optional[List[float]] = None,
+        banditVersion: Optional[int] = None,
     ) -> None:
         self.variationId = variationId
         self.inExperiment = inExperiment
@@ -204,6 +246,11 @@ class Result(Generic[T]):
         self.featureId = featureId or None
         self.bucket = bucket
         self.stickyBucketUsed = stickyBucketUsed
+        # Contextual bandit exposure metadata; set only for real hashed
+        # exposures of a contextual bandit rule.
+        self.leafId = leafId
+        self.variationWeights = variationWeights
+        self.banditVersion = banditVersion
 
         self.key = str(variationId)
         self.name = ""
@@ -236,6 +283,14 @@ class Result(Generic[T]):
             obj["name"] = self.name
         if self.passthrough:
             obj["passthrough"] = True
+        # The fallback leafId is -1, so these must be gated on None, not
+        # truthiness.
+        if self.leafId is not None:
+            obj["leafId"] = self.leafId
+        if self.variationWeights is not None:
+            obj["variationWeights"] = self.variationWeights
+        if self.banditVersion is not None:
+            obj["banditVersion"] = self.banditVersion
 
         return obj
 
@@ -312,6 +367,8 @@ class FeatureRule(object):
         minBucketVersion: Optional[int] = None,
         parentConditions: Optional[List[Dict[str, Any]]] = None,
         tracks: Optional[List[Dict[str, Any]]] = None,
+        contextualBanditRef: Optional[str] = None,
+        contextualVariations: Optional[List[Any]] = None,
         # See Experiment.__init__: checker-strict, runtime-permissive.
         **_ignored: NoReturn,
     ) -> None:
@@ -344,6 +401,11 @@ class FeatureRule(object):
         # Remote-eval rules carry pre-evaluated experiment tracking events on
         # the force branch; see _fireRuleTracks in core.py.
         self.tracks = tracks
+        # Contextual bandit rules carry their variations under
+        # contextualVariations (capability-gated key) so bandit-unaware SDKs
+        # skip the rule instead of bucketing on stale weights.
+        self.contextualBanditRef = contextualBanditRef
+        self.contextualVariations = contextualVariations
 
     def to_dict(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {}
@@ -393,6 +455,10 @@ class FeatureRule(object):
             data["parentConditions"] = self.parentConditions
         if self.tracks:
             data["tracks"] = self.tracks
+        if self.contextualBanditRef:
+            data["contextualBanditRef"] = self.contextualBanditRef
+        if self.contextualVariations is not None:
+            data["contextualVariations"] = self.contextualVariations
 
         return data
 
@@ -529,6 +595,128 @@ AsyncEventLogger = Callable[
 ]
 
 
+def snapshot_attributes(attributes: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursive copy of a JSON-compatible attributes dict (dicts and lists
+    are copied, scalars shared). Freezes the values used for bucketing and
+    contextual bandit leaf routing so later caller mutations — including
+    nested ones — can't change what an in-flight evaluation or a deferred
+    callback observes."""
+    def copy_value(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {k: copy_value(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [copy_value(v) for v in value]
+        return value
+
+    return {k: copy_value(v) for k, v in attributes.items()}
+
+
+def snapshot_user_context(user: "UserContext") -> "UserContext":
+    """Call-time snapshot of every mutable evaluation input on a UserContext.
+
+    The single freeze operation used wherever a context's data outlives the
+    caller's synchronous control flow: evaluations that await (remote-eval
+    fetch, sticky-bucket I/O) and remote-eval cache preloads, whose POST body
+    can be serialized by a background SWR refresh long after the caller has
+    moved on. Without it, a later caller mutation could change the request
+    body while the cache key still describes the original attribute state."""
+    return replace(
+        user,
+        attributes=snapshot_attributes(user.attributes),
+        groups=snapshot_attributes(user.groups),
+        forced_variations=snapshot_attributes(user.forced_variations),
+        forced_features=snapshot_attributes(user.forced_features),
+        overrides=snapshot_attributes(user.overrides),
+    )
+
+
+# Identity of one exposure: (hashAttribute, hashValue, experiment key,
+# variation id). Same fields as JS getExperimentDedupeKey / Go
+# TrackingData.DedupeKey, but a tuple instead of a joined string so field
+# values containing a would-be delimiter can never make two distinct
+# exposures collide.
+TrackingDedupeKey = Tuple[str, str, str, str]
+
+
+def tracking_dedupe_key(experiment: "Experiment[Any]", result: "Result[Any]") -> TrackingDedupeKey:
+    return (
+        result.hashAttribute,
+        str(result.hashValue),
+        experiment.key,
+        str(result.variationId),
+    )
+
+
+def tracking_user_context(user: "UserContext") -> "UserContext":
+    """Exposure-time snapshot of a user context for tracking and
+    feature-usage callbacks (JS SDK: getTrackingUserContext).
+
+    Attributes are copied recursively (the JS SDK only shallow-spreads;
+    Python's threaded callers make nested mutation of a deferred callback's
+    payload a realistic hazard, so this diverges deliberately)."""
+    return replace(user, attributes=snapshot_attributes(user.attributes))
+
+
+class TrackingBuffer:
+    """Collector for deferred tracking calls: experiment exposures buffered
+    during evaluation so a server can forward them to a client SDK (which
+    fires them through its own tracking callback — JS setDeferredTrackingCalls
+    / fireDeferredTrackingCalls). Buffering is independent of the tracking
+    callback: when both are wired, the buffer is written first and the
+    callback still fires (Go SDK semantics).
+
+    Entries use the JS SDK's TrackingData shape —
+    ``{"experiment": {...}, "result": {...}, "user": {"attributes", "url"}}``
+    — JSON round-tripped at record time, so nothing the caller mutates
+    afterwards can reach the buffer and every stored entry is guaranteed
+    json.dumps-ready (an exposure carrying a non-JSON value is dropped and
+    logged, never the batch). Deduped by tracking_dedupe_key, first exposure
+    wins, insertion-ordered. Thread-safe: the async client may share one
+    buffer across concurrent evaluations of the same request."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._calls: Dict[TrackingDedupeKey, Dict[str, Any]] = {}
+
+    def record(self, experiment: "Experiment[Any]", result: "Result[Any]", user: "UserContext") -> None:
+        key = tracking_dedupe_key(experiment, result)
+        if key in self._calls:
+            # Unlocked read is GIL-safe; the setdefault below closes the race
+            # (first exposure wins). This only skips building the entry twice.
+            return
+        try:
+            # JSON round-trip at record time (Go SDK: detachTrackingData).
+            # It snapshots — to_dict() aliases nested mutables (variations,
+            # condition, attribute values), so a shallow entry would let later
+            # caller mutations reach the buffer — AND it guarantees the
+            # json.dumps-ready contract per entry, so one exposure carrying a
+            # non-JSON value (datetime, NaN, custom object) is dropped here
+            # with a log instead of poisoning the whole forwarded batch at the
+            # caller's json.dumps. Telemetry must never break evaluation.
+            entry = json.loads(json.dumps({
+                "experiment": experiment.to_dict(),
+                "result": result.to_dict(),
+                "user": {"attributes": user.attributes, "url": user.url},
+            }, allow_nan=False))
+        except Exception:
+            logger.exception("Dropped deferred tracking call that cannot be JSON-serialized")
+            return
+        with self._lock:
+            self._calls.setdefault(key, entry)
+
+    def get_calls(self) -> List[Dict[str, Any]]:
+        """Buffered exposures as detached copies (mutating them cannot corrupt
+        the buffer, which get_calls leaves intact for a later read), ready for
+        json.dumps. Non-destructive; pair with clear()."""
+        with self._lock:
+            snapshot = list(self._calls.values())
+        return deepcopy(snapshot)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._calls.clear()
+
+
 @dataclass
 class Options:
     url: Optional[str] = None
@@ -573,6 +761,10 @@ class GlobalContext:
     options: Options
     features: Dict[str, "Feature"] = field(default_factory=dict)
     saved_groups: Dict[str, Any] = field(default_factory=dict)
+    # Payload "contextualBandits" map ({bandit id -> definition}), kept as
+    # dicts (not materialized into classes) like saved_groups; the TypedDict
+    # value type documents the wire shape for readers and checkers.
+    contextual_bandits: Dict[str, ContextualBanditDefinition] = field(default_factory=dict)
 
 @dataclass
 class EvaluationContext:
@@ -583,6 +775,24 @@ class EvaluationContext:
     # directly, letting the async client schedule persistence off the event loop.
     # None (the default) preserves the sync client's direct-call behavior.
     save_sticky_bucket_doc: Optional[Callable[[Dict[str, Any]], None]] = None
+    # Client callbacks carried on the context rather than threaded through as
+    # function parameters, so nested evaluations — prerequisites especially —
+    # inherit them automatically (JS SDK: ctx.global.trackingCallback). A
+    # recursive call site that forgets a parameter silently drops telemetry;
+    # a shared context field cannot be forgotten.
+    tracking_cb: Optional[Callable[["Experiment[Any]", "Result[Any]", UserContext], None]] = None
+    callback_subscription: Optional[Callable[["Experiment[Any]", "Result[Any]"], None]] = None
+    feature_usage_cb: Optional[Callable[[str, "FeatureResult[Any]", UserContext], None]] = None
+    # Feature keys already reported through feature_usage_cb during this
+    # evaluation — one usage event per key per top-level eval call, however
+    # many times a prerequisite chain re-visits it. Allocated lazily by
+    # _report_feature_usage: contexts are built on every evaluation, and evals
+    # with no usage callback must not pay for the set.
+    reported_features: Optional[Set[str]] = None
+    # When set, every exposure produced by this evaluation (prerequisites and
+    # passthrough included) is recorded here, before and independent of
+    # tracking_cb.
+    tracking_buffer: Optional[TrackingBuffer] = None
 
 
 # ---------------------------------------------------------------------------

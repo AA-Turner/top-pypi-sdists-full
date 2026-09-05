@@ -107,8 +107,8 @@ class Header(BaseHeader):
         """
         ...
 
-    def get_col(self, key_or_num: Union[int, str]) -> Optional[str]:
-        """返回指定列序号或表头值对应的列号，无指定表头值时返回None
+    def get_col(self, key_or_num: Union[int, str]) -> str:
+        """返回指定列序号或表头值对应的列号，先匹配表头，找不到就匹配·列号，无指定表头值时报错
         :param key_or_num: 表头值或列序号
         :return: 列号'A'
         """
@@ -122,7 +122,7 @@ class Header(BaseHeader):
         ...
 
     def _get_num(self, key_or_num: Union[int, str]) -> int:
-        """内部使用，返回指定列序号或表头值对应的列序号，找不到表头值时返回表头长度加1
+        """内部使用，返回指定列序号或表头值对应的列序号，先按表头匹配，找不到再按列号匹配，都找不到就报错
         :param key_or_num: 列号、表头值
         :return: 列号int
         """

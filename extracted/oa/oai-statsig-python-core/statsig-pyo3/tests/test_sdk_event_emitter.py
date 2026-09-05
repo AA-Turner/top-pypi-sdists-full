@@ -40,7 +40,7 @@ def test_subscribe_receives_specs_updated_event(httpserver: HTTPServer):
     json_data = json.loads(dcs_content)
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(json_data)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 
@@ -72,7 +72,7 @@ def test_subscribe_receives_internal_sdk_configs_updated_event(
     json_data = json.loads(dcs_content)
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(json_data)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 
@@ -103,7 +103,7 @@ def test_statsig_caches_internal_sdk_configs(httpserver: HTTPServer):
     json_data = json.loads(dcs_content)
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(json_data)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 
@@ -129,7 +129,7 @@ def test_shared_statsig_caches_internal_sdk_configs(httpserver: HTTPServer):
     json_data = json.loads(dcs_content)
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(json_data)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 
@@ -176,7 +176,7 @@ def test_statsig_refreshes_internal_sdk_configs_after_background_sync(
         return Response(json.dumps(specs), content_type="application/json")
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_handler(respond_with_specs)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 

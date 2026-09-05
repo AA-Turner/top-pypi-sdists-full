@@ -199,6 +199,38 @@ aridity_col_map = {"AI": "aridity"}
 dict_static_eo = {**dict_aridity, **dict_soilgrids}
 STATIC_EO_COL_MAP = {**aridity_col_map, **soilgrids_col_map}
 
+# Annual per-region features (one value per region PER YEAR, no stage/month
+# dimension). Like the static EO block above these are joined onto the wide ML
+# frame post-pivot -- but on (Region, Harvest Year) rather than Region alone,
+# by geocif._add_annual_region_features. Joining post-pivot also keeps them
+# clear of the CID cache, which ignores config changes when redo=False.
+#
+# IRR_SHARE: USDA NASS Census of Agriculture irrigated harvested acres / all
+# harvested acres, per county-year (geoprepare NASS_IRRIGATION -> geocif
+# cid/irrigation.py). It is the mixing weight behind a county-mean yield: in
+# Kansas, irrigated maize averages 171.3 bu/ac against dryland's 69.8.
+#
+# IRR_SHARE_X_STRESS: irr_share x the region-standardised in-season stress CID
+# ([ML] irrigation_stress_cid). The interaction is the point, not an extra --
+# the sign of the irrigation effect FLIPS with the season (Kansas maize
+# corr(irr_share, %err) = -0.63 in 2012 and +0.61 in 2014), so a main effect
+# alone averages to nearly nothing. Computed per fold in
+# _prepare_train_test_split because its z-score must not see the forecast year.
+dict_annual_region = {
+    "IRR_SHARE": [
+        "Irrigation",
+        "NASS Census irrigated share of harvested area (0-1, interpolated "
+        "between census years)",
+    ],
+    "IRR_SHARE_X_STRESS": [
+        "Irrigation",
+        "irrigated share x region-standardised in-season stress "
+        "([ML] irrigation_stress_cid)",
+    ],
+}
+# index name -> raw column produced by the loader
+ANNUAL_REGION_COL_MAP = {"IRR_SHARE": "irr_share"}
+
 # Raw crop_t0 column -> the geoprepare eo_model dataset that produces it.
 # Used to explain a MISSING static column accurately: geoextract/geomerge read
 # countries.txt, never geocif.txt, so a dataset listed only in geocif.txt's

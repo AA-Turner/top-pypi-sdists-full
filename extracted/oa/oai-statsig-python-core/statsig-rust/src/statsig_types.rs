@@ -3,7 +3,7 @@ use crate::StatsigUser;
 use crate::evaluation::evaluation_details::EvaluationDetails;
 use crate::evaluation::evaluation_types::{
     DynamicConfigEvaluation, ExperimentEvaluation, ExtraExposureInfo, GateEvaluation,
-    LayerEvaluation,
+    LayerEvaluation, SharedControlLayerExposure,
 };
 use crate::event_logging::event_logger::{EventLogger, ExposureTrigger};
 use crate::event_logging::event_queue::queued_layer_param_expo::EnqueueLayerParamExpoOp;
@@ -177,6 +177,8 @@ pub struct Layer {
     pub __value: HashMap<String, Value>,
     pub __user: StatsigUserLoggable,
     pub __disable_exposure: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub __shared_control_exposures: Vec<SharedControlLayerExposure>,
 
     pub __version: Option<u32>, // todo: rm when Java/PHP layer exposures are not a JSON round trip
 
@@ -228,12 +230,27 @@ impl Layer {
             return None;
         }
 
+        let exposure_time = Utc::now().timestamp_millis() as u64;
         logger.enqueue(EnqueueLayerParamExpoOp::LayerRef(
-            Utc::now().timestamp_millis() as u64,
+            exposure_time,
             self,
             param_name,
             ExposureTrigger::Auto,
         ));
+        for shared_control_exposure in &self.__shared_control_exposures {
+            if shared_control_exposure
+                .explicit_parameters
+                .contains(param_name)
+            {
+                logger.enqueue(EnqueueLayerParamExpoOp::SharedControlRef(
+                    exposure_time,
+                    self,
+                    param_name,
+                    shared_control_exposure,
+                    ExposureTrigger::Auto,
+                ));
+            }
+        }
 
         None
     }

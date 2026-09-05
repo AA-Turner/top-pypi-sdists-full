@@ -49,6 +49,7 @@ from . import (  # noqa: F401
 from . import (  # noqa: F401
     binding_types,
     bound_properties,
+    form_components,
     catch_exceptions,
     choice_list,
     closeable,
@@ -74,6 +75,7 @@ from . import (  # noqa: F401
     row_fields,
     semantics,
     size_stretch,
+    slot_shape,
     structure_fields,
     tabular_members,
     type_defaults,

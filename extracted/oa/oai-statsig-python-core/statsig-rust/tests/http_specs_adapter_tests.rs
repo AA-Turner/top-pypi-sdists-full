@@ -57,12 +57,8 @@ async fn test_request_args() {
     let requests = scrapi.get_requests_for_endpoint(Endpoint::DownloadConfigSpecs);
     let request = &requests[0];
     assert_eq!(request.method, "GET");
-    assert!(
-        request
-            .url
-            .to_string()
-            .contains(format!("/v2/download_config_specs/{SDK_KEY}.json").as_str())
-    );
+    assert!(request.url.path().ends_with("/v2/download_config_specs"));
+    assert!(!request.url.path().contains(SDK_KEY));
 
     let headers = request.headers.clone();
     let accept_encoding = headers.get("Accept-Encoding").unwrap().to_str().unwrap();

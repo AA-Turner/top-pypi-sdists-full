@@ -7,12 +7,12 @@ name = "any-llm-sdk"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-version = "1.27.0" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
+version = "1.27.1" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
 dependencies = [
   "pydantic>2,<3",
   "openai>=2.18.0",
   "openresponses-types>=2.4.0,<3",
-  "anthropic>=0.119.0",
+  "anthropic>=0.119.0,<1",
   "rich",
   "httpx",
   "typing_extensions>=4.5.0",
@@ -49,11 +49,11 @@ vertexai = [
 ]
 
 vertexaianthropic = [
-  "anthropic[vertex]>=0.119.0",
+  "anthropic[vertex]>=0.119.0,<1",
 ]
 
 azureanthropic = [
-  "anthropic>=0.119.0",
+  "anthropic>=0.119.0,<1",
 ]
 
 huggingface = [

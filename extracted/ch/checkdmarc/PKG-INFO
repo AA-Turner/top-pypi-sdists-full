@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: checkdmarc
-Version: 6.0.0
+Version: 6.0.1
 Summary: A Python module and command line parser for SPF and DMARC records
 Project-URL: Homepage, https://github.com/domainaware/checkdmarc
 Project-URL: Documentation, https://domainaware.github.io/checkdmarc/

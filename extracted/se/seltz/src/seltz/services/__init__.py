@@ -3,6 +3,18 @@
 from typing import List, Optional, Tuple
 
 # Centralized protobuf imports - update these when API version changes
+from seltz_public_api.proto.v1.agent_pb2 import (
+    AgentRun,
+    AgentRunCitation,
+    AgentRunGrounding,
+    AgentRunOutput,
+    AgentRunRequest,
+    AgentRunSource,
+    AgentRunStatus,
+    AgentRunStopReason,
+    ListAgentRunsResponse,
+)
+from seltz_public_api.proto.v1.agent_pb2_grpc import AgentServiceStub
 from seltz_public_api.proto.v1.answer_pb2 import (
     AnswerRequest,
     AnswerResponse,
@@ -12,18 +24,24 @@ from seltz_public_api.proto.v1.answer_pb2 import (
     Citations,
 )
 from seltz_public_api.proto.v1.answer_pb2_grpc import AnswerServiceStub
+from seltz_public_api.proto.v1.fetch_pb2 import (
+    FetchError,
+    FetchRequest,
+    FetchResponse,
+    FetchResult,
+    FetchStatus,
+)
+from seltz_public_api.proto.v1.fetch_pb2_grpc import FetchServiceStub
 from seltz_public_api.proto.v1.monitor_pb2 import (
-    ListRecordsResponse,
-    ListRunsResponse,
     CreateMonitorResponse,
-    ListMonitorsResponse,
-    ListRunRecordsResponse,
     DeleteMonitorResponse,
     GetMonitorResponse,
     GetRunResponse,
+    ListMonitorsResponse,
+    ListRecordsResponse,
+    ListRunRecordsResponse,
     ListRunRequestsResponse,
-    StreamRecordsResponse,
-    UpdateMonitorResponse,
+    ListRunsResponse,
     Monitor,
     MonitorSearchRequest,
     MonitorStatus,
@@ -35,6 +53,8 @@ from seltz_public_api.proto.v1.monitor_pb2 import (
     RunState,
     RunStatus,
     SortOrder,
+    StreamRecordsResponse,
+    UpdateMonitorResponse,
     Webhook,
     WebhookStatus,
 )
@@ -54,6 +74,16 @@ def auth_metadata(api_key: Optional[str]) -> List[Tuple[str, str]]:
 
 __all__ = [
     "SeltzServiceStub",
+    "AgentServiceStub",
+    "AgentRun",
+    "AgentRunRequest",
+    "AgentRunOutput",
+    "AgentRunSource",
+    "AgentRunGrounding",
+    "AgentRunCitation",
+    "AgentRunStatus",
+    "AgentRunStopReason",
+    "ListAgentRunsResponse",
     "SearchRequest",
     "SearchResponse",
     "Document",
@@ -64,6 +94,12 @@ __all__ = [
     "AnswerStreamResponse",
     "Citation",
     "Citations",
+    "FetchServiceStub",
+    "FetchRequest",
+    "FetchResponse",
+    "FetchResult",
+    "FetchError",
+    "FetchStatus",
     "Monitor",
     "MonitorSearchRequest",
     "Webhook",

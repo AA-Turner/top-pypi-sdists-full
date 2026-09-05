@@ -972,3 +972,81 @@ def select_single_time_period_features(df):
     df = df[filtered_columns_combined]
 
     return df
+
+
+# ---------------------------------------------------------------------------
+# CID / category exclusion
+# ---------------------------------------------------------------------------
+def cid_category_map():
+    """Map every known CID base name to its category, from cid/definitions.py.
+
+    definitions.py holds many dicts (``dict_indices``, ``dict_ndvi``,
+    ``dict_enso``, ``dict_cci``, ...) all shaped ``name -> [category,
+    description]``. Scanning them rather than hard-coding a list means new CID
+    families are picked up automatically, and a category name in config keeps
+    working when indices are added to it.
+    """
+    from ..cid import definitions as _defs
+
+    out = {}
+    for attr in dir(_defs):
+        if attr.startswith("_"):
+            continue
+        v = getattr(_defs, attr)
+        if not isinstance(v, dict):
+            continue
+        for k, val in v.items():
+            if (
+                isinstance(k, str)
+                and isinstance(val, (list, tuple))
+                and len(val) >= 1
+                and isinstance(val[0], str)
+            ):
+                out.setdefault(k, val[0])
+    return out
+
+
+def resolve_excluded_cids(exclude_cids=None, exclude_categories=None):
+    """Expand ``exclude_cid_categories`` into concrete CID base names and union
+    with the explicit ``exclude_cids`` list.
+
+    Returns ``(drop_bases, unmatched_categories)``. Categories are matched
+    case-insensitively (config says ``ENSO``, definitions say ``"ENSO"``;
+    ``Heat``/``heat`` both work). ``unmatched_categories`` is returned rather
+    than swallowed so the caller can warn -- a typo'd category would otherwise
+    silently exclude nothing and the run would look successful while testing
+    the wrong thing.
+    """
+    drop = {str(c).strip() for c in (exclude_cids or []) if str(c).strip()}
+    wanted = {str(c).strip().upper()
+              for c in (exclude_categories or []) if str(c).strip()}
+    unmatched = set(wanted)
+    if wanted:
+        for base, cat in cid_category_map().items():
+            cat_u = str(cat).strip().upper()
+            if cat_u in wanted:
+                drop.add(base)
+                unmatched.discard(cat_u)
+    return drop, sorted(unmatched)
+
+
+def filter_feature_names_exclude_cids(feature_names, drop_bases):
+    """Drop feature names belonging to excluded CID bases.
+
+    Feature names are ``"<CID_BASE> <Stage Name>"`` -- e.g.
+    ``"ONI_curr_MAM Oct 1-Oct 31"``. CID bases never contain whitespace (they
+    use underscores: ``MEAN_CCIGE``, ``STD_ESI4WK``, ``ONI_prev_JJA``), so the
+    first whitespace-delimited token IS the base. Engineered and structural
+    columns (``Region``, ``Region_ID``, ``Harvest Year``,
+    ``t -3 Yield (tn per ha)``, ``lat``) survive because their first token
+    never matches a CID base.
+
+    Applied to the FINISHED name list for the same reason as
+    :func:`filter_feature_names_cci`: the ``correlation_plots = False``
+    fallback assigns all CID columns directly and bypasses candidate-level
+    hooks entirely.
+    """
+    if not drop_bases:
+        return list(feature_names)
+    return [f for f in feature_names
+            if str(f).split(" ")[0] not in drop_bases]

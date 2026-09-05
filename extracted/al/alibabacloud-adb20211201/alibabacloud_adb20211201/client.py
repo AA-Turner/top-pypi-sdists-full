@@ -1360,6 +1360,10 @@ class Client(OpenApiClient):
         tmp_req.validate()
         request = main_models.CreateAccountShrinkRequest()
         Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.promql_insert_privileges):
+            request.promql_insert_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_insert_privileges, 'PromqlInsertPrivileges', 'json')
+        if not DaraCore.is_null(tmp_req.promql_select_privileges):
+            request.promql_select_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_select_privileges, 'PromqlSelectPrivileges', 'json')
         if not DaraCore.is_null(tmp_req.ram_user_list):
             request.ram_user_list_shrink = Utils.array_to_string_with_specified_style(tmp_req.ram_user_list, 'RamUserList', 'json')
         query = {}
@@ -1375,8 +1379,16 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.promql_insert_privileges_shrink):
+            query['PromqlInsertPrivileges'] = request.promql_insert_privileges_shrink
+        if not DaraCore.is_null(request.promql_select_node_percentage):
+            query['PromqlSelectNodePercentage'] = request.promql_select_node_percentage
+        if not DaraCore.is_null(request.promql_select_privileges_shrink):
+            query['PromqlSelectPrivileges'] = request.promql_select_privileges_shrink
         if not DaraCore.is_null(request.ram_user_list_shrink):
             query['RamUserList'] = request.ram_user_list_shrink
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -1404,6 +1416,10 @@ class Client(OpenApiClient):
         tmp_req.validate()
         request = main_models.CreateAccountShrinkRequest()
         Utils.convert(tmp_req, request)
+        if not DaraCore.is_null(tmp_req.promql_insert_privileges):
+            request.promql_insert_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_insert_privileges, 'PromqlInsertPrivileges', 'json')
+        if not DaraCore.is_null(tmp_req.promql_select_privileges):
+            request.promql_select_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_select_privileges, 'PromqlSelectPrivileges', 'json')
         if not DaraCore.is_null(tmp_req.ram_user_list):
             request.ram_user_list_shrink = Utils.array_to_string_with_specified_style(tmp_req.ram_user_list, 'RamUserList', 'json')
         query = {}
@@ -1419,8 +1435,16 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.promql_insert_privileges_shrink):
+            query['PromqlInsertPrivileges'] = request.promql_insert_privileges_shrink
+        if not DaraCore.is_null(request.promql_select_node_percentage):
+            query['PromqlSelectNodePercentage'] = request.promql_select_node_percentage
+        if not DaraCore.is_null(request.promql_select_privileges_shrink):
+            query['PromqlSelectPrivileges'] = request.promql_select_privileges_shrink
         if not DaraCore.is_null(request.ram_user_list_shrink):
             query['RamUserList'] = request.ram_user_list_shrink
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -3553,6 +3577,8 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -3585,6 +3611,8 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -5207,6 +5235,8 @@ class Client(OpenApiClient):
             query['Engine'] = request.engine
         if not DaraCore.is_null(request.owner_id):
             query['OwnerId'] = request.owner_id
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -5241,6 +5271,8 @@ class Client(OpenApiClient):
             query['Engine'] = request.engine
         if not DaraCore.is_null(request.owner_id):
             query['OwnerId'] = request.owner_id
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -18031,6 +18063,8 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -18065,6 +18099,8 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -18108,6 +18144,10 @@ class Client(OpenApiClient):
         Utils.convert(tmp_req, request)
         if not DaraCore.is_null(tmp_req.account_privileges):
             request.account_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.account_privileges, 'AccountPrivileges', 'json')
+        if not DaraCore.is_null(tmp_req.promql_insert_privileges):
+            request.promql_insert_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_insert_privileges, 'PromqlInsertPrivileges', 'json')
+        if not DaraCore.is_null(tmp_req.promql_select_privileges):
+            request.promql_select_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_select_privileges, 'PromqlSelectPrivileges', 'json')
         query = {}
         if not DaraCore.is_null(request.account_name):
             query['AccountName'] = request.account_name
@@ -18115,8 +18155,16 @@ class Client(OpenApiClient):
             query['AccountPrivileges'] = request.account_privileges_shrink
         if not DaraCore.is_null(request.dbcluster_id):
             query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.promql_insert_privileges_shrink):
+            query['PromqlInsertPrivileges'] = request.promql_insert_privileges_shrink
+        if not DaraCore.is_null(request.promql_select_node_percentage):
+            query['PromqlSelectNodePercentage'] = request.promql_select_node_percentage
+        if not DaraCore.is_null(request.promql_select_privileges_shrink):
+            query['PromqlSelectPrivileges'] = request.promql_select_privileges_shrink
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -18146,6 +18194,10 @@ class Client(OpenApiClient):
         Utils.convert(tmp_req, request)
         if not DaraCore.is_null(tmp_req.account_privileges):
             request.account_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.account_privileges, 'AccountPrivileges', 'json')
+        if not DaraCore.is_null(tmp_req.promql_insert_privileges):
+            request.promql_insert_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_insert_privileges, 'PromqlInsertPrivileges', 'json')
+        if not DaraCore.is_null(tmp_req.promql_select_privileges):
+            request.promql_select_privileges_shrink = Utils.array_to_string_with_specified_style(tmp_req.promql_select_privileges, 'PromqlSelectPrivileges', 'json')
         query = {}
         if not DaraCore.is_null(request.account_name):
             query['AccountName'] = request.account_name
@@ -18153,8 +18205,16 @@ class Client(OpenApiClient):
             query['AccountPrivileges'] = request.account_privileges_shrink
         if not DaraCore.is_null(request.dbcluster_id):
             query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.promql_insert_privileges_shrink):
+            query['PromqlInsertPrivileges'] = request.promql_insert_privileges_shrink
+        if not DaraCore.is_null(request.promql_select_node_percentage):
+            query['PromqlSelectNodePercentage'] = request.promql_select_node_percentage
+        if not DaraCore.is_null(request.promql_select_privileges_shrink):
+            query['PromqlSelectPrivileges'] = request.promql_select_privileges_shrink
         if not DaraCore.is_null(request.region_id):
             query['RegionId'] = request.region_id
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -21283,6 +21343,8 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )
@@ -21319,6 +21381,8 @@ class Client(OpenApiClient):
             query['DBClusterId'] = request.dbcluster_id
         if not DaraCore.is_null(request.engine):
             query['Engine'] = request.engine
+        if not DaraCore.is_null(request.resource_group_name):
+            query['ResourceGroupName'] = request.resource_group_name
         req = open_api_util_models.OpenApiRequest(
             query = Utils.query(query)
         )

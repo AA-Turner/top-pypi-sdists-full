@@ -1,18 +1,18 @@
 Metadata-Version: 2.5
 Name: sap-cloud-sdk
-Version: 0.49.1
+Version: 0.51.0
 Summary: SAP Cloud SDK for Python
 Author-email: SAP SE <ospo@sap.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: >=3.11
-Requires-Dist: cryptography>=46.0.3
-Requires-Dist: grpcio>=1.60.0
+Requires-Dist: cryptography<47,>=46.0.3
+Requires-Dist: grpcio<2,>=1.60.0
 Requires-Dist: hatchling~=1.27.0
-Requires-Dist: httpx>=0.27.0
-Requires-Dist: mcp>=1.1.0
-Requires-Dist: minio~=7.2.16
-Requires-Dist: opentelemetry-api>=1.43.0
+Requires-Dist: httpx<1,>=0.27.0
+Requires-Dist: mcp<2,>=1.1.0
+Requires-Dist: minio<7.2.17,>=7.2.16
+Requires-Dist: opentelemetry-api<2,>=1.43.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc~=1.43.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.43.0
 Requires-Dist: opentelemetry-instrumentation-aiohttp-client~=0.64b0
@@ -21,36 +21,36 @@ Requires-Dist: opentelemetry-instrumentation-fastapi~=0.64b0
 Requires-Dist: opentelemetry-instrumentation-flask~=0.64b0
 Requires-Dist: opentelemetry-instrumentation-grpc~=0.64b0
 Requires-Dist: opentelemetry-instrumentation-httpx~=0.64b0
-Requires-Dist: opentelemetry-instrumentation-langchain>=0.61.0
+Requires-Dist: opentelemetry-instrumentation-langchain<1,>=0.61.0
 Requires-Dist: opentelemetry-instrumentation-logging~=0.64b0
 Requires-Dist: opentelemetry-instrumentation-requests~=0.64b0
 Requires-Dist: opentelemetry-instrumentation-sqlalchemy~=0.64b0
 Requires-Dist: opentelemetry-instrumentation-starlette~=0.64b0
-Requires-Dist: opentelemetry-sdk>=1.43.0
-Requires-Dist: protobuf>=5.29.5
-Requires-Dist: protovalidate>=0.14.1
+Requires-Dist: opentelemetry-sdk<2,>=1.43.0
+Requires-Dist: protobuf<7,>=6.0.0
+Requires-Dist: protovalidate<1,>=0.14.1
 Requires-Dist: pydantic~=2.12.3
-Requires-Dist: pyjwt>=2.13.0
-Requires-Dist: requests-oauthlib~=2.0.0
-Requires-Dist: requests>=2.33.0
-Requires-Dist: setuptools>=83.0
+Requires-Dist: pyjwt<3,>=2.13.0
+Requires-Dist: requests-oauthlib<3,>=2.0.0
+Requires-Dist: requests<3,>=2.33.0
+Requires-Dist: setuptools<84,>=83.0
 Requires-Dist: traceloop-sdk~=0.61.0
 Provides-Extra: aiohttp
-Requires-Dist: aiohttp>=3.9.0; extra == 'aiohttp'
+Requires-Dist: aiohttp<4,>=3.9.0; extra == 'aiohttp'
 Provides-Extra: django
-Requires-Dist: django>=4.0; extra == 'django'
+Requires-Dist: django<5,>=4.0; extra == 'django'
 Provides-Extra: extensibility
-Requires-Dist: a2a-sdk>=0.2.0; extra == 'extensibility'
+Requires-Dist: a2a-sdk<2,>=0.2.0; extra == 'extensibility'
 Provides-Extra: fastapi
-Requires-Dist: fastapi>=0.100.0; extra == 'fastapi'
+Requires-Dist: fastapi<1,>=0.100.0; extra == 'fastapi'
 Provides-Extra: flask
-Requires-Dist: flask>=3.0; extra == 'flask'
+Requires-Dist: flask<4,>=3.0; extra == 'flask'
 Provides-Extra: langgraph
-Requires-Dist: langgraph>=1.0.0; extra == 'langgraph'
+Requires-Dist: langgraph<2,>=1.0.0; extra == 'langgraph'
 Provides-Extra: sqlalchemy
-Requires-Dist: sqlalchemy>=2.0.0; extra == 'sqlalchemy'
+Requires-Dist: sqlalchemy<3,>=2.0.0; extra == 'sqlalchemy'
 Provides-Extra: starlette
-Requires-Dist: starlette>=0.40.0; extra == 'starlette'
+Requires-Dist: starlette<1,>=0.40.0; extra == 'starlette'
 Description-Content-Type: text/markdown
 
 [![Build & Package](https://github.com/SAP/cloud-sdk-python/actions/workflows/build.yaml/badge.svg)](https://github.com/SAP/cloud-sdk-python/actions/workflows/build.yaml) [![REUSE status](https://api.reuse.software/badge/github.com/SAP/cloud-sdk-python)](https://api.reuse.software/info/github.com/SAP/cloud-sdk-python)
@@ -114,7 +114,7 @@ The SDK automatically resolves configuration from multiple sources with the foll
 
 2. **Environment variables**: `CLOUD_SDK_CFG_<MODULE>_<INSTANCE>_<FIELD>`
    - For instance names, hyphens (`"-"`) are replaced with underscores (`"_"`) for compatibility with system environment variables.
-   - You can see examples in our [env_integration_tests.example](.env_integration_tests.example)
+   - You can see examples in our [env_integration_tests.example](.env_integration_tests.example).
 
 ### Usage Guides
 

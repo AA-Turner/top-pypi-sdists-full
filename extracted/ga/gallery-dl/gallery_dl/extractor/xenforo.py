@@ -511,8 +511,8 @@ BASE_PATTERN = XenforoExtractor.update({
         "pattern": r"(?:www\.)?allthefallen\.moe/forum",
     },
     "celebforum": {
-        "root": "https://celebforum.to",
-        "pattern": r"(?:www\.)?celebforum\.to",
+        "root": "https://celebforum.cc",
+        "pattern": r"(?:www\.)?celebforum\.(?:cc|to)",
     },
     "titsintops": {
         "root": "https://titsintops.com/phpBB2",

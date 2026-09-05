@@ -99,7 +99,9 @@ impl EventLogger {
             enqueue_dropped_events_count: AtomicU64::new(0),
         });
 
-        me.spawn_background_task(statsig_rt);
+        if event_logging_adapter.should_schedule_background_flush() {
+            me.spawn_background_task(statsig_rt);
+        }
         me
     }
 
@@ -244,14 +246,20 @@ impl EventLogger {
 
         let spawn_result = rt.spawn(BG_LOOP_TAG, |rt_shutdown_notify| async move {
             let tick_interval_ms = EventLoggerConstants::tick_interval_ms();
-            let tick_interval = Duration::from_millis(tick_interval_ms);
+            let tick_interval = Duration::from_millis(tick_interval_ms.max(1));
+            let mut maintenance_tick = tokio::time::interval_at(
+                tokio::time::Instant::now() + tick_interval,
+                tick_interval,
+            );
+            maintenance_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
             loop {
                 let can_limit_flush = me.flush_interval.has_completely_recovered_from_backoff();
 
                 tokio::select! {
-                    () = tokio::time::sleep(tick_interval) => {
+                    _ = maintenance_tick.tick() => {
                         me.try_scheduled_flush().await;
+                        me.event_sampler.try_reset_all_sampling();
                     }
                     () = rt_shutdown_notify.notified() => {
                         return; // Runtime Shutdown
@@ -263,8 +271,6 @@ impl EventLogger {
                         Self::spawn_new_limit_flush_task(&me, &rt_clone);
                     }
                 }
-
-                me.event_sampler.try_reset_all_sampling();
             }
         });
 
@@ -389,7 +395,19 @@ impl EventLogger {
             flush_type.to_string(),
         );
 
-        let request = batch.get_log_event_request(statsig_metadata);
+        let (serialized_request, value_request) =
+            if self.logging_adapter.supports_serialized_events() {
+                let request = match batch.get_serialized_log_event_request(statsig_metadata) {
+                    Ok(request) => request,
+                    Err(error) => {
+                        batch.increment_attempts();
+                        return Err(error);
+                    }
+                };
+                (Some(request), None)
+            } else {
+                (None, Some(batch.get_log_event_request(statsig_metadata)))
+            };
         let max_event_queue_time_ms =
             batch.get_max_event_queue_time_ms(Utc::now().timestamp_millis() as u64);
         let observability_tags = self.logging_adapter.get_observability_tags();
@@ -401,7 +419,13 @@ impl EventLogger {
             observability_tags.clone(),
         );
 
-        let result = self.logging_adapter.log_events(request).await;
+        let result = if let Some(request) = serialized_request {
+            self.logging_adapter.log_serialized_events(request).await
+        } else {
+            self.logging_adapter
+                .log_events(value_request.expect("one event request representation is built"))
+                .await
+        };
 
         batch.increment_attempts();
 

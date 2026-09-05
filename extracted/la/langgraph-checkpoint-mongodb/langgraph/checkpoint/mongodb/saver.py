@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import (
     Any,
     Optional,
@@ -16,6 +16,7 @@ from langgraph.checkpoint.base import (
     CheckpointMetadata,
     CheckpointTuple,
     get_checkpoint_id,
+    get_checkpoint_metadata,
 )
 from langgraph.checkpoint.serde.base import SerializerProtocol
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
@@ -409,8 +410,7 @@ class MongoDBSaver(BaseCheckpointSaver):
         checkpoint_ns = config["configurable"]["checkpoint_ns"]
         checkpoint_id = checkpoint["id"]
         type_, serialized_checkpoint = self.serde.dumps_typed(checkpoint)
-        metadata = metadata.copy()
-        metadata.update(config.get("metadata", {}))
+        metadata = get_checkpoint_metadata(config, metadata)
         doc = {
             "parent_checkpoint_id": config["configurable"].get("checkpoint_id"),
             "type": type_,
@@ -423,7 +423,7 @@ class MongoDBSaver(BaseCheckpointSaver):
             "checkpoint_id": checkpoint_id,
         }
         if self.ttl:
-            doc["created_at"] = datetime.now(tz=timezone.utc)
+            doc["created_at"] = datetime.now(tz=UTC)
 
         self.checkpoint_collection.update_one(upsert_query, {"$set": doc}, upsert=True)
         return {
@@ -458,7 +458,7 @@ class MongoDBSaver(BaseCheckpointSaver):
             "$set" if all(w[0] in WRITES_IDX_MAP for w in writes) else "$setOnInsert"
         )
         operations = []
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         for idx, (channel, value) in enumerate(writes):
             upsert_query = {
                 "thread_id": thread_id,

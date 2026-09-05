@@ -4691,9 +4691,10 @@ def _format_uptime(seconds):
 
 
 def _cmd_mcp(args) -> None:
-    """Start the ClawMetry MCP server on stdio (refs #2859)."""
-    from clawmetry.mcp_server import run
-    run()
+    """`clawmetry mcp ...` (refs #2859, WO-59). Normally intercepted by the
+    fast path in main(); kept for callers that build a Namespace directly."""
+    from clawmetry.mcp_install import cli_main as _mcp_cli
+    raise SystemExit(_mcp_cli(list(getattr(args, "mcp_args", None) or [])))
 
 
 def _cmd_reports(args) -> None:
@@ -7657,6 +7658,12 @@ def main() -> None:
     # dashboard import. Stdlib-only; `stamp` always exits 0 (fail-open).
     if len(sys.argv) > 1 and sys.argv[1] == "trace":
         raise SystemExit(trace_main(sys.argv[2:]))
+    # FAST PATH — `clawmetry mcp [serve|install|uninstall|status]` (WO-59).
+    # `serve` is started by the agent host on every session and must not
+    # pay the dashboard import; the installer is stdlib-only as well.
+    if len(sys.argv) > 1 and sys.argv[1] == "mcp":
+        from clawmetry.mcp_install import cli_main as _mcp_cli
+        raise SystemExit(_mcp_cli(sys.argv[2:]))
     # FAST PATH — `clawmetry instrument <runtime> …` (WO-57): writes the
     # runtime's own OpenTelemetry exporter settings so it reports to this
     # ClawMetry. Which runtimes: whatever profiles are registered (free ones
@@ -8169,11 +8176,15 @@ def main() -> None:
         ),
     )
 
-    # mcp — start MCP server on stdio (issue #2859)
-    sub.add_parser(
+    # mcp — intercepted by the fast path at the top of main() (WO-59); the
+    # parser entry exists so `clawmetry --help` discovery shows it.
+    p_mcp = sub.add_parser(
         "mcp",
-        help="Start ClawMetry MCP server (stdio) — lets agents query their own telemetry",
+        help="MCP server: `mcp` serves on stdio; `mcp install [--runtime <id>|all] "
+             "[--dry-run] [--write-guidance]` registers it with each runtime; "
+             "`mcp uninstall`; `mcp status`",
     )
+    p_mcp.add_argument("mcp_args", nargs="*")
 
     # uninstall — fully remove clawmetry
     p_uninstall = sub.add_parser(
@@ -8700,8 +8711,10 @@ def main() -> None:
     # entry below exists only so `clawmetry --help`-style discovery shows it.
     p_hooks = sub.add_parser(
         "hooks",
-        help="Claude Code approval hooks: install | uninstall | status | "
-             "run {pretooluse|notification} (pre-execution gate + phone push)")
+        help="Claude Code hooks: install | uninstall | status | "
+             "run <event> (pre-execution gate, phone push, and the "
+             "lifecycle events: tool failures, subagents, denials, "
+             "compactions, session start, instructions loaded)")
     p_hooks.add_argument("hooks_cmd", nargs="*")
     # `instrument` is likewise intercepted by the fast path (WO-57).
     p_instr = sub.add_parser(
@@ -8772,6 +8785,22 @@ def main() -> None:
     ):
         parser.parse_args()
         return  # argparse's -h action always exits; unreachable in practice
+
+    # Bare `clawmetry --help`/`-h` (no subcommand) needs the same guard
+    # (#5492): argv[1] is "--help" itself, not a member of _subcmds, so the
+    # check above never caught it and this process fell all the way through
+    # to `from dashboard import main as dashboard_main` just to print help
+    # text -- the exact import the guard above exists to avoid. This is what
+    # the Conformance Heartbeat's `clawmetry --help > /dev/null` step hit on
+    # py3.9/Linux while `<subcmd> --help` (already guarded) passed in the
+    # same run. `parser` has no subcommand chosen here, so parse_args() would
+    # error on an "unrecognized argument" instead of printing help (its own
+    # -h action is off, by design, so a real subcommand's `-h` in argv[2:]
+    # above is the one that fires) -- print_help() is what argparse uses
+    # internally for -h and works the same without an -h action registered.
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        parser.print_help()
+        sys.exit(0)
 
     # Tag this process as the dashboard BEFORE importing dashboard, so every
     # get_store() in dashboard.py (module-level + handlers) is barred from the

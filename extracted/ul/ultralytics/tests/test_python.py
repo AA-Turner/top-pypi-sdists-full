@@ -238,12 +238,15 @@ def test_autobackend_memory_format(tmp_path):
 
 def test_restricted_load_threaded():
     """Concurrent restricted loads share one process-wide allow-list and must not strip each other's entries."""
+    import pathlib
     from concurrent.futures import ThreadPoolExecutor
 
     from ultralytics.nn.tasks import torch_safe_load
 
+    windows_path = pathlib.WindowsPath
     with ThreadPoolExecutor(8) as pool:
         list(pool.map(lambda _: torch_safe_load(MODEL, safe_only=True), range(32)))
+    assert pathlib.WindowsPath is windows_path
 
 
 def test_restricted_load_criterion(tmp_path):
@@ -2161,12 +2164,24 @@ def test_yolov10():
     model(SOURCE)
 
 
-def test_multichannel():
-    """Test YOLO model multi-channel training, validation, and prediction functionality."""
+@pytest.mark.parametrize("grayscale_tiff", (False, True))
+def test_multichannel(tmp_path, grayscale_tiff):
+    """Test training, validation, prediction, and export with multispectral and grayscale TIFF datasets."""
+    data = "coco8-multispectral.yaml"
+    if grayscale_tiff:
+        dataset = check_det_dataset(data)
+        root = shutil.copytree(dataset["path"], tmp_path / "dataset", ignore=shutil.ignore_patterns("*.npy", "*.cache"))
+        for path in Path(root).rglob("*.tiff"):
+            with Image.open(path) as image:
+                frame = image.copy()  # Retain only the first grayscale page.
+            frame.save(path)
+        data = tmp_path / "data.yaml"
+        YAML.save(data, {"path": str(root), "train": "images/train", "val": "images/val", "names": dataset["names"]})
+
     model = YOLO("yolo26n.pt")
-    model.train(data="coco8-multispectral.yaml", epochs=1, imgsz=32, close_mosaic=1, cache="disk")
-    model.val(data="coco8-multispectral.yaml")
-    im = np.zeros((32, 32, 10), dtype=np.uint8)
+    model.train(data=data, epochs=1, imgsz=32, close_mosaic=1, cache="disk")
+    model.val(data=data)
+    im = np.zeros((32, 32, 3 if grayscale_tiff else 10), dtype=np.uint8)
     model.predict(source=im, imgsz=32, save_txt=True, save_crop=True, augment=True)
     model.export(format="onnx")
 

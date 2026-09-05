@@ -108,6 +108,30 @@ def get_seasons(country, parser, crop=None):
     return [1]
 
 
+def get_max_forecast_season(parser, countries) -> int:
+    """Max year listed in any country's ``forecast_seasons`` (0 if none).
+
+    Used to extend the CID year range one year past today when a configured
+    forecast season has not started yet (pre-season forecasting from
+    forecast-only CIDs, e.g. south_africa maize 2027 launched in Sep 2026).
+    """
+    max_year = 0
+    for country in countries:
+        raw = _get_country_option(parser, country, "forecast_seasons", default="")
+        if not raw:
+            continue
+        try:
+            seasons = ast.literal_eval(raw)
+        except (ValueError, SyntaxError):
+            continue
+        if seasons:
+            try:
+                max_year = max(max_year, max(int(s) for s in seasons))
+            except (TypeError, ValueError):
+                continue
+    return max_year
+
+
 def get_input_file_path(country, parser, data_source="harvest") -> Path:
     """
     Resolve the input directory for ``country`` based on ``data_source``:
@@ -302,7 +326,19 @@ class cid_runner(base.BaseGeo):
         # start_year (fallback 2001 to preserve the historical floor for
         # configs that don't set it).
         start_year = self.parser.getint("DEFAULT", "start_year", fallback=2001)
-        years = list(range(start_year, ar.utcnow().year + 1))
+        end_year = ar.utcnow().year
+        # Extend one year forward when any country's forecast_seasons asks
+        # for a season that has not started yet (pre-season forecasting from
+        # S2S/FLDAS forecast leads). Capped at current_year + 1: forecast
+        # leads reach ~6 months out, so no later season can have any data.
+        max_fs = get_max_forecast_season(self.parser, self.countries)
+        if max_fs > end_year:
+            end_year = min(max_fs, ar.utcnow().year + 1)
+            logger.info(
+                f"forecast_seasons includes {max_fs} -> extending CID year "
+                f"range through {end_year} (future-season pre-season mode)"
+            )
+        years = list(range(start_year, end_year + 1))
 
         # ── Phase 1: Discover regions per file ──
         file_regions = {}
@@ -337,6 +373,12 @@ class cid_runner(base.BaseGeo):
             obj_probe.country = country
             obj_probe.prepare_directories()
 
+            # Future years apply only to countries whose own
+            # forecast_seasons ask for them (pre-season mode) -- one
+            # country's 2027 must not spawn no-op tasks for every other
+            # country in the config.
+            country_max_fs = get_max_forecast_season(self.parser, [country])
+
             for year in years:
                 # Check skip logic: old years with existing output
                 if year < (current_year - 1):
@@ -345,6 +387,18 @@ class cid_runner(base.BaseGeo):
                     if out_path.is_file():
                         skipped_years += 1
                         continue
+                if year > current_year:
+                    if year > country_max_fs:
+                        continue
+                    # Remove a stale future-season CSV from a previous run
+                    # up front: the append protocol only deletes on first
+                    # WRITE, so an all-empty rerun would otherwise leave
+                    # last run's forecasts in place. (The legacy
+                    # _run_one_year path already deletes up front.)
+                    out_path = (obj_probe.dir_output
+                                / f"{country}_{crop}_s{season}_{year}.csv")
+                    if out_path.is_file():
+                        out_path.unlink()
                 for region in regions:
                     flat_tasks.append(indices.ProcessTaskArgs(
                         parser=self.parser,

@@ -14633,8 +14633,17 @@ function resolveStoppedCommandText(item) {
       return envelopeText;
     }
   }
-  if (item.launch_target?.trim()) {
-    return item.launch_target;
+  const launchTarget = item.launch_target?.trim();
+  const launchTargetIsRequestSummary = item.artifact_type === "tool_action_request" && launchTarget?.startsWith("Requested `") && launchTarget.includes(" action `");
+  const launchSummary = item.launch_summary?.trim();
+  if (launchTargetIsRequestSummary && launchSummary) {
+    const launchSummaryCommand = launchSummary.match(/^Launches with `(.+)`\.$/);
+    if (launchSummaryCommand?.[1]) {
+      return launchSummaryCommand[1];
+    }
+  }
+  if (launchTarget) {
+    return launchTarget;
   }
   if (item.launch_summary?.trim()) {
     const commandMatch = item.launch_summary.match(/`([^`]+)`/);
@@ -15675,6 +15684,23 @@ function normalizeSupplyChainRepairResult(result) {
   };
 }
 const now = "2026-04-11T12:00:00Z";
+const demoPresentationSettings = {
+  presentation_mode: "everyday",
+  presentation_mode_explicit: false,
+  presentation_schema_version: 1,
+  presentation_revision: 0,
+  presentation: {
+    value: "everyday",
+    source: "default",
+    explicit: false,
+    writable: true,
+    schema_version: 1,
+    revision: 0,
+    diagnostic: null
+  },
+  presentation_diagnostic: null,
+  receipt_redaction_level: "partial"
+};
 const demoRequests = [
   {
     request_id: "request-env-reader",
@@ -17358,6 +17384,7 @@ async function fetchSettings() {
       guard_home: "~/.hol-guard",
       config_path: "~/.hol-guard/config.toml",
       settings: {
+        ...demoPresentationSettings,
         mode: "prompt",
         security_level: "balanced",
         default_action: "warn",
@@ -19139,6 +19166,9 @@ function parseGuardCloudConnectHttp(status, payload) {
       connect_flow: null,
       dashboard_url: dashboardUrl
     };
+  }
+  if (status === 401 || status === 403) {
+    throw new Error("This Guard window needs a signed local session before Guard Cloud sign-in can start.");
   }
   if (status < 200 || status >= 300) {
     const message = typeof record2.message === "string" && record2.message.trim() ? record2.message : typeof record2.error === "string" && record2.error.trim() ? `${record2.error} (${status})` : `Request failed with ${status}`;
@@ -31838,13 +31868,14 @@ function App() {
         inventory: inventory.kind === "ready" ? inventory.items : [],
         requests: requests.kind === "ready" ? requests.items : [],
         onGoHome: handleGoHome,
+        onOpenApps: handleOpenFleet,
         onOpenRequest: handleOpenRequest,
         onClearAppPolicies: handleClearAppPolicies,
         onClearPolicy: handleClearPolicy,
         onManagedInstallChanged: refreshStateWithoutResult
       }
     );
-  }, [view, appDetailHarness, runtime, receipts, policies, inventory, requests, handleGoHome, handleOpenRequest, handleClearAppPolicies, handleClearPolicy, refreshStateWithoutResult]);
+  }, [view, appDetailHarness, runtime, receipts, policies, inventory, requests, handleGoHome, handleOpenFleet, handleOpenRequest, handleClearAppPolicies, handleClearPolicy, refreshStateWithoutResult]);
   const policyContent = reactExports.useMemo(() => {
     if (runtime.kind !== "ready") {
       return null;
@@ -31950,7 +31981,7 @@ function App() {
           }
         ) }) : null,
         appDetailContent: /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { onReset: handleGoHome, children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LazyFallback, {}), children: appDetailContent }) }),
-        extensionsContent: /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { onReset: handleGoHome, children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LazyFallback, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(ExtensionsWorkspace, { runtime: runtime.kind === "ready" ? runtime.snapshot : null }) }) }),
+        extensionsContent: /* @__PURE__ */ jsxRuntimeExports.jsx(ErrorBoundary, { onReset: handleGoHome, children: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LazyFallback, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(ExtensionsWorkspace, { runtime: runtime.kind === "ready" ? runtime.snapshot : null, onNavigate: navigate }) }) }),
         settingsContent: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LazyFallback, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsWorkspace, { onApprovalGateChange: setApprovalGate }) }),
         supplyChainHubContent: runtime.kind === "ready" ? /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LazyFallback, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(
           SupplyChainHubWorkspace,
@@ -32131,8 +32162,8 @@ export {
   EvidenceActionList as be,
   EvidenceActionDetail as bf,
   policyIdentityKey as bg,
-  HiMiniChartBar as bh,
-  clearLabelForScope as bi,
+  clearLabelForScope as bh,
+  HiMiniChartBar as bi,
   isSupplyChainAuditIncomplete as bj,
   isSupplyChainAuditEvidence as bk,
   readString$1 as bl,

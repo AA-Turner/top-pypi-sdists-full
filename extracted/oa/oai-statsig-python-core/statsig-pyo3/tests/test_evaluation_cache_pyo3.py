@@ -23,7 +23,7 @@ def statsig(httpserver: HTTPServer):
         rule["returnValue"] = _shared_value()
 
     httpserver.expect_request(
-        "/v2/download_config_specs/secret-key.json"
+        "/v2/download_config_specs"
     ).respond_with_json(specs)
     httpserver.expect_request("/v1/log_event").respond_with_json({"success": True})
 

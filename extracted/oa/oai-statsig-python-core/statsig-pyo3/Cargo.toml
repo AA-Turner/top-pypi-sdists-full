@@ -22,6 +22,7 @@ statsig-rust = { package = "oai-statsig-rust", path = "../statsig-rust", feature
     "with_grpc",
     "ffi-support",
     "ordered_user_data_maps",
+    "pyo3_event_zstd",
 ] }
 async-trait = "0.1.81"
 serde = { version = "1.0.204", features = ["derive"] }

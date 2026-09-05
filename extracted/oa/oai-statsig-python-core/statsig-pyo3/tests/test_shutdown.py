@@ -17,7 +17,7 @@ def test_cycling(httpserver: HTTPServer):
     mock_scrapi.stub("/v1/log_event", response='{"success": true}', method="POST")
     dcs_content = get_test_data_resource("eval_proj_dcs.json")
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json", response=dcs_content, method="GET"
+        "/v2/download_config_specs", response=dcs_content, method="GET"
     )
 
     def run_statsig(inner_mock_scrapi: MockScrapi, thread_id: int):
@@ -55,7 +55,7 @@ def test_bg_tasks_shutdown(httpserver: HTTPServer):
     mock_scrapi.stub("/v1/log_event", response="{}", method="POST", status=401)
     mock_scrapi.stub("/v1/get_id_lists", response="{}", method="POST", status=401)
     mock_scrapi.stub(
-        "/v2/download_config_specs/secret-key.json",
+        "/v2/download_config_specs",
         response="{}",
         method="GET",
         status=401,

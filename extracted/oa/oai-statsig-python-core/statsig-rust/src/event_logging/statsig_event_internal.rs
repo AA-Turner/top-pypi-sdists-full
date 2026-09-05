@@ -17,7 +17,7 @@ pub const CONFIG_EXPOSURE_EVENT_NAME: &str = "statsig::config_exposure";
 pub const LAYER_EXPOSURE_EVENT_NAME: &str = "statsig::layer_exposure";
 pub const STATSIG_LOG_LINE_EVENT_NAME: &str = "statsig::log_line";
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StatsigEventInternal {
     #[serde(flatten)]
@@ -28,7 +28,41 @@ pub struct StatsigEventInternal {
     pub secondary_exposures: Option<Vec<SecondaryExposure>>,
 }
 
+// Keep the event wire shape in one place while allowing the batch serializer
+// to substitute a cached user representation without cloning the event.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StatsigEventInternalWithUser<'event, User> {
+    #[serde(flatten)]
+    event_data: &'event StatsigEvent,
+    user: User,
+    time: u64,
+    secondary_exposures: &'event Option<Vec<SecondaryExposure>>,
+}
+
+impl Serialize for StatsigEventInternal {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.with_serializable_user(&self.user)
+            .serialize(serializer)
+    }
+}
+
 impl StatsigEventInternal {
+    pub(crate) fn with_serializable_user<User>(
+        &self,
+        user: User,
+    ) -> StatsigEventInternalWithUser<'_, User> {
+        StatsigEventInternalWithUser {
+            event_data: &self.event_data,
+            user,
+            time: self.time,
+            secondary_exposures: &self.secondary_exposures,
+        }
+    }
+
     pub fn new(
         time: u64,
         user: StatsigUserLoggable,

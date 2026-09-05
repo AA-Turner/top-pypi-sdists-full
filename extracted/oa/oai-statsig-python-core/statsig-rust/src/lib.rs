@@ -2,6 +2,7 @@ pub use evaluation::dynamic_returnable::DynamicReturnable;
 pub use evaluation::dynamic_value::DynamicValue;
 pub use evaluation::evaluation_details::EvaluationDetails;
 pub use evaluation::evaluation_types::SecondaryExposure;
+pub use evaluation_fixture_client::EvaluationFixtureClient;
 pub use event_logging_adapter::*;
 pub use gcir::gcir_formatter::GCIRResponseFormat;
 pub use gcir::gcir_options::ClientInitResponseOptions;
@@ -19,6 +20,14 @@ pub use override_adapter::{
     statsig_local_override_adapter::StatsigLocalOverrideAdapter,
 };
 pub use persistent_storage::persistent_storage_trait::*;
+pub use scoped_evaluation_request::{
+    ConfigEvaluationResult, EvaluationMetadata, EvaluationOperation, EvaluationRequest,
+    EvaluationResult, GateEvaluationResult, InitializeEvaluationResult, LiveEntityNames,
+};
+pub use scoped_snapshot_registry::{
+    EvaluationClient, EvaluationDataTransport, EvaluationDataVersion, EvaluationInstance,
+    SharedIdLists,
+};
 pub use spec_store::SpecStore;
 pub use specs_adapter::*;
 pub use statsig::Statsig;
@@ -86,6 +95,7 @@ pub mod user;
 
 #[cfg(test)]
 mod dcs_str;
+mod evaluation_fixture_client;
 mod event_logging_adapter;
 mod id_lists_adapter;
 mod initialize_evaluations_response;
@@ -93,6 +103,10 @@ mod initialize_response;
 mod initialize_v2_response;
 mod observability;
 mod persistent_storage;
+mod scoped_evaluation_request;
+mod scoped_id_list_membership_service;
+mod scoped_snapshot_registry;
+mod snapshot_evaluation_session;
 mod spec_store;
 mod specs_adapter;
 mod statsig;

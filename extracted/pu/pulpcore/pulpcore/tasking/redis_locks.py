@@ -17,6 +17,25 @@ _logger = logging.getLogger(__name__)
 # Redis key prefix for resource locks
 REDIS_LOCK_PREFIX = "pulp:resource_lock:"
 
+# Redis key prefix for the per-owner lock registry. Each owner has a SET listing the
+# lock keys it currently holds so cleanup is O(locks held by owner), not O(all locks).
+REDIS_OWNER_REGISTRY_PREFIX = "pulp:owner_locks:"
+
+# Redis SET of owner names holding at least one lock. SMEMBERS here is O(#owners),
+# avoiding a full-keyspace SCAN. Added by the acquire script; removed only by the cleanup
+# path (REDIS_CLEANUP_OWNER_LOCKS_SCRIPT / cleanup_locks_for_owner) -- the release script
+# deliberately does NOT (see there). These paths hardcode this literal; keep it matching.
+ACTIVE_OWNERS_KEY = "pulp:active_owners"
+
+# Throttle key + interval (seconds) for the legacy full-keyspace SCAN fallback used
+# during rolling upgrades (locks acquired before the registry existed).
+LEGACY_OWNER_SCAN_KEY = "pulp:last_legacy_owner_scan"
+LEGACY_OWNER_SCAN_INTERVAL = 900  # ~15 min, fleet-wide
+
+# Owner name prefix used by safe_release_task_locks for immediate tasks that run in an
+# API process without an AppStatus. These owners never have an AppStatus row.
+IMMEDIATE_OWNER_PREFIX = "immediate-"
+
 REDIS_ACQUIRE_LOCKS_SCRIPT = """
 -- KEYS[1]: task_lock_key
 -- KEYS[2...]: exclusive_lock_keys, then shared_lock_keys
@@ -29,6 +48,7 @@ local task_lock_key = KEYS[1]
 local lock_owner = ARGV[1]
 local num_exclusive = tonumber(ARGV[2])
 local blocked_resources = {}
+local owner_registry_key = "pulp:owner_locks:" .. lock_owner
 
 -- Check task lock first (fail fast)
 if redis.call("exists", task_lock_key) == 1 then
@@ -89,6 +109,15 @@ for i = num_exclusive + 1, #KEYS - 1 do
     redis.call("sadd", key, lock_owner)
 end
 
+-- Register every held lock key under the owner registry (atomic with acquisition).
+-- This lets cleanup enumerate an owner's locks without scanning the whole keyspace.
+-- One variadic SADD: all of KEYS are held lock keys (task lock + resource locks).
+redis.call("sadd", owner_registry_key, unpack(KEYS))
+
+-- Track this owner in the global active-owners set so reconcile can enumerate
+-- lock owners with SMEMBERS instead of a full-keyspace SCAN.
+redis.call("sadd", "pulp:active_owners", lock_owner)
+
 -- Return empty table to indicate success
 return {}
 """
@@ -107,6 +136,7 @@ local num_exclusive = tonumber(ARGV[2])
 local not_owned_exclusive = {}
 local not_in_shared = {}
 local task_lock_not_owned = false
+local owner_registry_key = "pulp:owner_locks:" .. lock_owner
 
 -- Release exclusive locks
 -- Resource keys start at KEYS[2]
@@ -118,6 +148,7 @@ for i = 1, num_exclusive do
     local current_owner = redis.call("get", key)
     if current_owner == lock_owner then
         redis.call("del", key)
+        redis.call("srem", owner_registry_key, key)
     elseif current_owner ~= false then
         -- Lock exists but we don't own it
         table.insert(not_owned_exclusive, resource_name)
@@ -127,12 +158,18 @@ end
 
 -- Release shared locks
 -- Shared keys start at KEYS[2 + num_exclusive]
+-- INVARIANT: an owner runs one task at a time (see RedisWorker.handle_tasks), so it
+-- never holds the same shared resource for two concurrent tasks. That lets us drop
+-- the registry entry on release unconditionally. If workers ever become concurrent,
+-- this must become reference-counted or the shared lock could be released early.
 for i = num_exclusive + 1, #KEYS - 1 do
     local key = KEYS[1 + i]
     local resource_name = ARGV[2 + i]
 
     -- Remove from set
     local removed = redis.call("srem", key, lock_owner)
+    -- No longer a member, so drop the registry entry for this shared key.
+    redis.call("srem", owner_registry_key, key)
     if removed == 0 then
         -- We weren't in the set
         table.insert(not_in_shared, resource_name)
@@ -143,12 +180,89 @@ end
 local task_lock_owner = redis.call("get", task_lock_key)
 if task_lock_owner == lock_owner then
     redis.call("del", task_lock_key)
+    redis.call("srem", owner_registry_key, task_lock_key)
 elseif task_lock_owner ~= false then
     -- Task lock exists but we don't own it
     task_lock_not_owned = true
 end
 
+-- Do NOT remove lock_owner from "pulp:active_owners" here, even if its registry is now
+-- empty: that opens a release->next-acquire gap where reconcile_orphan_redis_locks would
+-- miss the owner. A live worker holding zero locks is harmless (reconcile only cleans
+-- owners with no AppStatus row); owners leave active_owners only during cleanup.
+
 return {not_owned_exclusive, not_in_shared, task_lock_not_owned}
+"""
+
+
+REDIS_CLEANUP_OWNER_LOCKS_SCRIPT = """
+-- Release every lock held by an owner via the per-owner registry set. Each entry is
+-- removed individually (not a wholesale registry delete); a key of an unexpected type is
+-- left in place and reported as skipped so it is not silently orphaned.
+-- ARGV[1]: lock_owner
+-- Returns: {released, skipped_keys} (skipped = registry entries with an unexpected type)
+local lock_owner = ARGV[1]
+local owner_registry_key = "pulp:owner_locks:" .. lock_owner
+local keys = redis.call("smembers", owner_registry_key)
+local released = 0
+local skipped_keys = {}
+
+for _, key in ipairs(keys) do
+    local key_type = redis.call("type", key)["ok"]
+    if key_type == "string" then
+        if redis.call("get", key) == lock_owner then
+            -- Still ours: release and stop tracking.
+            redis.call("del", key)
+            redis.call("srem", owner_registry_key, key)
+            released = released + 1
+        else
+            -- Not ours (successor re-took the name): stop tracking, leave the lock.
+            redis.call("srem", owner_registry_key, key)
+        end
+    elseif key_type == "set" then
+        -- srem; the set auto-deletes once its last member leaves.
+        released = released + redis.call("srem", key, lock_owner)
+        redis.call("srem", owner_registry_key, key)
+    elseif key_type == "none" then
+        -- Stale entry: lock already gone.
+        redis.call("srem", owner_registry_key, key)
+    else
+        -- Unexpected type: leave it and keep tracking (reported by name, not orphaned).
+        skipped_keys[#skipped_keys + 1] = key
+    end
+end
+
+-- Forget the owner only once its registry is empty; skipped keys keep it enumerable.
+if redis.call("scard", owner_registry_key) == 0 then
+    redis.call("srem", "pulp:active_owners", lock_owner)
+end
+
+return {released, skipped_keys}
+"""
+
+
+REDIS_DELETE_STRING_IF_OWNER_SCRIPT = """
+-- Atomically delete a string lock only if it is owned by lock_owner.
+-- KEYS[1]: lock key
+-- ARGV[1]: lock_owner
+-- ARGV[2]: owner_registry_key
+if redis.call("get", KEYS[1]) == ARGV[1] then
+    redis.call("del", KEYS[1])
+    redis.call("srem", ARGV[2], KEYS[1])
+    return 1
+end
+return 0
+"""
+
+
+REDIS_SREM_OWNER_SCRIPT = """
+-- Atomically remove lock_owner from a shared set (auto-deletes when empty).
+-- KEYS[1]: shared set key
+-- ARGV[1]: lock_owner
+-- ARGV[2]: owner_registry_key
+local removed = redis.call("srem", KEYS[1], ARGV[1])
+redis.call("srem", ARGV[2], KEYS[1])
+return removed
 """
 
 
@@ -176,6 +290,129 @@ def get_task_lock_key(task_id):
         str: A Redis key for the task lock
     """
     return f"task:{task_id}"
+
+
+def get_owner_registry_key(owner):
+    """Return the Redis key for an owner's lock registry SET."""
+    return f"{REDIS_OWNER_REGISTRY_PREFIX}{owner}"
+
+
+def _decode(value):
+    """Decode a redis bytes value to str (redis-py returns bytes by default)."""
+    return value.decode() if isinstance(value, bytes) else value
+
+
+def _legacy_scan_cleanup_for_owner(redis_conn, owner):
+    """
+    Release an owner's locks by scanning the keyspace (no registry available).
+
+    Used only for locks acquired before the per-owner registry existed (rolling
+    upgrade). Uses SCAN (never KEYS) and atomic per-key Lua so a concurrent worker
+    that re-took a key by the same name is not clobbered.
+
+    Returns:
+        int: Number of locks released (best effort).
+    """
+    registry_key = get_owner_registry_key(owner)
+    delete_if_owner = redis_conn.register_script(REDIS_DELETE_STRING_IF_OWNER_SCRIPT)
+    srem_owner = redis_conn.register_script(REDIS_SREM_OWNER_SCRIPT)
+    released = 0
+
+    for key in redis_conn.scan_iter(match="task:*", count=500):
+        if _decode(redis_conn.get(key)) == owner:
+            released += delete_if_owner(keys=[key], args=[owner, registry_key])
+
+    for key in redis_conn.scan_iter(match=f"{REDIS_LOCK_PREFIX}*", count=500):
+        if _decode(redis_conn.type(key)) == "string":
+            if _decode(redis_conn.get(key)) == owner:
+                released += delete_if_owner(keys=[key], args=[owner, registry_key])
+        else:
+            released += srem_owner(keys=[key], args=[owner, registry_key])
+
+    redis_conn.delete(registry_key)
+    redis_conn.srem(ACTIVE_OWNERS_KEY, owner)
+    return released
+
+
+def cleanup_locks_for_owner(redis_conn, owner, allow_legacy_scan=False):
+    """
+    Release all Redis locks held by `owner`.
+
+    Prefers the per-owner registry (O(locks held by owner)). Falls back to a legacy
+    keyspace SCAN only when the registry is missing and `allow_legacy_scan` is set.
+
+    Args:
+        redis_conn: Redis connection
+        owner (str): The lock owner (worker name or `immediate-{task_pk}`)
+        allow_legacy_scan (bool): Permit the legacy SCAN fallback for pre-registry locks
+
+    Returns:
+        bool: True if cleanup completed (including a no-op), False on error so the
+            caller can retain state and retry on a later pass.
+    """
+    registry_key = get_owner_registry_key(owner)
+    try:
+        released = 0
+        skipped_keys = []
+        if redis_conn.exists(registry_key):
+            cleanup_script = redis_conn.register_script(REDIS_CLEANUP_OWNER_LOCKS_SCRIPT)
+            released, skipped_keys = cleanup_script(keys=[], args=[owner])
+        elif allow_legacy_scan:
+            released = _legacy_scan_cleanup_for_owner(redis_conn, owner)
+        else:
+            # No registry and no scan: nothing to release, but drop any stale
+            # active-owners marker so reconcile stops re-visiting this owner.
+            redis_conn.srem(ACTIVE_OWNERS_KEY, owner)
+        if released:
+            _logger.info("Reclaimed %d Redis lock(s) held by owner %s", released, owner)
+        if skipped_keys:
+            _logger.warning(
+                "Left %d unexpected registry entr(y/ies) for owner %s in place for a "
+                "later cleanup pass: %s",
+                len(skipped_keys),
+                owner,
+                ", ".join(_decode(key) for key in skipped_keys),
+            )
+        return True
+    except Exception as e:
+        _logger.error("Error cleaning up Redis locks for owner %s: %s", owner, e)
+        return False
+
+
+def collect_lock_owners(redis_conn, allow_legacy_scan=False):
+    """
+    Return the set of owner names that currently hold Redis locks.
+
+    Owners are read from the global active-owners SET via SMEMBERS -- O(#owners) and
+    scan-free (a SCAN with MATCH still walks the whole keyspace, so scanning for
+    registry keys would be O(all locks)). The legacy SCAN of the full `task:*` /
+    `pulp:resource_lock:*` keyspace is expensive and is only run when
+    `allow_legacy_scan` is set (throttled by the caller) to catch pre-registry locks.
+
+    Args:
+        redis_conn: Redis connection
+        allow_legacy_scan (bool): Also discover owners of pre-registry (legacy) locks
+
+    Returns:
+        set: Owner names holding at least one lock.
+    """
+    owners = {_decode(member) for member in redis_conn.smembers(ACTIVE_OWNERS_KEY)}
+
+    if allow_legacy_scan:
+        for key in redis_conn.scan_iter(match="task:*", count=500):
+            value = redis_conn.get(key)
+            if value:
+                owners.add(_decode(value))
+        for key in redis_conn.scan_iter(match=f"{REDIS_LOCK_PREFIX}*", count=500):
+            if _decode(redis_conn.type(key)) == "string":
+                value = redis_conn.get(key)
+                if value:
+                    owners.add(_decode(value))
+            else:
+                for member in redis_conn.smembers(key):
+                    owners.add(_decode(member))
+
+    return owners
 
 
 def extract_task_resources(task):
@@ -231,6 +468,8 @@ def safe_release_task_locks(task, lock_owner=None):
         return False
 
     redis_conn = get_redis_connection()
+    if redis_conn is None:
+        return False
 
     # Extract resources from task
     exclusive_resources, shared_resources = extract_task_resources(task)
@@ -270,7 +509,7 @@ async def async_safe_release_task_locks(task, lock_owner=None):
             AppStatus.objects.current() or fall back to f"immediate-{task.pk}"
 
     Returns:
-        bool: True if locks were released, False if already released
+        bool: True if locks were released, False if already released or no Redis connection
     """
     from pulpcore.app.models import AppStatus
 
@@ -279,6 +518,8 @@ async def async_safe_release_task_locks(task, lock_owner=None):
         return False
 
     redis_conn = get_redis_connection()
+    if redis_conn is None:
+        return False
 
     # Extract resources from task
     exclusive_resources, shared_resources = extract_task_resources(task)

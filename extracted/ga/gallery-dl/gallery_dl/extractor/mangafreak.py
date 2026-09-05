@@ -15,7 +15,7 @@ BASE_PATTERN = r"(?:https?://)?(?:ww[\dw]\.)?mangafreak\.me"
 class MangafreakBase():
     """Base class for mangafreak extractors"""
     category = "mangafreak"
-    root = "https://ww2.mangafreak.me"
+    root = "https://ww3.mangafreak.me"
 
 
 class MangafreakChapterExtractor(MangafreakBase, ChapterExtractor):
@@ -52,6 +52,7 @@ class MangafreakMangaExtractor(MangafreakBase, MangaExtractor):
     chapterclass = MangafreakChapterExtractor
     pattern = BASE_PATTERN + r"(/Manga/([^/?#]+))"
     example = "https://ww2.mangafreak.me/Manga/Onepunch_Man"
+    reverse = False
 
     def chapters(self, page):
         table = text.extr(page, "<table>", "</table>")
@@ -68,7 +69,7 @@ class MangafreakMangaExtractor(MangafreakBase, MangaExtractor):
         results = []
         chapter_match = text.re(r"(\d+)(\w*)").match
         for row in text.extract_iter(table, "<tr>", "</tr>"):
-            href = text.extr(row, '<a href="', '"')
+            href = text.extr(row, ' href="', '"')
             if not href:
                 continue
             url = self.root + href

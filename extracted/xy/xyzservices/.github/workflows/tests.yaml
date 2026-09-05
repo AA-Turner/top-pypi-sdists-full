@@ -9,6 +9,12 @@ on:
       - "*"
   schedule:
     - cron: "59 23 * * 3"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Manual Release
+        default: test
+        required: false
 
 jobs:
   unittests:
@@ -25,7 +31,7 @@ jobs:
 
     steps:
       - name: checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: setup micromamba
         uses: mamba-org/setup-micromamba@v3
@@ -45,4 +51,4 @@ jobs:
           pytest -v . -m "not request" --cov=xyzservices --cov-append --cov-report term-missing --cov-report xml --color=yes
         if: matrix.os != 'windows-latest'
 
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
