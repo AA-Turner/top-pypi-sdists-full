@@ -3,6 +3,7 @@ from enum import Enum
 
 class AppWithLastVersionPolicyExecutionMode(str, Enum):
     ANONYMOUS = "anonymous"
+    GUEST = "guest"
     PUBLISHER = "publisher"
     VIEWER = "viewer"
 

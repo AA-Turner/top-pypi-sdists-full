@@ -209,8 +209,13 @@ MULTI_CLICK_SPEC = _VerbSpec(runner=_multi_click_runner, coord_runner=_multi_cli
 # 3-step ActionBuilder dance, adapted for Playwright's mouse + keyboard APIs.
 
 
-def _coerce_text(value):
+def as_text(value):
     """Coerce a scalar fill/type value to the ``str`` Playwright requires.
+
+    Public: generated tests call ``as_text(...)`` around a fill/type value,
+    because that value may have come from ``var()`` — which is type-preserving
+    for a pure ``{{x}}`` placeholder — or straight from ``execute_js``. TS twin:
+    ``helpers/text.ts`` ``asText``, likewise exported from the package index.
 
     Variables are type-preserving — ``testmu.var()`` returns the stored value
     untouched — so a number/bool produced by ``execute_js`` (or stored via
@@ -247,21 +252,21 @@ CLEAR_SPEC = _VerbSpec(runner=_clear_runner, coord_runner=_clear_coord_runner)
 
 
 async def _fill_runner(locator, value, **kw):
-    await locator.fill(_coerce_text(value), **kw)
+    await locator.fill(as_text(value), **kw)
 
 
 async def _fill_coord_runner(page, x, y, value, **kw):
     """Click + Ctrl+A + type. Mirrors Playwright fill semantics (replace existing)."""
     await page.mouse.click(x, y)
     await page.keyboard.press("Control+a")
-    await page.keyboard.type(_coerce_text(value))
+    await page.keyboard.type(as_text(value))
 
 
 FILL_SPEC = _VerbSpec(runner=_fill_runner, coord_runner=_fill_coord_runner)
 
 
 async def _type_runner(locator, text, **kw):
-    await locator.type(_coerce_text(text), **kw)
+    await locator.type(as_text(text), **kw)
 
 
 async def _type_coord_runner(page, x, y, text, **kw):
@@ -269,7 +274,7 @@ async def _type_coord_runner(page, x, y, text, **kw):
     matching the Locator method's semantics."""
     delay = kw.get("delay", 0)
     await page.mouse.click(x, y)
-    await page.keyboard.type(_coerce_text(text), delay=delay)
+    await page.keyboard.type(as_text(text), delay=delay)
 
 
 TYPE_SPEC = _VerbSpec(runner=_type_runner, coord_runner=_type_coord_runner)

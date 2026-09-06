@@ -149,6 +149,36 @@ def test_verify_record_passes_for_valid_signature():
     verify_record(record, key_to_jwk(key))  # must not raise
 
 
+def test_verify_record_rejects_signed_unknown_top_level_field():
+    key = generate_key()
+    record = _fresh_record()
+    record["unexpected_security_semantics"] = "trusted"
+    signed = sign_record(record, key)
+
+    with pytest.raises(ValueError, match="does not conform.*unexpected_security_semantics"):
+        verify_record(signed, key_to_jwk(key))
+
+
+def test_verify_record_rejects_signed_missing_required_claim():
+    key = generate_key()
+    record = _fresh_record()
+    del record["appraisal"]
+    signed = sign_record(record, key)
+
+    with pytest.raises(ValueError, match="does not conform.*appraisal"):
+        verify_record(signed, key_to_jwk(key))
+
+
+def test_verify_record_rejects_signed_invalid_nested_value():
+    key = generate_key()
+    record = _fresh_record()
+    record["policy"]["enforcement_mode"] = "bypass"
+    signed = sign_record(record, key)
+
+    with pytest.raises(ValueError, match=r"policy\.enforcement_mode"):
+        verify_record(signed, key_to_jwk(key))
+
+
 def _fresh_record_with_profile(profile) -> dict:
     record = _fresh_record()
     if profile is None:
@@ -229,8 +259,53 @@ def test_verify_record_raises_for_tampered_cnf_jwk():
     record = sign_record(_fresh_record(), key)
     trusted = key_to_jwk(key)
     record["cnf"]["jwk"] = key_to_jwk(other_key)
-    with pytest.raises(InvalidSignature):
+    with pytest.raises(ValueError, match=r"cnf\.jwk.*trusted key"):
         verify_record(record, trusted)
+
+
+def test_verify_record_rejects_valid_signature_that_names_another_cnf_key():
+    """A trusted signer must not authenticate another key as the confirmation key."""
+    signer = generate_key()
+    other = generate_key()
+    record = _fresh_record()
+    record["cnf"] = {"jwk": key_to_jwk(other)}
+    body = _canonical_bytes(record)
+    record["signature"] = base64.urlsafe_b64encode(signer.sign(body)).rstrip(b"=").decode()
+
+    with pytest.raises(ValueError, match=r"cnf\.jwk.*trusted key"):
+        verify_record(record, key_to_jwk(signer))
+
+
+def test_verify_record_compares_key_identity_not_optional_jwk_metadata():
+    key = generate_key()
+    record = sign_record(_fresh_record(), key)
+    trusted = {**key_to_jwk(key), "kid": "issuer-key-7", "use": "sig"}
+
+    verify_record(record, trusted)
+
+
+def test_verify_record_rejects_signed_record_without_confirmation_key():
+    """A record with no confirmation key does not verify, whoever signed it.
+
+    Since schema enforcement landed (#156) the rejection comes from the schema,
+    which makes `cnf` required, rather than from the cnf-to-trusted-key binding
+    below it: absent `cnf` is caught before the binding is reached. Both are
+    correct refusals, and the earlier one is the more fundamental. Asserted on
+    `cnf` rather than on the exact sentence so this does not re-break the next
+    time the order of two correct checks changes.
+
+    The binding itself is covered by test_verify_record_raises_for_tampered_cnf_jwk
+    and test_verify_record_rejects_valid_signature_that_names_another_cnf_key,
+    where `cnf` is present and names the wrong key.
+    """
+    key = generate_key()
+    record = _fresh_record()
+    record.pop("cnf", None)
+    body = _canonical_bytes(record)
+    record["signature"] = base64.urlsafe_b64encode(key.sign(body)).rstrip(b"=").decode()
+
+    with pytest.raises(ValueError, match=r"cnf"):
+        verify_record(record, key_to_jwk(key))
 
 
 def test_verify_record_raises_for_missing_signature():
@@ -258,8 +333,8 @@ def test_verify_record_rejects_wrong_trusted_key():
     key_a = generate_key()
     key_b = generate_key()
     record = sign_record(_fresh_record(), key_a)
-    # Signed by A, verified against B's public key — must not verify.
-    with pytest.raises(InvalidSignature):
+    # Signed by A, verified against B's public key: must not verify.
+    with pytest.raises(ValueError, match=r"cnf\.jwk.*trusted key"):
         verify_record(record, key_to_jwk(key_b))
 
 
@@ -278,6 +353,85 @@ def test_verify_record_expired_allowed_when_max_age_none():
     record["iat"] = int(time.time()) - 90000
     record = sign_record(record, key)
     verify_record(record, key_to_jwk(key), max_age_seconds=None)  # must not raise
+
+
+def test_verify_record_rejects_record_beyond_default_future_skew():
+    key = generate_key()
+    record = _minimal_record()
+    record["iat"] = int(time.time()) + 301
+    record = sign_record(record, key)
+
+    with pytest.raises(ValueError, match="future"):
+        verify_record(record, key_to_jwk(key))
+
+
+def test_verify_record_accepts_record_within_default_future_skew():
+    key = generate_key()
+    record = _minimal_record()
+    record["iat"] = int(time.time()) + 299
+    record = sign_record(record, key)
+
+    verify_record(record, key_to_jwk(key))
+
+
+def test_verify_record_future_skew_is_deployment_configurable(monkeypatch):
+    """The future-skew bound, asserted at exactly its edge under a frozen clock.
+
+    This test used to set ``iat`` from ``int(time.time())``, which truncates,
+    while ``verify_record`` compares against an unrounded ``time.time()``. Writing
+    the true setup time as ``k + f`` and ``d`` for everything that elapses before
+    the comparison, ``age = f + d - 601``, so it raised only while ``f + d < 1``.
+    The margin was not one second out of six hundred, it was whatever remained of
+    the current second minus the test's own runtime, and the per-run failure
+    probability was ``d`` rather than anything fixed (#183).
+
+    Freezing rather than widening is deliberate. Moving the assertion to ``+660``
+    would remove the race by removing the test: an implementation whose comparison
+    is off by a few seconds would pass either way, and this is a security-relevant
+    freshness bound. With the clock frozen there is no race left, so the boundary
+    is pinned on both sides instead.
+
+    ``verify_record`` does a local ``import time``, which binds the same module
+    object, so patching the attribute here reaches it.
+    """
+    frozen = 1_800_000_000.0
+    monkeypatch.setattr(time, "time", lambda: frozen)
+
+    key = generate_key()
+
+    # 601s into the future is outside a 600s bound.
+    beyond = _minimal_record()
+    beyond["iat"] = int(frozen) + 601
+    beyond = sign_record(beyond, key)
+    with pytest.raises(ValueError, match="max_future_skew_seconds=600"):
+        verify_record(beyond, key_to_jwk(key), max_future_skew_seconds=600)
+
+    # ...and inside a bound configured above it.
+    verify_record(beyond, key_to_jwk(key), max_future_skew_seconds=602)
+
+    # 600s into the future is exactly at the bound, and accepted.
+    at_edge = _minimal_record()
+    at_edge["iat"] = int(frozen) + 600
+    at_edge = sign_record(at_edge, key)
+    verify_record(at_edge, key_to_jwk(key), max_future_skew_seconds=600)
+
+
+def test_disabling_max_age_does_not_disable_future_bound():
+    key = generate_key()
+    record = _minimal_record()
+    record["iat"] = int(time.time()) + 3600
+    record = sign_record(record, key)
+
+    with pytest.raises(ValueError, match="future"):
+        verify_record(record, key_to_jwk(key), max_age_seconds=None)
+
+
+def test_verify_record_rejects_negative_future_skew_configuration():
+    key = generate_key()
+    record = sign_record(_fresh_record(), key)
+
+    with pytest.raises(ValueError, match="must be non-negative"):
+        verify_record(record, key_to_jwk(key), max_future_skew_seconds=-1)
 
 
 def test_verify_record_rejects_non_okp_jwk():
@@ -416,6 +570,69 @@ def test_verify_record_fails_closed_when_revocation_source_errors():
         verify_record(record, key_to_jwk(key), revocation=unreachable)
 
 
+@pytest.mark.parametrize("answer", [None, "", 0, [], {}, 0.0])
+def test_verify_record_fails_closed_when_the_store_answers_with_a_non_bool(answer):
+    """A falsy non-bool is not "not revoked". It is no answer at all.
+
+    ``RevocationStore`` is ``Callable[[str], bool]``. Before this, the return value
+    was read by truthiness, so every value here let the key through. ``None`` is the
+    one that matters: it is what a lookup returns when its author handled the 200 and
+    forgot the rest, which is precisely the outage
+    ``test_verify_record_fails_closed_when_revocation_source_errors`` exists to
+    survive. The two cases are one fact, and only the noisier half was covered.
+    """
+    key = generate_key()
+    record = sign_record(_fresh_record(), key)
+
+    with pytest.raises(ValueError, match="could not be determined"):
+        verify_record(record, key_to_jwk(key), revocation=lambda _identifier: answer)
+
+
+@pytest.mark.parametrize("answer", ["no", "false", "unrevoked", [0]])
+def test_verify_record_fails_closed_when_a_truthy_non_bool_would_have_read_as_revoked(answer):
+    """The same guard, from the side that would not have been a security hole.
+
+    Truthiness read ``"no"`` as revoked and ``0`` as not revoked, which is not a
+    conservative reading in one direction and a lax one in the other. It is no
+    reading at all: the truth value of a string says nothing about revocation. Both
+    halves have to fail closed or the guard is a coin flip that happens to land
+    safely half the time.
+    """
+    key = generate_key()
+    record = sign_record(_fresh_record(), key)
+
+    with pytest.raises(ValueError, match="could not be determined"):
+        verify_record(record, key_to_jwk(key), revocation=lambda _identifier: answer)
+
+
+def test_verify_record_still_accepts_the_two_answers_the_type_allows():
+    """Without this, refusing every callable would pass both tests above."""
+    key = generate_key()
+    record = sign_record(_fresh_record(), key)
+
+    verify_record(record, key_to_jwk(key), revocation=lambda _identifier: False)
+
+    with pytest.raises(ValueError, match="revoked"):
+        verify_record(record, key_to_jwk(key), revocation=lambda _identifier: True)
+
+
+def test_the_membership_branch_is_untouched_by_the_bool_guard():
+    """``in`` yields a real bool whatever ``__contains__`` returns, so a container
+    store needs no guard and must not acquire one by accident."""
+
+    class AnswersWithAString:
+        def __contains__(self, _identifier: object) -> bool:
+            return "yes"  # type: ignore[return-value]
+
+    key = generate_key()
+    record = sign_record(_fresh_record(), key)
+
+    with pytest.raises(ValueError, match="revoked"):
+        verify_record(record, key_to_jwk(key), revocation=AnswersWithAString())
+
+    verify_record(record, key_to_jwk(key), revocation=set())
+
+
 def test_verify_record_revocation_works_with_public_key_object():
     """The trusted key may be an Ed25519PublicKey; its JWK is derived for the check."""
     key = generate_key()
@@ -529,6 +746,45 @@ def test_round_trip_with_non_ascii_payload():
     """End-to-end: signing and verifying a record carrying non-ASCII data."""
     key = generate_key()
     record = _fresh_record()
-    record["model"]["note"] = "modèle français \U0001f916"
+    record["model"]["provider"] = "modèle français \U0001f916"
     signed = sign_record(record, key)
     verify_record(signed, key_to_jwk(key))  # must not raise
+
+
+#: Values a caller can hand a function that documents an object argument. The last
+#: five are the ones a record assembled from parsed JSON can actually carry.
+_NOT_AN_OBJECT = ("a-string", 123, None, [1, 2], True, False, 0, "", b"bytes", 1.5)
+
+
+@pytest.mark.parametrize("value", _NOT_AN_OBJECT)
+def test_jwk_thumbprint_refuses_a_non_object_with_the_error_it_documents(value):
+    """`jwk_thumbprint` documents `ValueError` and read `.get` off its argument first.
+
+    A JWK reaches it from a peer, a key document, or a record's own `cnf`, so its shape
+    is not something the caller has established. Before this it raised `AttributeError`,
+    which a caller written against the documented contract does not catch.
+    """
+    with pytest.raises(ValueError):
+        jwk_thumbprint(value)
+
+
+@pytest.mark.parametrize("value", _NOT_AN_OBJECT)
+def test_verify_record_refuses_a_non_object_record_with_the_error_it_documents(value):
+    """Same shape, on the argument that is by definition untrusted.
+
+    `verify_record`'s docstring says every rejection other than a bad signature is a
+    `ValueError`. A non-object record reached `record.get("eat_profile")` and raised
+    `AttributeError` instead.
+    """
+    key = generate_key()
+    with pytest.raises(ValueError):
+        verify_record(value, key_to_jwk(key))
+
+
+def test_the_guards_do_not_refuse_what_they_should_accept():
+    """Without this, raising unconditionally would pass both tests above."""
+    key = generate_key()
+    record = sign_record(_fresh_record(), key)
+
+    jwk_thumbprint(key_to_jwk(key))
+    verify_record(record, key_to_jwk(key))

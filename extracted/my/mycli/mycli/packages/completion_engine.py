@@ -11,6 +11,7 @@ from mycli.packages.special.dsn_aliases import DSN_SUBCOMMANDS
 from mycli.packages.special.favoritequeries import FAVORITE_SUBCOMMANDS
 from mycli.packages.special.main import COMMANDS as SPECIAL_COMMANDS
 from mycli.packages.special.main import parse_special_command
+from mycli.packages.special.source import SOURCE_BOOLEAN_OPTIONS, SOURCE_OPTIONS
 from mycli.packages.sql_utils import extract_tables, find_prev_keyword, last_word
 
 sqlparse.engine.grouping.MAX_GROUPING_DEPTH = None  # type: ignore[assignment]
@@ -816,8 +817,24 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
         'source',
         '/source',
     ]:
-        source_options = ['--special', '--show', '--page']
-        source_arguments = _arg.split()
+        source_options = list(SOURCE_OPTIONS)
+        try:
+            source_arguments = shlex.split(_arg, posix=False)
+        except ValueError:
+            source_filename = _arg
+            while leading_arguments := source_filename.split(maxsplit=1):
+                if leading_arguments[0] in SOURCE_BOOLEAN_OPTIONS:
+                    source_filename = leading_arguments[1] if len(leading_arguments) == 2 else ''
+                    continue
+                if leading_arguments[0] == '--throttle' and len(leading_arguments) == 2:
+                    throttle_arguments = leading_arguments[1].split(maxsplit=1)
+                    source_filename = throttle_arguments[1] if len(throttle_arguments) == 2 else ''
+                    continue
+                if leading_arguments[0].startswith('--throttle='):
+                    source_filename = leading_arguments[1] if len(leading_arguments) == 2 else ''
+                    continue
+                break
+            return [{'type': 'file_name', 'quote_spaces': True, 'source_filename': source_filename}]
         if not source_arguments:
             return [
                 {'type': 'special_subcommand', 'subcommands': source_options},
@@ -826,26 +843,55 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
 
         used_options: set[str] = set()
         argument_index = 0
-        while argument_index < len(source_arguments) and source_arguments[argument_index] in source_options:
-            used_options.add(source_arguments[argument_index])
+        filename_index: int | None = None
+        options_ended = False
+        while argument_index < len(source_arguments):
+            argument = source_arguments[argument_index]
+            if not options_ended and argument == '--':
+                options_ended = True
+                used_options.update(source_options)
+                argument_index += 1
+                continue
+            if not options_ended and argument in SOURCE_BOOLEAN_OPTIONS:
+                used_options.add(argument)
+                argument_index += 1
+                continue
+            if not options_ended and argument == '--help':
+                return []
+            if not options_ended and argument == '--throttle':
+                used_options.add(argument)
+                argument_index += 1
+                if argument_index >= len(source_arguments):
+                    return []
+                if argument_index == len(source_arguments) - 1 and not text[-1].isspace():
+                    return []
+                argument_index += 1
+                continue
+            if not options_ended and argument.startswith('--throttle='):
+                used_options.add('--throttle')
+                if argument == '--throttle=' or not text[-1].isspace():
+                    return []
+                argument_index += 1
+                continue
+            if not options_ended and argument.startswith('-'):
+                break
+            if filename_index is not None:
+                return []
+            filename_index = argument_index
             argument_index += 1
         remaining_options = [option for option in source_options if option not in used_options]
-        source_filename = _arg
-        for _index in range(argument_index):
-            parsed_argument = source_filename.split(maxsplit=1)
-            source_filename = parsed_argument[1] if len(parsed_argument) == 2 else ''
+        source_filename = source_arguments[filename_index] if filename_index is not None else ''
         file_suggestion = {'type': 'file_name', 'quote_spaces': True, 'source_filename': source_filename}
 
         if argument_index < len(source_arguments):
-            if source_arguments[argument_index].startswith('-'):
-                return [{'type': 'special_subcommand', 'subcommands': remaining_options}]
-            return [file_suggestion]
+            return [{'type': 'special_subcommand', 'subcommands': remaining_options}]
         if not text[-1].isspace():
-            return []
+            return [file_suggestion] if filename_index == len(source_arguments) - 1 else []
         suggestions: list[dict[str, Any]] = []
         if remaining_options:
             suggestions.append({'type': 'special_subcommand', 'subcommands': remaining_options})
-        suggestions.append(file_suggestion)
+        if filename_index is None:
+            suggestions.append(file_suggestion)
         return suggestions
 
     if cmd.lower() in [

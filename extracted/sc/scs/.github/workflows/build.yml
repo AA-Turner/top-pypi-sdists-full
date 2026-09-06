@@ -1,6 +1,10 @@
 name: build
 
 on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -14,21 +18,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        shell: bash -l {0}
+        shell: bash -el -o pipefail {0}
     strategy:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
-        python-version: [ 3.9, "3.10", "3.11" ]
+        python-version: [ "3.12" ]
 
     env:
       PYTHON_VERSION: ${{ matrix.python-version }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: prefix-dev/setup-pixi@v0.9.3
+      - uses: prefix-dev/setup-pixi@v0.10.2
         with:
           cache: false
           pixi-version: v0.46.0
@@ -36,7 +40,7 @@ jobs:
         run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
         shell: bash
       - name: Install dependencies
-        run: pixi add scipy numpy pip pytest meson meson-python openblas python==${{ matrix.python-version }}
+        run: pixi add --platform linux-64 scipy numpy pip pytest meson meson-python openblas python==${{ matrix.python-version }}
       - name: Test
         run: |
           pixi r python -m pip install -v . --no-build-isolation -Csetup-args=-Duse_openmp=true
@@ -44,31 +48,38 @@ jobs:
           rm -rf build/
 
   build_mkl:
-    runs-on: ${{ matrix.os }}
+    # Source builds against conda-forge's dynamic MKL (link_mkl), one job per
+    # semantic case: an LP64 build solving under an MKL-backed NumPy; an
+    # ILP64 build refusing to share a process with that LP64 NumPy through
+    # the interface-layer guard; and an ILP64 build solving under an
+    # OpenBLAS NumPy, where no LP64 interface is preset.
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: bash -l {0}
+        shell: bash -el -o pipefail {0}
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ 3.9, "3.10", "3.11", "3.12", "3.13"]
-        link_mkl: [true]
-
+        include:
+          - case: lp64-solve
+            use_blas64: false
+            numpy_blas: mkl
+          - case: ilp64-guard
+            use_blas64: true
+            numpy_blas: mkl
+          - case: ilp64-solve
+            use_blas64: true
+            numpy_blas: openblas
+    name: build_mkl (${{ matrix.case }})
     env:
-      PYTHON_VERSION: ${{ matrix.python-version }}
-      LINK_MKL: ${{ matrix.link_mkl }}
+      USE_BLAS64: ${{ matrix.use_blas64 }}
+      NUMPY_BLAS: ${{ matrix.numpy_blas }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-
-      - name: Set Additional Envs
-        shell: bash
-        run: |
-          echo "PYTHON_SUBVERSION=$(echo $PYTHON_VERSION | cut -c 3-)" >> $GITHUB_ENV
-      - uses: prefix-dev/setup-pixi@v0.9.3
+      - uses: prefix-dev/setup-pixi@v0.10.2
         with:
           cache: false
           pixi-version: v0.46.0
@@ -77,25 +88,140 @@ jobs:
         shell: bash
       - name: Install dependencies
         run: |
-          if [[ "$LINK_MKL" == "true" ]]; then
-            BLAS_PKGS="blas-devel=*=*mkl"
-          else
-            BLAS_PKGS="blas-devel=*=*openblas"
-          fi
-          pixi add $BLAS_PKGS pip scipy numpy pytest mkl mkl-devel pkg-config meson meson-python
+          pixi add --platform linux-64 "blas-devel=*=*${NUMPY_BLAS}" pip scipy numpy pytest mkl mkl-devel pkg-config meson meson-python python==3.12
       - name: Build
         run: |
           pixi r python -c "import numpy as np;print(np.show_config())"
-          if [[ "$LINK_MKL" == "true" ]]; then
-
-            pixi r python -m pip install --verbose --no-build-isolation -Csetup-args=-Dlink_mkl=true .
-          else
-            pixi r python -m pip install --verbose --no-build-isolation .
+          MESON_ARGS="-Csetup-args=-Dlink_mkl=true"
+          if [[ "$USE_BLAS64" == "true" ]]; then
+            MESON_ARGS="$MESON_ARGS -Csetup-args=-Duse_blas64=true"
           fi
+          pixi r python -m pip install --verbose --no-build-isolation $MESON_ARGS .
+      - name: Test
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$(pwd)/.pixi/envs/default/lib:${LD_LIBRARY_PATH:-}"
+          if [ "${{ matrix.case }}" = ilp64-guard ]; then
+            pixi r python .github/scripts/mkl_guard.py 2>&1 | tee /tmp/guard.log
+            grep -q "MKL interface layer mismatch" /tmp/guard.log
+          else
+            pixi r python -c "from scs import _scs_mkl"
+            pixi r pytest
+          fi
+
+  build_gpu:
+    # Build-only: linking against cuBLAS/cuSPARSE needs the CUDA toolkit but
+    # not a physical GPU, so this validates the use_gpu build/link path without
+    # running the solver (running would require GPU hardware).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el -o pipefail {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.12" ]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Add .pixi/envs/default to the $PATH
+        run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install dependencies
+        run: |
+          pixi add --platform linux-64 scipy numpy pip pytest meson meson-python \
+            openblas python==${{ matrix.python-version }} \
+            cuda-version=12.* cuda-nvcc cuda-cudart-dev libcublas-dev libcusparse-dev
+      - name: Build (use_gpu=true)
+        run: |
+          export CUDA_PATH="$(pwd)/.pixi/envs/default"
+          export CUDA_HOME="$CUDA_PATH"
+          pixi r python -m pip install -v . --no-build-isolation \
+            -Csetup-args=-Duse_gpu=true -Csetup-args=-Dint32=true
+      - name: Check _scs_gpu is linked against cuBLAS and cuSPARSE
+        # A shared library links successfully even with undefined symbols, so the
+        # real regression test is that libcublas/libcusparse are recorded as
+        # NEEDED entries (the bug fixed in #221 was a missing link, seen only at
+        # import time as `undefined symbol: cusparseDestroySpMat`).
+        run: |
+          # Locate the installed extension in the pixi env's site-packages.
+          so=$(find "$(pwd)/.pixi/envs/default/lib" -name '_scs_gpu*.so' | head -1)
+          if [ -z "$so" ]; then
+            echo "ERROR: _scs_gpu*.so not found in the pixi environment"
+            find "$(pwd)/.pixi/envs/default/lib" -name '_scs_*.so' || true
+            exit 1
+          fi
+          echo "Inspecting $so"
+          readelf -d "$so"
+          readelf -d "$so" | grep -q 'libcublas' || { echo "ERROR: _scs_gpu not linked against cuBLAS"; exit 1; }
+          readelf -d "$so" | grep -q 'libcusparse' || { echo "ERROR: _scs_gpu not linked against cuSPARSE"; exit 1; }
+          echo "OK: _scs_gpu links cuBLAS and cuSPARSE"
+
+  build_native_arch:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el -o pipefail {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        native_arch: [true]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Add .pixi/envs/default to the $PATH
+        run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install dependencies
+        run: pixi add --platform linux-64 scipy numpy pip pytest meson meson-python openblas python==3.12
+      - name: Build (native_arch=${{ matrix.native_arch }})
+        run: |
+          pixi r python -m pip install -v . --no-build-isolation \
+            -Csetup-args=-Dnative_arch=${{ matrix.native_arch }}
       - name: Test
         run: |
           pixi r pytest
           rm -rf build/
+
+  build_accelerate:
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash -el -o pipefail {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.14" ]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: prefix-dev/setup-pixi@v0.10.2
+        with:
+          cache: false
+          pixi-version: v0.46.0
+      - name: Add .pixi/envs/default to the $PATH
+        run: echo "$(pwd)/.pixi/envs/default/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Install dependencies
+        run: pixi add --platform osx-arm64 scipy numpy pip pytest meson meson-python python==${{ matrix.python-version }}
+      - name: Build and test
+        run: |
+          pixi r python -m pip install -v . --no-build-isolation
+          pixi r pytest
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
@@ -117,50 +243,198 @@ jobs:
             arch: auto
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
+      - name: Set up MSVC for Windows
+        if: runner.os == 'Windows'
+        uses: egor-tensin/vs-shell@v2
+
       - name: Install conda on Windows
         if: runner.os == 'Windows'
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           miniconda-version: "latest"
           channels: conda-forge, anaconda
 
       - name: Install openblas from conda on Windows
         if: runner.os == 'Windows'
-        run: conda install -y openblas pkgconfig
+        # 0.3.33 pinned: conda-forge's win-64 0.3.34 build crashes inside its
+        # DGEMM kernels on AMD Zen 4/5 CPUs that expose AVX-512
+        # (conda-forge/openblas-feedstock#196). Unpin once a fixed build ships.
+        run: conda install -y "openblas=0.3.33" pkgconfig
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.3.0
+        uses: pypa/cibuildwheel@v4.2.0
         env:
           # Explicitly set the architecture based on the matrix
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
 
-      - uses: actions/upload-artifact@v6
+      - name: Report wheel sizes
+        run: |
+          ls -lh ./wheelhouse/*.whl
+          ls -lh ./wheelhouse/*.whl >> $GITHUB_STEP_SUMMARY
+          # Warn if any wheel exceeds 100MB (PyPI default limit)
+          for whl in ./wheelhouse/*.whl; do
+            size=$(stat -f%z "$whl" 2>/dev/null || stat -c%s "$whl")
+            if [ "$size" -gt 104857600 ]; then
+              echo "::warning file=$(basename $whl)::Wheel $(basename $whl) is $(( size / 1048576 ))MB — exceeds PyPI 100MB limit"
+            fi
+          done
+        shell: bash
+
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
+
+  wheel_audit:
+    # Every Linux wheel must ship the standard extensions and a vendored
+    # OpenBLAS, _scs_mkl exactly in the x86-64 manylinux wheels; no wheel may
+    # depend on a dynamic MKL (it is linked statically), ship an Intel shared
+    # library, or carry an absolute rpath entry; see pyproject.toml (#423).
+    name: Audit wheel ELF metadata
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: cibw-wheels-ubuntu-*
+          path: wheelhouse
+          merge-multiple: true
+
+      - name: Audit NEEDED, rpath and shipped libraries
+        run: |
+          cat > audit.py <<'EOF'
+          import glob, os, re, subprocess, sys, tempfile, zipfile
+          bad = []
+          whls = sorted(glob.glob("wheelhouse/*.whl"))
+          assert whls, "no wheels downloaded"
+          for whl in whls:
+              name = os.path.basename(whl)
+              with tempfile.TemporaryDirectory() as td:
+                  with zipfile.ZipFile(whl) as z:
+                      z.extractall(td)
+                  sos = glob.glob(os.path.join(td, "**", "*.so*"), recursive=True)
+                  mods = {os.path.basename(so).split(".")[0] for so in sos}
+                  want = {"_scs_direct", "_scs_indirect", "_scs_dense"}
+                  if "manylinux" in name and "x86_64" in name:
+                      want.add("_scs_mkl")
+                  elif "_scs_mkl" in mods:
+                      bad.append((name, "-", "_scs_mkl belongs only in x86-64 manylinux wheels"))
+                  if want - mods:
+                      bad.append((name, "-", f"missing extensions: {sorted(want - mods)}"))
+                  if not any(os.path.basename(so).startswith("libopenblas") for so in sos):
+                      bad.append((name, "-", "no vendored OpenBLAS"))
+                  intel = [os.path.basename(so) for so in sos
+                           if os.path.basename(so).startswith(("libmkl", "libiomp"))]
+                  if intel:
+                      bad.append((name, "-", f"Intel shared libraries in wheel: {intel}"))
+                  for so in sos:
+                      rel = os.path.relpath(so, td)
+                      out = subprocess.run(["readelf", "-d", so], capture_output=True,
+                                           text=True, check=True).stdout
+                      needed = re.findall(r"\(NEEDED\)[^\[]*\[([^\]]+)\]", out)
+                      mkl = [n for n in needed if n.startswith(("libmkl", "libiomp"))]
+                      if mkl:
+                          bad.append((name, rel, f"dynamic MKL dependency: {mkl}"))
+                      for rp in re.findall(r"\((?:RPATH|RUNPATH)\)[^\[]*\[([^\]]*)\]", out):
+                          for entry in rp.split(":"):
+                              if entry and not entry.startswith("$ORIGIN"):
+                                  bad.append((name, rel, f"non-relative rpath entry '{entry}'"))
+          assert any("manylinux" in w and "x86_64" in w for w in map(os.path.basename, whls)), "no x86-64 manylinux wheel"
+          print(f"audited {len(whls)} wheels")
+          for whl, so, msg in bad:
+              print(f"BAD: {whl} :: {so} :: {msg}")
+          sys.exit(1 if bad else 0)
+          EOF
+          python3 audit.py
+
+  wheel_smoke_clean_env:
+    # The release gate: install the built wheel in a pristine container with
+    # nothing on the loader path and solve with every backend (a PSD cone so
+    # BLAS/LAPACK run). On x86-64 the static MKL backend must be AUTO's choice.
+    name: Clean-container wheel smoke test (${{ matrix.python }})
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.14", "3.14t"]
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: cibw-wheels-ubuntu-latest-*
+          path: wheelhouse
+          merge-multiple: true
+
+      - name: Solve in pristine container (${{ matrix.python }})
+        run: |
+          cat > smoke.py <<'EOF'
+          import os, sys
+          import numpy as np, scipy.sparse as sp, scs
+          # the loader must be exactly as clean as a user's machine
+          assert not os.environ.get("LD_LIBRARY_PATH"), os.environ["LD_LIBRARY_PATH"]
+          print("scs", scs.__version__, "python", sys.version)
+          data = {
+              "A": sp.csc_matrix(np.vstack([np.array([[1.0, 1.0], [1.0, -1.0], [0.0, 1.0]]),
+                                            np.array([[-1.0, 0.0], [0.0, 0.0], [0.0, -1.0]])])),
+              "b": np.hstack([np.array([1.0, 0.5, 0.7]), np.zeros(3)]),
+              "c": np.array([1.0, 1.0]),
+          }
+          cone = {"z": 1, "l": 2, "s": [2]}
+          scs._load_module("_scs_mkl")  # static MKL: must import with nothing installed
+          auto_file = os.path.basename(scs._resolve_auto().__file__)
+          assert auto_file.startswith("_scs_mkl"), auto_file
+          print("auto resolves to", auto_file)
+          for name in ["qdldl", "cpu_indirect", "cpu_dense", "mkl", "auto"]:
+              kw = {} if name == "auto" else {"linear_solver": name}
+              sol = scs.SCS(data, cone, verbose=True, **kw).solve()
+              assert sol["info"]["status"] == "solved", (name, sol["info"]["status"])
+              print(name, "ok:", sol["info"].get("lin_sys_solver", "n/a"))
+          print("ALL OK")
+          EOF
+          case "${{ matrix.python }}" in
+            3.9)   IMAGE=python:3.9-slim;  TAG=cp39-cp39 ;;
+            3.14)  IMAGE=python:3.14-slim; TAG=cp314-cp314 ;;
+            3.14t) IMAGE=ghcr.io/astral-sh/uv:debian-slim; TAG=cp314-cp314t ;;
+          esac
+          docker run --rm -v "$PWD:/work" -w /tmp -e PY=${{ matrix.python }} -e TAG=$TAG \
+            "$IMAGE" bash -ec '
+            if command -v uv >/dev/null; then
+              uv python install "$PY"
+              uv venv -p "$PY" /venv
+              PIP="uv pip install --python /venv/bin/python"
+              PYBIN=/venv/bin/python
+            else
+              PIP="pip install --quiet"
+              PYBIN=python
+            fi
+            $PIP numpy scipy
+            $PIP /work/wheelhouse/scs-*-${TAG}-manylinux*x86_64.whl
+            $PYBIN /work/smoke.py'
 
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: true
 
       - name: Build sdist
         run: pipx run build --sdist -Csetup-args=-Dsdist_mode=true
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: cibw-sdist
           path: dist/*.tar.gz
 
   upload_pypi:
-    needs: [build_wheels, build_sdist]
+    # publishing waits for the clean-container smoke tests, the wheel audit
+    # and the source-MKL lanes (the sdist carries the link_mkl build path)
+    needs: [build_wheels, build_sdist, wheel_smoke_clean_env, wheel_audit, build_mkl]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -171,7 +445,7 @@ jobs:
     # Only run this step on GH release
     # if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           # unpacks all CIBW artifacts into dist/
           pattern: cibw-*

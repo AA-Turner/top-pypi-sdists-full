@@ -631,6 +631,18 @@ class TestProcess:
         merged = [e for e in events if e.kind == "merged"]
         assert merged and "left open" in merged[0].message
 
+    def test_epic_decompose_merge_does_not_close_the_epic(self) -> None:
+        # #3132 acceptance: merging an "epic-decompose" entry's PR must
+        # leave the epic OPEN — asserted here against `process()`'s actual
+        # behavior (the `close_issue` call it does or doesn't make), not
+        # just the PR body text a separate test already covers above.
+        items = [_q("a", assignment_type="epic-decompose")]
+        events = process(items, gh := FakeGh())
+        assert items[0].state == MERGED
+        assert gh.close_calls == []
+        merged = [e for e in events if e.kind == "merged"]
+        assert merged and "left open" in merged[0].message
+
     def test_successful_merge_dismisses_the_drive_escalation(self, coord_db) -> None:
         # #1767: a merge landing through `coord merge` is exactly the kind
         # of resolution that should clear a stale drive escalation for the
@@ -713,6 +725,17 @@ class TestProcess:
         entry = _q("a", assignment_type="work")
         body = _briefing_body(entry)
         assert body.startswith("Closes #1\n\n")
+
+    def test_briefing_body_uses_refs_for_epic_decompose(self) -> None:
+        # #3132: like mock-author, epic-decompose's issue_number is the
+        # epic itself — the fallback create_pr body must use the
+        # non-closing "Refs #N", never "Closes #N".
+        from coord.merge_queue import _briefing_body
+
+        entry = _q("a", assignment_type="epic-decompose")
+        body = _briefing_body(entry)
+        assert "Refs #1" in body
+        assert "Closes #1" not in body
 
     def test_conflict_does_not_halt_other_repo_groups(self) -> None:
         """A conflict in one (repo, target) group must not touch other groups."""
@@ -7673,11 +7696,15 @@ class TestPlan:
         """Milestone title is pulled from the issues table when present."""
         from coord.db import get_connection
         conn = get_connection()
-        conn.execute(
-            "INSERT OR REPLACE INTO issues "
-            "(repo_name, number, title, body, state, labels, milestone_title) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("api", 1, "t", "", "open", "[]", "v1.0"),
+        backends.upsert_issue(
+            conn,
+            repo_name="api",
+            number=1,
+            title="t",
+            body="",
+            state="open",
+            labels="[]",
+            milestone_title="v1.0",
         )
         conn.commit()
 
@@ -11089,6 +11116,111 @@ class TestSmokeStaleReportsWinningRow:
         candidates = mq.revalidation_candidates([entry], board, _Cfg())
 
         assert [c.work_assignment_id for c in candidates] == ["round-2"]
+
+
+class TestRevalidationCandidatesComposeWithSkipReview:
+    """#3107: ``coord merge --only X --skip-review --revalidate`` must waive
+    the review gate *before* asking whether an entry is blocked solely on
+    staleness — otherwise the one combination an operator actually needs (an
+    entry that is both review-blocked and stale) is inexpressible, even
+    though each flag alone handles its own gate.
+
+    claude-coordinator#3083, 2026-09-04: a `request-changes` review verdict
+    plus a stale-but-passed test verdict. `--skip-review` printed its waiver
+    line, then `--revalidate` refused anyway because its "blocked solely on
+    staleness" predicate was still evaluated against the unwaived gate set.
+    """
+
+    @staticmethod
+    def _board(completed=None):
+        from coord.models import Board
+        return Board(active=[], completed=list(completed or []))
+
+    @staticmethod
+    def _work(aid: str = "w1") -> Assignment:
+        return Assignment(
+            machine_name="m1", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id=aid, type="work", status="done",
+            branch=f"worker/{aid}", test_state="passed",
+            test_head_sha="branch-sha", test_base_sha="base-old",
+            test_patch_id="patch-1",
+        )
+
+    @staticmethod
+    def _request_changes_review(aid: str, of: str) -> Assignment:
+        return Assignment(
+            machine_name="m2", repo_name="api", issue_number=1,
+            issue_title="[review] t",
+            assignment_id=aid, type="review", status="done",
+            branch="worker/w1",
+            review_of_assignment_id=of,
+            review_verdict="request-changes",
+        )
+
+    @staticmethod
+    def _config():
+        from dataclasses import dataclass, field as dc_field
+        @dataclass
+        class _Reviews:
+            enabled: bool = True
+        @dataclass
+        class _Pipeline:
+            default_gates: list[str] | None = None
+        @dataclass
+        class _Cfg:
+            reviews: _Reviews = dc_field(default_factory=_Reviews)
+            pipeline: _Pipeline = dc_field(default_factory=_Pipeline)
+        cfg = _Cfg()
+        cfg.pipeline.default_gates = ["review", "test", "merge"]
+        return cfg
+
+    def _entry(self) -> QueuedMerge:
+        entry = _q("w1", branch="worker/w1", target="main")
+        entry.target_branch_head_sha = "base-new"  # moved since the test ran
+        return entry
+
+    def test_review_blocked_and_stale_entry_is_not_a_candidate_without_the_waiver(
+        self,
+    ) -> None:
+        board = self._board(
+            completed=[self._work(), self._request_changes_review("r1", "w1")],
+        )
+        candidates = mq.revalidation_candidates([self._entry()], board, self._config())
+
+        assert candidates == []
+
+    def test_skip_review_makes_the_same_entry_a_candidate(self) -> None:
+        """The fix: pass `skip_review=True` (mirroring the CLI's own
+        `--skip-review`) and the entry becomes eligible — it is now blocked
+        solely on staleness, exactly as the workaround (a fresh `approve`
+        review) would have left it."""
+        board = self._board(
+            completed=[self._work(), self._request_changes_review("r1", "w1")],
+        )
+        candidates = mq.revalidation_candidates(
+            [self._entry()], board, self._config(), skip_review=True,
+        )
+
+        assert [c.work_assignment_id for c in candidates] == ["w1"]
+
+    def test_skip_review_does_not_manufacture_candidates_for_other_blocks(self) -> None:
+        """`--skip-review` only ever discards the review failure — an entry
+        that is ALSO missing a smoke verdict (not merely stale) must stay
+        out of scope, same as #1769's original "missing is not stale" rule."""
+        work = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1, issue_title="t",
+            assignment_id="w2", type="work", status="done",
+            branch="worker/w2", test_state=None,
+        )
+        review = self._request_changes_review("r2", "w2")
+        board = self._board(completed=[work, review])
+        entry = _q("w2", branch="worker/w2", target="main")
+
+        candidates = mq.revalidation_candidates(
+            [entry], board, self._config(), skip_review=True,
+        )
+
+        assert candidates == []
 
 
 # ══════════════════════════════════════════════════════════════════════════════

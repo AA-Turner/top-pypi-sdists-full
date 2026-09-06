@@ -11,17 +11,22 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import json
 import os
 import warnings
-from collections.abc import Callable, Container
-from typing import Any, TypeAlias
+from collections.abc import Callable, Container, Iterable
+from typing import TYPE_CHECKING, Any, TypeAlias
+
+if TYPE_CHECKING:
+    from agentrust_trace.revocation import VerificationResult
 
 import rfc8785
+from jsonschema import ValidationError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 TRACE_PROFILE_V0_2 = "tag:agentrust-io.com,2026:trace-v0.2"
-"""The profile URI this build implements — the only one ``verify_record`` accepts."""
+"""The profile URI this build implements: the only one ``verify_record`` accepts."""
 
 _TRACE_PROFILE_V0_1 = "tag:agentrust.io,2026:trace-v0.1"
 """The superseded identifier, minted under a domain the project does not own.
@@ -51,8 +56,26 @@ def generate_key() -> Ed25519PrivateKey:
 
 
 def load_key(pem: str) -> Ed25519PrivateKey:
-    """Load an Ed25519 private key from a PEM string."""
-    return serialization.load_pem_private_key(pem.encode(), password=None)  # type: ignore[return-value]
+    """Load an Ed25519 private key from a PEM string.
+
+    Raises ``ValueError`` for anything that is not a PEM string this library can
+    read. A PEM arrives from a file, an environment variable or a secret store,
+    so its type is not something the caller has already established: reading
+    ``.encode()`` off it first turned every non-string into an ``AttributeError``
+    and a lone surrogate into a ``UnicodeEncodeError``, neither of which a caller
+    written against this signature catches.
+    """
+    if not isinstance(pem, str):
+        raise ValueError(
+            f"pem must be a PEM string, got {type(pem).__name__}. A key read from a "
+            "file, an environment variable or a secret store can be bytes or None "
+            "before anyone has looked at it."
+        )
+    try:
+        encoded = pem.encode()
+    except UnicodeEncodeError as exc:
+        raise ValueError(f"pem is not encodable as UTF-8: {exc}") from exc
+    return serialization.load_pem_private_key(encoded, password=None)  # type: ignore[return-value]
 
 
 def load_signing_key() -> Ed25519PrivateKey:
@@ -80,7 +103,26 @@ def _okp_jwk(raw_public_bytes: bytes) -> dict[str, str]:
 
 
 def key_to_jwk(key: Ed25519PrivateKey) -> dict[str, str]:
-    """Return the public JWK dict for *key* (OKP / Ed25519)."""
+    """Return the public JWK dict for *key* (OKP / Ed25519).
+
+    Raises ``ValueError`` for anything that is not an ``Ed25519PrivateKey``. A
+    public key is called out separately because it is the plausible mistake here:
+    the name reads as "turn a key into a JWK", the result is the *public* JWK, and
+    a caller holding only the public half will reach for this. It is not a widening
+    this function can make on its own, since ``sign_record`` depends on being handed
+    something that can sign; ``_jwk_from_public_key`` is the path for that half.
+    """
+    if not isinstance(key, Ed25519PrivateKey):
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        if isinstance(key, Ed25519PublicKey):
+            raise ValueError(
+                "key_to_jwk needs the private key, not the public one. It derives the "
+                "public JWK from it, and its callers go on to sign with the same object."
+            )
+        raise ValueError(
+            f"key must be an Ed25519PrivateKey, got {type(key).__name__}"
+        )
     return _okp_jwk(
         key.public_key().public_bytes(
             encoding=serialization.Encoding.Raw,
@@ -135,6 +177,12 @@ def jwk_thumbprint(jwk: dict[str, Any]) -> str:
 
     Raises ``ValueError`` for an unknown ``kty`` or a missing required member.
     """
+    if not isinstance(jwk, dict):
+        raise ValueError(
+            f"jwk must be a JSON object, got {type(jwk).__name__}. A JWK reaches this "
+            "function from a peer, a key document or a record's own `cnf`, so its shape "
+            "is not something the caller has already established."
+        )
     kty = jwk.get("kty")
     if not isinstance(kty, str) or kty not in _THUMBPRINT_MEMBERS:
         raise ValueError(
@@ -171,10 +219,32 @@ def _check_not_revoked(jwk: dict[str, Any], revocation: RevocationStore) -> None
     Both outcomes fail closed. An unreachable revocation source is not evidence
     that a key is unrevoked, so a store that raises is treated as a rejection
     rather than passed over.
+
+    A callable that returns a non-bool has also not determined anything, and is
+    treated the same way. Reading its answer by truthiness would decide the one
+    check here that exists to catch a compromised key, on a value whose truthiness
+    means nothing about revocation. The membership branch needs no such guard:
+    ``in`` yields a real bool whatever ``__contains__`` returns.
     """
     for identifier in _key_identifiers(jwk):
         try:
-            revoked = revocation(identifier) if callable(revocation) else identifier in revocation
+            if callable(revocation):
+                revoked = revocation(identifier)
+                if not isinstance(revoked, bool):
+                    # `RevocationStore` is `Callable[[str], bool]`, and a store that
+                    # answers with anything else has not answered. Truthiness would
+                    # decide it here, and truthiness is unrelated to revocation
+                    # status: `None`, `""`, `0` and `[]` would all read as "not
+                    # revoked", which is the direction that lets a compromised key
+                    # through, while the string "no" would read as revoked. The
+                    # `None` case is not hypothetical. It is what a lookup returns
+                    # when its author handled the 200 and forgot the rest, which is
+                    # exactly the outage this check exists to survive.
+                    raise TypeError(
+                        f"returned {type(revoked).__name__}, not bool"
+                    )
+            else:
+                revoked = identifier in revocation
         except Exception as exc:
             raise ValueError(
                 f"revocation status for key {identifier!r} could not be determined: {exc}. "
@@ -204,6 +274,74 @@ def _canonical_bytes(d: dict[str, Any]) -> bytes:
     return rfc8785.dumps(d)
 
 
+# The JCS safe-integer range, RFC 8785 Appendix B note 1, which spec section 3.2.2
+# raises to a MUST for anything canonicalized under it.
+JCS_SAFE_INTEGER = 9007199254740991
+
+
+class UnanchorableValue(ValueError):
+    """A value the registry-anchor profile excludes, found before it was hashed."""
+
+
+def _reject_unanchorable(value: Any, path: str = "$") -> None:
+    if isinstance(value, bool):
+        return
+    if isinstance(value, float):
+        raise UnanchorableValue(
+            f"{path} is a non-integer number ({value!r}). registry-anchor-v1 section 1 "
+            "puts these outside the profile: cross-language float serialization is not "
+            "canonical, so the digest would depend on which language computed it."
+        )
+    if isinstance(value, int) and abs(value) > JCS_SAFE_INTEGER:
+        raise UnanchorableValue(
+            f"{path} is {value}, outside -{JCS_SAFE_INTEGER} to {JCS_SAFE_INTEGER}. "
+            "registry-anchor-v1 section 1 puts these outside the profile: an "
+            "implementation of the same four rules in a language whose only number "
+            "type is the IEEE 754 double writes one value for two distinct integers, "
+            "so two different claims would share a leaf. Carry the value as a JSON "
+            "string. Nanosecond timestamps and 64-bit identifiers land here, and a "
+            "digest over one is not reproducible by a peer, which is what anchoring "
+            "is for."
+        )
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _reject_unanchorable(item, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            _reject_unanchorable(item, f"{path}[{index}]")
+
+
+def anchor_bytes(value: Any) -> bytes:
+    """Sorted-key JSON per registry-anchor-v1 section 1. Deliberately not JCS.
+
+    Section 0 of that document exists because these two canonicalizations are
+    easy to confuse, so the one that is not JCS lives next to the one that is.
+    They differ on non-ASCII strings, on non-integer numbers, on integers outside
+    the safe-integer range, and on key order above the Basic Multilingual Plane.
+
+    Section 1 puts the first two of those outside the profile. Nothing enforced
+    that, and the failure it produces is the one section 0 calls out as giving no
+    useful diagnostic: a peer in another language recomputes a different digest
+    and the only symptom is that a proof does not verify. Refusing the value here,
+    by name, is that diagnostic.
+    """
+    _reject_unanchorable(value)
+    try:
+        return json.dumps(
+            value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode("ascii")
+    except TypeError as exc:
+        # `_reject_unanchorable` names the two cases section 1 puts outside the
+        # profile. A type JSON cannot serialize at all is a third, and it reached
+        # `json.dumps` and came back as "Object of type bytes is not JSON
+        # serializable": a message about a serializer, from a function whose stated
+        # purpose is to refuse the value by name.
+        raise UnanchorableValue(
+            f"$ holds a {type(value).__name__}, which is not JSON at all, so it has "
+            f"no anchor form: {exc}"
+        ) from exc
+
+
 def _b64url_decode(value: str, *, field: str) -> bytes:
     """Decode an unpadded base64url string, raising ValueError on malformed input.
 
@@ -229,7 +367,16 @@ def sign_record(record: dict[str, Any], key: Ed25519PrivateKey) -> dict[str, Any
     The returned dict is a plain JSON-serialisable object. Pass it to
     ``json.dumps()`` to get the wire form, or to ``TrustRecord.model_validate()``
     to confirm structural validity before writing.
+
+    Raises ``ValueError`` for a *record* that is not a JSON object. ``{**record}``
+    reads it before anything establishes its shape, so a non-mapping raised a bare
+    ``TypeError`` naming a dict-unpacking failure, which is not the module's
+    documented refusal and tells the caller nothing about which argument was wrong.
     """
+    if not isinstance(record, dict):
+        raise ValueError(
+            f"record must be a JSON object, got {type(record).__name__}"
+        )
     jwk = key_to_jwk(key)
     payload: dict[str, Any] = {**record, "cnf": {"jwk": jwk}}
     body = _canonical_bytes({k: v for k, v in payload.items() if k != "signature"})
@@ -266,9 +413,14 @@ def verify_record(
     *,
     allow_embedded_key: bool = False,
     max_age_seconds: int | None = 86400,
+    max_future_skew_seconds: int = 300,
     expected_nonce: str | None = None,
     revocation: RevocationStore | None = None,
-) -> None:
+    revocation_bundle: dict[str, Any] | None = None,
+    trusted_bundle_keys: Iterable[dict[str, Any]] | None = None,
+    max_bundle_age_seconds: int = 86400,
+    now: int | None = None,
+) -> VerificationResult:
     """Verify an Ed25519 signature on a signed TRACE Trust Record.
 
     A trusted key is REQUIRED. Pass an ``Ed25519PublicKey`` or a JWK dict via
@@ -277,7 +429,8 @@ def verify_record(
     Raises ``InvalidSignature`` if the signature does not verify, and ``ValueError``
     for every other rejection (wrong or missing profile, no signature, no trusted
     key, malformed input, unsupported JWK type, stale record, nonce mismatch, or
-    revoked key). Returns ``None`` on success. All checks fail closed.
+    revoked key). Returns a ``VerificationResult`` on success, carrying what the
+    revocation check reported; see below. All checks fail closed.
 
     Profile (fail closed):
         The record's ``eat_profile`` must be exactly ``TRACE_PROFILE_V0_2``.
@@ -297,36 +450,97 @@ def verify_record(
     Trust anchoring (fail closed):
         Without a trusted key, the record cannot vouch for itself, so verification
         is refused. Set ``allow_embedded_key=True`` to opt in to verifying against
-        ``record["cnf"]["jwk"]`` — this only proves internal consistency, not
+        ``record["cnf"]["jwk"]``: this only proves internal consistency, not
         authenticity, and emits a loud ``UserWarning``.
 
     Freshness (fail closed):
         ``max_age_seconds`` (default 86400 = 24h) bounds how old ``record["iat"]``
-        may be relative to now; pass ``None`` to disable the age check. If
+        may be relative to now; pass ``None`` to disable the age check.
+        ``max_future_skew_seconds`` (default 300 = 5m) bounds tolerated clock skew;
+        a record dated further in the future is rejected. If
         ``expected_nonce`` is given, it is compared in constant time against
         ``record["runtime"]["nonce"]``. A stale record or nonce mismatch raises
-        ``ValueError``.
+        ``ValueError``. ``now`` pins the verification moment (Unix epoch seconds)
+        for both the record-age check and the bundle-age check below; it defaults
+        to the clock, and a conformance vector supplies it so the outcome
+        reproduces from retained facts rather than from when the test ran.
 
-    Revocation (fail closed):
-        ``spec/trace-v0.2.md`` §3.2.1 requires a verifier to consult current
-        revocation status at verification time. Pass a ``revocation`` store, either
-        a container of revoked key identifiers or a callable performing a live
-        CRL/status/SCITT lookup. The trusted key is rejected if it is listed, or if
-        the store cannot answer. Identifiers are the key's RFC 7638 thumbprint
-        (``jwk_thumbprint``) and its ``kid``.
+    Revocation (reported, never implied):
+        ``spec/trace-v0.2.md`` section 3.2.3 separates three states and forbids
+        reporting any of them as an affirming appraisal: verified against a
+        revocation bundle valid at T; unverified for revocation, because the newest
+        bundle is past the profile's maximum age; and no revocation check performed,
+        because there was no bundle. The result's ``revocation`` field carries which
+        one applied and the facts a second verifier needs to reach it again.
 
-        ``revocation=None`` (the default) skips the check and keeps verification
-        purely offline. Offline verification cannot prove non-revocation: a
-        signature made by a compromised key stays cryptographically valid forever,
-        and nothing inside the record can retract it. See ``LIMITATIONS.md``.
+        Pass ``revocation_bundle``, a dict validated here against
+        ``schema/trace-revocation-bundle.json``, together with
+        ``trusted_bundle_keys``, the JWKs whose signatures the caller accepts on a
+        bundle. The bundle is evidence only while both age bounds hold: the
+        issuer's ``valid_until`` and the caller's ``max_bundle_age_seconds``,
+        measured from ``issued_at``. The tighter bound governs. 86400 is section
+        3.2.2's default maximum age, applied to bundles by 3.2.3's "same
+        maximum-age model" sentence; 3.2.3 names no bundle default of its own and
+        defers the value to the deployment profile. A bundle that is malformed,
+        signed by a key not in ``trusted_bundle_keys``, signed with an algorithm
+        this build cannot verify, dated in the future, or expired under either
+        bound yields ``unverified_for_revocation`` with the cause named; it does
+        not raise, because inability to check is not evidence of a defect. A
+        statement on the bundle's log naming the trusted key raises ``ValueError``:
+        no inclusion entry ID reaches this function, so 3.2.3's fallback applies
+        and every record the key signed is rejected.
+
+        ``revocation`` is the older store interface and still works: a container
+        of revoked key identifiers or a callable performing a live lookup. The
+        trusted key is rejected if it is listed, or if the store cannot answer.
+        A store that answers "not listed" is a check performed; the result reports
+        ``verified`` with ``source: "store"`` and no horizon, because a store has
+        none. Identifiers are the key's RFC 7638 thumbprint (``jwk_thumbprint``)
+        and its ``kid``, and the check reads the trusted key, never
+        ``record["cnf"]["jwk"]``.
+
+        With neither a bundle nor a store the result reports
+        ``no_check_performed``. That is the honest offline default, and it is
+        what the old ``None`` return withheld: verification that proves the record
+        was validly signed by this key, and nothing about whether the key is still
+        trusted. See ``LIMITATIONS.md``.
+
+        The outcome is a value in the result rather than an exception or a
+        separate entry point, so a caller has to handle it to know it. A caller
+        who discards the return has the fail-open behaviour the old signature
+        had; the alternatives were worse, and the reasoning is on issue #190.
     """
     import time
     from hmac import compare_digest
+
+    from agentrust_trace.revocation import (
+        NO_CHECK,
+        RevocationCheck,
+        VerificationResult,
+        check_bundle,
+    )
+
+    if now is None:
+        verification_time = int(time.time())
+    elif isinstance(now, bool) or not isinstance(now, int):
+        raise ValueError("now must be an integer Unix timestamp in seconds, or None")
+    else:
+        verification_time = now
+    if max_bundle_age_seconds < 0:
+        raise ValueError("max_bundle_age_seconds must be non-negative")
+    if max_future_skew_seconds < 0:
+        raise ValueError("max_future_skew_seconds must be non-negative")
 
     from cryptography.exceptions import InvalidSignature as _InvalidSignature  # noqa: F401
 
     # Profile first: refuse semantics this build does not implement before spending
     # any work on the record.
+    if not isinstance(record, dict):
+        raise ValueError(
+            f"record must be a JSON object, got {type(record).__name__}. A Trust Record "
+            "is always an object, and what a verifier is handed is by definition not yet "
+            "established to be one."
+        )
     profile = record.get("eat_profile")
     if not isinstance(profile, str) or not profile:
         raise ValueError(
@@ -338,7 +552,7 @@ def verify_record(
             raise ValueError(
                 f"record carries the superseded v0.1 profile {profile!r}. "
                 "spec/trace-v0.2.md section 2: the cutover is cutover, not "
-                "coexistence — a v0.2 verifier rejects the v0.1 identifier, which "
+                "coexistence: a v0.2 verifier rejects the v0.1 identifier, which "
                 "was minted under a domain the project does not own."
             )
         raise ValueError(
@@ -352,6 +566,21 @@ def verify_record(
         raise ValueError("record has no 'signature' field")
 
     sig_bytes = _b64url_decode(sig_b64, field="signature")
+
+    # Signature validity is not schema validity. Enforce the canonical profile
+    # shape here so callers cannot accidentally treat a signed object carrying
+    # unknown fields, missing required claims, or invalid nested values as a
+    # verified TRACE Trust Record. Signature presence and encoding are checked
+    # first so the public API preserves its specific envelope errors.
+    from agentrust_trace.validate import validate_json
+
+    try:
+        validate_json(record)
+    except ValidationError as exc:
+        location = ".".join(str(part) for part in exc.absolute_path) or "<record>"
+        raise ValueError(
+            f"record does not conform to the TRACE v0.2 schema at {location}: {exc.message}"
+        ) from exc
 
     # Resolve the trusted public key. A trusted key is required: a record cannot
     # authenticate itself with the key it embeds.
@@ -377,8 +606,10 @@ def verify_record(
 
     if isinstance(public_key_or_jwk, dict):
         pub = _pubkey_from_jwk(public_key_or_jwk)
+        trusted_jwk = public_key_or_jwk
     else:
         pub = public_key_or_jwk
+        trusted_jwk = _jwk_from_public_key(pub)
 
     # Revocation: signature validity is permanent, trust is not. A key compromised
     # after issuance still produces records that verify, so the only place the
@@ -390,19 +621,56 @@ def verify_record(
     # allow_embedded_key=True the two are the same object, and that path is already
     # documented as proving internal consistency only.
     if revocation is not None:
-        trusted_jwk = (
-            public_key_or_jwk
-            if isinstance(public_key_or_jwk, dict)
-            else _jwk_from_public_key(pub)
-        )
         _check_not_revoked(trusted_jwk, revocation)
 
+    # What the revocation check reports. The bundle governs when present; a store
+    # consulted beside it is recorded as consulted. Neither present: say so.
+    revocation_check: RevocationCheck
+    if revocation_bundle is not None:
+        revocation_check = check_bundle(
+            revocation_bundle,
+            trusted_key_identifiers=_key_identifiers(trusted_jwk),
+            trusted_bundle_keys=trusted_bundle_keys or (),
+            now=verification_time,
+            max_bundle_age_seconds=max_bundle_age_seconds,
+            max_future_skew_seconds=max_future_skew_seconds,
+        )
+        if revocation is not None:
+            revocation_check = RevocationCheck(
+                outcome=revocation_check.outcome,
+                cause=revocation_check.cause,
+                evidence={**revocation_check.evidence, "store": "consulted"},
+            )
+    elif revocation is not None:
+        revocation_check = RevocationCheck(outcome="verified", evidence={"source": "store"})
+    else:
+        revocation_check = NO_CHECK
+
+    # The signature binding is defined as a signature made by the key in cnf.
+    # Verifying with a caller-pinned key is necessary for authenticity, but it
+    # must not permit a trusted signer to authenticate a record that names a
+    # different confirmation key for downstream proof-of-possession checks.
+    cnf = record.get("cnf")
+    embedded_jwk = cnf.get("jwk") if isinstance(cnf, dict) else None
+    if not isinstance(embedded_jwk, dict):
+        raise ValueError("record has no valid cnf.jwk confirmation key")
+    _pubkey_from_jwk(embedded_jwk)
+    if not compare_digest(jwk_thumbprint(embedded_jwk), jwk_thumbprint(trusted_jwk)):
+        raise ValueError(
+            "record cnf.jwk does not identify the trusted key that verifies its signature"
+        )
+
     # Freshness: bound the age of the record against its issued-at timestamp.
+    iat = record.get("iat")
+    if not isinstance(iat, int) or isinstance(iat, bool):
+        raise ValueError("record has no valid integer 'iat' for freshness check")
+    age = verification_time - iat
+    if age < -max_future_skew_seconds:
+        raise ValueError(
+            f"record is dated {int(-age)}s in the future, exceeds "
+            f"max_future_skew_seconds={max_future_skew_seconds}"
+        )
     if max_age_seconds is not None:
-        iat = record.get("iat")
-        if not isinstance(iat, int | float) or isinstance(iat, bool):
-            raise ValueError("record has no valid integer 'iat' for freshness check")
-        age = time.time() - iat
         if age > max_age_seconds:
             raise ValueError(
                 f"record is stale: iat is {int(age)}s old, exceeds max_age_seconds="
@@ -420,3 +688,8 @@ def verify_record(
     msg = _canonical_bytes(record_no_sig)
 
     pub.verify(sig_bytes, msg)  # raises InvalidSignature on failure
+
+    return VerificationResult(
+        revocation=revocation_check,
+        trusted_key_thumbprint=jwk_thumbprint(trusted_jwk),
+    )

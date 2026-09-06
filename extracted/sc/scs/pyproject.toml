@@ -7,7 +7,7 @@ requires = [
 
 [project]
 name = 'scs'
-version = "3.2.11"
+version = "3.3.1"
 description = 'Splitting conic solver'
 readme = 'README.md'
 requires-python = '>=3.9'
@@ -16,10 +16,14 @@ classifiers = [
     'Programming Language :: C',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: 3 :: Only',
+    'Programming Language :: Python :: Free Threading :: 3 - Stable',
     'Programming Language :: Python :: Implementation :: CPython',
     'Operating System :: Microsoft :: Windows',
     'Operating System :: POSIX',
@@ -35,21 +39,13 @@ dependencies = [
 ]
 
 [tool.cibuildwheel]
-# Load SCS source submodule, already done in CI/CD
-before-all = "git submodule update --init"
 skip = [
-  "pp*", # Disable building PyPy wheels on all platforms
   "*-win32", # fails on locating Python headers, probably meson.build is misconfigured
-  "cp37*musllinux*", # doesn't install, Scipy seems to be broken
-  "cp38*musllinux*", # doesn't install, Scipy seems to be broken
   "*musllinux*aarch64*" # no Scipy wheels for this
 ]
 # Test
 test-requires = "pytest"
-test-command = [
-  "echo wheel installed successfully",
-  "pytest {package}/test",
-]
+test-command = "pytest {package}/test"
 # we use the newer image for aarch64, for this there are openblas dev libraries
 manylinux-aarch64-image = "manylinux_2_28"
 
@@ -64,22 +60,28 @@ archs = [
   ]
 
 [tool.cibuildwheel.windows]
+before-build = "pip install delvewheel"
 # This will probably become default in newer cibuildwheels versions
-repair-wheel-command = [
-  "pip install delvewheel",
-  "delvewheel repair -w {dest_dir} {wheel}"
-]
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 
 # Openblas installation for 3 different linux images
 
+# x86_64 Linux: the default backends link vendored OpenBLAS; _scs_mkl links
+# MKL statically (Intel's mkl-static archives, sequential, symbols hidden) so
+# the wheel is self-contained. The 3.3.0 wheels vendored dynamic MKL without
+# its dlopen'd CPU dispatch kernels, which auditwheel cannot see, and every
+# solve aborted on machines without MKL on the loader path (cvxgrp/scs#423).
+# Hence: nothing in `environment` may point the loader at build-machine
+# libraries, and publishing waits for wheel_smoke_clean_env (a pristine
+# container solving with every backend) and wheel_audit.
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux_x86_64"
 inherit.before-all = "append"
 before-all = [
-  # "yum check-update", "yum search blas",
-  # netlib blas/lapack fallback compiles and tests (on aarch64) but is super slow
-  # "((yum install -y openblas-devel) || (yum install -y blas-devel lapack-devel))",
-  "yum install -y openblas-devel"]
+  "dnf install -y openblas-devel",
+  "bash /project/.github/scripts/install_mkl_static.sh /opt/mkl-static",
+]
+config-settings = {setup-args = "-Dmkl_static_prefix=/opt/mkl-static"}
 
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux_aarch64"
@@ -99,3 +101,10 @@ before-all = [
 testpaths = [
     "test",
 ]
+faulthandler_timeout = 600
+markers = [
+    "thread_unsafe: mark test as unsafe to run in parallel threads (pytest-run-parallel)",
+]
+# pytest-run-parallel: functions that are not thread-safe
+# (capsys/capfd are detected automatically by pytest-run-parallel)
+thread_unsafe_functions = ["numpy.random.seed"]

@@ -3,6 +3,7 @@ from enum import Enum
 
 class CreateAppRawSourceJsonBodyPolicyExecutionMode(str, Enum):
     ANONYMOUS = "anonymous"
+    GUEST = "guest"
     PUBLISHER = "publisher"
     VIEWER = "viewer"
 

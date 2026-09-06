@@ -486,3 +486,5 @@ class DATA_PT_lens(CameraButtonsPanel, _bpy_types.Panel):
 
         :param context:
         """
+
+def camera_dof_panorama_unsupported(context, cam) -> None: ...

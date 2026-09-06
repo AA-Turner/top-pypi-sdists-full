@@ -1,0 +1,219 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""Delete cell tool implementation."""
+
+from pathlib import Path
+from typing import Any
+
+import nbformat
+from jupyter_server_client import JupyterServerClient
+
+from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.utils import (
+    clean_notebook_outputs,
+    get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
+)
+
+
+class DeleteCellTool(BaseTool):
+    """Tool to delete specific cells from a notebook."""
+
+    def _get_cell_source(self, cell: Any) -> str:
+        """Get the cell source from the cell"""
+        cell_source = cell.get("source", "")
+        if isinstance(cell_source, list):
+            return "".join(cell_source)
+        else:
+            return str(cell_source)
+
+    def _validate_indices(self, cell_indices: list[int], total_cells: int) -> None:
+        """Validate that every index is a valid 0-based cell position.
+
+        Args:
+            cell_indices: Indices of cells to delete (0-based)
+            total_cells: Total number of cells in the notebook
+
+        Raises:
+            ValueError: When any index is negative or >= total_cells. Checking
+                each index (rather than only ``max(cell_indices)``) rejects
+                out-of-range negatives, which would otherwise raise a raw
+                IndexError or silently delete the wrong cell.
+            ValueError: When cell_indices contains a duplicate. A repeated
+                index pops the same position twice, deleting the neighboring
+                cell that shifted into that slot after the first pop while
+                the tool's own report still names only the intended index.
+        """
+        if len(set(cell_indices)) != len(cell_indices):
+            raise ValueError(f"cell_indices contains duplicate values: {cell_indices}")
+        for cell_index in cell_indices:
+            if cell_index < 0 or cell_index >= total_cells:
+                raise ValueError(
+                    f"Cell index {cell_index} is out of range. "
+                    f"Notebook has {total_cells} cells."
+                )
+
+    async def _delete_cell_ydoc(
+        self, serverapp: Any, notebook_path: str, cell_indices: list[int]
+    ) -> list:
+        """Delete cell using YDoc (collaborative editing mode).
+
+        Args:
+            serverapp: Jupyter ServerApp instance
+            notebook_path: Path to the notebook
+            cell_indices: List of indices of cells to delete
+
+        Returns:
+            NotebookNode
+        """
+        nb = await get_notebook_model(serverapp, notebook_path)
+        if nb:
+            self._validate_indices(cell_indices, len(nb))
+
+            cells = nb.delete_many_cells(cell_indices)
+            return cells
+        else:
+            # YDoc not available, use file operations
+            return await self._delete_cell_file(notebook_path, cell_indices)
+
+    async def _delete_cell_file(self, notebook_path: str, cell_indices: list[int]) -> list:
+        """Delete cell using file operations (non-collaborative mode).
+
+        Args:
+            notebook_path: Absolute path to the notebook
+            cell_indices: List of indices of cells to delete
+
+        Returns:
+            List of deleted cells
+        """
+        # Read notebook file as version 4 for consistency
+        with open(notebook_path, encoding="utf-8") as f:
+            notebook = nbformat.read(f, as_version=4)
+
+        clean_notebook_outputs(notebook)
+
+        self._validate_indices(cell_indices, len(notebook.cells))
+
+        deleted_cells = []
+        for cell_index in cell_indices:
+            cell = notebook.cells[cell_index]
+            result = {
+                "index": cell_index,
+                "cell_type": cell.cell_type,
+                "source": self._get_cell_source(cell),
+            }
+            deleted_cells.append(result)
+
+        # Delete the cell
+        for cell_index in sorted(cell_indices, reverse=True):
+            notebook.cells.pop(cell_index)
+
+        # Write back to file
+        with open(notebook_path, "w", encoding="utf-8") as f:
+            nbformat.write(notebook, f)
+
+        return deleted_cells
+
+    async def _delete_cell_websocket(
+        self,
+        notebook_manager: NotebookManager,
+        cell_indices: list[int],
+        notebook_name: str | None = None,
+    ) -> list:
+        """Delete cell using WebSocket connection (MCP_SERVER mode).
+
+        Args:
+            notebook_manager: Notebook manager instance
+            cell_indices: List of indices of cells to delete
+            notebook_name: Notebook to target; the currently activated one if None
+
+        Returns:
+            List of deleted cell information
+        """
+        async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook:
+            self._validate_indices(cell_indices, len(notebook))
+
+            cells = notebook.delete_many_cells(cell_indices)
+            return cells
+
+    async def execute(
+        self,
+        mode: ServerMode,
+        sandbox_server_client: JupyterServerClient | None = None,
+        contents_manager: Any | None = None,
+        kernel_manager: Any | None = None,
+        kernel_spec_manager: Any | None = None,
+        notebook_manager: NotebookManager | None = None,
+        # Tool-specific parameters
+        cell_indices: list[int] = None,
+        include_source: bool = True,
+        notebook_name: str | None = None,
+        **kwargs,
+    ) -> str:
+        """Execute the delete_cell tool.
+
+        This tool supports three modes of operation:
+
+        1. JUPYTER_SERVER mode with YDoc (collaborative):
+           - Checks if notebook is open in a collaborative session
+           - Uses YDoc for real-time collaborative editing
+           - Changes are immediately visible to all connected users
+
+        2. JUPYTER_SERVER mode without YDoc (file-based):
+           - Falls back to direct file operations using nbformat
+           - Suitable when notebook is not actively being edited
+
+        3. MCP_SERVER mode (WebSocket):
+           - Uses WebSocket connection to remote Jupyter server
+           - Accesses YDoc through NbModelClient
+
+        Args:
+            mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
+            sandbox_server_client: HTTP client for MCP_SERVER mode
+            contents_manager: Direct API access for JUPYTER_SERVER mode
+            notebook_manager: Notebook manager instance
+            cell_index: Index of the cell to delete (0-based)
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
+            **kwargs: Additional parameters
+
+        Returns:
+            Success message
+        """
+        if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+            # JUPYTER_SERVER mode: Try YDoc first, fall back to file operations
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+
+            context = get_server_context()
+            serverapp = context.serverapp
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
+
+            # Resolve to absolute path
+            if serverapp and not Path(notebook_path).is_absolute():
+                root_dir = serverapp.root_dir
+                notebook_path = str(Path(root_dir) / notebook_path)
+
+            if serverapp:
+                # Try YDoc approach first
+                cells = await self._delete_cell_ydoc(serverapp, notebook_path, cell_indices)
+            else:
+                # Fall back to file operations
+                cells = await self._delete_cell_file(notebook_path, cell_indices)
+
+        elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
+            # MCP_SERVER mode: Use WebSocket connection
+            cells = await self._delete_cell_websocket(notebook_manager, cell_indices, notebook_name)
+        else:
+            raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
+
+        info_list = []
+        for cell_index, cell_info in zip(cell_indices, cells, strict=False):
+            info_list.append(f"Cell {cell_index} ({cell_info['cell_type']}) deleted successfully.")
+            if include_source:
+                info_list.append(f"deleted cell source:\n{cell_info['source']}")
+                info_list.append("\n---\n")
+
+        return "\n".join(info_list)

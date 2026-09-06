@@ -25,6 +25,8 @@ class ListAuditLogsResponse200ItemOperation(str, Enum):
     IGROUP_CREATE = "igroup.create"
     IGROUP_DELETE = "igroup.delete"
     IGROUP_REMOVEUSER = "igroup.removeuser"
+    INSTANCE_GROUPS_JIT_ADDUSER = "instance_groups.jit_adduser"
+    INSTANCE_GROUPS_JIT_REMOVEUSER = "instance_groups.jit_removeuser"
     JOBS = "jobs"
     JOBS_CANCEL = "jobs.cancel"
     JOBS_DELETE = "jobs.delete"

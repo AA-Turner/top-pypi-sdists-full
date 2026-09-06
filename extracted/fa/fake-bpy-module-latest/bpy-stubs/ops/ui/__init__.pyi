@@ -446,6 +446,34 @@ class override_remove_button(bpy.ops._BPyOpsSubModOp):
         :return: Result of the operator call.
         """
 
+class region_clear_filter(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Clear and hide the region search filter
+
+        :param execution_context:
+        :param undo:
+        :return: Result of the operator call.
+        """
+
+class region_start_filter(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Shows and starts entering region filter text
+
+        :param execution_context:
+        :param undo:
+        :return: Result of the operator call.
+        """
+
 class reloadtranslation(bpy.ops._BPyOpsSubModOp):
     def __new__(
         cls,

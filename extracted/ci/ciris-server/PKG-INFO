@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: ciris-server
-Version: 0.5.196
-Requires-Dist: ciris-client>=0.5.190,<0.6
+Version: 0.5.198
+Requires-Dist: ciris-client>=0.5.202,<0.6
 License-File: LICENSE
 Summary: The fabric node — the federation's headless cohabitation runtime (registry + lens [+ node] over one shared substrate), as the abi3 wheel CIRISAgent consumes. agent = fabric node + brain.
 Author-email: Eric Moore <eric@ciris.ai>
@@ -312,7 +312,7 @@ Headless works too:
 ```sh
 pip install ciris-server        # the abi3 wheel (or: cargo build --release)
 ciris-server                    # boots a zero-setup node; unclaimed → prints NodeCode + claim PIN
-ciris-server identity create --backend pkcs11   # YubiKey-backed CIRIS-V2- fedcode
+ciris-server identity create --backend pkcs11   # YubiKey-backed CIRIS-V3- fedcode
 ```
 
 Data under `$CIRIS_HOME`, SQLite corpus (Postgres via config), Reticulum
@@ -351,7 +351,7 @@ itself, while a quorum roots to `humanity-accord`. The charter is 2-of-2 over a
 — a replicated row proves its own m-of-n rather than deferring to the bundle it
 arrived in. Two humans to halt, two to legitimize.
 
-Substrate pins: **persist v38.7.0 / edge v18.12.0 / verify v14.0.0** — hybrid PQ
+Substrate pins: **persist v41.2.0 / edge v20.3.0 / verify v14.2.0** — hybrid PQ
 throughout, Registry-of-Record admission, drift-witnessed policy hashes. Edge
 v15.7.x adds the realtime A/V spine (MLS X-Wing epoch keys, signed Welcome,
 fragment ARQ); the server exercises publisher → relay → subscriber

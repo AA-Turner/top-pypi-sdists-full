@@ -120,17 +120,13 @@
 //! - `validate_owner_root(root: str) -> None`
 //! - `validate_agent_owner(username: str, machine_name: str) -> None`
 //! - `validate_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> None`
-//! - `classify_agent_ownership(source_machine_name: str, target_username: str, target_machine_name: str, source_username: str | None = None) -> str`
-//! - `classify_legacy_v1_group_ownership(group_machine_name: str, target_username: str, target_machine_name: str, v2_hood_published: bool, proven_entry_count: int, total_entry_count: int) -> str`
 //! - `commit_shas_equivalent(left: str, right: str) -> bool`
 //! - `normalize_agent_archive_name(name: str) -> str`
 //! - `normalize_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> str`
 //! - `globalize_agent_name(local_name: str, username: str, machine_name: str) -> str`
 //! - `globalize_owned_agent_name(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> str`
-//! - `globalize_legacy_agent_name(legacy_name: str, username: str, machine_name: str) -> str`
 //! - `foreign_agent_owner_root(name: str, username: str, machine_name: str, known_owner_roots: list[str] | None = None) -> str | None`
 //! - `strip_global_agent_name(global_name: str, username: str, machine_name: str) -> str`
-//! - `localize_agent_name(global_name: str, source_machine_name: str, target_username: str, target_machine_name: str, source_username: str | None = None) -> str`
 //! - `parse_agent_family_name(name: str) -> dict`
 //! - `parse_owned_agent_name(name: str, known_owner_roots: list[str] | None = None) -> dict`
 //! - `agent_local_hood(name: str, known_owner_roots: list[str] | None = None) -> str`
@@ -232,6 +228,8 @@
 //! - `prompt_artifact_rewrite_links(prompt: str, records: list[dict], resolver: Callable[[dict], str | None]) -> dict`
 //! - `prompt_artifact_wire_schema_version() -> int`
 //! - `artifact_files_query(index_path: str, filters: dict) -> list[dict]`
+//! - `artifact_context_query(index_path: str, groups: list[dict]) -> list[dict]`
+//! - `artifact_context_query_wire_schema_version() -> int`
 //! - `artifact_file_materialize_vcs(request: dict) -> dict`
 //! - `artifact_file_query_wire_schema_version() -> int`
 //! - `artifact_file_store_economics(index_path: str, options: dict) -> dict`
@@ -250,6 +248,17 @@
 //! - `sdd_plan_header_block_upsert_section(document: str, section: dict, remove_legacy: bool, allow_resolved_mixed: bool) -> str`
 //! - `sdd_plan_header_block_replace(document: str, sections: list[dict], remove_legacy: bool, allow_resolved_mixed: bool) -> str`
 //! - `sdd_plan_header_block_remove_section(document: str, kind: str, remove_legacy: bool, allow_resolved_mixed: bool) -> str`
+//! - `prompt_archive_inventory_wire_schema_version() -> int`
+//! - `prompt_archive_inventory(root: str, request: dict | None = None) -> dict`
+//! - `migration_wire_schema_version() -> int`
+//! - `migration_manifest_normalize(manifest: dict) -> dict`
+//! - `migration_journal_record_normalize(record: dict) -> dict`
+//! - `migration_plan_next_step(manifest: dict, records: list[dict], observed_source_digests: dict) -> dict`
+//! - `migration_tree_digest(root: str) -> dict`
+//! - `migration_fingerprint(value: Any) -> str`
+//! - `migration_residue_classify(entry: dict, facts: dict) -> dict`
+//! - `migration_reconcile_procs(legacy_rows: list[dict], canonical_proc_ids: list[str | dict]) -> dict`
+//! - `migration_acquire_bounded_lock(lock_path: str, timeout_ms: int, operation: str) -> MigrationBoundedLockHandle`
 //! - `at_reference_context(text: str, line: int, character: int, known_kinds:
 //!   Sequence[str] | None = None) -> dict | None`
 //! - `AtReferenceInventory(payloads: Sequence[dict])`
@@ -462,13 +471,9 @@ use sase_core::agent_identity::{
     agent_name_ancestors_with_owner_roots as core_agent_name_ancestors_with_owner_roots,
     agent_name_in_hood as core_agent_name_in_hood,
     agent_name_in_hood_with_owner_roots as core_agent_name_in_hood_with_owner_roots,
-    classify_agent_ownership as core_classify_agent_ownership,
-    classify_legacy_v1_group_ownership as core_classify_legacy_v1_group_ownership,
     foreign_agent_owner_root as core_foreign_agent_owner_root,
     globalize_agent_name as core_globalize_agent_name,
-    globalize_legacy_agent_name as core_globalize_legacy_agent_name,
     globalize_owned_agent_name as core_globalize_owned_agent_name,
-    localize_agent_name as core_localize_agent_name,
     normalize_agent_archive_name as core_normalize_agent_archive_name,
     normalize_owned_agent_name as core_normalize_owned_agent_name,
     parse_agent_family_name as core_parse_agent_family_name,
@@ -481,8 +486,7 @@ use sase_core::agent_identity::{
     validate_agent_username as core_validate_agent_username,
     validate_owned_agent_name as core_validate_owned_agent_name,
     validate_owner_root as core_validate_owner_root, AgentOwnerIdentity,
-    AgentRelationshipBatchWire, AgentSourceOwnerIdentity,
-    LegacyV1GroupOwnershipEvidence, AGENT_RELATIONSHIP_SCHEMA_VERSION,
+    AgentRelationshipBatchWire, AGENT_RELATIONSHIP_SCHEMA_VERSION,
 };
 use sase_core::agent_launch::{
     admission_unit_results as core_admission_unit_results,
@@ -589,14 +593,16 @@ use sase_core::artifact_file::{
     materialize_vcs_artifact_file as core_materialize_vcs_artifact_file,
     plan_artifact_file_retention as core_plan_artifact_file_retention,
     purge_artifact_file_trash as core_purge_artifact_file_trash,
+    query_artifact_context as core_query_artifact_context,
     query_artifact_files as core_query_artifact_files,
     restore_artifact_file_trash as core_restore_artifact_file_trash,
     trash_artifact_file as core_trash_artifact_file,
-    ArtifactFileEconomicsOptionsWire, ArtifactFileQueryError,
-    ArtifactFileQueryFiltersWire, ArtifactFileRetentionPolicyWire,
-    ArtifactFileTrashPurgeRequestWire, ArtifactFileTrashRequestWire,
-    ArtifactFileTrashRestoreRequestWire,
+    ArtifactContextProducerGroupWire, ArtifactFileEconomicsOptionsWire,
+    ArtifactFileQueryError, ArtifactFileQueryFiltersWire,
+    ArtifactFileRetentionPolicyWire, ArtifactFileTrashPurgeRequestWire,
+    ArtifactFileTrashRequestWire, ArtifactFileTrashRestoreRequestWire,
     ArtifactFileVcsMaterializationRequestWire,
+    ARTIFACT_CONTEXT_QUERY_WIRE_SCHEMA_VERSION,
     ARTIFACT_FILE_LIFECYCLE_WIRE_SCHEMA_VERSION,
     ARTIFACT_FILE_QUERY_WIRE_SCHEMA_VERSION,
 };
@@ -869,6 +875,18 @@ use sase_core::markdown_link_refs::{
     MarkdownReferenceDefinitionWire, MarkdownReferenceScanWire,
     MARKDOWN_LINK_REFS_WIRE_SCHEMA_VERSION,
 };
+use sase_core::migration::{
+    acquire_bounded_lock as core_migration_acquire_bounded_lock,
+    classify as core_migration_residue_classify,
+    fingerprint as core_migration_fingerprint,
+    plan_next_step as core_migration_plan_next_step,
+    reconcile_plan as core_migration_reconcile_procs,
+    tree_digest as core_migration_tree_digest, MigrationCanonicalProcRefWire,
+    MigrationDigestError, MigrationHeldLock, MigrationJournalRecord,
+    MigrationLegacyProcRowWire, MigrationLockError, MigrationManifest,
+    MigrationResidueEntryWire, MigrationResidueFactsWire,
+    MIGRATION_WIRE_SCHEMA_VERSION,
+};
 use sase_core::model_route::{
     select_epic_land_model as core_select_epic_land_model,
     size_model_route_from_name as core_size_model_route_from_name,
@@ -925,6 +943,11 @@ use sase_core::project_spec::{
     apply_project_name_update as core_apply_project_name_update,
     list_project_records as core_list_project_records,
     read_project_lifecycle_from_content as core_read_project_lifecycle_from_content,
+};
+use sase_core::prompt_archive::{
+    prompt_archive_inventory as core_prompt_archive_inventory,
+    PromptArchiveInventoryRequestWire,
+    PROMPT_ARCHIVE_INVENTORY_WIRE_SCHEMA_VERSION,
 };
 use sase_core::prompt_artifact::{
     artifact_pool_filename as core_artifact_pool_filename,
@@ -1066,6 +1089,30 @@ struct PyAtReferenceInventory {
 #[derive(Clone, Debug)]
 struct PyGlossaryCatalogHandle {
     catalog: CoreCompiledGlossaryCatalog,
+}
+
+#[pyclass(name = "MigrationBoundedLockHandle", module = "sase_core_rs")]
+#[derive(Debug)]
+struct PyMigrationBoundedLockHandle {
+    lock: Option<MigrationHeldLock>,
+}
+
+#[pymethods]
+impl PyMigrationBoundedLockHandle {
+    #[getter]
+    fn waited_ms(&self) -> u64 {
+        self.lock
+            .as_ref()
+            .map(MigrationHeldLock::waited_ms)
+            .unwrap_or(0)
+    }
+
+    fn release(&mut self) -> PyResult<()> {
+        let Some(mut lock) = self.lock.take() else {
+            return Ok(());
+        };
+        lock.release().map_err(migration_lock_error_to_pyerr)
+    }
 }
 
 #[pymethods]
@@ -1288,24 +1335,6 @@ fn explicit_owner(
         .map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
-fn source_owner(
-    source_username: Option<&str>,
-    source_machine_name: &str,
-) -> PyResult<AgentSourceOwnerIdentity> {
-    let source = match source_username {
-        Some(username) => AgentSourceOwnerIdentity::V2 {
-            owner: explicit_owner(username, source_machine_name)?,
-        },
-        None => AgentSourceOwnerIdentity::UsernameUnknownV1 {
-            machine_name: source_machine_name.to_string(),
-        },
-    };
-    source
-        .validate()
-        .map_err(|error| PyValueError::new_err(error.to_string()))?;
-    Ok(source)
-}
-
 fn identity_wire_to_py<'py, T: serde::Serialize>(
     py: Python<'py>,
     value: &T,
@@ -1367,54 +1396,6 @@ fn py_validate_owned_agent_name(
 #[pyo3(name = "validate_agent_owner")]
 fn py_validate_agent_owner(username: &str, machine_name: &str) -> PyResult<()> {
     explicit_owner(username, machine_name).map(|_| ())
-}
-
-#[pyfunction]
-#[pyo3(
-    name = "classify_agent_ownership",
-    signature = (
-        source_machine_name,
-        target_username,
-        target_machine_name,
-        source_username = None
-    )
-)]
-fn py_classify_agent_ownership(
-    source_machine_name: &str,
-    target_username: &str,
-    target_machine_name: &str,
-    source_username: Option<&str>,
-) -> PyResult<String> {
-    let source = source_owner(source_username, source_machine_name)?;
-    let target = explicit_owner(target_username, target_machine_name)?;
-    core_classify_agent_ownership(&source, &target)
-        .map(|classification| classification.as_str().to_string())
-        .map_err(|error| PyValueError::new_err(error.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(name = "classify_legacy_v1_group_ownership")]
-fn py_classify_legacy_v1_group_ownership(
-    group_machine_name: &str,
-    target_username: &str,
-    target_machine_name: &str,
-    v2_hood_published: bool,
-    proven_entry_count: usize,
-    total_entry_count: usize,
-) -> PyResult<String> {
-    let target = explicit_owner(target_username, target_machine_name)?;
-    let evidence = LegacyV1GroupOwnershipEvidence {
-        v2_hood_published,
-        proven_entry_count,
-        total_entry_count,
-    };
-    core_classify_legacy_v1_group_ownership(
-        group_machine_name,
-        &target,
-        &evidence,
-    )
-    .map(|classification| classification.as_str().to_string())
-    .map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
 #[pyfunction]
@@ -1485,20 +1466,6 @@ fn py_globalize_owned_agent_name(
 }
 
 #[pyfunction]
-#[pyo3(name = "globalize_legacy_agent_name")]
-fn py_globalize_legacy_agent_name(
-    legacy_name: &str,
-    username: &str,
-    machine_name: &str,
-) -> PyResult<String> {
-    core_globalize_legacy_agent_name(
-        legacy_name,
-        &explicit_owner(username, machine_name)?,
-    )
-    .map_err(|error| PyValueError::new_err(error.to_string()))
-}
-
-#[pyfunction]
 #[pyo3(
     name = "foreign_agent_owner_root",
     signature = (name, username, machine_name, known_owner_roots = None)
@@ -1528,32 +1495,6 @@ fn py_strip_global_agent_name(
     core_strip_global_agent_name(
         global_name,
         &explicit_owner(username, machine_name)?,
-    )
-    .map_err(|error| PyValueError::new_err(error.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(
-    name = "localize_agent_name",
-    signature = (
-        global_name,
-        source_machine_name,
-        target_username,
-        target_machine_name,
-        source_username = None
-    )
-)]
-fn py_localize_agent_name(
-    global_name: &str,
-    source_machine_name: &str,
-    target_username: &str,
-    target_machine_name: &str,
-    source_username: Option<&str>,
-) -> PyResult<String> {
-    core_localize_agent_name(
-        global_name,
-        &source_owner(source_username, source_machine_name)?,
-        &explicit_owner(target_username, target_machine_name)?,
     )
     .map_err(|error| PyValueError::new_err(error.to_string()))
 }
@@ -5949,6 +5890,48 @@ fn py_artifact_file_query_wire_schema_version() -> u64 {
     ARTIFACT_FILE_QUERY_WIRE_SCHEMA_VERSION
 }
 
+/// Batch-query non-chat artifact metadata for waited producers' exact
+/// artifact directories.
+///
+/// `groups` is a list of `{"wait_name": str, "agent_artifacts_dirs": [str]}`
+/// dicts in dependency order. Reads the tolerant index at most once, and
+/// only when at least one producer directory is requested.
+#[pyfunction]
+#[pyo3(name = "artifact_context_query")]
+fn py_artifact_context_query<'py>(
+    py: Python<'py>,
+    index_path: &str,
+    groups: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let groups =
+        serde_json::from_value::<Vec<ArtifactContextProducerGroupWire>>(
+            py_to_json_value(groups.as_any())?,
+        )
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+            "groups is not a valid list of ArtifactContextProducerGroupWire \
+                 dicts: {error}"
+        ))
+        })?;
+    let index_path = PathBuf::from(index_path);
+    let rows = py
+        .allow_threads(|| core_query_artifact_context(&index_path, &groups))
+        .map_err(artifact_file_query_error_to_pyerr)?;
+    let value = serde_json::to_value(rows).map_err(|error| {
+        PyValueError::new_err(format!(
+            "internal artifact-context query serialize error: {error}"
+        ))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the artifact-context query result wire version.
+#[pyfunction]
+#[pyo3(name = "artifact_context_query_wire_schema_version")]
+fn py_artifact_context_query_wire_schema_version() -> u64 {
+    ARTIFACT_CONTEXT_QUERY_WIRE_SCHEMA_VERSION
+}
+
 /// Materialize one VCS-backed artifact into its content-addressed cache.
 #[pyfunction]
 #[pyo3(name = "artifact_file_materialize_vcs")]
@@ -6240,6 +6223,289 @@ fn py_sdd_plan_header_block_remove_section(
         allow_resolved_mixed,
     )
     .map_err(plan_error_to_pyerr)
+}
+
+/// Return the prompt archive inventory wire schema version.
+#[pyfunction]
+#[pyo3(name = "prompt_archive_inventory_wire_schema_version")]
+fn py_prompt_archive_inventory_wire_schema_version() -> u64 {
+    PROMPT_ARCHIVE_INVENTORY_WIRE_SCHEMA_VERSION
+}
+
+/// Discover and parse canonical prompt archive documents.
+#[pyfunction]
+#[pyo3(name = "prompt_archive_inventory", signature = (root, request = None))]
+fn py_prompt_archive_inventory<'py>(
+    py: Python<'py>,
+    root: &str,
+    request: Option<&Bound<'py, PyDict>>,
+) -> PyResult<PyObject> {
+    let request = match request {
+        Some(dict) => {
+            let value = py_to_json_value(dict.as_any())?;
+            serde_json::from_value::<PromptArchiveInventoryRequestWire>(value)
+                .map_err(|error| {
+                    PyValueError::new_err(format!(
+                        "request is not a valid PromptArchiveInventoryRequestWire dict: {error}"
+                    ))
+                })?
+        }
+        None => PromptArchiveInventoryRequestWire::default(),
+    };
+    let root = PathBuf::from(root);
+    let inventory =
+        py.allow_threads(|| core_prompt_archive_inventory(&root, request));
+    let value = serde_json::to_value(&inventory).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_wire_schema_version")]
+fn py_migration_wire_schema_version() -> u32 {
+    MIGRATION_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_manifest_normalize")]
+fn py_migration_manifest_normalize<'py>(
+    py: Python<'py>,
+    manifest: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let manifest = migration_manifest_from_pydict(manifest)?;
+    migration_value_to_py(py, &manifest)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_journal_record_normalize")]
+fn py_migration_journal_record_normalize<'py>(
+    py: Python<'py>,
+    record: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let record = migration_journal_record_from_pydict(record)?;
+    migration_value_to_py(py, &record)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_plan_next_step")]
+fn py_migration_plan_next_step<'py>(
+    py: Python<'py>,
+    manifest: &Bound<'py, PyDict>,
+    records: &Bound<'py, PyList>,
+    observed_source_digests: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let manifest = migration_manifest_from_pydict(manifest)?;
+    let records = migration_journal_records_from_py_list(records)?;
+    let observed_source_digests =
+        migration_source_digests_from_pydict(observed_source_digests)?;
+    let plan = core_migration_plan_next_step(
+        &manifest,
+        &records,
+        &observed_source_digests,
+    );
+    migration_value_to_py(py, &plan)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_tree_digest")]
+fn py_migration_tree_digest<'py>(
+    py: Python<'py>,
+    root: &str,
+) -> PyResult<PyObject> {
+    let root = PathBuf::from(root);
+    let digest = py
+        .allow_threads(|| core_migration_tree_digest(&root))
+        .map_err(migration_digest_error_to_pyerr)?;
+    migration_value_to_py(py, &digest)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_fingerprint")]
+fn py_migration_fingerprint(value: &Bound<'_, PyAny>) -> PyResult<String> {
+    let value = py_to_json_value(value)?;
+    core_migration_fingerprint(&value).map_err(migration_digest_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_residue_classify")]
+fn py_migration_residue_classify<'py>(
+    py: Python<'py>,
+    entry: &Bound<'py, PyDict>,
+    facts: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let entry = migration_residue_entry_from_pydict(entry)?;
+    let facts = migration_residue_facts_from_pydict(facts)?;
+    let classification = core_migration_residue_classify(&entry, &facts);
+    migration_value_to_py(py, &classification)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_reconcile_procs")]
+fn py_migration_reconcile_procs<'py>(
+    py: Python<'py>,
+    legacy_rows: &Bound<'py, PyList>,
+    canonical_proc_ids: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let legacy_rows = migration_legacy_proc_rows_from_py_list(legacy_rows)?;
+    let canonical_proc_ids =
+        migration_canonical_proc_refs_from_py_list(canonical_proc_ids)?;
+    let plan =
+        core_migration_reconcile_procs(&legacy_rows, &canonical_proc_ids);
+    migration_value_to_py(py, &plan)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_acquire_bounded_lock")]
+fn py_migration_acquire_bounded_lock(
+    py: Python<'_>,
+    lock_path: &str,
+    timeout_ms: u64,
+    operation: &str,
+) -> PyResult<PyMigrationBoundedLockHandle> {
+    let lock_path = PathBuf::from(lock_path);
+    let lock = py
+        .allow_threads(|| {
+            core_migration_acquire_bounded_lock(
+                &lock_path, timeout_ms, operation,
+            )
+        })
+        .map_err(migration_lock_error_to_pyerr)?;
+    Ok(PyMigrationBoundedLockHandle { lock: Some(lock) })
+}
+
+fn migration_manifest_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<MigrationManifest> {
+    let value = py_to_json_value(dict.as_any())?;
+    serde_json::from_value(value).map_err(|error| {
+        PyValueError::new_err(format!(
+            "manifest is not a valid MigrationManifest dict: {error}"
+        ))
+    })
+}
+
+fn migration_journal_record_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<MigrationJournalRecord> {
+    let value = py_to_json_value(dict.as_any())?;
+    serde_json::from_value(value).map_err(|error| {
+        PyValueError::new_err(format!(
+            "record is not a valid MigrationJournalRecord dict: {error}"
+        ))
+    })
+}
+
+fn migration_journal_records_from_py_list(
+    records: &Bound<'_, PyList>,
+) -> PyResult<Vec<MigrationJournalRecord>> {
+    records
+        .iter()
+        .enumerate()
+        .map(|(index, record)| {
+            let value = py_to_json_value(&record)?;
+            serde_json::from_value(value).map_err(|error| {
+                PyValueError::new_err(format!(
+                    "records[{index}] is not a valid MigrationJournalRecord dict: {error}"
+                ))
+            })
+        })
+        .collect()
+}
+
+fn migration_source_digests_from_pydict(
+    digests: &Bound<'_, PyDict>,
+) -> PyResult<BTreeMap<String, String>> {
+    serde_json::from_value(py_to_json_value(digests.as_any())?).map_err(
+        |error| {
+            PyValueError::new_err(format!(
+                "observed_source_digests must be a string-to-string dict: {error}"
+            ))
+        },
+    )
+}
+
+fn migration_residue_entry_from_pydict(
+    entry: &Bound<'_, PyDict>,
+) -> PyResult<MigrationResidueEntryWire> {
+    serde_json::from_value(py_to_json_value(entry.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "entry is not a valid MigrationResidueEntryWire dict: {error}"
+        ))
+    })
+}
+
+fn migration_residue_facts_from_pydict(
+    facts: &Bound<'_, PyDict>,
+) -> PyResult<MigrationResidueFactsWire> {
+    serde_json::from_value(py_to_json_value(facts.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "facts is not a valid MigrationResidueFactsWire dict: {error}"
+        ))
+    })
+}
+
+fn migration_legacy_proc_rows_from_py_list(
+    rows: &Bound<'_, PyList>,
+) -> PyResult<Vec<MigrationLegacyProcRowWire>> {
+    rows.iter()
+        .enumerate()
+        .map(|(index, row)| {
+            serde_json::from_value(py_to_json_value(&row)?).map_err(|error| {
+                PyValueError::new_err(format!(
+                    "legacy_rows[{index}] is not a valid MigrationLegacyProcRowWire dict: {error}"
+                ))
+            })
+        })
+        .collect()
+}
+
+fn migration_canonical_proc_refs_from_py_list(
+    refs: &Bound<'_, PyList>,
+) -> PyResult<Vec<MigrationCanonicalProcRefWire>> {
+    refs.iter()
+        .enumerate()
+        .map(|(index, proc_ref)| {
+            if let Ok(proc_id) = proc_ref.extract::<String>() {
+                return Ok(MigrationCanonicalProcRefWire {
+                    proc_id,
+                    ..Default::default()
+                });
+            }
+            serde_json::from_value(py_to_json_value(&proc_ref)?).map_err(
+                |error| {
+                    PyValueError::new_err(format!(
+                        "canonical_proc_ids[{index}] is not a string or MigrationCanonicalProcRefWire dict: {error}"
+                    ))
+                },
+            )
+        })
+        .collect()
+}
+
+fn migration_value_to_py<'py, T: serde::Serialize>(
+    py: Python<'py>,
+    value: &T,
+) -> PyResult<PyObject> {
+    let value = serde_json::to_value(value).map_err(|error| {
+        PyValueError::new_err(format!(
+            "internal migration serialize error: {error}"
+        ))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+fn migration_digest_error_to_pyerr(error: MigrationDigestError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn migration_lock_error_to_pyerr(error: MigrationLockError) -> PyErr {
+    match error {
+        MigrationLockError::Timeout(message) => {
+            PyTimeoutError::new_err(message)
+        }
+        other => PyValueError::new_err(other.to_string()),
+    }
 }
 
 fn sdd_plan_header_section_from_pydict(
@@ -11711,20 +11977,13 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_validate_owner_root, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_agent_owner, m)?)?;
-    m.add_function(wrap_pyfunction!(py_classify_agent_ownership, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        py_classify_legacy_v1_group_ownership,
-        m
-    )?)?;
     m.add_function(wrap_pyfunction!(py_commit_shas_equivalent, m)?)?;
     m.add_function(wrap_pyfunction!(py_normalize_agent_archive_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_normalize_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_globalize_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_globalize_owned_agent_name, m)?)?;
-    m.add_function(wrap_pyfunction!(py_globalize_legacy_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_foreign_agent_owner_root, m)?)?;
     m.add_function(wrap_pyfunction!(py_strip_global_agent_name, m)?)?;
-    m.add_function(wrap_pyfunction!(py_localize_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_agent_family_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_local_hood, m)?)?;
@@ -12109,6 +12368,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_artifact_file_query_wire_schema_version,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_context_query, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_context_query_wire_schema_version,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_sdd_artifact_link_parse, m)?)?;
     m.add_function(wrap_pyfunction!(py_sdd_artifact_link_render, m)?)?;
     m.add_function(wrap_pyfunction!(py_sdd_artifact_link_upsert, m)?)?;
@@ -12127,6 +12391,24 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_sdd_plan_header_block_remove_section,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_prompt_archive_inventory_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_prompt_archive_inventory, m)?)?;
+    m.add_class::<PyMigrationBoundedLockHandle>()?;
+    m.add_function(wrap_pyfunction!(py_migration_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_manifest_normalize, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_migration_journal_record_normalize,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_migration_plan_next_step, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_tree_digest, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_fingerprint, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_residue_classify, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_reconcile_procs, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_acquire_bounded_lock, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_ready, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_blocked, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_stats, m)?)?;
@@ -12452,6 +12734,173 @@ mod tests {
             let legacy_dict = legacy.bind(py).downcast::<PyDict>().unwrap();
             let direct_dict = direct.bind(py).downcast::<PyDict>().unwrap();
             assert_eq!(py_dict_keys(direct_dict), py_dict_keys(legacy_dict));
+        });
+    }
+
+    #[test]
+    fn migration_bindings_expose_contract_helpers() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        fs::write(root.join("source.txt"), "before").unwrap();
+
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+
+            let schema: u32 = module
+                .getattr("migration_wire_schema_version")
+                .unwrap()
+                .call0()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(schema, 1);
+
+            let manifest = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "manifest_id": "m1",
+                    "source_digests": {"root": "abc"},
+                    "operations": [
+                        {
+                            "operation": "state-residue",
+                            "source_digests": {"state": "def"},
+                            "x_phase": "kit-driver"
+                        }
+                    ],
+                    "x_host_note": "keep"
+                }),
+            )
+            .unwrap();
+            let manifest = manifest.bind(py).downcast::<PyDict>().unwrap();
+            let normalized = module
+                .getattr("migration_manifest_normalize")
+                .unwrap()
+                .call1((manifest,))
+                .unwrap();
+            let normalized = py_to_json_value(&normalized).unwrap();
+            assert_eq!(normalized["x_host_note"], "keep");
+            assert_eq!(normalized["operations"][0]["x_phase"], "kit-driver");
+
+            let records = PyList::empty_bound(py);
+            append_json(
+                py,
+                &records,
+                json!({"schema_version": 1, "state": "backed_up"}),
+            );
+            let observed =
+                json_value_to_py(py, &json!({"root": "abc", "state": "def"}))
+                    .unwrap();
+            let observed = observed.bind(py).downcast::<PyDict>().unwrap();
+            let plan = module
+                .getattr("migration_plan_next_step")
+                .unwrap()
+                .call1((manifest, &records, observed))
+                .unwrap();
+            let plan = py_to_json_value(&plan).unwrap();
+            assert_eq!(plan["current_state"], "backed_up");
+            assert_eq!(plan["next_step"], "apply");
+
+            let digest = module
+                .getattr("migration_tree_digest")
+                .unwrap()
+                .call1((root.to_str().unwrap(),))
+                .unwrap();
+            let digest = py_to_json_value(&digest).unwrap();
+            assert_eq!(digest["schema_version"], 1);
+            assert!(digest["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|entry| entry["relative_path"] == "source.txt"));
+
+            let left =
+                json_value_to_py(py, &json!([{"b": 2, "a": 1}])).unwrap();
+            let right =
+                json_value_to_py(py, &json!([{"a": 1, "b": 2}])).unwrap();
+            let left_fp: String = module
+                .getattr("migration_fingerprint")
+                .unwrap()
+                .call1((left.bind(py),))
+                .unwrap()
+                .extract()
+                .unwrap();
+            let right_fp: String = module
+                .getattr("migration_fingerprint")
+                .unwrap()
+                .call1((right.bind(py),))
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert_eq!(left_fp, right_fp);
+
+            let entry = json_value_to_py(
+                py,
+                &json!({
+                    "entry_id": "agent-tags",
+                    "residue_path": "~/.sase/agent_tags.json",
+                    "canonical_counterpart": "~/.sase/agents"
+                }),
+            )
+            .unwrap();
+            let facts = json_value_to_py(
+                py,
+                &json!({
+                    "residue_exists": true,
+                    "counterpart_exists": true
+                }),
+            )
+            .unwrap();
+            let classification = module
+                .getattr("migration_residue_classify")
+                .unwrap()
+                .call1((
+                    entry.bind(py).downcast::<PyDict>().unwrap(),
+                    facts.bind(py).downcast::<PyDict>().unwrap(),
+                ))
+                .unwrap();
+            let classification = py_to_json_value(&classification).unwrap();
+            assert_eq!(classification["decision"], "archive");
+
+            let legacy = PyList::empty_bound(py);
+            append_json(
+                py,
+                &legacy,
+                json!({"task_id": "proc-1", "semantic_fingerprint": "same"}),
+            );
+            let canonical = PyList::empty_bound(py);
+            canonical.append("proc-1").unwrap();
+            let reconcile = module
+                .getattr("migration_reconcile_procs")
+                .unwrap()
+                .call1((&legacy, &canonical))
+                .unwrap();
+            let reconcile = py_to_json_value(&reconcile).unwrap();
+            assert_eq!(reconcile["matched"].as_array().unwrap().len(), 1);
+        });
+    }
+
+    #[test]
+    fn migration_bounded_lock_binding_returns_releasable_handle() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let lock_path = temp.path().join("migration.lock");
+
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            let lock = module
+                .getattr("migration_acquire_bounded_lock")
+                .unwrap()
+                .call1((lock_path.to_str().unwrap(), 250_u64, "binding-test"))
+                .unwrap();
+            let waited_ms: u64 =
+                lock.getattr("waited_ms").unwrap().extract().unwrap();
+            assert!(waited_ms <= 250);
+            lock.call_method0("release").unwrap();
+            lock.call_method0("release").unwrap();
         });
     }
 
@@ -13373,17 +13822,13 @@ mod tests {
                 "validate_owner_root",
                 "validate_owned_agent_name",
                 "validate_agent_owner",
-                "classify_agent_ownership",
-                "classify_legacy_v1_group_ownership",
                 "commit_shas_equivalent",
                 "normalize_agent_archive_name",
                 "normalize_owned_agent_name",
                 "globalize_agent_name",
                 "globalize_owned_agent_name",
-                "globalize_legacy_agent_name",
                 "foreign_agent_owner_root",
                 "strip_global_agent_name",
-                "localize_agent_name",
                 "parse_agent_family_name",
                 "parse_owned_agent_name",
                 "agent_local_hood",
@@ -13396,6 +13841,14 @@ mod tests {
                 "project_agent_relationship_graph",
             ] {
                 assert!(module.getattr(name).is_ok(), "missing {name}");
+            }
+            for name in [
+                "classify_agent_ownership",
+                "classify_legacy_v1_group_ownership",
+                "globalize_legacy_agent_name",
+                "localize_agent_name",
+            ] {
+                assert!(module.getattr(name).is_err(), "unexpected {name}");
             }
 
             py_validate_agent_username("alice").unwrap();
@@ -13420,34 +13873,6 @@ mod tests {
             .is_err());
             py_validate_agent_owner("alice", "athena").unwrap();
             assert!(py_validate_agent_owner("alice", "athena1").is_err());
-            assert_eq!(
-                py_classify_agent_ownership(
-                    "zeus",
-                    "alice",
-                    "athena",
-                    Some("alice"),
-                )
-                .unwrap(),
-                "same_user_other_machine"
-            );
-            assert_eq!(
-                py_classify_legacy_v1_group_ownership(
-                    "athena", "alice", "athena", false, 1, 2,
-                )
-                .unwrap(),
-                "owner_observed"
-            );
-            assert_eq!(
-                py_classify_legacy_v1_group_ownership(
-                    "zeus", "alice", "athena", true, 2, 2,
-                )
-                .unwrap(),
-                "foreign"
-            );
-            assert!(py_classify_legacy_v1_group_ownership(
-                "athena", "alice", "athena", false, 2, 1,
-            )
-            .is_err());
             assert!(py_commit_shas_equivalent(
                 "d7e06b77b",
                 "d7e06b77b42d89ecf4bb1538c6f89c6fe700124e",
@@ -13490,17 +13915,6 @@ mod tests {
                 )
                 .unwrap(),
                 Some("bob.athena".to_string())
-            );
-            assert_eq!(
-                py_localize_agent_name(
-                    "bob.athena.foo",
-                    "athena",
-                    "alice",
-                    "athena",
-                    Some("bob"),
-                )
-                .unwrap(),
-                "bob.athena.foo"
             );
 
             let family =
@@ -16785,6 +17199,59 @@ MENTORS:
                 py_artifact_file_materialize_vcs(py, &request).unwrap();
             let materialized = py_to_json_value(materialized.bind(py)).unwrap();
             assert_eq!(materialized["status"], json!("missing"));
+        });
+    }
+
+    #[test]
+    fn artifact_context_query_binding_returns_projected_rows_and_handshake() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let index = temp.path().join("index.jsonl");
+        fs::write(
+            &index,
+            concat!(
+                "{\"schema_version\":1,\"artifact\":{\"id\":\"report\",",
+                "\"label\":\"Report\",\"kind\":\"markdown\",",
+                "\"path\":\"/stored/report.md\",",
+                "\"agent_artifacts_dir\":\"/producers/a\",",
+                "\"agent_name\":\"researcher.a\",",
+                "\"created_at\":\"2026-07-01T00:00:00Z\"}}\n",
+                "{\"schema_version\":1,\"artifact\":{\"id\":\"transcript\",",
+                "\"label\":\"Transcript\",\"kind\":\"chat\",",
+                "\"path\":\"/stored/transcript.md\",",
+                "\"agent_artifacts_dir\":\"/producers/a\",",
+                "\"agent_name\":\"researcher.a\",",
+                "\"created_at\":\"2026-07-01T00:00:00Z\"}}\n"
+            ),
+        )
+        .unwrap();
+
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            assert!(module.getattr("artifact_context_query").is_ok());
+            assert!(module
+                .getattr("artifact_context_query_wire_schema_version")
+                .is_ok());
+
+            let group = PyDict::new_bound(py);
+            group.set_item("wait_name", "research.a").unwrap();
+            group
+                .set_item("agent_artifacts_dirs", vec!["/producers/a"])
+                .unwrap();
+            let groups = PyList::new_bound(py, [group]);
+
+            let result =
+                py_artifact_context_query(py, index.to_str().unwrap(), &groups)
+                    .unwrap();
+            let value = py_to_json_value(result.bind(py)).unwrap();
+            assert_eq!(value.as_array().unwrap().len(), 1);
+            assert_eq!(value[0]["wait_name"], json!("research.a"));
+            assert_eq!(value[0]["agent_name"], json!("researcher.a"));
+            assert_eq!(value[0]["ref"], json!("file:report"));
+            assert_eq!(value[0]["kind"], json!("markdown"));
+            assert_eq!(value[0]["path"], json!("/stored/report.md"));
+            assert_eq!(py_artifact_context_query_wire_schema_version(), 1);
         });
     }
 

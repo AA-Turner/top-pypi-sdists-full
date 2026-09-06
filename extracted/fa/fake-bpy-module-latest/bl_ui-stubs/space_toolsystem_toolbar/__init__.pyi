@@ -189,6 +189,7 @@ class _defs_grease_pencil_paint:
     eyedropper: typing.Any
     fill: typing.Any
     interpolate: typing.Any
+    lasso_select: typing.Any
     line: typing.Any
     polyline: typing.Any
     trim: typing.Any

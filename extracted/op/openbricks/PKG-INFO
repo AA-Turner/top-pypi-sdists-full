@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openbricks
-Version: 3.5.0
+Version: 3.7.0
 Summary: openbricks — host-side CLI + MuJoCo-backed simulator for the openbricks MicroPython firmware. Flash, list, run, upload, log; ``openbricks sim`` for the physics simulator.
 Author: openbricks contributors
 License: MIT

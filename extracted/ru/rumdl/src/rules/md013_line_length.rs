@@ -25,7 +25,8 @@ use block_builder::{Block, BlockBuilder};
 use helpers::{
     extract_list_marker_and_content, has_hard_break, is_github_alert_marker, is_horizontal_rule, is_html_only_line,
     is_list_item, is_setext_heading_text_line, is_setext_underline_content, is_standalone_link_or_image_line,
-    is_unwrappable_line, source_list_marker, split_into_segments, trim_preserving_hard_break,
+    is_unwrappable_line, source_list_marker, split_into_segments, standalone_link_ends_paragraph,
+    trim_preserving_hard_break,
 };
 pub use md013_config::MD013Config;
 use md013_config::{LengthMode, ReflowMode};
@@ -609,7 +610,11 @@ impl Rule for MD013LineLength {
             // In sentence-per-line mode, check if this is a single long sentence
             // If so, emit a warning without a fix (user must manually rephrase)
             if effective_config.reflow_mode == ReflowMode::SentencePerLine {
-                let sentences = split_into_sentences(line.trim(), Some(&defined_references));
+                let sentences = split_into_sentences(
+                    line.trim(),
+                    Some(&defined_references),
+                    effective_config.require_sentence_capital,
+                );
                 if sentences.len() == 1 {
                     // Single sentence that's too long - warn but don't auto-fix
                     let message = format!("Line length {effective_length} exceeds {line_limit} characters");
@@ -881,7 +886,7 @@ impl MD013LineLength {
         content: &str,
         line_num: usize,
         ctx: &crate::lint_context::LintContext,
-        strict: bool,
+        config: &MD013Config,
     ) -> bool {
         let trimmed = content.trim();
 
@@ -907,7 +912,7 @@ impl MD013LineLength {
             // A standalone link/image line is exempt from MD013 (non-strict mode),
             // so it must end the blockquote paragraph rather than be absorbed into
             // it, mirroring the top-level paragraph reflow boundary.
-            || (!strict && is_standalone_link_or_image_line(ctx, line_num))
+            || standalone_link_ends_paragraph(ctx, line_num, config)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -952,7 +957,7 @@ impl MD013LineLength {
                     break;
                 }
 
-                if self.is_blockquote_content_boundary(&bq.content, line_num, ctx, config.strict) {
+                if self.is_blockquote_content_boundary(&bq.content, line_num, ctx, config) {
                     break;
                 }
 
@@ -965,7 +970,7 @@ impl MD013LineLength {
             }
 
             let lazy_content = lines[i].trim_start();
-            if self.is_blockquote_content_boundary(lazy_content, line_num, ctx, config.strict) {
+            if self.is_blockquote_content_boundary(lazy_content, line_num, ctx, config) {
                 break;
             }
 
@@ -1007,11 +1012,19 @@ impl MD013LineLength {
                 self.normalize_mode_needs_reflow(line_data.iter().map(|d| d.content.as_str()), config)
             }
             ReflowMode::SentencePerLine => {
-                let sentences = split_into_sentences(&paragraph_text, Some(&defined_references));
+                let sentences = split_into_sentences(
+                    &paragraph_text,
+                    Some(&defined_references),
+                    config.require_sentence_capital,
+                );
                 sentences.len() > 1 || line_data.len() > 1
             }
             ReflowMode::SemanticLineBreaks => {
-                let sentences = split_into_sentences(&paragraph_text, Some(&defined_references));
+                let sentences = split_into_sentences(
+                    &paragraph_text,
+                    Some(&defined_references),
+                    config.require_sentence_capital,
+                );
                 sentences.len() > 1
                     || line_data.len() > 1
                     || collected
@@ -1099,7 +1112,12 @@ impl MD013LineLength {
                     config.line_length.get()
                 ),
                 ReflowMode::SentencePerLine => {
-                    let num_sentences = split_into_sentences(&paragraph_text, Some(&defined_references)).len();
+                    let num_sentences = split_into_sentences(
+                        &paragraph_text,
+                        Some(&defined_references),
+                        config.require_sentence_capital,
+                    )
+                    .len();
                     if line_data.len() == 1 {
                         format!("Line contains {num_sentences} sentences (one sentence per line required)")
                     } else {
@@ -1110,7 +1128,12 @@ impl MD013LineLength {
                     }
                 }
                 ReflowMode::SemanticLineBreaks => {
-                    let num_sentences = split_into_sentences(&paragraph_text, Some(&defined_references)).len();
+                    let num_sentences = split_into_sentences(
+                        &paragraph_text,
+                        Some(&defined_references),
+                        config.require_sentence_capital,
+                    )
+                    .len();
                     format!("Paragraph should use semantic line breaks ({num_sentences} sentences)")
                 }
                 ReflowMode::Default => format!("Line length exceeds {} characters", config.line_length.get()),
@@ -1251,7 +1274,7 @@ impl MD013LineLength {
             // An embedded structure (code block, table, fence, nested quote, ...)
             // means the item is not simple prose: keep consuming so the cursor clears
             // the whole structure, but do not produce a fix.
-            if self.is_blockquote_content_boundary(content, i + 1, ctx, config.strict) {
+            if self.is_blockquote_content_boundary(content, i + 1, ctx, config) {
                 simple = false;
             }
 
@@ -1284,7 +1307,7 @@ impl MD013LineLength {
             body_text.starts_with('[') && body_text.contains("]:") && LINK_REF_PATTERN.is_match(body_text);
         let raw_marker_line = lines[start_idx];
         let body_is_unwrappable = is_link_ref_def
-            || (!config.strict && is_standalone_link_or_image_line(ctx, start_idx + 1))
+            || standalone_link_ends_paragraph(ctx, start_idx + 1, config)
             || (!config.strict && is_html_only_line(raw_marker_line));
         if body_is_unwrappable {
             return (None, next_idx);
@@ -1294,10 +1317,12 @@ impl MD013LineLength {
             ReflowMode::Normalize => body_pieces.len() > 1 || exceeds_limit(),
             ReflowMode::Default => exceeds_limit(),
             ReflowMode::SentencePerLine => {
-                split_into_sentences(body_text, Some(&defined_references)).len() > 1 || body_pieces.len() > 1
+                split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len() > 1
+                    || body_pieces.len() > 1
             }
             ReflowMode::SemanticLineBreaks => {
-                split_into_sentences(body_text, Some(&defined_references)).len() > 1 || exceeds_limit()
+                split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len() > 1
+                    || exceeds_limit()
             }
         };
         if !needs_reflow {
@@ -1391,11 +1416,13 @@ impl MD013LineLength {
                 config.line_length.get()
             ),
             ReflowMode::SentencePerLine => {
-                let num_sentences = split_into_sentences(body_text, Some(&defined_references)).len();
+                let num_sentences =
+                    split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len();
                 format!("List item should have one sentence per line (found {num_sentences} sentences)")
             }
             ReflowMode::SemanticLineBreaks => {
-                let num_sentences = split_into_sentences(body_text, Some(&defined_references)).len();
+                let num_sentences =
+                    split_into_sentences(body_text, Some(&defined_references), config.require_sentence_capital).len();
                 format!("List item should use semantic line breaks ({num_sentences} sentences)")
             }
             ReflowMode::Default => format!("Line length exceeds {} characters", config.line_length.get()),
@@ -1549,7 +1576,7 @@ impl MD013LineLength {
                 || is_link_ref_def
                 || ctx.line_info(line_num).is_some_and(|info| info.is_div_marker)
                 || is_html_only_line(lines[i])
-                || (!config.strict && is_standalone_link_or_image_line(ctx, line_num))
+                || standalone_link_ends_paragraph(ctx, line_num, config)
             {
                 i += 1;
                 continue;
@@ -2029,11 +2056,19 @@ impl MD013LineLength {
                 let needs_reflow = match config.reflow_mode {
                     ReflowMode::Normalize => self.normalize_mode_needs_reflow(container_lines.iter().copied(), config),
                     ReflowMode::SentencePerLine => {
-                        let sentences = split_into_sentences(&paragraph_text, Some(&defined_references));
+                        let sentences = split_into_sentences(
+                            &paragraph_text,
+                            Some(&defined_references),
+                            config.require_sentence_capital,
+                        );
                         sentences.len() > 1 || container_lines.len() > 1
                     }
                     ReflowMode::SemanticLineBreaks => {
-                        let sentences = split_into_sentences(&paragraph_text, Some(&defined_references));
+                        let sentences = split_into_sentences(
+                            &paragraph_text,
+                            Some(&defined_references),
+                            config.require_sentence_capital,
+                        );
                         sentences.len() > 1
                             || container_lines.len() > 1
                             || container_lines
@@ -2442,7 +2477,7 @@ impl MD013LineLength {
                         }
                     }
                     // Standalone link/image lines: exempt when not strict
-                    if !config.strict && is_standalone_link_or_image_line(ctx, line_num) {
+                    if standalone_link_ends_paragraph(ctx, line_num, config) {
                         return true;
                     }
                     // HTML-only lines: exempt when not strict
@@ -2654,11 +2689,19 @@ impl MD013LineLength {
                     }
                     ReflowMode::SentencePerLine => {
                         // Check if list item has multiple sentences
-                        let sentences = split_into_sentences(&combined_content, Some(&defined_references));
+                        let sentences = split_into_sentences(
+                            &combined_content,
+                            Some(&defined_references),
+                            config.require_sentence_capital,
+                        );
                         sentences.len() > 1
                     }
                     ReflowMode::SemanticLineBreaks => {
-                        let sentences = split_into_sentences(&combined_content, Some(&defined_references));
+                        let sentences = split_into_sentences(
+                            &combined_content,
+                            Some(&defined_references),
+                            config.require_sentence_capital,
+                        );
                         sentences.len() > 1
                             || (list_start..i).any(|line_idx| {
                                 let line = lines[line_idx];
@@ -3253,8 +3296,12 @@ impl MD013LineLength {
                         // Generate an appropriate message based on why reflow is needed
                         let message = match config.reflow_mode {
                             ReflowMode::SentencePerLine => {
-                                let num_sentences =
-                                    split_into_sentences(&combined_content, Some(&defined_references)).len();
+                                let num_sentences = split_into_sentences(
+                                    &combined_content,
+                                    Some(&defined_references),
+                                    config.require_sentence_capital,
+                                )
+                                .len();
                                 let num_lines = content_lines.len();
                                 if num_lines == 1 {
                                     // Single line with multiple sentences
@@ -3267,8 +3314,12 @@ impl MD013LineLength {
                                 }
                             }
                             ReflowMode::SemanticLineBreaks => {
-                                let num_sentences =
-                                    split_into_sentences(&combined_content, Some(&defined_references)).len();
+                                let num_sentences = split_into_sentences(
+                                    &combined_content,
+                                    Some(&defined_references),
+                                    config.require_sentence_capital,
+                                )
+                                .len();
                                 format!("Paragraph should use semantic line breaks ({num_sentences} sentences)")
                             }
                             ReflowMode::Normalize => {
@@ -3367,7 +3418,7 @@ impl MD013LineLength {
                     || ctx.line_info(next_line_num).is_some_and(|info| info.is_div_marker)
                     || is_html_only_line(next_line)
                     || self.line_in_multiline_math_block(next_line_num, ctx)
-                    || (!config.strict && is_standalone_link_or_image_line(ctx, next_line_num))
+                    || standalone_link_ends_paragraph(ctx, next_line_num, config)
                 {
                     break;
                 }
@@ -3469,7 +3520,11 @@ impl MD013LineLength {
                 ReflowMode::SentencePerLine => {
                     // In sentence-per-line mode, check if the JOINED paragraph has multiple sentences
                     // Note: we check the joined text because sentences can span multiple lines
-                    let sentences = split_into_sentences(&paragraph_text, Some(&defined_references));
+                    let sentences = split_into_sentences(
+                        &paragraph_text,
+                        Some(&defined_references),
+                        config.require_sentence_capital,
+                    );
 
                     // Always reflow if multiple sentences on one line
                     if sentences.len() > 1 {
@@ -3493,7 +3548,11 @@ impl MD013LineLength {
                     }
                 }
                 ReflowMode::SemanticLineBreaks => {
-                    let sentences = split_into_sentences(&paragraph_text, Some(&defined_references));
+                    let sentences = split_into_sentences(
+                        &paragraph_text,
+                        Some(&defined_references),
+                        config.require_sentence_capital,
+                    );
                     // Reflow if multiple sentences, multiple lines, or any line exceeds limit
                     sentences.len() > 1
                         || paragraph_lines.len() > 1
@@ -3616,7 +3675,12 @@ impl MD013LineLength {
                         }
                         ReflowMode::SentencePerLine => {
                             // In sentence-per-line mode, highlight the entire paragraph that needs reformatting.
-                            let num_sentences = split_into_sentences(&paragraph_text, Some(&defined_references)).len();
+                            let num_sentences = split_into_sentences(
+                                &paragraph_text,
+                                Some(&defined_references),
+                                config.require_sentence_capital,
+                            )
+                            .len();
                             let message = if paragraph_lines.len() == 1 {
                                 // Single line with multiple sentences
                                 format!("Line contains {num_sentences} sentences (one sentence per line required)")
@@ -3631,7 +3695,12 @@ impl MD013LineLength {
                         }
                         ReflowMode::SemanticLineBreaks => {
                             // In semantic-line-breaks mode, highlight the entire paragraph.
-                            let num_sentences = split_into_sentences(&paragraph_text, Some(&defined_references)).len();
+                            let num_sentences = split_into_sentences(
+                                &paragraph_text,
+                                Some(&defined_references),
+                                config.require_sentence_capital,
+                            )
+                            .len();
                             vec![(
                                 paragraph_start + 1,
                                 paragraph_start + paragraph_lines.len(),

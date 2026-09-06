@@ -184,8 +184,10 @@ def install_scs(**kwargs):
     extra_link_args = []
     libraries = []
     sources = (
-        ["scs/scspy.c"]
-        + glob("scs_source/src/*.c")
+        ["scs/scspy.c", "scs/py_ctrlc.c"]
+        # Python builds share one process-wide interrupt state (scs/py_ctrlc.c)
+        # instead of the upstream per-extension ctrlc.c
+        + [f for f in glob("scs_source/src/*.c") if not f.endswith("ctrlc.c")]
         + glob("scs_source/linsys/*.c")
     )
     include_dirs = ["scs_source/include", "scs_source/linsys"]
@@ -202,7 +204,8 @@ def install_scs(**kwargs):
     if args.extraverbose:
         define_macros += [("VERBOSITY", 999)]  # for debugging
     if args.blas64:
-        define_macros += [("BLAS64", 1)]  # 64 bit blas
+        raise SystemExit("--blas64 is not supported by legacy_setup.py; use meson: "
+                         "pip install . -Csetup-args=-Duse_blas64=true -Csetup-args=-Dlink_mkl=true")
     if not args.int32 and not args.gpu:
         define_macros += [("DLONG", 1)]  # longs for integer type
 
@@ -310,7 +313,7 @@ def install_scs(**kwargs):
 
     setup(
         name="scs",
-        version="3.2.11",
+        version="3.3.1",
         author="Brendan O'Donoghue",
         author_email="bodonoghue85@gmail.com",
         url="http://github.com/cvxgrp/scs",

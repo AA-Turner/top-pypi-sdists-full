@@ -1173,6 +1173,14 @@ def build_app(
         return JSONResponse(server.list_repos())
 
     async def assign(request: Request) -> JSONResponse:
+        # #3145 audit note: `server.assign()` below runs inline on the loop
+        # and does do some blocking subprocess work (`_setup_worktree`'s
+        # `git worktree add`, etc.) — the same class of bug just fixed for
+        # `worktree_clean`. Left alone here deliberately: it's bounded to
+        # ordinary git/process latency (not the 600s-class `build_command`
+        # path this issue is about), and changing dispatch to run off-loop
+        # is a separate, larger question. Worth a tracked follow-up rather
+        # than another silent pass if this handler is revisited.
         try:
             body = await request.json()
         except ValueError:
@@ -1190,6 +1198,10 @@ def build_app(
         return JSONResponse(assignment.to_dict(), status_code=202)
 
     async def cancel(request: Request) -> JSONResponse:
+        # #3145 audit note: same as `assign` above — `server.cancel()`
+        # below does blocking process wait/kill work inline on the loop.
+        # Left alone for the same reason (bounded to ordinary
+        # process-signal latency; out of scope for this issue).
         assignment_id = request.path_params["id"]
         # #1567: ?rescue=1 opts into pushing the WIP commit to a disposable
         # rescue/<id> ref. Default (no query param, or any falsy value) is
@@ -1875,6 +1887,18 @@ def build_app(
         entirely against a new agent, both work.  A protected entry is
         counted as ``kept`` in the response; the return shape is
         unchanged.
+
+        #3145: ``clean_worktrees`` can run a per-worktree pre-stash
+        ``build_command`` (``_stash_artifacts`` -> ``_run_pre_stash_build``,
+        ``coord/agent.py``) with up to a 600s ``subprocess.run`` timeout
+        *per worktree*. This handler is `async def`, so Starlette does not
+        thread it automatically — calling the synchronous method inline
+        here blocked the whole uvicorn event loop (every ``/health``,
+        ``/assign``, ``/status`` on this agent) for up to 600s, which is
+        exactly what happened on dellserver on 2026-09-05 (616s with zero
+        served requests). Same fix as ``health``/``restart_services``/
+        ``graph_fix``/``drive_queue_reconcile`` above: hand it to a worker
+        thread and await it instead of calling it inline.
         """
         body: dict = {}
         try:
@@ -1892,7 +1916,19 @@ def build_app(
             protect = [str(x) for x in raw_protect if isinstance(x, str)]
         else:
             protect = None
-        result = server.clean_worktrees(recent_secs=recent_secs, protect=protect)
+        # #3145 review note: this shares the default `asyncio.to_thread`
+        # executor with `health`/`restart_services`/`graph_fix`/
+        # `drive_queue_reconcile`. A burst of concurrent `/worktree-clean`
+        # calls (e.g. several repos finalizing near-simultaneously, each
+        # running its own pre-stash build) could saturate that pool and
+        # delay other to_thread-based endpoints queuing behind it — a
+        # milder version of the same freeze, bounded by pool size instead
+        # of one global loop. Not the incident scenario (single in-flight
+        # call), so left as the same pattern rather than a dedicated
+        # executor; worth revisiting if concurrent finalizes become common.
+        result = await asyncio.to_thread(
+            server.clean_worktrees, recent_secs=recent_secs, protect=protect
+        )
         return JSONResponse(result)
 
     async def restart(request: Request) -> JSONResponse:

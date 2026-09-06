@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
 from typing import Union
@@ -8,26 +7,25 @@ from typing import get_origin
 
 from pydantic import Discriminator
 from pydantic import Tag
+from pydantic._internal._model_construction import ModelMetaclass
 
 from scim2_models.resources.resource import Resource
 
 from ..base import BaseModel
-from ..scim_object import ScimMetaclass
 from ..scim_object import ScimObject
 from ..utils import UNION_TYPES
-
-if TYPE_CHECKING:
-    from pydantic import FieldSerializationInfo
 
 
 class Message(ScimObject):
     """SCIM protocol messages as defined by :rfc:`RFC7644 §3.1 <7644#section-3.1>`."""
 
     def _scim_response_serializer(
-        self, value: Any, info: "FieldSerializationInfo"
-    ) -> Any:
+        self,
+        serialized: dict[str, Any],
+        included_attrs: list[str],
+        excluded_attrs: list[str],
+    ) -> None:
         """Message fields are not subject to attribute filtering."""
-        return value
 
 
 def _create_schema_discriminator(
@@ -48,9 +46,12 @@ def _create_schema_discriminator(
         if not payload:
             return None
 
-        payload_schemas = (
-            payload.get("schemas", []) if isinstance(payload, dict) else payload.schemas
-        )
+        if isinstance(payload, dict):
+            payload_schemas = payload.get("schemas", [])
+        else:
+            # An instance asserts its type by its class.
+            schema = getattr(type(payload), "__schema__", None)
+            payload_schemas = ([str(schema)] if schema else []) + list(payload.schemas)
 
         common_schemas = [
             schema for schema in payload_schemas if schema in resource_types_schemas
@@ -102,7 +103,7 @@ def _create_tagged_resource_union(resource_union: Any) -> Any:
     return Annotated[union, discriminator]
 
 
-class _GenericMessageMetaclass(ScimMetaclass):
+class _GenericMessageMetaclass(ModelMetaclass):
     """Metaclass for SCIM generic types with discriminated unions."""
 
     def __new__(

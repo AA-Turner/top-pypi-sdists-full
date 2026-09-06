@@ -75,6 +75,10 @@ pub mod admin_ops;
 /// the defect class this module retires; `tests/one_author_per_row.rs` enforces
 /// it.
 pub mod attest;
+
+/// The v39 tier crossing (`enter_mesh` + `widen_audience`) composed in one
+/// place, replacing `attestation_promote`.
+pub mod attestation_crossing;
 /// The fabric auth subsystem — CIRISServer as the single auth authority
 /// (CIRISServer#9): one hybrid request contract, the CEG role-set, self-at-login
 /// (so consent/erasure are user-signed in 3.x, not agent-signed in 2.x), the
@@ -262,7 +266,7 @@ pub mod http_log;
 /// CIRISVerify#80). `mint_user_identity` opens the user's Ed25519 signing half
 /// for the chosen backend, calls verify v6.0.0 `create_federation_identity`
 /// (which attaches the sealed ML-DSA-65 half + emits the genesis CEG object),
-/// and returns the user `key_id` + the `CIRIS-V2-` usercode. The minted identity
+/// and returns the user `key_id` + the `CIRIS-V3-` usercode (it carries the ML-DSA-65 commitment, CIRISVerify#272). The minted identity
 /// also composes into the `POST /v1/setup/claim-remote` signer. Public so the
 /// CLI subcommand, the `POST /v1/self/identity` endpoint, and the integration
 /// test can drive it.
@@ -736,7 +740,16 @@ pub async fn provision_user_identity(
     // (Server 0.5: convention, not env). This names the on-disk user KEYSTORE
     // blob, so it derives from the RAW keystore_alias (NOT the derived key_id).
     let alias = format!("{}-user", cfg.keystore_alias);
-    identity::mint_user_identity(backend, &alias, label.as_deref(), seed_dir).await
+    // The node's OWNER identity, provisioned by the CLI — this is exactly the
+    // path a mesh node takes, and the one that used to leave no pointer at all.
+    identity::mint_user_identity(
+        backend,
+        &alias,
+        label.as_deref(),
+        seed_dir,
+        identity::ActiveAlias::Adopt,
+    )
+    .await
 }
 
 /// Emit the **modeled** holonomic federation scoreboard (CIRISServer#12/#13) as

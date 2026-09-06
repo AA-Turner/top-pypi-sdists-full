@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel", "cython>=3.1"]
+requires = [
+    "setuptools>=77.0.1",
+    "cython>=3.1",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -29,9 +32,10 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: GIS",
@@ -40,7 +44,7 @@ classifiers = [
     "Typing :: Typed",
     "Programming Language :: Python :: Free Threading :: 2 - Beta",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "certifi",
 ]
@@ -53,6 +57,38 @@ changelog = "https://pyproj4.github.io/pyproj/stable/history.html"
 
 [project.scripts]
 pyproj = "pyproj.__main__:main"
+
+[dependency-groups]
+dev = [
+    "cython>=0.28.4",
+    "pre-commit",
+    "setuptools",
+    {include-group = "lint"},
+    {include-group = "test"},
+    {include-group = "typing"},
+]
+docs = [
+    "furo>=2022.6",
+    "sphinx",
+    "sphinx-argparse",
+]
+lint = [
+    "pylint",
+    "ruff",
+]
+test = [
+    "numpy",
+    "packaging",
+    "pandas;python_version<'3.15'",
+    "pytest>3.6",
+    "pytest-cov",
+    "shapely;python_version<'3.15'",
+    "xarray;python_version<'3.15'",
+]
+typing = [
+    "mypy",
+    "types-certifi",
+]
 
 [tool.setuptools]
 zip-safe = false # https://mypy.readthedocs.io/en/stable/installed_packages.html
@@ -137,6 +173,8 @@ ignore = [
     "B028",
     # Unused `noqa` directive # Only work if ruff is the solve linter/formatter
     "RUF100",
+    # Unpacked variable is never used
+    "RUF059",
     # `zip()` without an explicit `strict=` parameter
     "B905",
     # Only simple default values allowed for typed arguments
@@ -150,12 +188,14 @@ ignore = [
     # Consider f-string instead of string join
     "FLY002",
     # Use a list comprehension to create a transformed list
-    "PERF401"
+    "PERF401",
+    # Invalid rule code in `# noqa`; used by pylint
+    "RUF102",
 
 ]
 
 [tool.mypy]
 files = ["pyproj"]
-python_version = "3.11"
+python_version = "3.12"
 ignore_errors = false
 enable_error_code = "ignore-without-code"

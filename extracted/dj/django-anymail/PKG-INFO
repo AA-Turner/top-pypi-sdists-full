@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: django-anymail
-Version: 15.1
+Version: 15.2
 Summary: Django email backends and webhooks for Amazon SES, Brevo,  MailerSend, Mailgun, Mailjet, Mailtrap, Mandrill, Postal, Postmark, Resend,  Scaleway TEM, SendGrid, SparkPost, and Unisender Go  (EmailBackend, transactional email tracking and inbound email signals)
 Project-URL: Homepage, https://github.com/anymail/django-anymail
 Project-URL: Documentation, https://anymail.dev/en/stable/
@@ -39,7 +39,8 @@ Requires-Dist: requests>=2.4.3
 Requires-Dist: typing-extensions>=4.12; python_version < '3.11'
 Requires-Dist: urllib3>=1.25.0
 Provides-Extra: amazon-ses
-Requires-Dist: boto3>=1.24.6; extra == 'amazon-ses'
+Requires-Dist: amazon-s3-encryption-client-python; extra == 'amazon-ses'
+Requires-Dist: boto3>=1.43.6; extra == 'amazon-ses'
 Provides-Extra: brevo
 Provides-Extra: mailersend
 Provides-Extra: mailgun
@@ -108,7 +109,7 @@ Anymail currently supports these ESPs:
 Anymail includes:
 
 * Integration of each ESP's sending APIs into
-  `Django's built-in email <https://docs.djangoproject.com/en/v15.1/topics/email/>`_
+  `Django's built-in email <https://docs.djangoproject.com/en/v15.2/topics/email/>`_
   package, including support for HTML, attachments, extra headers,
   and other standard email features
 * Extensions to expose common ESP-added functionality, like tags, metadata,
@@ -126,32 +127,32 @@ Anymail maintains compatibility with all Django versions that are in mainstream
 or extended support, plus (usually) a few older Django versions, and is extensively
 tested on all Python versions supported by Django. (Even-older Django versions
 may still be covered by an Anymail extended support release; consult the
-`changelog <https://anymail.dev/en/v15.1/changelog/>`_ for details.)
+`changelog <https://anymail.dev/en/v15.2/changelog/>`_ for details.)
 
 Anymail releases follow `semantic versioning <https://semver.org/>`_.
 The package is released under the BSD license.
 
 .. END shared-intro
 
-.. image:: https://github.com/anymail/django-anymail/actions/workflows/test.yml/badge.svg?tag=v15.1
-       :target: https://github.com/anymail/django-anymail/actions?query=workflow:test+branch:v15.1
+.. image:: https://github.com/anymail/django-anymail/actions/workflows/test.yml/badge.svg?tag=v15.2
+       :target: https://github.com/anymail/django-anymail/actions?query=workflow:test+branch:v15.2
        :alt:    test status in GitHub Actions
 
-.. image:: https://github.com/anymail/django-anymail/actions/workflows/integration-test.yml/badge.svg?tag=v15.1
-       :target: https://github.com/anymail/django-anymail/actions?query=workflow:integration-test+branch:v15.1
+.. image:: https://github.com/anymail/django-anymail/actions/workflows/integration-test.yml/badge.svg?tag=v15.2
+       :target: https://github.com/anymail/django-anymail/actions?query=workflow:integration-test+branch:v15.2
        :alt:    integration test status in GitHub Actions
 
-.. image:: https://readthedocs.org/projects/anymail/badge/?version=v15.1
-       :target: https://anymail.dev/en/v15.1/
+.. image:: https://readthedocs.org/projects/anymail/badge/?version=v15.2
+       :target: https://anymail.dev/en/v15.2/
        :alt:    documentation build status on ReadTheDocs
 
 **Resources**
 
-* Full documentation: https://anymail.dev/en/v15.1/
-* Help and troubleshooting: https://anymail.dev/en/v15.1/help/
+* Full documentation: https://anymail.dev/en/v15.2/
+* Help and troubleshooting: https://anymail.dev/en/v15.2/help/
 * Package on PyPI: https://pypi.org/project/django-anymail/
 * Project on Github: https://github.com/anymail/django-anymail
-* Changelog: https://anymail.dev/en/v15.1/changelog/
+* Changelog: https://anymail.dev/en/v15.2/changelog/
 
 
 Anymail 1-2-3
@@ -211,7 +212,7 @@ or SparkPost or any other supported ESP where you see "mailgun":
         }
 
 
-3. Now the regular `Django email functions <https://docs.djangoproject.com/en/v15.1/topics/email/>`_
+3. Now the regular `Django email functions <https://docs.djangoproject.com/en/v15.2/topics/email/>`_
    will send through your chosen ESP:
 
    .. code-block:: python
@@ -255,7 +256,7 @@ or SparkPost or any other supported ESP where you see "mailgun":
 .. END quickstart
 
 
-See the `full documentation <https://anymail.dev/en/v15.1/>`_
+See the `full documentation <https://anymail.dev/en/v15.2/>`_
 for more features and options, including receiving messages and tracking
 sent message status.
 

@@ -97,6 +97,7 @@ if typing.TYPE_CHECKING:
     from .checkout_field_with_value import CheckoutFieldWithValue
     from .checkout_settings_response_data import CheckoutSettingsResponseData
     from .checkout_subscription import CheckoutSubscription
+    from .claimed_stripe_sandbox_keys_response_data import ClaimedStripeSandboxKeysResponseData
     from .clerk_integration_config import ClerkIntegrationConfig
     from .company_billing_address_view import CompanyBillingAddressView
     from .company_billing_checkout_settings import CompanyBillingCheckoutSettings
@@ -104,6 +105,7 @@ if typing.TYPE_CHECKING:
     from .company_billing_details_view import CompanyBillingDetailsView
     from .company_billing_entity_response_data import CompanyBillingEntityResponseData
     from .company_billing_entity_subscription_response_data import CompanyBillingEntitySubscriptionResponseData
+    from .company_billing_profile_response_data import CompanyBillingProfileResponseData
     from .company_credit_balance import CompanyCreditBalance
     from .company_credit_balance_response_data import CompanyCreditBalanceResponseData
     from .company_detail_response_data import CompanyDetailResponseData
@@ -177,6 +179,8 @@ if typing.TYPE_CHECKING:
     from .credit_grant_expiry_request_body import CreditGrantExpiryRequestBody
     from .credit_grant_sort_order import CreditGrantSortOrder
     from .credit_lease_response_data import CreditLeaseResponseData
+    from .credit_spend_policy_response_data import CreditSpendPolicyResponseData
+    from .credit_spend_policy_scope import CreditSpendPolicyScope
     from .credit_transfer_response_data import CreditTransferResponseData
     from .credit_transfer_view import CreditTransferView
     from .credit_trigger_config import CreditTriggerConfig
@@ -313,11 +317,14 @@ if typing.TYPE_CHECKING:
     from .onboarding_requirement import OnboardingRequirement
     from .onboarding_requirement_status import OnboardingRequirementStatus
     from .onboarding_requirement_view import OnboardingRequirementView
+    from .onboarding_stripe_import import OnboardingStripeImport
     from .onboarding_track import OnboardingTrack
     from .orb_integration_config import OrbIntegrationConfig
     from .ordered_plans_in_group import OrderedPlansInGroup
+    from .otlp_environment_settings_response_data import OtlpEnvironmentSettingsResponseData
     from .payment_method_request_body import PaymentMethodRequestBody
     from .payment_method_response_data import PaymentMethodResponseData
+    from .pending_migration_response_data import PendingMigrationResponseData
     from .plan_billing_source import PlanBillingSource
     from .plan_bundle_action import PlanBundleAction
     from .plan_bundle_credit_grant_request_body import PlanBundleCreditGrantRequestBody
@@ -379,6 +386,7 @@ if typing.TYPE_CHECKING:
     from .rule_condition_detail_response_data import RuleConditionDetailResponseData
     from .rule_condition_group_detail_response_data import RuleConditionGroupDetailResponseData
     from .rule_condition_group_response_data import RuleConditionGroupResponseData
+    from .rule_condition_plan_version_response_data import RuleConditionPlanVersionResponseData
     from .rule_condition_response_data import RuleConditionResponseData
     from .rule_detail_response_data import RuleDetailResponseData
     from .rule_response_data import RuleResponseData
@@ -416,6 +424,10 @@ if typing.TYPE_CHECKING:
     from .sort_direction import SortDirection
     from .stripe_embed_info import StripeEmbedInfo
     from .stripe_integration_config import StripeIntegrationConfig
+    from .stripe_sandbox_claim_link import StripeSandboxClaimLink
+    from .stripe_sandbox_countries_response_data import StripeSandboxCountriesResponseData
+    from .stripe_sandbox_install_response_data import StripeSandboxInstallResponseData
+    from .stripe_sandbox_keys_response_data import StripeSandboxKeysResponseData
     from .subscription_status import SubscriptionStatus
     from .subscription_trait_update import SubscriptionTraitUpdate
     from .subscription_type import SubscriptionType
@@ -563,6 +575,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CheckoutFieldWithValue": ".checkout_field_with_value",
     "CheckoutSettingsResponseData": ".checkout_settings_response_data",
     "CheckoutSubscription": ".checkout_subscription",
+    "ClaimedStripeSandboxKeysResponseData": ".claimed_stripe_sandbox_keys_response_data",
     "ClerkIntegrationConfig": ".clerk_integration_config",
     "CompanyBillingAddressView": ".company_billing_address_view",
     "CompanyBillingCheckoutSettings": ".company_billing_checkout_settings",
@@ -570,6 +583,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CompanyBillingDetailsView": ".company_billing_details_view",
     "CompanyBillingEntityResponseData": ".company_billing_entity_response_data",
     "CompanyBillingEntitySubscriptionResponseData": ".company_billing_entity_subscription_response_data",
+    "CompanyBillingProfileResponseData": ".company_billing_profile_response_data",
     "CompanyCreditBalance": ".company_credit_balance",
     "CompanyCreditBalanceResponseData": ".company_credit_balance_response_data",
     "CompanyDetailResponseData": ".company_detail_response_data",
@@ -639,6 +653,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreditGrantExpiryRequestBody": ".credit_grant_expiry_request_body",
     "CreditGrantSortOrder": ".credit_grant_sort_order",
     "CreditLeaseResponseData": ".credit_lease_response_data",
+    "CreditSpendPolicyResponseData": ".credit_spend_policy_response_data",
+    "CreditSpendPolicyScope": ".credit_spend_policy_scope",
     "CreditTransferResponseData": ".credit_transfer_response_data",
     "CreditTransferView": ".credit_transfer_view",
     "CreditTriggerConfig": ".credit_trigger_config",
@@ -771,11 +787,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "OnboardingRequirement": ".onboarding_requirement",
     "OnboardingRequirementStatus": ".onboarding_requirement_status",
     "OnboardingRequirementView": ".onboarding_requirement_view",
+    "OnboardingStripeImport": ".onboarding_stripe_import",
     "OnboardingTrack": ".onboarding_track",
     "OrbIntegrationConfig": ".orb_integration_config",
     "OrderedPlansInGroup": ".ordered_plans_in_group",
+    "OtlpEnvironmentSettingsResponseData": ".otlp_environment_settings_response_data",
     "PaymentMethodRequestBody": ".payment_method_request_body",
     "PaymentMethodResponseData": ".payment_method_response_data",
+    "PendingMigrationResponseData": ".pending_migration_response_data",
     "PlanBillingSource": ".plan_billing_source",
     "PlanBundleAction": ".plan_bundle_action",
     "PlanBundleCreditGrantRequestBody": ".plan_bundle_credit_grant_request_body",
@@ -837,6 +856,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RuleConditionDetailResponseData": ".rule_condition_detail_response_data",
     "RuleConditionGroupDetailResponseData": ".rule_condition_group_detail_response_data",
     "RuleConditionGroupResponseData": ".rule_condition_group_response_data",
+    "RuleConditionPlanVersionResponseData": ".rule_condition_plan_version_response_data",
     "RuleConditionResponseData": ".rule_condition_response_data",
     "RuleDetailResponseData": ".rule_detail_response_data",
     "RuleResponseData": ".rule_response_data",
@@ -874,6 +894,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SortDirection": ".sort_direction",
     "StripeEmbedInfo": ".stripe_embed_info",
     "StripeIntegrationConfig": ".stripe_integration_config",
+    "StripeSandboxClaimLink": ".stripe_sandbox_claim_link",
+    "StripeSandboxCountriesResponseData": ".stripe_sandbox_countries_response_data",
+    "StripeSandboxInstallResponseData": ".stripe_sandbox_install_response_data",
+    "StripeSandboxKeysResponseData": ".stripe_sandbox_keys_response_data",
     "SubscriptionStatus": ".subscription_status",
     "SubscriptionTraitUpdate": ".subscription_trait_update",
     "SubscriptionType": ".subscription_type",
@@ -1045,6 +1069,7 @@ __all__ = [
     "CheckoutFieldWithValue",
     "CheckoutSettingsResponseData",
     "CheckoutSubscription",
+    "ClaimedStripeSandboxKeysResponseData",
     "ClerkIntegrationConfig",
     "CompanyBillingAddressView",
     "CompanyBillingCheckoutSettings",
@@ -1052,6 +1077,7 @@ __all__ = [
     "CompanyBillingDetailsView",
     "CompanyBillingEntityResponseData",
     "CompanyBillingEntitySubscriptionResponseData",
+    "CompanyBillingProfileResponseData",
     "CompanyCreditBalance",
     "CompanyCreditBalanceResponseData",
     "CompanyDetailResponseData",
@@ -1121,6 +1147,8 @@ __all__ = [
     "CreditGrantExpiryRequestBody",
     "CreditGrantSortOrder",
     "CreditLeaseResponseData",
+    "CreditSpendPolicyResponseData",
+    "CreditSpendPolicyScope",
     "CreditTransferResponseData",
     "CreditTransferView",
     "CreditTriggerConfig",
@@ -1253,11 +1281,14 @@ __all__ = [
     "OnboardingRequirement",
     "OnboardingRequirementStatus",
     "OnboardingRequirementView",
+    "OnboardingStripeImport",
     "OnboardingTrack",
     "OrbIntegrationConfig",
     "OrderedPlansInGroup",
+    "OtlpEnvironmentSettingsResponseData",
     "PaymentMethodRequestBody",
     "PaymentMethodResponseData",
+    "PendingMigrationResponseData",
     "PlanBillingSource",
     "PlanBundleAction",
     "PlanBundleCreditGrantRequestBody",
@@ -1319,6 +1350,7 @@ __all__ = [
     "RuleConditionDetailResponseData",
     "RuleConditionGroupDetailResponseData",
     "RuleConditionGroupResponseData",
+    "RuleConditionPlanVersionResponseData",
     "RuleConditionResponseData",
     "RuleDetailResponseData",
     "RuleResponseData",
@@ -1356,6 +1388,10 @@ __all__ = [
     "SortDirection",
     "StripeEmbedInfo",
     "StripeIntegrationConfig",
+    "StripeSandboxClaimLink",
+    "StripeSandboxCountriesResponseData",
+    "StripeSandboxInstallResponseData",
+    "StripeSandboxKeysResponseData",
     "SubscriptionStatus",
     "SubscriptionTraitUpdate",
     "SubscriptionType",

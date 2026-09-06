@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airportsdata
-Version: 20260902
+Version: 20260905
 Summary: Extensive database of location and timezone data for nearly every airport and landing strip in the world.
 Author-email: Mike Borsetti <mike+airportsdata@borsetti.com>
 Maintainer-email: Mike Borsetti <mike+airportsdata@borsetti.com>
@@ -34,11 +34,11 @@ Dynamic: license-file
 airportsdata |downloads|
 ========================
 
-.. |ICAO| replace:: 28,291
+.. |ICAO| replace:: 28,298
 
 .. |IATA| replace:: 7,884
 
-.. |LID| replace:: 12,608
+.. |LID| replace:: 12,614
 
 .. |pyversion| image:: https://img.shields.io/pypi/v/airportsdata.svg
     :target: https://pypi.org/project/airportsdata/

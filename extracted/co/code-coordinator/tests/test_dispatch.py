@@ -18,16 +18,18 @@ from coord.config import (
     ReviewsConfig,
 )
 from coord.dispatch import (
+    EPIC_DECOMPOSE_CONTRACT,
     DispatchRefused,
     dispatch,
     enforce_epic_dispatch_guard,
     enforce_model_provider_compatibility,
     enforce_oracle_readiness,
+    epic_decompose_briefing,
     post_briefing,
     resolve_dispatch_model,
     resolve_dispatch_model_alias,
 )
-from coord.models import Machine, Proposal, Repo
+from coord.models import EPIC_DECOMPOSE_TYPE, Machine, Proposal, Repo
 from coord.review import repo_focus_lines
 
 
@@ -1338,6 +1340,30 @@ class TestEpicDispatchGuard:
 
     @patch("coord.dispatch.httpx.post")
     @patch("coord.github_ops.get_issue")
+    def test_no_gate_for_epic_decompose_type_against_epic(
+        self, mock_get_issue, mock_post,
+    ) -> None:
+        """#3132: `epic-decompose` is dispatched directly against the epic's
+        own number on purpose (in-pickup decomposition) — like mock-author,
+        it must never trip this guard. Unlike mock-author it isn't even in
+        SEALED_PATH_AUTHOR_TYPES; the exemption here comes purely from being
+        outside CLOSES_ISSUE_TYPES."""
+        cfg = self._cfg()
+        p = Proposal(
+            id=1, machine_name="laptop", repo_name="api",
+            issue_number=1120, issue_title="Milestone 38 tracking issue",
+            rationale="", type=EPIC_DECOMPOSE_TYPE,
+        )
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+
+        dispatch(p, cfg)
+        mock_post.assert_called_once()
+        mock_get_issue.assert_not_called()
+
+    @patch("coord.dispatch.httpx.post")
+    @patch("coord.github_ops.get_issue")
     def test_no_gate_without_acceptance_driver(
         self, mock_get_issue, mock_post, config, proposal,
     ) -> None:
@@ -1361,6 +1387,136 @@ class TestEpicDispatchGuard:
             enforce_epic_dispatch_guard(
                 proposal_type="work", repo=repo, config=cfg, issue_number=1120,
             )  # must not raise
+
+
+class TestEpicDecomposeBriefing:
+    """#3132 acceptance: dispatching `type="epic-decompose"` against a
+    fixture epic renders a briefing carrying the decompose-and-queue
+    contract — cap of 6, chain serially, leave the epic open — as a durable
+    part of what the worker is told, not just something the epic's own body
+    happens to say.
+    """
+
+    def test_contract_text_states_the_full_workflow(self) -> None:
+        """Unit-level: the contract text itself names every step #3132's
+        acceptance criteria call out."""
+        assert "add-child" in EPIC_DECOMPOSE_CONTRACT
+        assert "At most 6" in EPIC_DECOMPOSE_CONTRACT
+        assert "chained serially" in EPIC_DECOMPOSE_CONTRACT
+        assert "Re-queue this epic" in EPIC_DECOMPOSE_CONTRACT
+        assert "Implement only the first slice" in EPIC_DECOMPOSE_CONTRACT
+        assert "Leave this epic open" in EPIC_DECOMPOSE_CONTRACT
+
+    def test_epic_decompose_briefing_names_the_issue(self) -> None:
+        rendered = epic_decompose_briefing(1120)
+        assert "#1120" in rendered
+        assert "At most 6" in rendered
+        assert "Leave this epic open" in rendered
+
+    @patch("coord.dispatch.httpx.post")
+    def test_dispatch_renders_contract_into_the_wire_briefing(
+        self, mock_post,
+    ) -> None:
+        """Black-box: run the real `dispatch()` for a fixture epic and
+        inspect the exact JSON payload it would POST to the agent — the
+        briefing a worker actually sees."""
+        cfg = Config(
+            repos=[Repo(name="api", github="acme/api", default_branch="main")],
+            machines=[Machine(
+                name="laptop", host="laptop.tailnet", repos=["api"],
+                repo_paths={"api": "/home/user/src/api"},
+            )],
+        )
+        p = Proposal(
+            id=1, machine_name="laptop", repo_name="api",
+            issue_number=1120, issue_title="quadraui audit epic",
+            rationale="epic decomposition pickup",
+            briefing="Decompose fully; queue the first batch; see epic body.",
+            type=EPIC_DECOMPOSE_TYPE,
+        )
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_post.return_value = mock_resp
+
+        dispatch(p, cfg)
+
+        mock_post.assert_called_once()
+        wire_briefing = mock_post.call_args.kwargs["json"]["briefing"]
+        assert "At most 6" in wire_briefing
+        assert "chained serially" in wire_briefing
+        assert "Leave this epic open" in wire_briefing
+        assert "#1120" in wire_briefing
+        # The operator/epic-author's own briefing text is preserved too —
+        # this is an ADDENDUM, not a replacement.
+        assert "Decompose fully; queue the first batch" in wire_briefing
+
+    def test_contract_add_child_invocation_has_no_flag(self) -> None:
+        """Regression for the #3132 review finding: an earlier draft of this
+        contract told the worker to run `coord milestone add-child <repo>
+        <epic> --child <issue>`, but the real CLI
+        (``coord.commands.milestone.milestone_add_child_cmd``) takes REPO
+        EPIC ISSUE as three positional arguments and has no ``--child``
+        option at all — a worker following the old text verbatim hit
+        `Error: No such option: --child` on its very first registration
+        command and never linked a single child issue to the epic.
+        """
+        # The old, broken invocation was
+        # "coord milestone add-child <repo> <epic> --child <issue>" — assert
+        # the correct positional-only invocation is present instead of that.
+        assert (
+            "coord milestone add-child <repo> <this epic's issue number> "
+            "<new issue number>"
+        ) in EPIC_DECOMPOSE_CONTRACT
+        assert "add-child <repo>" in EPIC_DECOMPOSE_CONTRACT
+        assert "--child <" not in EPIC_DECOMPOSE_CONTRACT
+
+    def test_contract_add_child_invocation_matches_real_cli_argv_shape(
+        self, tmp_path,
+    ) -> None:
+        """Black-box: actually run the ``coord milestone add-child`` argv
+        shape the contract prescribes (REPO EPIC ISSUE, positional, no
+        flag) through the real Click command and confirm it succeeds —
+        rather than trusting the docstring text alone. This is the argv
+        check the reviewer noted was missing: a substring match on
+        "add-child" alone would not have caught the old ``--child`` typo.
+        """
+        from click.testing import CliRunner
+
+        from coord.cli import main
+
+        config_yaml = """\
+repos:
+  - name: api
+    github: acme/api
+    default_branch: main
+machines:
+  - name: laptop
+    host: laptop.tailnet
+    repos: [api]
+    repo_paths:
+      api: /tmp/api
+"""
+        config_file = tmp_path / "coordinator.yml"
+        config_file.write_text(config_yaml)
+
+        def get_issue(repo, number):
+            if number == 1120:
+                return {
+                    "number": 1120, "title": "epic",
+                    "body": "Epic intro.\n", "state": "OPEN",
+                }
+            return {"number": number, "title": f"issue {number}", "body": "", "state": "OPEN"}
+
+        with patch("coord.github_ops.get_issue", side_effect=get_issue), \
+             patch("coord.github_ops.update_issue_body") as mock_update:
+            # Exactly the argv shape EPIC_DECOMPOSE_CONTRACT's step 1
+            # prescribes: REPO EPIC ISSUE, all positional, no --child.
+            result = CliRunner().invoke(
+                main,
+                ["milestone", "add-child", "api", "1120", "1050", "--config", str(config_file)],
+            )
+        assert result.exit_code == 0, result.output
+        mock_update.assert_called_once()
 
 
 class TestPostBriefing:

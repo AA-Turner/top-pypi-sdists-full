@@ -29,22 +29,24 @@ import typing as t
 from pathlib import Path
 from types import ModuleType
 
-from click import get_current_context
-from click.core import ParameterSource
-from click.shell_completion import (
-    CompletionItem,
-    split_arg_string,  # pyright: ignore[reportPrivateImportUsage]
-)
 from django.core.management import CommandError, ManagementUtility
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 from shellingham import ShellDetectionFailure
 from typer import Argument, Option
-from typer.main import get_command as get_typer_command
+from typer._click.core import ParameterSource
+from typer._click.globals import get_current_context
+from typer._click.shell_completion import CompletionItem, split_arg_string
 
 from django_typer.completers import these_strings
 from django_typer.completers.path import import_paths
-from django_typer.management import TyperCommand, command, get_command, initialize
+from django_typer.management import (
+    TyperCommand,
+    command,
+    get_command,
+    get_typer_command,
+    initialize,
+)
 from django_typer.shells import _completers
 from django_typer.types import COMMON_PANEL
 from django_typer.utils import detect_shell, get_usage_script, get_win_shell
@@ -106,6 +108,9 @@ class Command(TyperCommand):
     """
 
     help = t.cast(str, _("Install autocompletion for the current shell."))
+
+    # completions are returned, this setting prints them (new in 4.0)
+    print_result = True
 
     # disable the system checks - no reason to run these for this one-off command
     requires_system_checks = ()
@@ -229,6 +234,7 @@ class Command(TyperCommand):
         shell: t.Annotated[
             str | None,
             Option(
+                "--shell",
                 help=t.cast(
                     str,
                     _("The shell to use."),

@@ -1,4 +1,4 @@
-"""TraceAGTAdapter — maps AGT govern() session output to a TRACE Trust Record.
+"""TraceAGTAdapter: maps AGT govern() session output to a TRACE Trust Record.
 
 Replaces ~50 lines of manual field wiring (see docs/integration/agt.md) with a
 single method call. Level 0 (software-only) only; for Level 2 deploy inside cMCP.
@@ -7,11 +7,11 @@ single method call. Level 0 (software-only) only; for Level 2 deploy inside cMCP
 from __future__ import annotations
 
 import hashlib
-import json
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
+import rfc8785
 from agentrust_trace.models import (
     Appraisal,
     BuildProvenance,
@@ -130,7 +130,7 @@ class TraceAGTAdapter:
             session: AGT session data collected after ``govern_fn.close_session()``.
 
         Returns:
-            A plain JSON-serialisable dict conforming to the TRACE v0.1 schema.
+            A plain JSON-serialisable dict conforming to the TRACE v0.2 schema.
             The ``cnf.jwk`` placeholder carries no key material until ``sign_record()``
             populates it from the signing key.
         """
@@ -187,10 +187,9 @@ class TraceAGTAdapter:
 
     @staticmethod
     def _transcript_hash(audit_entries: list[dict[str, Any]]) -> str:
-        canonical = json.dumps(
-            audit_entries, sort_keys=True, separators=(",", ":"), ensure_ascii=True
-        )
-        return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
+        # RFC 8785 (JCS): same canonicalization TraceSandboxAdapter already uses
+        # for the same field, and what docs/schema.md calls "canonical JSON".
+        return "sha256:" + hashlib.sha256(rfc8785.dumps(audit_entries)).hexdigest()
 
     @staticmethod
     def _measurement(merkle_chain_tip: str) -> str:

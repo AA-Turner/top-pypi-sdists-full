@@ -37,7 +37,7 @@
   patterns:
     - "subprocess\\.(?:call|run|Popen)\\s*\\([^)]*shell\\s*=\\s*True"
     - "subprocess\\.(?:call|run|Popen)\\s*\\((?=[^)]*\\n)[^)]*shell\\s*=\\s*True"
-    - "os\\.system\\s*\\("
+    - "\\bos\\.system\\s*\\("
   file_types: [python]
   description: "Shell command execution with shell=True enabled"
   remediation: "Use shell=False and pass commands as lists"
@@ -167,8 +167,8 @@
   category: command_injection
   severity: CRITICAL
   patterns:
-    - "require\\s*\\(\\s*['\"]child_process['\"]\\s*\\)"
-    - "from\\s+['\"]child_process['\"]"
+    - "require\\s*\\(\\s*['\"](?:node:)?child_process['\"]\\s*\\)"
+    - "from\\s+['\"](?:node:)?child_process['\"]"
     - "child_process\\.(?:exec|execSync|execFile|execFileSync|spawn|spawnSync|fork)\\s*\\("
     - "\\bexecSync\\s*\\("
     - "\\bspawnSync\\s*\\("

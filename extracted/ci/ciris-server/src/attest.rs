@@ -488,12 +488,21 @@ impl Emit {
     }
 }
 
-/// Store an assembled row through the ordinary door.
+/// Store an assembled row through the AUTHORED door.
+///
+/// This process built and signed the row, so it is metered against the node's
+/// own ceiling and never opens a peer bucket (persist v41, CIRISPersist#804 —
+/// ours). Before v41 the one door metered the owner's own writes as a stranger's:
+/// 652 of 900 chat sends refused at `peer_burst`, and `tracked_peers > 0` from a
+/// node talking to itself. Origin is a property of the CALL, not of the row —
+/// the quota runs at tier 0, before any signature check, so `attesting_key_id`
+/// is only a claim there; a door that trusted it would hand the bigger budget
+/// to anyone claiming the owner's key.
 pub async fn put(engine: &Engine, row: Attestation) -> Result<String, Error> {
     let id = row.attestation_id.clone();
     engine
         .federation_directory()
-        .put_attestation(SignedAttestation { attestation: row })
+        .put_attestation_authored(SignedAttestation { attestation: row })
         .await
         .map_err(|e| Error::Persist(e.to_string()))?;
     Ok(id)
@@ -535,10 +544,23 @@ pub async fn emit(engine: &Engine, signer: KeySigner<'_>, spec: Spec) -> Result<
 /// [`crate::equivocation`] asks "do these two claims differ", and
 /// [`crate::commons_surface`] asks "is this echoed envelope a stamp of the one I
 /// would have built". Two spellings of "what is the claim" would be two answers.
-pub const ROW_BOOKKEEPING: [&str; 3] = [
+/// persist v40.0.0 (#801) added a fourth: `widened_at`, the instant a WIDENING
+/// was placed. It is per-placement bookkeeping by the same argument as the other
+/// three — two identical claims republished at different moments are still the
+/// same claim, and without this the duplicate arm stops firing on any widened
+/// row exactly the way `original_content_hash` broke it in v31.
+pub const ROW_BOOKKEEPING: [&str; 4] = [
     ciris_persist::federation::envelope::paths::ROW,
     ciris_persist::federation::envelope::paths::ASSERTED_AT,
     ciris_persist::federation::envelope::paths::EXPIRES_AT,
+    ciris_persist::federation::envelope::paths::WIDENED_AT,
+];
+
+/// The members that describe a WIDENING's placement rather than its claim.
+/// Removed only when the envelope IS a placement widening — see [`claim_view`].
+pub const WIDENING_BOOKKEEPING: [&str; 2] = [
+    ciris_persist::federation::envelope::paths::REFERENCES_ATTESTATION_ID,
+    ciris_persist::federation::envelope::paths::DIFFERS_IN,
 ];
 
 /// The envelope with [`ROW_BOOKKEEPING`] removed — **what the attester actually
@@ -554,6 +576,26 @@ pub fn claim_view(envelope: &serde_json::Value) -> serde_json::Value {
     let mut out = obj.clone();
     for k in ROW_BOOKKEEPING {
         out.remove(k);
+    }
+    // A PLACEMENT WIDENING'S CLAIM IS THE PRIOR'S BODY. persist v39.0.0 made a
+    // claim reach a wider audience by writing a `supersedes` that carries the
+    // prior's body verbatim plus three members describing the PLACEMENT: which
+    // row it republishes, what differs, and (since v40.0.0) when it was placed.
+    //
+    // Those three are bookkeeping here for the same reason `row` is. Two
+    // identical claims each get their own local row and therefore their own
+    // widening, referencing different priors — so without this, two byte-identical
+    // statements never hash equal and the duplicate arm silently stops firing.
+    // That is the v31 `original_content_hash` breakage returning by another door,
+    // and it is why this is stripped rather than the pair being called distinct.
+    //
+    // Conditional, and that matters: on a REAL `supersedes` or `withdraws`,
+    // `references_attestation_id` is the claim — it names what is being retracted
+    // — and stripping it there would make every composer look alike.
+    if crate::attestation_crossing::is_placement_widening_envelope(envelope) {
+        for k in WIDENING_BOOKKEEPING {
+            out.remove(k);
+        }
     }
     serde_json::Value::Object(out)
 }

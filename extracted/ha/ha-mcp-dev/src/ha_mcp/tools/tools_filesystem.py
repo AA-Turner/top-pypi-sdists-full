@@ -704,20 +704,23 @@ class FilesystemTools:
         """Read a file from the Home Assistant config directory.
 
         General-purpose escape hatch — prefer a dedicated tool when one exists:
-        ha_get_blueprint for a blueprint body, ha_config_get_yaml for a config
-        key, ha_config_get_automation/script/scene for storage-mode items. Reach
-        for ha_read_file only for raw on-disk text those tools don't expose.
+        ha_manage_blueprints(action="get") for a blueprint body,
+        ha_config_get_yaml for a config key, ha_config_get_automation/script/scene
+        for storage-mode items. Reach for ha_read_file only for raw on-disk text
+        those tools don't expose.
 
         Reads files from allowed paths within the config directory. Some files
         have special handling:
         - `secrets.yaml`: Values are masked for security
-        - `home-assistant.log`: Limited to tail (last N lines) by default
+        - `home-assistant.log` / `home-assistant.log.fault`: Limited to tail
+          (last N lines) by default. Prefer ha_get_logs(source='error_log') and
+          ha_get_logs(source='fault_log') over reading these directly.
 
         **Allowed Read Paths:**
         - `configuration.yaml`, `automations.yaml`, `scripts.yaml`, `scenes.yaml`
         - `secrets.yaml` (values masked)
         - `packages/*.yaml`
-        - `home-assistant.log` (tail only)
+        - `home-assistant.log`, `home-assistant.log.fault` (tail only)
         - `www/**`, `themes/**`, `custom_templates/**`, `dashboards/**`, `blueprints/**`
         - `custom_components/**/*.py` (read-only)
         - Plus any custom directories OR HAOS sibling volumes (`/share`,

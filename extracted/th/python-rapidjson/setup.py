@@ -3,29 +3,18 @@
 # :Author:    Ken Robbins <ken@kenrobbins.com>
 # :License:   MIT License
 # :Copyright: © 2015 Ken Robbins
-# :Copyright: © 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025 Lele Gaifax
+# :Copyright: © 2016-2026 Lele Gaifax
 #
 
 import os.path
 import sys
 
-try:
-    from setuptools import setup, Extension
-    try:
-        # This is needed for some old versions of setuptools
-        import packaging.specifiers
-    except ImportError:
-        pass
-    other_setup_options = {'python_requires': '>=3.6'}
-except ImportError:
-    from distutils.core import setup, Extension
-    other_setup_options = {}
-
+from setuptools import setup, Extension
 from distutils import sysconfig
 
 
-if sys.version_info < (3, 6):
-    raise NotImplementedError("Only Python 3.6+ is supported.")
+if sys.version_info < (3, 10):
+    raise NotImplementedError("Only Python 3.10+ is supported.")
 
 ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
 
@@ -44,7 +33,7 @@ else:
                            " want to report the issue.")
 
 # Automatically updated by bump-my-version at release time
-VERSION = '1.23'
+VERSION = '1.24'
 
 with open('README.rst', encoding='utf-8') as f:
     LONG_DESCRIPTION = f.read()
@@ -81,11 +70,6 @@ if cxx and 'g++' in cxx:
     extension_options['extra_compile_args'] = [
         '-pedantic', '-Wno-long-long', '-std=c++11']
 
-    # Up to Python 3.7, some structures use "char*" instead of "const char*",
-    # and ISO C++ forbids assigning string literal constants
-    if sys.version_info < (3,7):
-        extension_options['extra_compile_args'].append('-Wno-write-strings')
-
 
 setup(
     name='python-rapidjson',
@@ -106,7 +90,6 @@ setup(
         'Programming Language :: C++',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
@@ -119,5 +102,4 @@ setup(
     packages=["rapidjson-stubs"],
     package_data={"rapidjson-stubs": ["*.pyi"]},
     include_package_data=True,
-    **other_setup_options
 )

@@ -46,6 +46,10 @@ alembic: alembic
 """ Constant value bpy.app.alembic(supported=True, version=(1, 8, 3), version_string= 1,  8,  3)
 """
 
+autoexec: bool
+""" Boolean, True when auto-execution is allowed (read-only).
+"""
+
 autoexec_fail: bool
 """ Boolean, True when auto-execution of scripts failed (read-only).
 """

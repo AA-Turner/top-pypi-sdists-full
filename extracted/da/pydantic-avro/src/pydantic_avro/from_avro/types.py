@@ -40,19 +40,16 @@ def list_type_handler(t: dict) -> str:
 def map_type_handler(t: dict) -> str:
     """Get the Python type of a given Avro map type"""
     type_field = t["type"]
-    value_type = None
+    avro_value_type = None
     if isinstance(type_field, dict):
         avro_value_type = type_field.get("values")
-        if avro_value_type is None:
-            raise AttributeError(f"Values are required for map type. Received: {t}")
-        value_type = get_pydantic_type(avro_value_type)
-    if isinstance(type_field, str):
-        value_type = t.get("values")
+    elif isinstance(type_field, str):
+        avro_value_type = t.get("values")
 
-    if value_type is None:
+    if avro_value_type is None:
         raise AttributeError(f"Values are required for map type. Received: {t}")
 
-    return f"Dict[str, {value_type}]"
+    return f"Dict[str, {get_pydantic_type(avro_value_type)}]"
 
 
 def logical_type_handler(t: dict) -> str:
@@ -73,7 +70,7 @@ def enum_type_handler(t: dict) -> str:
     symbols = type_info["symbols"]
 
     if not ClassRegistry().has_class(name):
-        enum_class = f"class {name}(str, Enum):\n"
+        enum_class = f"class {name}(StrEnum):\n"
         for s in symbols:
             enum_class += f'    {s} = "{s}"\n'
         ClassRegistry().add_class(name, enum_class)

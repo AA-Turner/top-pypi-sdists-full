@@ -1,39 +1,52 @@
 """
-bpy.types.IMAGE_AST_brush_paint.rst
-bpy.types.NODE_AST_compositor.rst
-bpy.types.VIEW3D_AST_brush_gpencil_paint.rst
-bpy.types.VIEW3D_AST_brush_gpencil_sculpt.rst
-bpy.types.VIEW3D_AST_brush_gpencil_vertex.rst
-bpy.types.VIEW3D_AST_brush_gpencil_weight.rst
-bpy.types.VIEW3D_AST_brush_sculpt.rst
-bpy.types.VIEW3D_AST_brush_sculpt_curves.rst
-bpy.types.VIEW3D_AST_brush_texture_paint.rst
-bpy.types.VIEW3D_AST_brush_vertex_paint.rst
-bpy.types.VIEW3D_AST_brush_weight_paint.rst
-bpy.types.VIEW3D_AST_pose_library.rst
+
+--------------------
+
+This example shows how an add-on can register custom keyboard shortcuts.
+Keymaps are added to keyconfigs.addon
+
+ and removed when unregistered.
+
+Store (keymap, keymap_item)
+
+ tuples for safe cleanup, as multiple add-ons may use the same keymap.
+
+[NOTE]
+Users can customize add-on shortcuts in the Keymap Preferences.
+Add-on keymaps appear under their respective editors and can be
+modified or disabled without editing the add-on code.
+Add-ons should only manipulate keymaps in keyconfigs.addon
+
+ and not manipulate the user's keymaps
+because add-on keymaps serve as a default which users may customize.
+Modifying user keymaps directly interferes with users' own preferences.
+
+[WARNING]
+Add-ons can add items to existing modal keymaps but cannot create
+new modal keymaps via Python. Use modal=True
+
+ when targeting
+an existing modal keymap such as "Knife Tool Modal Map".
+
+```../examples/bpy.types.KeyMaps.1.py```
+
+bpy.types.ProjectAssetLibrary.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.BlendTexture.rst
-bpy.types.CloudsTexture.rst
-bpy.types.DistortedNoiseTexture.rst
-bpy.types.ImageTexture.rst
-bpy.types.MagicTexture.rst
-bpy.types.MarbleTexture.rst
-bpy.types.MusgraveTexture.rst
-bpy.types.NoiseTexture.rst
-bpy.types.StucciTexture.rst
-bpy.types.VoronoiTexture.rst
-bpy.types.WoodTexture.rst
 
-:caption: Subclasses
-:maxdepth: 1
+--------------------
 
-bpy.types.ActionKeyframeStrip.rst
+This example creates a simple macro operator that
+moves the active object and then rotates it.
+It demonstrates:
 
-:caption: Subclasses
-:maxdepth: 1
+* Defining a macro operator class.
+* Registering it and defining sub-operators.
+* Setting property values for each step.
+
+```../examples/bpy.types.Macro.0.py```
 
 
 --------------------
@@ -46,6 +59,1953 @@ bpy.types.ActionKeyframeStrip.rst
 ```../examples/bpy.types.RenderEngine.2.py```
 
 bpy.types.HydraRenderEngine.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+
+--------------------
+
+The NodeTree.poll function determines if a node tree is visible
+in the given context (similar to how Panel.poll
+and Menu.poll define visibility). If it returns False,
+the node tree type will not be selectable in the node editor.
+
+A typical condition for shader nodes would be to check the active render engine
+of the scene and only show nodes of the renderer they are designed for.
+
+```../examples/bpy.types.NodeTree.0.py```
+
+bpy.types.CompositorNodeTree.rst
+bpy.types.GeometryNodeTree.rst
+bpy.types.ShaderNodeTree.rst
+bpy.types.TextureNodeTree.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.FModifierCycles.rst
+bpy.types.FModifierEnvelope.rst
+bpy.types.FModifierFunctionGenerator.rst
+bpy.types.FModifierGenerator.rst
+bpy.types.FModifierLimits.rst
+bpy.types.FModifierNoise.rst
+bpy.types.FModifierSmooth.rst
+bpy.types.FModifierStepped.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.AreaLight.rst
+bpy.types.PointLight.rst
+bpy.types.SpotLight.rst
+bpy.types.SunLight.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.bpy_struct.rst
+
+bpy.types.bpy_prop.rst
+bpy.types.bpy_prop_array.rst
+bpy.types.bpy_prop_collection_idprop.rst
+bpy.types.bpy_prop_collection.rst
+bpy.types.BlendDataPathMeta.rst
+bpy.types.ContextTempOverride.rst
+bpy.types.GeometrySet.rst
+bpy.types.InlineShaderNodes.rst
+
+:titlesonly:
+
+Shared Enum Types <bpy_types_enum_items/index>
+
+:hidden:
+:maxdepth: 1
+
+Types with Custom Property Support <bpy_types_custom_properties>
+
+:hidden:
+:maxdepth: 1
+
+Attributes are used to store data that corresponds to geometry elements.
+Geometry elements are items in one of the geometry domains like points, curves, or faces.
+
+An attribute has a name
+
+, a type
+
+, and is stored on a domain
+
+.
+
+name
+
+
+    The name of this attribute. Names have to be unique within the same geometry.
+    If the name starts with a .
+
+    , the attribute is hidden from the UI.
+
+type
+
+
+    The type of data that this attribute stores, e.g. a float, integer, color, etc.
+    See Attribute Type Items.
+
+domain
+
+
+    The geometry domain that the attribute is stored on.
+    See Attribute Domain Items.
+
+
+--------------------
+
+Attributes can be stored on geometries like Mesh, Curves, PointCloud, etc.
+These geometries have attribute groups (usually called attributes
+
+).
+Using the groups, attributes can then be accessed by their name:
+
+```
+radii = curves.attributes["radius"]
+```
+
+Creating and storing custom attributes is done using the attributes.new
+
+ function:
+
+```
+# Add a new attribute named `my_attribute_name` of type `float` on the point domain of the geometry.
+my_attribute = curves.attributes.new("my_attribute_name", 'FLOAT', 'POINT')
+```
+
+Removing attributes can be done like so:
+
+```
+attribute = drawing.attributes["some_attribute"]
+drawing.attributes.remove(attribute)
+```
+
+[NOTE]
+Some attributes are required and cannot be removed, like "position"
+
+.
+
+Attribute values are read by accessing their attribute.data
+
+ collection property.
+However, in cases where multiple values should be read at once,
+it is better to use the bpy_prop_collection.foreach_get function and read the values into a numpy
+
+ buffer.
+
+```
+import numpy as np
+
+# Get the radius attribute.
+radii = curves.attributes["radius"]
+# Print the radius of the first point.
+print(radii.data[0].value)
+# Output: 0.005
+
+# Get the total number of points.
+num_points = attributes.domain_size('POINT')
+# Create an empty buffer to read all the radii into.
+radii_data = np.zeros(num_points, dtype=np.float32)
+# Read all the radii of the curves into `radii_data` at once.
+radii.data.foreach_get('value', radii_data)
+# Print all the radii.
+print(radii_data)
+# Output: [0.1, 0.2, 0.3, 0.4, ... ]
+```
+
+[NOTE]
+Some attribute types use different named properties to access their value.
+Instead of value
+
+, vectors use vector
+
+, and colors use color
+
+.
+
+Writing to different attribute types is very similar. You can simply assign to a value directly.
+Again, when writing to multiple values, it is recommended to use the bpy_prop_collection.foreach_set function
+to write the values from a numpy
+
+ buffer.
+
+```
+import numpy as np
+
+radii = curves.attributes["radius"]
+# Write a radius with a value of 0.5 to the first point.
+radii.data[0].value = 0.5
+print(radii.data[0].value)
+# Output: 0.5
+
+num_points = attributes.domain_size('POINT')
+# Generate random radii with values between 0.001 and 0.05 using numpy.
+new_radii = np.random.uniform(0.001, 0.05, num_points)
+# Write the new radii to the radius attribute.
+radii.data.foreach_set('value', new_radii)
+```
+
+The bpy_prop_collection.foreach_get / bpy_prop_collection.foreach_set methods require a flat array.
+This is sometimes not desirable, e.g. when reading/writing positions, which are 3D vectors.
+In these cases, it's possible to use np.ravel
+
+ to pass the data as a flat array:
+
+```
+num_points = attributes.domain_size('POINT')
+positions = curves.attributes['position']
+# Here, we're using a numpy array with shape (num_points, 3) so that each
+# element is a 3d vector.
+positions_data = np.zeros((num_points, 3), dtype=np.float32)
+# The `np.ravel` function will pass the `positions_data` as a flat array
+# without changing the original shape.
+positions.data.foreach_get('vector', np.ravel(positions_data))
+print(positions_data)
+# Output: [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], ...]
+```
+
+bpy.types.BoolAttribute.rst
+bpy.types.ByteColorAttribute.rst
+bpy.types.ByteIntAttribute.rst
+bpy.types.Float2Attribute.rst
+bpy.types.Float4Attribute.rst
+bpy.types.Float4x4Attribute.rst
+bpy.types.FloatAttribute.rst
+bpy.types.FloatColorAttribute.rst
+bpy.types.FloatVectorAttribute.rst
+bpy.types.Int2Attribute.rst
+bpy.types.IntAttribute.rst
+bpy.types.QuaternionAttribute.rst
+bpy.types.Short2Attribute.rst
+bpy.types.StringAttribute.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.ShaderNodeAddShader.rst
+bpy.types.ShaderNodeAmbientOcclusion.rst
+bpy.types.ShaderNodeAttribute.rst
+bpy.types.ShaderNodeBackground.rst
+bpy.types.ShaderNodeBevel.rst
+bpy.types.ShaderNodeBlackbody.rst
+bpy.types.ShaderNodeBrightContrast.rst
+bpy.types.ShaderNodeBsdfAnisotropic.rst
+bpy.types.ShaderNodeBsdfDiffuse.rst
+bpy.types.ShaderNodeBsdfGlass.rst
+bpy.types.ShaderNodeBsdfHair.rst
+bpy.types.ShaderNodeBsdfHairPrincipled.rst
+bpy.types.ShaderNodeBsdfMetallic.rst
+bpy.types.ShaderNodeBsdfPrincipled.rst
+bpy.types.ShaderNodeBsdfRayPortal.rst
+bpy.types.ShaderNodeBsdfRefraction.rst
+bpy.types.ShaderNodeBsdfSheen.rst
+bpy.types.ShaderNodeBsdfToon.rst
+bpy.types.ShaderNodeBsdfTranslucent.rst
+bpy.types.ShaderNodeBsdfTransparent.rst
+bpy.types.ShaderNodeBump.rst
+bpy.types.ShaderNodeCameraData.rst
+bpy.types.ShaderNodeClamp.rst
+bpy.types.ShaderNodeCombineColor.rst
+bpy.types.ShaderNodeCombineXYZ.rst
+bpy.types.ShaderNodeCustomGroup.rst
+bpy.types.ShaderNodeDisplacement.rst
+bpy.types.ShaderNodeEeveeSpecular.rst
+bpy.types.ShaderNodeEmission.rst
+bpy.types.ShaderNodeFloatCurve.rst
+bpy.types.ShaderNodeFresnel.rst
+bpy.types.ShaderNodeGamma.rst
+bpy.types.ShaderNodeGroup.rst
+bpy.types.ShaderNodeHairInfo.rst
+bpy.types.ShaderNodeHoldout.rst
+bpy.types.ShaderNodeHueSaturation.rst
+bpy.types.ShaderNodeInvert.rst
+bpy.types.ShaderNodeLayerWeight.rst
+bpy.types.ShaderNodeLightAccumulation.rst
+bpy.types.ShaderNodeLightEvaluation.rst
+bpy.types.ShaderNodeLightFalloff.rst
+bpy.types.ShaderNodeLightInfo.rst
+bpy.types.ShaderNodeLightIterInternalInput.rst
+bpy.types.ShaderNodeLightIterInternalOutput.rst
+bpy.types.ShaderNodeLightPath.rst
+bpy.types.ShaderNodeMapRange.rst
+bpy.types.ShaderNodeMapping.rst
+bpy.types.ShaderNodeMath.rst
+bpy.types.ShaderNodeMix.rst
+bpy.types.ShaderNodeMixRGB.rst
+bpy.types.ShaderNodeMixShader.rst
+bpy.types.ShaderNodeNewGeometry.rst
+bpy.types.ShaderNodeNormal.rst
+bpy.types.ShaderNodeNormalMap.rst
+bpy.types.ShaderNodeObjectInfo.rst
+bpy.types.ShaderNodeOutputAOV.rst
+bpy.types.ShaderNodeOutputLight.rst
+bpy.types.ShaderNodeOutputLineStyle.rst
+bpy.types.ShaderNodeOutputMaterial.rst
+bpy.types.ShaderNodeOutputWorld.rst
+bpy.types.ShaderNodeParticleInfo.rst
+bpy.types.ShaderNodePointInfo.rst
+bpy.types.ShaderNodeRGB.rst
+bpy.types.ShaderNodeRGBCurve.rst
+bpy.types.ShaderNodeRGBToBW.rst
+bpy.types.ShaderNodeRadialTiling.rst
+bpy.types.ShaderNodeRaycast.rst
+bpy.types.ShaderNodeScript.rst
+bpy.types.ShaderNodeSeparateColor.rst
+bpy.types.ShaderNodeSeparateXYZ.rst
+bpy.types.ShaderNodeShaderToRGB.rst
+bpy.types.ShaderNodeShadowRaycast.rst
+bpy.types.ShaderNodeSqueeze.rst
+bpy.types.ShaderNodeSubsurfaceScattering.rst
+bpy.types.ShaderNodeTangent.rst
+bpy.types.ShaderNodeTexBrick.rst
+bpy.types.ShaderNodeTexChecker.rst
+bpy.types.ShaderNodeTexCoord.rst
+bpy.types.ShaderNodeTexEnvironment.rst
+bpy.types.ShaderNodeTexGabor.rst
+bpy.types.ShaderNodeTexGradient.rst
+bpy.types.ShaderNodeTexIES.rst
+bpy.types.ShaderNodeTexImage.rst
+bpy.types.ShaderNodeTexMagic.rst
+bpy.types.ShaderNodeTexNoise.rst
+bpy.types.ShaderNodeTexSky.rst
+bpy.types.ShaderNodeTexVoronoi.rst
+bpy.types.ShaderNodeTexWave.rst
+bpy.types.ShaderNodeTexWhiteNoise.rst
+bpy.types.ShaderNodeUVAlongStroke.rst
+bpy.types.ShaderNodeUVMap.rst
+bpy.types.ShaderNodeValToRGB.rst
+bpy.types.ShaderNodeValue.rst
+bpy.types.ShaderNodeVectorCurve.rst
+bpy.types.ShaderNodeVectorDisplacement.rst
+bpy.types.ShaderNodeVectorMath.rst
+bpy.types.ShaderNodeVectorRotate.rst
+bpy.types.ShaderNodeVectorTransform.rst
+bpy.types.ShaderNodeVertexColor.rst
+bpy.types.ShaderNodeVolumeAbsorption.rst
+bpy.types.ShaderNodeVolumeCoefficients.rst
+bpy.types.ShaderNodeVolumeInfo.rst
+bpy.types.ShaderNodeVolumePrincipled.rst
+bpy.types.ShaderNodeVolumeScatter.rst
+bpy.types.ShaderNodeWavelength.rst
+bpy.types.ShaderNodeWireframe.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.EffectStrip.rst
+bpy.types.ImageStrip.rst
+bpy.types.MaskStrip.rst
+bpy.types.MetaStrip.rst
+bpy.types.MovieClipStrip.rst
+bpy.types.MovieStrip.rst
+bpy.types.SceneStrip.rst
+bpy.types.SoundStrip.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.GeometryNodeAccumulateField.rst
+bpy.types.GeometryNodeApplySimulatedData.rst
+bpy.types.GeometryNodeAttributeDomainSize.rst
+bpy.types.GeometryNodeAttributeStatistic.rst
+bpy.types.GeometryNodeBake.rst
+bpy.types.GeometryNodeBlurAttribute.rst
+bpy.types.GeometryNodeBoneInfo.rst
+bpy.types.GeometryNodeBoundBox.rst
+bpy.types.GeometryNodeCameraInfo.rst
+bpy.types.GeometryNodeCaptureAttribute.rst
+bpy.types.GeometryNodeClosureToList.rst
+bpy.types.GeometryNodeClusterByConnected.rst
+bpy.types.GeometryNodeClusterByDistance.rst
+bpy.types.GeometryNodeCollectionChildren.rst
+bpy.types.GeometryNodeCollectionInfo.rst
+bpy.types.GeometryNodeCombineList.rst
+bpy.types.GeometryNodeConvexHull.rst
+bpy.types.GeometryNodeCornersOfEdge.rst
+bpy.types.GeometryNodeCornersOfFace.rst
+bpy.types.GeometryNodeCornersOfVertex.rst
+bpy.types.GeometryNodeCubeGridTopology.rst
+bpy.types.GeometryNodeCurveArc.rst
+bpy.types.GeometryNodeCurveEndpointSelection.rst
+bpy.types.GeometryNodeCurveHandleTypeSelection.rst
+bpy.types.GeometryNodeCurveLength.rst
+bpy.types.GeometryNodeCurveOfPoint.rst
+bpy.types.GeometryNodeCurvePrimitiveBezierSegment.rst
+bpy.types.GeometryNodeCurvePrimitiveCircle.rst
+bpy.types.GeometryNodeCurvePrimitiveLine.rst
+bpy.types.GeometryNodeCurvePrimitiveQuadrilateral.rst
+bpy.types.GeometryNodeCurveQuadraticBezier.rst
+bpy.types.GeometryNodeCurveSetHandles.rst
+bpy.types.GeometryNodeCurveSpiral.rst
+bpy.types.GeometryNodeCurveSplineType.rst
+bpy.types.GeometryNodeCurveStar.rst
+bpy.types.GeometryNodeCurveToMesh.rst
+bpy.types.GeometryNodeCurveToPoints.rst
+bpy.types.GeometryNodeCurvesToGreasePencil.rst
+bpy.types.GeometryNodeCustomGroup.rst
+bpy.types.GeometryNodeDeformCurvesOnSurface.rst
+bpy.types.GeometryNodeDeleteGeometry.rst
+bpy.types.GeometryNodeDistributePointsInGrid.rst
+bpy.types.GeometryNodeDistributePointsInVolume.rst
+bpy.types.GeometryNodeDistributePointsOnFaces.rst
+bpy.types.GeometryNodeDualMesh.rst
+bpy.types.GeometryNodeDuplicateElements.rst
+bpy.types.GeometryNodeEdgePathsToCurves.rst
+bpy.types.GeometryNodeEdgePathsToSelection.rst
+bpy.types.GeometryNodeEdgesOfCorner.rst
+bpy.types.GeometryNodeEdgesOfVertex.rst
+bpy.types.GeometryNodeEdgesToFaceGroups.rst
+bpy.types.GeometryNodeExtrudeMesh.rst
+bpy.types.GeometryNodeFaceOfCorner.rst
+bpy.types.GeometryNodeFieldAtIndex.rst
+bpy.types.GeometryNodeFieldAverage.rst
+bpy.types.GeometryNodeFieldMinAndMax.rst
+bpy.types.GeometryNodeFieldOnDomain.rst
+bpy.types.GeometryNodeFieldToGrid.rst
+bpy.types.GeometryNodeFieldToList.rst
+bpy.types.GeometryNodeFieldVariance.rst
+bpy.types.GeometryNodeFillCurve.rst
+bpy.types.GeometryNodeFilletCurve.rst
+bpy.types.GeometryNodeFilterList.rst
+bpy.types.GeometryNodeFlipFaces.rst
+bpy.types.GeometryNodeForeachGeometryElementInput.rst
+bpy.types.GeometryNodeForeachGeometryElementOutput.rst
+bpy.types.GeometryNodeGeometryMaterials.rst
+bpy.types.GeometryNodeGeometryToInstance.rst
+bpy.types.GeometryNodeGetAttributeNames.rst
+bpy.types.GeometryNodeGetGeometryBundle.rst
+bpy.types.GeometryNodeGetGeometryComponent.rst
+bpy.types.GeometryNodeGetNamedGrid.rst
+bpy.types.GeometryNodeGizmoDial.rst
+bpy.types.GeometryNodeGizmoLinear.rst
+bpy.types.GeometryNodeGizmoTransform.rst
+bpy.types.GeometryNodeGreasePencilColor.rst
+bpy.types.GeometryNodeGreasePencilDrawTime.rst
+bpy.types.GeometryNodeGreasePencilFillID.rst
+bpy.types.GeometryNodeGreasePencilOpacity.rst
+bpy.types.GeometryNodeGreasePencilStrokeSoftness.rst
+bpy.types.GeometryNodeGreasePencilStrokeVisibility.rst
+bpy.types.GeometryNodeGreasePencilToCurves.rst
+bpy.types.GeometryNodeGridAdvect.rst
+bpy.types.GeometryNodeGridClip.rst
+bpy.types.GeometryNodeGridCurl.rst
+bpy.types.GeometryNodeGridDeactivateVoxels.rst
+bpy.types.GeometryNodeGridDilateAndErode.rst
+bpy.types.GeometryNodeGridDivergence.rst
+bpy.types.GeometryNodeGridGradient.rst
+bpy.types.GeometryNodeGridInfo.rst
+bpy.types.GeometryNodeGridLaplacian.rst
+bpy.types.GeometryNodeGridMean.rst
+bpy.types.GeometryNodeGridMedian.rst
+bpy.types.GeometryNodeGridPrune.rst
+bpy.types.GeometryNodeGridToMesh.rst
+bpy.types.GeometryNodeGridToPoints.rst
+bpy.types.GeometryNodeGridTopologyBoolean.rst
+bpy.types.GeometryNodeGridVoxelize.rst
+bpy.types.GeometryNodeGroup.rst
+bpy.types.GeometryNodeImageInfo.rst
+bpy.types.GeometryNodeImageTexture.rst
+bpy.types.GeometryNodeImportCSV.rst
+bpy.types.GeometryNodeImportOBJ.rst
+bpy.types.GeometryNodeImportPLY.rst
+bpy.types.GeometryNodeImportSTL.rst
+bpy.types.GeometryNodeImportText.rst
+bpy.types.GeometryNodeImportVDB.rst
+bpy.types.GeometryNodeIndexOfNearest.rst
+bpy.types.GeometryNodeIndexSwitch.rst
+bpy.types.GeometryNodeInputActiveCamera.rst
+bpy.types.GeometryNodeInputCollection.rst
+bpy.types.GeometryNodeInputCurveHandlePositions.rst
+bpy.types.GeometryNodeInputCurveTilt.rst
+bpy.types.GeometryNodeInputEdgeSmooth.rst
+bpy.types.GeometryNodeInputFont.rst
+bpy.types.GeometryNodeInputID.rst
+bpy.types.GeometryNodeInputImage.rst
+bpy.types.GeometryNodeInputIndex.rst
+bpy.types.GeometryNodeInputInstanceBounds.rst
+bpy.types.GeometryNodeInputInstanceReference.rst
+bpy.types.GeometryNodeInputInstanceRotation.rst
+bpy.types.GeometryNodeInputInstanceScale.rst
+bpy.types.GeometryNodeInputMaterial.rst
+bpy.types.GeometryNodeInputMaterialIndex.rst
+bpy.types.GeometryNodeInputMeshEdgeAngle.rst
+bpy.types.GeometryNodeInputMeshEdgeNeighbors.rst
+bpy.types.GeometryNodeInputMeshEdgeVertices.rst
+bpy.types.GeometryNodeInputMeshFaceArea.rst
+bpy.types.GeometryNodeInputMeshFaceIsPlanar.rst
+bpy.types.GeometryNodeInputMeshFaceNeighbors.rst
+bpy.types.GeometryNodeInputMeshIsland.rst
+bpy.types.GeometryNodeInputMeshVertexNeighbors.rst
+bpy.types.GeometryNodeInputNamedAttribute.rst
+bpy.types.GeometryNodeInputNamedLayerSelection.rst
+bpy.types.GeometryNodeInputNormal.rst
+bpy.types.GeometryNodeInputObject.rst
+bpy.types.GeometryNodeInputPosition.rst
+bpy.types.GeometryNodeInputRadius.rst
+bpy.types.GeometryNodeInputSceneTime.rst
+bpy.types.GeometryNodeInputShadeSmooth.rst
+bpy.types.GeometryNodeInputShortestEdgePaths.rst
+bpy.types.GeometryNodeInputSplineCyclic.rst
+bpy.types.GeometryNodeInputSplineResolution.rst
+bpy.types.GeometryNodeInputTangent.rst
+bpy.types.GeometryNodeInputVoxelIndex.rst
+bpy.types.GeometryNodeInstanceOnPoints.rst
+bpy.types.GeometryNodeInstanceTransform.rst
+bpy.types.GeometryNodeInstancesToPoints.rst
+bpy.types.GeometryNodeInterpolateCurves.rst
+bpy.types.GeometryNodeIsViewport.rst
+bpy.types.GeometryNodeJoinGeometry.rst
+bpy.types.GeometryNodeListGetItem.rst
+bpy.types.GeometryNodeListLength.rst
+bpy.types.GeometryNodeMaterialSelection.rst
+bpy.types.GeometryNodeMenuSwitch.rst
+bpy.types.GeometryNodeMergeByDistance.rst
+bpy.types.GeometryNodeMergeLayers.rst
+bpy.types.GeometryNodeMergePoints.rst
+bpy.types.GeometryNodeMeshBevel.rst
+bpy.types.GeometryNodeMeshBoolean.rst
+bpy.types.GeometryNodeMeshCircle.rst
+bpy.types.GeometryNodeMeshCone.rst
+bpy.types.GeometryNodeMeshCube.rst
+bpy.types.GeometryNodeMeshCylinder.rst
+bpy.types.GeometryNodeMeshFaceSetBoundaries.rst
+bpy.types.GeometryNodeMeshGrid.rst
+bpy.types.GeometryNodeMeshIcoSphere.rst
+bpy.types.GeometryNodeMeshLine.rst
+bpy.types.GeometryNodeMeshToCurve.rst
+bpy.types.GeometryNodeMeshToDensityGrid.rst
+bpy.types.GeometryNodeMeshToPoints.rst
+bpy.types.GeometryNodeMeshToSDFGrid.rst
+bpy.types.GeometryNodeMeshToVolume.rst
+bpy.types.GeometryNodeMeshUVSphere.rst
+bpy.types.GeometryNodeNURBSOrder.rst
+bpy.types.GeometryNodeNURBSWeight.rst
+bpy.types.GeometryNodeObjectInfo.rst
+bpy.types.GeometryNodeOffsetCornerInFace.rst
+bpy.types.GeometryNodeOffsetPointInCurve.rst
+bpy.types.GeometryNodePoints.rst
+bpy.types.GeometryNodePointsOfCurve.rst
+bpy.types.GeometryNodePointsToCurves.rst
+bpy.types.GeometryNodePointsToSDFGrid.rst
+bpy.types.GeometryNodePointsToVertices.rst
+bpy.types.GeometryNodePointsToVolume.rst
+bpy.types.GeometryNodeProximity.rst
+bpy.types.GeometryNodeRasterizePoints.rst
+bpy.types.GeometryNodeRaycast.rst
+bpy.types.GeometryNodeRealizeInstances.rst
+bpy.types.GeometryNodeRemoveAttribute.rst
+bpy.types.GeometryNodeRenameAttribute.rst
+bpy.types.GeometryNodeRepeatInput.rst
+bpy.types.GeometryNodeRepeatOutput.rst
+bpy.types.GeometryNodeReplaceMaterial.rst
+bpy.types.GeometryNodeResampleCurve.rst
+bpy.types.GeometryNodeReverseCurve.rst
+bpy.types.GeometryNodeRotateInstances.rst
+bpy.types.GeometryNodeSDFGridBoolean.rst
+bpy.types.GeometryNodeSDFGridFillet.rst
+bpy.types.GeometryNodeSDFGridLaplacian.rst
+bpy.types.GeometryNodeSDFGridMean.rst
+bpy.types.GeometryNodeSDFGridMeanCurvature.rst
+bpy.types.GeometryNodeSDFGridMedian.rst
+bpy.types.GeometryNodeSDFGridOffset.rst
+bpy.types.GeometryNodeSampleCurve.rst
+bpy.types.GeometryNodeSampleGrid.rst
+bpy.types.GeometryNodeSampleGridIndex.rst
+bpy.types.GeometryNodeSampleIndex.rst
+bpy.types.GeometryNodeSampleNearest.rst
+bpy.types.GeometryNodeSampleNearestSurface.rst
+bpy.types.GeometryNodeSampleSoundFrequencies.rst
+bpy.types.GeometryNodeSampleUVSurface.rst
+bpy.types.GeometryNodeScaleElements.rst
+bpy.types.GeometryNodeScaleInstances.rst
+bpy.types.GeometryNodeSelfObject.rst
+bpy.types.GeometryNodeSeparateComponents.rst
+bpy.types.GeometryNodeSeparateGeometry.rst
+bpy.types.GeometryNodeSetCurveHandlePositions.rst
+bpy.types.GeometryNodeSetCurveNormal.rst
+bpy.types.GeometryNodeSetCurveRadius.rst
+bpy.types.GeometryNodeSetCurveTilt.rst
+bpy.types.GeometryNodeSetGeometryBundle.rst
+bpy.types.GeometryNodeSetGeometryName.rst
+bpy.types.GeometryNodeSetGreasePencilColor.rst
+bpy.types.GeometryNodeSetGreasePencilDepth.rst
+bpy.types.GeometryNodeSetGreasePencilSoftness.rst
+bpy.types.GeometryNodeSetGridBackground.rst
+bpy.types.GeometryNodeSetGridTransform.rst
+bpy.types.GeometryNodeSetID.rst
+bpy.types.GeometryNodeSetInstanceTransform.rst
+bpy.types.GeometryNodeSetMaterial.rst
+bpy.types.GeometryNodeSetMaterialIndex.rst
+bpy.types.GeometryNodeSetMeshNormal.rst
+bpy.types.GeometryNodeSetNURBSOrder.rst
+bpy.types.GeometryNodeSetNURBSWeight.rst
+bpy.types.GeometryNodeSetPointRadius.rst
+bpy.types.GeometryNodeSetPosition.rst
+bpy.types.GeometryNodeSetShadeSmooth.rst
+bpy.types.GeometryNodeSetSplineCyclic.rst
+bpy.types.GeometryNodeSetSplineResolution.rst
+bpy.types.GeometryNodeSimulationInput.rst
+bpy.types.GeometryNodeSimulationOutput.rst
+bpy.types.GeometryNodeSortElements.rst
+bpy.types.GeometryNodeSortList.rst
+bpy.types.GeometryNodeSplineLength.rst
+bpy.types.GeometryNodeSplineParameter.rst
+bpy.types.GeometryNodeSplitEdges.rst
+bpy.types.GeometryNodeSplitToInstances.rst
+bpy.types.GeometryNodeStoreNamedAttribute.rst
+bpy.types.GeometryNodeStoreNamedGrid.rst
+bpy.types.GeometryNodeStringJoin.rst
+bpy.types.GeometryNodeStringToCurves.rst
+bpy.types.GeometryNodeSubdivideCurve.rst
+bpy.types.GeometryNodeSubdivideMesh.rst
+bpy.types.GeometryNodeSubdivisionSurface.rst
+bpy.types.GeometryNodeSwitch.rst
+bpy.types.GeometryNodeTagFilter.rst
+bpy.types.GeometryNodeTool3DCursor.rst
+bpy.types.GeometryNodeToolActiveElement.rst
+bpy.types.GeometryNodeToolFaceSet.rst
+bpy.types.GeometryNodeToolMousePosition.rst
+bpy.types.GeometryNodeToolSelection.rst
+bpy.types.GeometryNodeToolSetFaceSet.rst
+bpy.types.GeometryNodeToolSetSelection.rst
+bpy.types.GeometryNodeTransferAttributes.rst
+bpy.types.GeometryNodeTransform.rst
+bpy.types.GeometryNodeTranslateInstances.rst
+bpy.types.GeometryNodeTriangulate.rst
+bpy.types.GeometryNodeTrimCurve.rst
+bpy.types.GeometryNodeUVPackIslands.rst
+bpy.types.GeometryNodeUVTangent.rst
+bpy.types.GeometryNodeUVUnwrap.rst
+bpy.types.GeometryNodeVertexOfCorner.rst
+bpy.types.GeometryNodeViewer.rst
+bpy.types.GeometryNodeViewportTransform.rst
+bpy.types.GeometryNodeVolumeCube.rst
+bpy.types.GeometryNodeVolumeToMesh.rst
+bpy.types.GeometryNodeWarning.rst
+bpy.types.GeometryNodeXPBDSolver.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.ShaderFxBlur.rst
+bpy.types.ShaderFxColorize.rst
+bpy.types.ShaderFxFlip.rst
+bpy.types.ShaderFxGlow.rst
+bpy.types.ShaderFxPixel.rst
+bpy.types.ShaderFxRim.rst
+bpy.types.ShaderFxShadow.rst
+bpy.types.ShaderFxSwirl.rst
+bpy.types.ShaderFxWave.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.FileAssetSelectParams.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+Action Slots organize animation data within an action. Each action has slots with specific animation
+data. An animated data-block specifies an action and a slot, determining the animation data it uses.
+See the Blender Manual
+for how Action Slots are used, or the
+technical documentation
+for details on the animation system's architecture.
+
+
+--------------------
+
+To get started with Action Slots, you can easily create them by inserting a keyframe on an object. When you do this,
+Blender automatically creates an Action & Slot for that data-block.
+
+```../examples/bpy.types.ActionSlot.1.py```
+
+
+--------------------
+
+If required you can also manually create Action Slots on an Action. Note the target_id_type
+
+
+that matches the data-block type. Identifiers start with a prefix based on the ID type,
+e.g. "OB" for objects, followed by the name. There can be identifiers like OBSuzanne
+
+
+and MESuzanne
+
+ and the name (Suzanne
+
+) can be shared between them. This is intentional,
+so that the slots and the datablocks can have the same name.
+
+```../examples/bpy.types.ActionSlot.2.py```
+
+
+--------------------
+
+An action slot is compatible with a data-block if the slot's target_id_type
+
+ matches the data-block's type.
+If there are multiple slots on the Action, and you want to just pick the first one that's
+compatible, use the following code. anim_data.action_suitable_slots
+
+ can be used after the
+Action has been assigned; it is a list of action slots of that Action, but only the ones that
+are actually compatible with the owner of anim_data (in this case, Suzanne).
+
+```../examples/bpy.types.ActionSlot.3.py```
+
+
+--------------------
+
+To return a list of the data-blocks that are animated by a specific slot of an Action,
+use the users()
+
+ method of the ActionSlot.
+
+```../examples/bpy.types.ActionSlot.4.py```
+
+bpy.types.GreasePencilLayer.rst
+bpy.types.GreasePencilLayerGroup.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+
+--------------------
+
+This example demonstrates access to the evaluated ID (such as object, material, etc.) state from
+an original ID.
+This is needed every time one needs to access state with animation, constraints, and modifiers
+taken into account.
+
+```../examples/bpy.types.Depsgraph.1.py```
+
+
+--------------------
+
+This example demonstrates access to the original ID.
+Such access is needed to check whether object is selected, or to compare pointers.
+
+```../examples/bpy.types.Depsgraph.2.py```
+
+
+--------------------
+
+Sometimes it is needed to know all the instances with their matrices (for example, when writing an
+exporter or a custom render engine).
+This example shows how to access all objects and instances in the scene.
+
+```../examples/bpy.types.Depsgraph.3.py```
+
+
+--------------------
+
+Function to get a mesh from any object with geometry. It is typically used by exporters, render
+engines and tools that need to access the evaluated mesh as displayed in the viewport.
+
+Object.to_mesh() is closely interacting with dependency graph: its behavior depends on whether it
+is used on original or evaluated object.
+
+When is used on original object, the result mesh is calculated from the object without taking
+animation or modifiers into account:
+
+* For meshes this is similar to duplicating the source mesh.
+* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
+* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
+
+When is used on evaluated object all modifiers are taken into account.
+
+[NOTE]
+The result mesh is owned by the object. It can be freed by calling ~Object.to_mesh_clear.
+
+[NOTE]
+The result mesh must be treated as temporary, and cannot be referenced from objects in the main
+database. If the mesh intended to be used in a persistent manner use ~BlendDataMeshes.new_from_object
+instead.
+
+[NOTE]
+If object does not have geometry (i.e. camera) the functions returns None.
+
+```../examples/bpy.types.Depsgraph.4.py```
+
+
+--------------------
+
+Function to copy a new mesh from any object with geometry. The mesh is added to the main
+database and can be referenced by objects. Typically used by tools that create new objects
+or apply modifiers.
+
+When is used on original object, the result mesh is calculated from the object without taking
+animation or modifiers into account:
+
+* For meshes this is similar to duplicating the source mesh.
+* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
+* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
+
+When is used on evaluated object all modifiers are taken into account.
+
+All the references (such as materials) are re-mapped to original. This ensures validity and
+consistency of the main database.
+
+[NOTE]
+If object does not have geometry (i.e. camera) the functions returns None.
+
+```../examples/bpy.types.Depsgraph.5.py```
+
+
+--------------------
+
+This example is a combination of all previous ones, and shows how to write a simple exporter
+script.
+
+```../examples/bpy.types.Depsgraph.6.py```
+
+
+--------------------
+
+Function to get a curve from text and curve objects. It is typically used by exporters, render
+engines, and tools that need to access the curve representing the object.
+
+The function takes the evaluated dependency graph as a required parameter and optionally a boolean
+apply_modifiers which defaults to false. If apply_modifiers is true and the object is a curve object,
+the spline deform modifiers are applied on the control points. Note that constructive modifiers and
+modifiers that are not spline-enabled will not be applied. So modifiers like Array will not be applied
+and deform modifiers that have Apply On Spline disabled will not be applied.
+
+If the object is a text object. The text will be converted into a 3D curve and returned. Modifiers are
+never applied on text objects and apply_modifiers will be ignored. If the object is neither a curve nor
+a text object, an error will be reported.
+
+[NOTE]
+The resulting curve is owned by the object. It can be freed by calling ~Object.to_curve_clear.
+
+[NOTE]
+The resulting curve must be treated as temporary, and cannot be referenced from objects in the main
+database.
+
+```../examples/bpy.types.Depsgraph.7.py```
+
+bpy.types.BrightContrastModifier.rst
+bpy.types.ColorBalanceModifier.rst
+bpy.types.CurvesModifier.rst
+bpy.types.EchoModifier.rst
+bpy.types.HueCorrectModifier.rst
+bpy.types.MaskStripModifier.rst
+bpy.types.PitchModifier.rst
+bpy.types.SequencerCompositorModifierData.rst
+bpy.types.SequencerTonemapModifierData.rst
+bpy.types.SoundEqualizerModifier.rst
+bpy.types.WhiteBalanceModifier.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+
+--------------------
+
+```../examples/bpy.types.GeometrySet.0.py```
+
+bpy.types.ActionConstraint.rst
+bpy.types.ArmatureConstraint.rst
+bpy.types.CameraSolverConstraint.rst
+bpy.types.ChildOfConstraint.rst
+bpy.types.ClampToConstraint.rst
+bpy.types.CopyLocationConstraint.rst
+bpy.types.CopyRotationConstraint.rst
+bpy.types.CopyScaleConstraint.rst
+bpy.types.CopyTransformsConstraint.rst
+bpy.types.DampedTrackConstraint.rst
+bpy.types.FloorConstraint.rst
+bpy.types.FollowPathConstraint.rst
+bpy.types.FollowTrackConstraint.rst
+bpy.types.GeometryAttributeConstraint.rst
+bpy.types.KinematicConstraint.rst
+bpy.types.LimitDistanceConstraint.rst
+bpy.types.LimitLocationConstraint.rst
+bpy.types.LimitRotationConstraint.rst
+bpy.types.LimitScaleConstraint.rst
+bpy.types.LockedTrackConstraint.rst
+bpy.types.MaintainVolumeConstraint.rst
+bpy.types.ObjectSolverConstraint.rst
+bpy.types.PivotConstraint.rst
+bpy.types.ShrinkwrapConstraint.rst
+bpy.types.SplineIKConstraint.rst
+bpy.types.StretchToConstraint.rst
+bpy.types.TrackToConstraint.rst
+bpy.types.TransformCacheConstraint.rst
+bpy.types.TransformConstraint.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.FunctionNodeAlignEulerToVector.rst
+bpy.types.FunctionNodeAlignRotationToVector.rst
+bpy.types.FunctionNodeAxesToRotation.rst
+bpy.types.FunctionNodeAxisAngleToRotation.rst
+bpy.types.FunctionNodeBitMath.rst
+bpy.types.FunctionNodeBooleanMath.rst
+bpy.types.FunctionNodeCombineColor.rst
+bpy.types.FunctionNodeCombineMatrix.rst
+bpy.types.FunctionNodeCombineTransform.rst
+bpy.types.FunctionNodeCompare.rst
+bpy.types.FunctionNodeEulerToRotation.rst
+bpy.types.FunctionNodeFindInString.rst
+bpy.types.FunctionNodeFloatToInt.rst
+bpy.types.FunctionNodeFormatString.rst
+bpy.types.FunctionNodeGetVectorComponent.rst
+bpy.types.FunctionNodeHashValue.rst
+bpy.types.FunctionNodeInputBool.rst
+bpy.types.FunctionNodeInputColor.rst
+bpy.types.FunctionNodeInputInt.rst
+bpy.types.FunctionNodeInputIntVector.rst
+bpy.types.FunctionNodeInputMenu.rst
+bpy.types.FunctionNodeInputRotation.rst
+bpy.types.FunctionNodeInputSpecialCharacters.rst
+bpy.types.FunctionNodeInputString.rst
+bpy.types.FunctionNodeInputVector.rst
+bpy.types.FunctionNodeIntegerMath.rst
+bpy.types.FunctionNodeInvertMatrix.rst
+bpy.types.FunctionNodeInvertRotation.rst
+bpy.types.FunctionNodeMatchString.rst
+bpy.types.FunctionNodeMatrixDeterminant.rst
+bpy.types.FunctionNodeMatrixMultiply.rst
+bpy.types.FunctionNodeMatrixSVD.rst
+bpy.types.FunctionNodeProjectPoint.rst
+bpy.types.FunctionNodeQuaternionToRotation.rst
+bpy.types.FunctionNodeRandomValue.rst
+bpy.types.FunctionNodeReplaceString.rst
+bpy.types.FunctionNodeReverseString.rst
+bpy.types.FunctionNodeRotateEuler.rst
+bpy.types.FunctionNodeRotateRotation.rst
+bpy.types.FunctionNodeRotateVector.rst
+bpy.types.FunctionNodeRotationToAxisAngle.rst
+bpy.types.FunctionNodeRotationToEuler.rst
+bpy.types.FunctionNodeRotationToQuaternion.rst
+bpy.types.FunctionNodeSeparateColor.rst
+bpy.types.FunctionNodeSeparateMatrix.rst
+bpy.types.FunctionNodeSeparateTransform.rst
+bpy.types.FunctionNodeSetStringCase.rst
+bpy.types.FunctionNodeSliceString.rst
+bpy.types.FunctionNodeSplitString.rst
+bpy.types.FunctionNodeStringLength.rst
+bpy.types.FunctionNodeStringToValue.rst
+bpy.types.FunctionNodeTransformDirection.rst
+bpy.types.FunctionNodeTransformPoint.rst
+bpy.types.FunctionNodeTransposeMatrix.rst
+bpy.types.FunctionNodeTrimString.rst
+bpy.types.FunctionNodeValueToString.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.ArmatureModifier.rst
+bpy.types.ArrayModifier.rst
+bpy.types.BevelModifier.rst
+bpy.types.BooleanModifier.rst
+bpy.types.BuildModifier.rst
+bpy.types.CastModifier.rst
+bpy.types.ClothModifier.rst
+bpy.types.CollisionModifier.rst
+bpy.types.CorrectiveSmoothModifier.rst
+bpy.types.CurveModifier.rst
+bpy.types.DataTransferModifier.rst
+bpy.types.DecimateModifier.rst
+bpy.types.DisplaceModifier.rst
+bpy.types.DynamicPaintModifier.rst
+bpy.types.EdgeSplitModifier.rst
+bpy.types.ExplodeModifier.rst
+bpy.types.FluidModifier.rst
+bpy.types.GreasePencilArmatureModifier.rst
+bpy.types.GreasePencilArrayModifier.rst
+bpy.types.GreasePencilBuildModifier.rst
+bpy.types.GreasePencilColorModifier.rst
+bpy.types.GreasePencilDashModifierData.rst
+bpy.types.GreasePencilEnvelopeModifier.rst
+bpy.types.GreasePencilHookModifier.rst
+bpy.types.GreasePencilLatticeModifier.rst
+bpy.types.GreasePencilLengthModifier.rst
+bpy.types.GreasePencilLineartModifier.rst
+bpy.types.GreasePencilMirrorModifier.rst
+bpy.types.GreasePencilMultiplyModifier.rst
+bpy.types.GreasePencilNoiseModifier.rst
+bpy.types.GreasePencilOffsetModifier.rst
+bpy.types.GreasePencilOpacityModifier.rst
+bpy.types.GreasePencilOutlineModifier.rst
+bpy.types.GreasePencilShrinkwrapModifier.rst
+bpy.types.GreasePencilSimplifyModifier.rst
+bpy.types.GreasePencilSmoothModifier.rst
+bpy.types.GreasePencilSubdivModifier.rst
+bpy.types.GreasePencilTextureModifier.rst
+bpy.types.GreasePencilThickModifierData.rst
+bpy.types.GreasePencilTimeModifier.rst
+bpy.types.GreasePencilTintModifier.rst
+bpy.types.GreasePencilWeightAngleModifier.rst
+bpy.types.GreasePencilWeightProximityModifier.rst
+bpy.types.HookModifier.rst
+bpy.types.LaplacianDeformModifier.rst
+bpy.types.LaplacianSmoothModifier.rst
+bpy.types.LatticeModifier.rst
+bpy.types.MaskModifier.rst
+bpy.types.MeshCacheModifier.rst
+bpy.types.MeshDeformModifier.rst
+bpy.types.MeshSequenceCacheModifier.rst
+bpy.types.MeshToVolumeModifier.rst
+bpy.types.MirrorModifier.rst
+bpy.types.MultiresModifier.rst
+bpy.types.NodesModifier.rst
+bpy.types.NormalEditModifier.rst
+bpy.types.OceanModifier.rst
+bpy.types.ParticleInstanceModifier.rst
+bpy.types.ParticleSystemModifier.rst
+bpy.types.RemeshModifier.rst
+bpy.types.ScrewModifier.rst
+bpy.types.ShrinkwrapModifier.rst
+bpy.types.SimpleDeformModifier.rst
+bpy.types.SkinModifier.rst
+bpy.types.SmoothModifier.rst
+bpy.types.SoftBodyModifier.rst
+bpy.types.SolidifyModifier.rst
+bpy.types.SubsurfModifier.rst
+bpy.types.SurfaceDeformModifier.rst
+bpy.types.SurfaceModifier.rst
+bpy.types.TriangulateModifier.rst
+bpy.types.UVProjectModifier.rst
+bpy.types.UVWarpModifier.rst
+bpy.types.VertexWeightEditModifier.rst
+bpy.types.VertexWeightMixModifier.rst
+bpy.types.VertexWeightProximityModifier.rst
+bpy.types.VolumeDisplaceModifier.rst
+bpy.types.VolumeToMeshModifier.rst
+bpy.types.WarpModifier.rst
+bpy.types.WaveModifier.rst
+bpy.types.WeightedNormalModifier.rst
+bpy.types.WeldModifier.rst
+bpy.types.WireframeModifier.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.LineStyleAlphaModifier.rst
+bpy.types.LineStyleColorModifier.rst
+bpy.types.LineStyleGeometryModifier.rst
+bpy.types.LineStyleThicknessModifier.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.AddStrip.rst
+bpy.types.AdjustmentStrip.rst
+bpy.types.AlphaOverStrip.rst
+bpy.types.AlphaUnderStrip.rst
+bpy.types.ColorMixStrip.rst
+bpy.types.ColorStrip.rst
+bpy.types.CompositorStrip.rst
+bpy.types.CrossStrip.rst
+bpy.types.GammaCrossStrip.rst
+bpy.types.GaussianBlurStrip.rst
+bpy.types.GlowStrip.rst
+bpy.types.MulticamStrip.rst
+bpy.types.MultiplyStrip.rst
+bpy.types.SpeedControlStrip.rst
+bpy.types.SubtractStrip.rst
+bpy.types.TextStrip.rst
+bpy.types.WipeStrip.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.NodeSocketStandard.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.ProjectVariableFloat.rst
+bpy.types.ProjectVariableInteger.rst
+bpy.types.ProjectVariableString.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.StripColorBalance.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.NodeTreeInterfacePanel.rst
+bpy.types.NodeTreeInterfaceSocket.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+
+--------------------
+
+A file handler allows custom drag-and-drop behavior to be associated with a given Operator
+
+
+(FileHandler.bl_import_operator) and set of file extensions
+(FileHandler.bl_file_extensions). Control over which area of the UI accepts the
+drag-in-drop action is specified using the FileHandler.poll_drop method.
+
+Similar to operators that use a file select window, operators participating in drag-and-drop, and
+only accepting a single file, must define the following property:
+
+```
+filepath: bpy.props.StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE'})
+```
+
+This filepath
+
+ property will be set to the full path of the file dropped by the user.
+
+```../examples/bpy.types.FileHandler.1.py```
+
+
+--------------------
+
+Operators which support being executed with multiple files from drag-and-drop require the
+following properties be defined:
+
+```
+directory: StringProperty(subtype='DIR_PATH', options={'SKIP_SAVE', 'HIDDEN'})
+files: CollectionProperty(type=OperatorFileListElement, options={'SKIP_SAVE', 'HIDDEN'})
+```
+
+These directory
+
+ and files
+
+ properties will be set with the necessary data from the
+drag-and-drop operation.
+
+Additionally, if the operator provides operator properties that need to be accessible to the user,
+the ImportHelper.invoke_popup method can be used to show a dialog leveraging the standard
+Operator.draw method for layout and display.
+
+```../examples/bpy.types.FileHandler.2.py```
+
+bpy.types.IMAGE_FH_drop_handler.rst
+bpy.types.IO_FH_gltf2.rst
+bpy.types.IO_FH_svg_as_curves.rst
+bpy.types.NODE_FH_image_node.rst
+bpy.types.SEQUENCER_FH_image_strip.rst
+bpy.types.SEQUENCER_FH_movie_strip.rst
+bpy.types.SEQUENCER_FH_sound_strip.rst
+bpy.types.VIEW3D_FH_camera_background_image.rst
+bpy.types.VIEW3D_FH_empty_image.rst
+bpy.types.VIEW3D_FH_vdb_volume.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.Itasc.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+
+--------------------
+
+This example shows an implementation of USDHook
+
+ to extend USD
+export and import functionality.
+
+
+--------------------
+
+One may optionally define any or all of the following callback functions
+in the USDHook
+
+ subclass.
+
+
+--------------------
+
+Called before the USD export finalizes, allowing modifications to the USD
+stage immediately before it is saved.
+
+Args:
+
+* export_context
+
+ (USDSceneExportContext): Provides access to the stage and dependency graph
+
+Returns:
+
+* True
+
+ on success or False
+
+ if the operation was bypassed or otherwise failed to complete
+
+
+--------------------
+
+Called for each material that is exported, allowing modifications to the USD material,
+such as shader generation.
+
+Args:
+
+* export_context
+
+ (USDMaterialExportContext): Provides access to the stage and a texture export utility function
+* bl_material
+
+ (bpy.types.Material
+
+): The source Blender material
+* usd_material
+
+ (pxr.UsdShade.Material
+
+): The target USD material to be exported
+
+Returns:
+
+* True
+
+ on success or False
+
+ if the operation was bypassed or otherwise failed to complete
+
+Note that the target USD material might already have connected shaders created by the USD exporter or
+by other material export hooks.
+
+
+--------------------
+
+Called after the USD import finalizes.
+
+Args:
+
+* import_context
+
+ (USDSceneImportContext):
+Provides access to the stage and a map associating USD prim paths and Blender IDs
+
+Returns:
+
+* True
+
+ on success or False
+
+ if the operation was bypassed or otherwise failed to complete
+
+
+--------------------
+
+Called to determine if the USDHook
+
+ implementation can convert a given USD material.
+
+Args:
+
+* import_context
+
+ (USDMaterialImportContext): Provides access to the stage and a texture import utility function
+* usd_material
+
+ (pxr.UsdShade.Material
+
+): The source USD material to be exported
+
+Returns:
+
+* True
+
+ if the hook can convert the material or False
+
+ otherwise
+
+If any hook returns True
+
+ from material_import_poll
+
+, the USD importer will skip standard USD Preview Surface
+
+
+or MaterialX
+
+ import and invoke the hook's on_material_import method to convert the material instead.
+
+
+--------------------
+
+Called for each material that is imported, to allow converting the USD material to nodes on the Blender material.
+To ensure that this function gets called, the hook must also implement the material_import_poll()
+
+
+callback to return True
+
+ for the given USD material.
+
+Args:
+
+* import_context
+
+ (USDMaterialImportContext): Provides access to the stage and a texture import utility function
+* bl_material
+
+ (bpy.types.Material
+
+): The target Blender material with an empty node tree
+* usd_material
+
+ (pxr.UsdShade.Material
+
+): The source USD material to be imported
+
+Returns:
+
+* True
+
+ on success or False
+
+ if the conversion failed or otherwise did not complete
+
+
+--------------------
+
+Instances of the following built-in classes are provided as arguments to the callbacks.
+
+
+--------------------
+
+Argument for on_export.
+
+Methods:
+
+* get_stage()
+
+: returns the USD stage to be saved
+* get_depsgraph()
+
+: returns the Blender scene dependency graph
+* get_prim_map()
+
+ returns a dict
+
+ where the key is an exported USD Prim path and the value a list
+
+
+of the IDs associated with that prim.
+
+
+--------------------
+
+Argument for on_material_export.
+
+Methods:
+
+* get_stage()
+
+: returns the USD stage to be saved
+* export_texture(image: bpy.types.Image)
+
+: Returns the USD asset path for the given texture image
+
+The export_texture
+
+ function will save in-memory images and may copy texture assets,
+depending on the current USD export options.
+For example, by default calling export_texture(/foo/bar.png)
+
+ will copy the file to a textures
+
+
+directory next to the exported USD and will return the relative path ./textures/bar.png
+
+.
+
+
+--------------------
+
+Argument for on_import.
+
+Methods:
+
+* get_prim_map()
+
+ returns a dict
+
+ where the key is an imported USD Prim path and the value a list
+
+
+of the IDs created by the imported prim.
+* get_stage()
+
+ returns the USD stage which was imported.
+
+
+--------------------
+
+Argument for material_import_poll and on_material_import.
+
+Methods:
+
+* get_stage()
+
+:
+returns the USD stage to be saved.
+* import_texture(asset_path: str)
+
+:
+for the given USD texture asset path, returns a tuple[str, bool]
+
+,
+containing the asset's local path and a bool indicating whether the path references a temporary file.
+
+The import_texture
+
+ function may copy the texture to the local file system if the given asset path is a
+package-relative path for a USDZ archive, depending on the current USD Import Textures
+
+ options.
+When the Import Textures
+
+ mode is Packed
+
+, the texture is saved to a temporary location and the
+second element of the returned tuple is True
+
+, indicating that the file is temporary, in which
+case it may be necessary to pack the image. The original asset path will be returned unchanged if it's
+already a local file or if it could not be copied to a local destination.
+
+
+--------------------
+
+Exceptions raised by these functions will be reported in Blender with the exception details printed to the console.
+
+
+--------------------
+
+The USDHookExample
+
+ class in the example below implements the following functions:
+
+* on_export()
+
+ function to add custom data to the stage's root layer.
+* on_material_export()
+
+ function to create a simple MaterialX
+
+ shader on the given USD material.
+* on_import()
+
+ function to create a text object to display the stage's custom layer data.
+* material_import_poll()
+
+ returns True
+
+ if the given USD material has an mtlx
+
+ context.
+* on_material_import()
+
+ function to convert a simple MaterialX
+
+ shader with a base_color
+
+ input.
+
+```../examples/bpy.types.USDHook.0.py```
+
+
+--------------------
+
+PropertyGroups are the base class for dynamically defined sets of properties.
+
+They can be used to extend existing Blender data with your own types which can
+be animated, accessed from the user interface and from Python.
+
+[NOTE]
+The values assigned to Blender data are saved to disk but the class
+definitions are not, this means whenever you load Blender the class needs
+to be registered too.
+This is best done by creating an add-on which loads on startup and registers
+your properties.
+
+[NOTE]
+PropertyGroups must be registered before assigning them to Blender data.
+
+Property types used in class declarations are all in bpy.props
+
+
+
+```../examples/bpy.types.PropertyGroup.0.py```
+
+bpy.types.OperatorFileListElement.rst
+bpy.types.OperatorMousePath.rst
+bpy.types.OperatorStrokeElement.rst
+bpy.types.SelectedUvElement.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+
+--------------------
+
+```../examples/bpy.types.InlineShaderNodes.0.py```
+
+
+--------------------
+
+The Image data-block is a shallow wrapper around image or video file(s)
+(on disk, as packed data, or generated).
+
+All actual data like the pixel buffer, size, resolution etc. is
+cached in an imbuf.types.ImBuf image buffer (or several buffers
+in some cases, like UDIM textures, multi-views, animations...).
+
+Several properties and functions of the Image data-block are then actually
+using/modifying its image buffer, and not the Image data-block itself.
+
+[WARNING]
+One key limitation is that image buffers are not shared between different
+Image data-blocks, and they are not duplicated when copying an image.
+So until a modified image buffer is saved on disk, duplicating its Image
+data-block will not propagate the underlying buffer changes to the new Image.
+
+This example script generates an Image data-block with a given size,
+change its first pixel, rescale it, and duplicates the image.
+
+The duplicated image still has the same size and colors as the original image
+at its creation, all editing in the original image's buffer is 'lost' in its copy.
+
+```../examples/bpy.types.Image.0.py```
+
+```../examples/bpy.types.AddonPreferences.1.py```
+
+
+--------------------
+
+This script demonstrates basic operations on object like creating new
+object, placing it into a view layer, selecting it and making it active.
+
+```../examples/bpy.types.Object.0.py```
+
+
+--------------------
+
+Here is an example of a simple menu. Menus differ from panels in that they must
+reference from a header, panel or another menu.
+
+Notice the 'CATEGORY_MT_name' in  Menu.bl_idname, this is a naming
+convention for menus.
+
+[NOTE]
+Menu subclasses must be registered before referencing them from Blender.
+
+[NOTE]
+Menus have their UILayout.operator_context initialized as
+'EXEC_REGION_WIN' rather than 'INVOKE_REGION_WIN' (see Execution Context <rna_enum_operator_context_items>).
+If the operator context needs to initialize inputs from the
+Operator.invoke function, then this needs to be explicitly set.
+When a menu is added to UI elements such as a panel or header,
+the operator execution context will be inherited from them.
+
+```../examples/bpy.types.Menu.0.py```
+
+
+--------------------
+
+This menu demonstrates some different functions.
+
+```../examples/bpy.types.Menu.1.py```
+
+
+--------------------
+
+When creating menus for add-ons you can't reference menus
+in Blender's default scripts.
+Instead, the add-on can add menu items to existing menus.
+
+The function menu_draw acts like Menu.draw.
+
+```../examples/bpy.types.Menu.2.py```
+
+
+--------------------
+
+Preset menus are simply a convention that uses a menu sub-class
+to perform the common task of managing presets.
+
+This example shows how you can add a preset menu.
+
+This example uses the object display options,
+however you can use properties defined by your own scripts too.
+
+```../examples/bpy.types.Menu.3.py```
+
+
+--------------------
+
+This example enables you to insert your own menu entry into the common
+right click menu that you get while hovering over a UI button (e.g. operator,
+value field, color, string, etc.)
+
+To make the example work, you have to first select an object
+then right click on an user interface element (maybe a color in the
+material properties) and choose *Execute Custom Action*.
+
+Executing the operator will then print all values.
+
+```../examples/bpy.types.Menu.4.py```
+
+bpy.types.SpreadsheetTableIDGeometry.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+Base class for integrating USD Hydra based renderers.
+
+
+--------------------
+
+```../examples/bpy.types.HydraRenderEngine.0.py```
+
+bpy.types.TextureNodeAt.rst
+bpy.types.TextureNodeBricks.rst
+bpy.types.TextureNodeChecker.rst
+bpy.types.TextureNodeCombineColor.rst
+bpy.types.TextureNodeCompose.rst
+bpy.types.TextureNodeCoordinates.rst
+bpy.types.TextureNodeCurveRGB.rst
+bpy.types.TextureNodeCurveTime.rst
+bpy.types.TextureNodeDecompose.rst
+bpy.types.TextureNodeDistance.rst
+bpy.types.TextureNodeGroup.rst
+bpy.types.TextureNodeHueSaturation.rst
+bpy.types.TextureNodeImage.rst
+bpy.types.TextureNodeInvert.rst
+bpy.types.TextureNodeMath.rst
+bpy.types.TextureNodeMixRGB.rst
+bpy.types.TextureNodeOutput.rst
+bpy.types.TextureNodeRGBToBW.rst
+bpy.types.TextureNodeRotate.rst
+bpy.types.TextureNodeScale.rst
+bpy.types.TextureNodeSeparateColor.rst
+bpy.types.TextureNodeTexBlend.rst
+bpy.types.TextureNodeTexClouds.rst
+bpy.types.TextureNodeTexDistNoise.rst
+bpy.types.TextureNodeTexMagic.rst
+bpy.types.TextureNodeTexMarble.rst
+bpy.types.TextureNodeTexMusgrave.rst
+bpy.types.TextureNodeTexNoise.rst
+bpy.types.TextureNodeTexStucci.rst
+bpy.types.TextureNodeTexVoronoi.rst
+bpy.types.TextureNodeTexWood.rst
+bpy.types.TextureNodeTexture.rst
+bpy.types.TextureNodeTranslate.rst
+bpy.types.TextureNodeValToNor.rst
+bpy.types.TextureNodeValToRGB.rst
+bpy.types.TextureNodeViewer.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+
+--------------------
+
+This script shows simple operator which prints a message.
+
+Since the operator only has an Operator.execute function it takes no
+user input.
+
+The function should return {'FINISHED'}
+
+ or {'CANCELLED'}
+
+, the latter
+meaning that operator execution was aborted without making any changes, and
+that no undo step will created (see next example for more info about undo).
+
+[NOTE]
+Operator subclasses must be registered before accessing them from Blender.
+
+```../examples/bpy.types.Operator.0.py```
+
+
+--------------------
+
+Any operator modifying Blender data should enable the 'UNDO'
+
+ option.
+This will make Blender automatically create an undo step when the operator
+finishes its execute
+
+ (or invoke
+
+, see below) functions, and returns
+{'FINISHED'}
+
+.
+
+Otherwise, no undo step will be created, which will at best corrupt the
+undo stack and confuse the user (since modifications done by the operator
+may either not be undoable, or be undone together with other edits done
+before). In many cases, this can even lead to data corruption and crashes.
+
+Note that when an operator returns {'CANCELLED'}
+
+, no undo step will be
+created. This means that if an error occurs *after* modifying some data
+already, it is better to return {'FINISHED'}
+
+, unless it is possible to
+fully undo the changes before returning.
+
+[NOTE]
+Most examples in this page do not do any edit to Blender data, which is
+why it is safe to keep the default bl_options
+
+ value for these operators.
+
+[NOTE]
+In some complex cases, the automatic undo step created on operator exit may
+not be enough. For example, if the operator does mode switching, or calls
+other operators that should create an extra undo step, etc.
+Such manual undo push is possible using the bpy.ops.ed.undo_push
+function. Be careful though, this is considered an advanced feature and
+requires some understanding of the actual undo system in Blender code.
+
+```../examples/bpy.types.Operator.1.py```
+
+
+--------------------
+
+Operator.invoke is used to initialize the operator from the context
+at the moment the operator is called.
+invoke() is typically used to assign properties which are then used by
+execute().
+Some operators don't have an execute() function, removing the ability to be
+repeated from a script or macro.
+
+When an operator is called via bpy.ops, the execution context depends
+on the argument provided to bpy.ops. By default, it uses execute().
+When an operator is activated from a button or menu item, it follows
+the setting in UILayout.operator_context. In most cases, invoke() is used.
+Running an operator via a key shortcut always uses invoke(),
+and this behavior cannot be changed.
+
+This example shows how to define an operator which gets mouse input to
+execute a function and that this operator can be invoked or executed from
+the Python API.
+
+Also notice this operator defines its own properties, these are different
+to typical class properties because Blender registers them with the
+operator, to use as arguments when called, saved for operator undo/redo and
+automatically added into the user interface.
+
+```../examples/bpy.types.Operator.2.py```
+
+
+--------------------
+
+This example shows how an operator can use the file selector.
+
+Notice the invoke function calls a window manager method and returns
+{'RUNNING_MODAL'}
+
+, this means the file selector stays open and the operator does not
+exit immediately after invoke finishes.
+
+The file selector runs the operator, calling Operator.execute when the
+user confirms.
+
+The Operator.poll function is optional, used to check if the operator
+can run.
+
+```../examples/bpy.types.Operator.3.py```
+
+
+--------------------
+
+This operator uses its Operator.invoke function to call a popup.
+
+```../examples/bpy.types.Operator.4.py```
+
+
+--------------------
+
+By default operator properties use an automatic user interface layout.
+If you need more control you can create your own layout with a
+Operator.draw function.
+
+This works like the Panel and Menu draw functions, its used
+for dialogs and file selectors.
+
+```../examples/bpy.types.Operator.5.py```
+
+
+--------------------
+
+This operator defines a Operator.modal function that will keep being
+run to handle events until it returns {'FINISHED'}
+
+ or {'CANCELLED'}
+
+.
+
+Modal operators run every time a new event is detected, such as a mouse click
+or key press. Conversely, when no new events are detected, the modal operator
+will not run. Modal operators are especially useful for interactive tools, an
+operator can have its own state where keys toggle options as the operator runs.
+Grab, Rotate, Scale, and Fly-Mode are examples of modal operators.
+
+Operator.invoke is used to initialize the operator as being active
+by returning {'RUNNING_MODAL'}
+
+, initializing the modal loop.
+
+Notice __init__()
+
+ and __del__()
+
+ are declared.
+For other operator types they are not useful but for modal operators they will
+be called before the Operator.invoke and after the operator finishes.
+Also see the
+class construction and destruction section <info_overview_class_construction_destruction>.
+
+```../examples/bpy.types.Operator.6.py```
+
+
+--------------------
+
+You may want to have an operator prompt the user to select an item
+from a search field, this can be done using bpy.types.Operator.invoke_search_popup.
+
+```../examples/bpy.types.Operator.7.py```
+
+
+--------------------
+
+This script is the UIList subclass used to show material slots, with a bunch of additional commentaries.
+
+Notice the name of the class, this naming convention is similar as the one for panels or menus.
+
+[NOTE]
+UIList subclasses must be registered for Blender to use them.
+
+```../examples/bpy.types.UIList.1.py```
+
+
+--------------------
+
+This script is an extended version of the UIList
+
+ subclass used to show vertex groups. It is not used 'as is',
+because iterating over all vertices in a 'draw' function is a very bad idea for UI performance! However, it's a good
+example of how to create/use filtering/reordering callbacks.
+
+```../examples/bpy.types.UIList.2.py```
+
+bpy.types.ASSETBROWSER_UL_metadata_tags.rst
+bpy.types.CLIP_UL_tracking_objects.rst
+bpy.types.CURVES_UL_attributes.rst
+bpy.types.DATA_UL_bone_collections.rst
+bpy.types.FILEBROWSER_UL_dir.rst
+bpy.types.GPENCIL_UL_annotation_layer.rst
+bpy.types.GPENCIL_UL_matslots.rst
+bpy.types.GREASE_PENCIL_UL_attributes.rst
+bpy.types.GREASE_PENCIL_UL_masks.rst
+bpy.types.IMAGE_UL_render_slots.rst
+bpy.types.IMAGE_UL_udim_tiles.rst
+bpy.types.MASK_UL_layers.rst
+bpy.types.MATERIAL_UL_matslots.rst
+bpy.types.MESH_UL_attributes.rst
+bpy.types.MESH_UL_color_attributes.rst
+bpy.types.MESH_UL_color_attributes_selector.rst
+bpy.types.MESH_UL_uvmaps.rst
+bpy.types.MESH_UL_vgroups.rst
+bpy.types.PARTICLE_UL_particle_systems.rst
+bpy.types.PHYSICS_UL_dynapaint_surfaces.rst
+bpy.types.POINTCLOUD_UL_attributes.rst
+bpy.types.POSE_UL_selection_set.rst
+bpy.types.PROJECT_UL_variables.rst
+bpy.types.RENDER_UL_renderviews.rst
+bpy.types.SCENE_UL_gltf2_filter_action.rst
+bpy.types.SCENE_UL_keying_set_paths.rst
+bpy.types.TEXTURE_UL_texpaintslots.rst
+bpy.types.TEXTURE_UL_texslots.rst
+bpy.types.UI_UL_list.rst
+bpy.types.USERPREF_UL_extension_repos.rst
+bpy.types.VIEWLAYER_UL_aov.rst
+bpy.types.VIEWLAYER_UL_linesets.rst
+bpy.types.VOLUME_UL_grids.rst
+bpy.types.WORKSPACE_UL_addons_items.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.LineStyleGeometryModifier_2DOffset.rst
+bpy.types.LineStyleGeometryModifier_2DTransform.rst
+bpy.types.LineStyleGeometryModifier_BackboneStretcher.rst
+bpy.types.LineStyleGeometryModifier_BezierCurve.rst
+bpy.types.LineStyleGeometryModifier_Blueprint.rst
+bpy.types.LineStyleGeometryModifier_GuidingLines.rst
+bpy.types.LineStyleGeometryModifier_PerlinNoise1D.rst
+bpy.types.LineStyleGeometryModifier_PerlinNoise2D.rst
+bpy.types.LineStyleGeometryModifier_Polygonalization.rst
+bpy.types.LineStyleGeometryModifier_Sampling.rst
+bpy.types.LineStyleGeometryModifier_Simplification.rst
+bpy.types.LineStyleGeometryModifier_SinusDisplacement.rst
+bpy.types.LineStyleGeometryModifier_SpatialNoise.rst
+bpy.types.LineStyleGeometryModifier_TipRemover.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.EvaluateClosureNodeViewerPathElem.rst
+bpy.types.ForeachGeometryElementZoneViewerPathElem.rst
+bpy.types.GroupNodeViewerPathElem.rst
+bpy.types.IDViewerPathElem.rst
+bpy.types.ModifierViewerPathElem.rst
+bpy.types.RepeatZoneViewerPathElem.rst
+bpy.types.SimulationZoneViewerPathElem.rst
+bpy.types.ViewerNodeViewerPathElem.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.NodeCustomGroup.rst
+bpy.types.NodeInternal.rst
+
+:caption: Subclasses
+:maxdepth: 1
+
+bpy.types.CompositorNode.rst
+bpy.types.FunctionNode.rst
+bpy.types.GeometryNode.rst
+bpy.types.NodeClosureInput.rst
+bpy.types.NodeClosureOutput.rst
+bpy.types.NodeCombineBundle.rst
+bpy.types.NodeEnableOutput.rst
+bpy.types.NodeEvaluateClosure.rst
+bpy.types.NodeFrame.rst
+bpy.types.NodeGetBundleItem.rst
+bpy.types.NodeGetNestedBundlePaths.rst
+bpy.types.NodeGroup.rst
+bpy.types.NodeGroupInput.rst
+bpy.types.NodeGroupOutput.rst
+bpy.types.NodeImplicitConversion.rst
+bpy.types.NodeJoinBundle.rst
+bpy.types.NodeReroute.rst
+bpy.types.NodeSeparateBundle.rst
+bpy.types.NodeStoreBundleItem.rst
+bpy.types.ShaderNode.rst
+bpy.types.TextureNode.rst
 
 :caption: Subclasses
 :maxdepth: 1
@@ -133,353 +2093,12 @@ bpy.types.NodeTreeInterfaceSocketVectorXYZ4D.rst
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.ActionConstraint.rst
-bpy.types.ArmatureConstraint.rst
-bpy.types.CameraSolverConstraint.rst
-bpy.types.ChildOfConstraint.rst
-bpy.types.ClampToConstraint.rst
-bpy.types.CopyLocationConstraint.rst
-bpy.types.CopyRotationConstraint.rst
-bpy.types.CopyScaleConstraint.rst
-bpy.types.CopyTransformsConstraint.rst
-bpy.types.DampedTrackConstraint.rst
-bpy.types.FloorConstraint.rst
-bpy.types.FollowPathConstraint.rst
-bpy.types.FollowTrackConstraint.rst
-bpy.types.GeometryAttributeConstraint.rst
-bpy.types.KinematicConstraint.rst
-bpy.types.LimitDistanceConstraint.rst
-bpy.types.LimitLocationConstraint.rst
-bpy.types.LimitRotationConstraint.rst
-bpy.types.LimitScaleConstraint.rst
-bpy.types.LockedTrackConstraint.rst
-bpy.types.MaintainVolumeConstraint.rst
-bpy.types.ObjectSolverConstraint.rst
-bpy.types.PivotConstraint.rst
-bpy.types.ShrinkwrapConstraint.rst
-bpy.types.SplineIKConstraint.rst
-bpy.types.StretchToConstraint.rst
-bpy.types.TrackToConstraint.rst
-bpy.types.TransformCacheConstraint.rst
-bpy.types.TransformConstraint.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-The Image data-block is a shallow wrapper around image or video file(s)
-(on disk, as packed data, or generated).
-
-All actual data like the pixel buffer, size, resolution etc. is
-cached in an imbuf.types.ImBuf image buffer (or several buffers
-in some cases, like UDIM textures, multi-views, animations...).
-
-Several properties and functions of the Image data-block are then actually
-using/modifying its image buffer, and not the Image data-block itself.
-
-[WARNING]
-One key limitation is that image buffers are not shared between different
-Image data-blocks, and they are not duplicated when copying an image.
-So until a modified image buffer is saved on disk, duplicating its Image
-data-block will not propagate the underlying buffer changes to the new Image.
-
-This example script generates an Image data-block with a given size,
-change its first pixel, rescale it, and duplicates the image.
-
-The duplicated image still has the same size and colors as the original image
-at its creation, all editing in the original image's buffer is 'lost' in its copy.
-
-```../examples/bpy.types.Image.0.py```
-
-bpy.types.Itasc.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.BoolProperty.rst
-bpy.types.CollectionProperty.rst
-bpy.types.EnumProperty.rst
-bpy.types.FloatProperty.rst
-bpy.types.IntProperty.rst
-bpy.types.PointerProperty.rst
-bpy.types.StringProperty.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.CompositorNodeAlphaOver.rst
-bpy.types.CompositorNodeAntiAliasing.rst
-bpy.types.CompositorNodeBilateralblur.rst
-bpy.types.CompositorNodeBlankImage.rst
-bpy.types.CompositorNodeBlur.rst
-bpy.types.CompositorNodeBokehBlur.rst
-bpy.types.CompositorNodeBokehImage.rst
-bpy.types.CompositorNodeBoxMask.rst
-bpy.types.CompositorNodeBrightContrast.rst
-bpy.types.CompositorNodeChannelMatte.rst
-bpy.types.CompositorNodeChromaMatte.rst
-bpy.types.CompositorNodeColorBalance.rst
-bpy.types.CompositorNodeColorCorrection.rst
-bpy.types.CompositorNodeColorMatte.rst
-bpy.types.CompositorNodeColorSpill.rst
-bpy.types.CompositorNodeCombineColor.rst
-bpy.types.CompositorNodeConvertColorSpace.rst
-bpy.types.CompositorNodeConvertToDisplay.rst
-bpy.types.CompositorNodeConvolve.rst
-bpy.types.CompositorNodeCornerPin.rst
-bpy.types.CompositorNodeCrop.rst
-bpy.types.CompositorNodeCryptomatte.rst
-bpy.types.CompositorNodeCryptomatteV2.rst
-bpy.types.CompositorNodeCurveRGB.rst
-bpy.types.CompositorNodeCustomGroup.rst
-bpy.types.CompositorNodeDBlur.rst
-bpy.types.CompositorNodeDefocus.rst
-bpy.types.CompositorNodeDenoise.rst
-bpy.types.CompositorNodeDespeckle.rst
-bpy.types.CompositorNodeDiffMatte.rst
-bpy.types.CompositorNodeDilateErode.rst
-bpy.types.CompositorNodeDisplace.rst
-bpy.types.CompositorNodeDistanceMatte.rst
-bpy.types.CompositorNodeDoubleEdgeMask.rst
-bpy.types.CompositorNodeEllipseMask.rst
-bpy.types.CompositorNodeExposure.rst
-bpy.types.CompositorNodeFilter.rst
-bpy.types.CompositorNodeFlip.rst
-bpy.types.CompositorNodeGamma.rst
-bpy.types.CompositorNodeGlare.rst
-bpy.types.CompositorNodeGroup.rst
-bpy.types.CompositorNodeHueCorrect.rst
-bpy.types.CompositorNodeHueSat.rst
-bpy.types.CompositorNodeIDMask.rst
-bpy.types.CompositorNodeImage.rst
-bpy.types.CompositorNodeImageCoordinates.rst
-bpy.types.CompositorNodeImageInfo.rst
-bpy.types.CompositorNodeInpaint.rst
-bpy.types.CompositorNodeInvert.rst
-bpy.types.CompositorNodeKeying.rst
-bpy.types.CompositorNodeKeyingScreen.rst
-bpy.types.CompositorNodeKuwahara.rst
-bpy.types.CompositorNodeLensdist.rst
-bpy.types.CompositorNodeLevels.rst
-bpy.types.CompositorNodeLumaMatte.rst
-bpy.types.CompositorNodeMapUV.rst
-bpy.types.CompositorNodeMask.rst
-bpy.types.CompositorNodeMaskToSDF.rst
-bpy.types.CompositorNodeMovieClip.rst
-bpy.types.CompositorNodeMovieDistortion.rst
-bpy.types.CompositorNodeNormal.rst
-bpy.types.CompositorNodeNormalize.rst
-bpy.types.CompositorNodeOutputFile.rst
-bpy.types.CompositorNodePixelate.rst
-bpy.types.CompositorNodePlaneTrackDeform.rst
-bpy.types.CompositorNodePosterize.rst
-bpy.types.CompositorNodePremulKey.rst
-bpy.types.CompositorNodeRGB.rst
-bpy.types.CompositorNodeRGBToBW.rst
-bpy.types.CompositorNodeRLayers.rst
-bpy.types.CompositorNodeRelativeToPixel.rst
-bpy.types.CompositorNodeRotate.rst
-bpy.types.CompositorNodeScale.rst
-bpy.types.CompositorNodeSceneTime.rst
-bpy.types.CompositorNodeSeparateColor.rst
-bpy.types.CompositorNodeSequencerStripInfo.rst
-bpy.types.CompositorNodeSetAlpha.rst
-bpy.types.CompositorNodeSplit.rst
-bpy.types.CompositorNodeStabilize.rst
-bpy.types.CompositorNodeStringToImage.rst
-bpy.types.CompositorNodeSwitch.rst
-bpy.types.CompositorNodeSwitchView.rst
-bpy.types.CompositorNodeTime.rst
-bpy.types.CompositorNodeTonemap.rst
-bpy.types.CompositorNodeTrackPos.rst
-bpy.types.CompositorNodeTransform.rst
-bpy.types.CompositorNodeTranslate.rst
-bpy.types.CompositorNodeVecBlur.rst
-bpy.types.CompositorNodeViewer.rst
-bpy.types.CompositorNodeZcombine.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
 bpy.types.BrushTextureSlot.rst
 bpy.types.LineStyleTextureSlot.rst
 bpy.types.ParticleSettingsTextureSlot.rst
 
 :caption: Subclasses
 :maxdepth: 1
-
-bpy.types.FModifierCycles.rst
-bpy.types.FModifierEnvelope.rst
-bpy.types.FModifierFunctionGenerator.rst
-bpy.types.FModifierGenerator.rst
-bpy.types.FModifierLimits.rst
-bpy.types.FModifierNoise.rst
-bpy.types.FModifierSmooth.rst
-bpy.types.FModifierStepped.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-This script is the UIList subclass used to show material slots, with a bunch of additional commentaries.
-
-Notice the name of the class, this naming convention is similar as the one for panels or menus.
-
-[NOTE]
-UIList subclasses must be registered for Blender to use them.
-
-```../examples/bpy.types.UIList.1.py```
-
-
---------------------
-
-This script is an extended version of the UIList
-
- subclass used to show vertex groups. It is not used 'as is',
-because iterating over all vertices in a 'draw' function is a very bad idea for UI performance! However, it's a good
-example of how to create/use filtering/reordering callbacks.
-
-```../examples/bpy.types.UIList.2.py```
-
-bpy.types.ASSETBROWSER_UL_metadata_tags.rst
-bpy.types.CLIP_UL_tracking_objects.rst
-bpy.types.CURVES_UL_attributes.rst
-bpy.types.DATA_UL_bone_collections.rst
-bpy.types.FILEBROWSER_UL_dir.rst
-bpy.types.GPENCIL_UL_annotation_layer.rst
-bpy.types.GPENCIL_UL_matslots.rst
-bpy.types.GREASE_PENCIL_UL_attributes.rst
-bpy.types.GREASE_PENCIL_UL_masks.rst
-bpy.types.IMAGE_UL_render_slots.rst
-bpy.types.IMAGE_UL_udim_tiles.rst
-bpy.types.MASK_UL_layers.rst
-bpy.types.MATERIAL_UL_matslots.rst
-bpy.types.MESH_UL_attributes.rst
-bpy.types.MESH_UL_color_attributes.rst
-bpy.types.MESH_UL_color_attributes_selector.rst
-bpy.types.MESH_UL_uvmaps.rst
-bpy.types.MESH_UL_vgroups.rst
-bpy.types.PARTICLE_UL_particle_systems.rst
-bpy.types.PHYSICS_UL_dynapaint_surfaces.rst
-bpy.types.POINTCLOUD_UL_attributes.rst
-bpy.types.POSE_UL_selection_set.rst
-bpy.types.PROJECT_UL_variables.rst
-bpy.types.RENDER_UL_renderviews.rst
-bpy.types.SCENE_UL_gltf2_filter_action.rst
-bpy.types.SCENE_UL_keying_set_paths.rst
-bpy.types.TEXTURE_UL_texpaintslots.rst
-bpy.types.TEXTURE_UL_texslots.rst
-bpy.types.UI_UL_list.rst
-bpy.types.USERPREF_UL_extension_repos.rst
-bpy.types.VIEWLAYER_UL_aov.rst
-bpy.types.VIEWLAYER_UL_linesets.rst
-bpy.types.VOLUME_UL_grids.rst
-bpy.types.WORKSPACE_UL_addons_items.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.LineStyleGeometryModifier_2DOffset.rst
-bpy.types.LineStyleGeometryModifier_2DTransform.rst
-bpy.types.LineStyleGeometryModifier_BackboneStretcher.rst
-bpy.types.LineStyleGeometryModifier_BezierCurve.rst
-bpy.types.LineStyleGeometryModifier_Blueprint.rst
-bpy.types.LineStyleGeometryModifier_GuidingLines.rst
-bpy.types.LineStyleGeometryModifier_PerlinNoise1D.rst
-bpy.types.LineStyleGeometryModifier_PerlinNoise2D.rst
-bpy.types.LineStyleGeometryModifier_Polygonalization.rst
-bpy.types.LineStyleGeometryModifier_Sampling.rst
-bpy.types.LineStyleGeometryModifier_Simplification.rst
-bpy.types.LineStyleGeometryModifier_SinusDisplacement.rst
-bpy.types.LineStyleGeometryModifier_SpatialNoise.rst
-bpy.types.LineStyleGeometryModifier_TipRemover.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.SpaceClipEditor.rst
-bpy.types.SpaceConsole.rst
-bpy.types.SpaceDopeSheetEditor.rst
-bpy.types.SpaceFileBrowser.rst
-bpy.types.SpaceGraphEditor.rst
-bpy.types.SpaceImageEditor.rst
-bpy.types.SpaceInfo.rst
-bpy.types.SpaceNLA.rst
-bpy.types.SpaceNodeEditor.rst
-bpy.types.SpaceOutliner.rst
-bpy.types.SpacePreferences.rst
-bpy.types.SpaceProject.rst
-bpy.types.SpaceProperties.rst
-bpy.types.SpaceSequenceEditor.rst
-bpy.types.SpaceSpreadsheet.rst
-bpy.types.SpaceTextEditor.rst
-bpy.types.SpaceView3D.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-Action Slots organize animation data within an action. Each action has slots with specific animation
-data. An animated data-block specifies an action and a slot, determining the animation data it uses.
-See the Blender Manual
-for how Action Slots are used, or the
-technical documentation
-for details on the animation system's architecture.
-
-
---------------------
-
-To get started with Action Slots, you can easily create them by inserting a keyframe on an object. When you do this,
-Blender automatically creates an Action & Slot for that data-block.
-
-```../examples/bpy.types.ActionSlot.1.py```
-
-
---------------------
-
-If required you can also manually create Action Slots on an Action. Note the target_id_type
-
-
-that matches the data-block type. Identifiers start with a prefix based on the ID type,
-e.g. "OB" for objects, followed by the name. There can be identifiers like OBSuzanne
-
-
-and MESuzanne
-
- and the name (Suzanne
-
-) can be shared between them. This is intentional,
-so that the slots and the datablocks can have the same name.
-
-```../examples/bpy.types.ActionSlot.2.py```
-
-
---------------------
-
-An action slot is compatible with a data-block if the slot's target_id_type
-
- matches the data-block's type.
-If there are multiple slots on the Action, and you want to just pick the first one that's
-compatible, use the following code. anim_data.action_suitable_slots
-
- can be used after the
-Action has been assigned; it is a list of action slots of that Action, but only the ones that
-are actually compatible with the owner of anim_data (in this case, Suzanne).
-
-```../examples/bpy.types.ActionSlot.3.py```
-
-
---------------------
-
-To return a list of the data-blocks that are animated by a specific slot of an Action,
-use the users()
-
- method of the ActionSlot.
-
-```../examples/bpy.types.ActionSlot.4.py```
 
 bpy.types.Action.rst
 bpy.types.Annotation.rst
@@ -524,97 +2143,34 @@ bpy.types.World.rst
 :caption: Subclasses
 :maxdepth: 1
 
-Base class for integrating USD Hydra based renderers.
-
-
---------------------
-
-```../examples/bpy.types.HydraRenderEngine.0.py```
-
-bpy.types.StripColorBalance.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.ProjectAssetLibrary.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.NodeCustomGroup.rst
-bpy.types.NodeInternal.rst
+bpy.types.SpaceClipEditor.rst
+bpy.types.SpaceConsole.rst
+bpy.types.SpaceDopeSheetEditor.rst
+bpy.types.SpaceFileBrowser.rst
+bpy.types.SpaceGraphEditor.rst
+bpy.types.SpaceImageEditor.rst
+bpy.types.SpaceInfo.rst
+bpy.types.SpaceNLA.rst
+bpy.types.SpaceNodeEditor.rst
+bpy.types.SpaceOutliner.rst
+bpy.types.SpacePreferences.rst
+bpy.types.SpaceProject.rst
+bpy.types.SpaceProperties.rst
+bpy.types.SpaceSequenceEditor.rst
+bpy.types.SpaceSpreadsheet.rst
+bpy.types.SpaceTextEditor.rst
+bpy.types.SpaceView3D.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.NodeSocketStandard.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.LineStyleColorModifier_AlongStroke.rst
-bpy.types.LineStyleColorModifier_CreaseAngle.rst
-bpy.types.LineStyleColorModifier_Curvature_3D.rst
-bpy.types.LineStyleColorModifier_DistanceFromCamera.rst
-bpy.types.LineStyleColorModifier_DistanceFromObject.rst
-bpy.types.LineStyleColorModifier_Material.rst
-bpy.types.LineStyleColorModifier_Noise.rst
-bpy.types.LineStyleColorModifier_Tangent.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.LineStyleThicknessModifier_AlongStroke.rst
-bpy.types.LineStyleThicknessModifier_Calligraphy.rst
-bpy.types.LineStyleThicknessModifier_CreaseAngle.rst
-bpy.types.LineStyleThicknessModifier_Curvature_3D.rst
-bpy.types.LineStyleThicknessModifier_DistanceFromCamera.rst
-bpy.types.LineStyleThicknessModifier_DistanceFromObject.rst
-bpy.types.LineStyleThicknessModifier_Material.rst
-bpy.types.LineStyleThicknessModifier_Noise.rst
-bpy.types.LineStyleThicknessModifier_Tangent.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-This example creates a simple macro operator that
-moves the active object and then rotates it.
-It demonstrates:
-
-* Defining a macro operator class.
-* Registering it and defining sub-operators.
-* Setting property values for each step.
-
-```../examples/bpy.types.Macro.0.py```
-
-bpy.types.AreaLight.rst
-bpy.types.PointLight.rst
-bpy.types.SpotLight.rst
-bpy.types.SunLight.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.LightProbePlane.rst
-bpy.types.LightProbeSphere.rst
-bpy.types.LightProbeVolume.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-```../examples/bpy.types.AddonPreferences.1.py```
-
-bpy.types.CurvesSculpt.rst
-bpy.types.GpPaint.rst
-bpy.types.GpSculptPaint.rst
-bpy.types.GpVertexPaint.rst
-bpy.types.GpWeightPaint.rst
-bpy.types.ImagePaint.rst
-bpy.types.Sculpt.rst
-bpy.types.VertexPaint.rst
+bpy.types.BoolProperty.rst
+bpy.types.CollectionProperty.rst
+bpy.types.EnumProperty.rst
+bpy.types.FloatProperty.rst
+bpy.types.IntProperty.rst
+bpy.types.PointerProperty.rst
+bpy.types.StringProperty.rst
 
 :caption: Subclasses
 :maxdepth: 1
@@ -1285,1287 +2841,209 @@ bpy.types.wmTools.rst
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.GeometryNodeAccumulateField.rst
-bpy.types.GeometryNodeApplySimulatedData.rst
-bpy.types.GeometryNodeAttributeDomainSize.rst
-bpy.types.GeometryNodeAttributeStatistic.rst
-bpy.types.GeometryNodeBake.rst
-bpy.types.GeometryNodeBlurAttribute.rst
-bpy.types.GeometryNodeBoneInfo.rst
-bpy.types.GeometryNodeBoundBox.rst
-bpy.types.GeometryNodeCameraInfo.rst
-bpy.types.GeometryNodeCaptureAttribute.rst
-bpy.types.GeometryNodeClosureToList.rst
-bpy.types.GeometryNodeClusterByConnected.rst
-bpy.types.GeometryNodeClusterByDistance.rst
-bpy.types.GeometryNodeCollectionChildren.rst
-bpy.types.GeometryNodeCollectionInfo.rst
-bpy.types.GeometryNodeCombineList.rst
-bpy.types.GeometryNodeConvexHull.rst
-bpy.types.GeometryNodeCornersOfEdge.rst
-bpy.types.GeometryNodeCornersOfFace.rst
-bpy.types.GeometryNodeCornersOfVertex.rst
-bpy.types.GeometryNodeCubeGridTopology.rst
-bpy.types.GeometryNodeCurveArc.rst
-bpy.types.GeometryNodeCurveEndpointSelection.rst
-bpy.types.GeometryNodeCurveHandleTypeSelection.rst
-bpy.types.GeometryNodeCurveLength.rst
-bpy.types.GeometryNodeCurveOfPoint.rst
-bpy.types.GeometryNodeCurvePrimitiveBezierSegment.rst
-bpy.types.GeometryNodeCurvePrimitiveCircle.rst
-bpy.types.GeometryNodeCurvePrimitiveLine.rst
-bpy.types.GeometryNodeCurvePrimitiveQuadrilateral.rst
-bpy.types.GeometryNodeCurveQuadraticBezier.rst
-bpy.types.GeometryNodeCurveSetHandles.rst
-bpy.types.GeometryNodeCurveSpiral.rst
-bpy.types.GeometryNodeCurveSplineType.rst
-bpy.types.GeometryNodeCurveStar.rst
-bpy.types.GeometryNodeCurveToMesh.rst
-bpy.types.GeometryNodeCurveToPoints.rst
-bpy.types.GeometryNodeCurvesToGreasePencil.rst
-bpy.types.GeometryNodeCustomGroup.rst
-bpy.types.GeometryNodeDeformCurvesOnSurface.rst
-bpy.types.GeometryNodeDeleteGeometry.rst
-bpy.types.GeometryNodeDistributePointsInGrid.rst
-bpy.types.GeometryNodeDistributePointsInVolume.rst
-bpy.types.GeometryNodeDistributePointsOnFaces.rst
-bpy.types.GeometryNodeDualMesh.rst
-bpy.types.GeometryNodeDuplicateElements.rst
-bpy.types.GeometryNodeEdgePathsToCurves.rst
-bpy.types.GeometryNodeEdgePathsToSelection.rst
-bpy.types.GeometryNodeEdgesOfCorner.rst
-bpy.types.GeometryNodeEdgesOfVertex.rst
-bpy.types.GeometryNodeEdgesToFaceGroups.rst
-bpy.types.GeometryNodeExtrudeMesh.rst
-bpy.types.GeometryNodeFaceOfCorner.rst
-bpy.types.GeometryNodeFieldAtIndex.rst
-bpy.types.GeometryNodeFieldAverage.rst
-bpy.types.GeometryNodeFieldMinAndMax.rst
-bpy.types.GeometryNodeFieldOnDomain.rst
-bpy.types.GeometryNodeFieldToGrid.rst
-bpy.types.GeometryNodeFieldToList.rst
-bpy.types.GeometryNodeFieldVariance.rst
-bpy.types.GeometryNodeFillCurve.rst
-bpy.types.GeometryNodeFilletCurve.rst
-bpy.types.GeometryNodeFilterList.rst
-bpy.types.GeometryNodeFlipFaces.rst
-bpy.types.GeometryNodeForeachGeometryElementInput.rst
-bpy.types.GeometryNodeForeachGeometryElementOutput.rst
-bpy.types.GeometryNodeGeometryMaterials.rst
-bpy.types.GeometryNodeGeometryToInstance.rst
-bpy.types.GeometryNodeGetAttributeNames.rst
-bpy.types.GeometryNodeGetGeometryBundle.rst
-bpy.types.GeometryNodeGetGeometryComponent.rst
-bpy.types.GeometryNodeGetNamedGrid.rst
-bpy.types.GeometryNodeGizmoDial.rst
-bpy.types.GeometryNodeGizmoLinear.rst
-bpy.types.GeometryNodeGizmoTransform.rst
-bpy.types.GeometryNodeGreasePencilColor.rst
-bpy.types.GeometryNodeGreasePencilDrawTime.rst
-bpy.types.GeometryNodeGreasePencilFillID.rst
-bpy.types.GeometryNodeGreasePencilOpacity.rst
-bpy.types.GeometryNodeGreasePencilStrokeSoftness.rst
-bpy.types.GeometryNodeGreasePencilStrokeVisibility.rst
-bpy.types.GeometryNodeGreasePencilToCurves.rst
-bpy.types.GeometryNodeGridAdvect.rst
-bpy.types.GeometryNodeGridClip.rst
-bpy.types.GeometryNodeGridCurl.rst
-bpy.types.GeometryNodeGridDeactivateVoxels.rst
-bpy.types.GeometryNodeGridDilateAndErode.rst
-bpy.types.GeometryNodeGridDivergence.rst
-bpy.types.GeometryNodeGridGradient.rst
-bpy.types.GeometryNodeGridInfo.rst
-bpy.types.GeometryNodeGridLaplacian.rst
-bpy.types.GeometryNodeGridMean.rst
-bpy.types.GeometryNodeGridMedian.rst
-bpy.types.GeometryNodeGridPrune.rst
-bpy.types.GeometryNodeGridToMesh.rst
-bpy.types.GeometryNodeGridToPoints.rst
-bpy.types.GeometryNodeGridTopologyBoolean.rst
-bpy.types.GeometryNodeGridVoxelize.rst
-bpy.types.GeometryNodeGroup.rst
-bpy.types.GeometryNodeImageInfo.rst
-bpy.types.GeometryNodeImageTexture.rst
-bpy.types.GeometryNodeImportCSV.rst
-bpy.types.GeometryNodeImportOBJ.rst
-bpy.types.GeometryNodeImportPLY.rst
-bpy.types.GeometryNodeImportSTL.rst
-bpy.types.GeometryNodeImportText.rst
-bpy.types.GeometryNodeImportVDB.rst
-bpy.types.GeometryNodeIndexOfNearest.rst
-bpy.types.GeometryNodeIndexSwitch.rst
-bpy.types.GeometryNodeInputActiveCamera.rst
-bpy.types.GeometryNodeInputCollection.rst
-bpy.types.GeometryNodeInputCurveHandlePositions.rst
-bpy.types.GeometryNodeInputCurveTilt.rst
-bpy.types.GeometryNodeInputEdgeSmooth.rst
-bpy.types.GeometryNodeInputFont.rst
-bpy.types.GeometryNodeInputID.rst
-bpy.types.GeometryNodeInputImage.rst
-bpy.types.GeometryNodeInputIndex.rst
-bpy.types.GeometryNodeInputInstanceBounds.rst
-bpy.types.GeometryNodeInputInstanceReference.rst
-bpy.types.GeometryNodeInputInstanceRotation.rst
-bpy.types.GeometryNodeInputInstanceScale.rst
-bpy.types.GeometryNodeInputMaterial.rst
-bpy.types.GeometryNodeInputMaterialIndex.rst
-bpy.types.GeometryNodeInputMeshEdgeAngle.rst
-bpy.types.GeometryNodeInputMeshEdgeNeighbors.rst
-bpy.types.GeometryNodeInputMeshEdgeVertices.rst
-bpy.types.GeometryNodeInputMeshFaceArea.rst
-bpy.types.GeometryNodeInputMeshFaceIsPlanar.rst
-bpy.types.GeometryNodeInputMeshFaceNeighbors.rst
-bpy.types.GeometryNodeInputMeshIsland.rst
-bpy.types.GeometryNodeInputMeshVertexNeighbors.rst
-bpy.types.GeometryNodeInputNamedAttribute.rst
-bpy.types.GeometryNodeInputNamedLayerSelection.rst
-bpy.types.GeometryNodeInputNormal.rst
-bpy.types.GeometryNodeInputObject.rst
-bpy.types.GeometryNodeInputPosition.rst
-bpy.types.GeometryNodeInputRadius.rst
-bpy.types.GeometryNodeInputSceneTime.rst
-bpy.types.GeometryNodeInputShadeSmooth.rst
-bpy.types.GeometryNodeInputShortestEdgePaths.rst
-bpy.types.GeometryNodeInputSplineCyclic.rst
-bpy.types.GeometryNodeInputSplineResolution.rst
-bpy.types.GeometryNodeInputTangent.rst
-bpy.types.GeometryNodeInputVoxelIndex.rst
-bpy.types.GeometryNodeInstanceOnPoints.rst
-bpy.types.GeometryNodeInstanceTransform.rst
-bpy.types.GeometryNodeInstancesToPoints.rst
-bpy.types.GeometryNodeInterpolateCurves.rst
-bpy.types.GeometryNodeIsViewport.rst
-bpy.types.GeometryNodeJoinGeometry.rst
-bpy.types.GeometryNodeListGetItem.rst
-bpy.types.GeometryNodeListLength.rst
-bpy.types.GeometryNodeMaterialSelection.rst
-bpy.types.GeometryNodeMenuSwitch.rst
-bpy.types.GeometryNodeMergeByDistance.rst
-bpy.types.GeometryNodeMergeLayers.rst
-bpy.types.GeometryNodeMergePoints.rst
-bpy.types.GeometryNodeMeshBevel.rst
-bpy.types.GeometryNodeMeshBoolean.rst
-bpy.types.GeometryNodeMeshCircle.rst
-bpy.types.GeometryNodeMeshCone.rst
-bpy.types.GeometryNodeMeshCube.rst
-bpy.types.GeometryNodeMeshCylinder.rst
-bpy.types.GeometryNodeMeshFaceSetBoundaries.rst
-bpy.types.GeometryNodeMeshGrid.rst
-bpy.types.GeometryNodeMeshIcoSphere.rst
-bpy.types.GeometryNodeMeshLine.rst
-bpy.types.GeometryNodeMeshToCurve.rst
-bpy.types.GeometryNodeMeshToDensityGrid.rst
-bpy.types.GeometryNodeMeshToPoints.rst
-bpy.types.GeometryNodeMeshToSDFGrid.rst
-bpy.types.GeometryNodeMeshToVolume.rst
-bpy.types.GeometryNodeMeshUVSphere.rst
-bpy.types.GeometryNodeNURBSOrder.rst
-bpy.types.GeometryNodeNURBSWeight.rst
-bpy.types.GeometryNodeObjectInfo.rst
-bpy.types.GeometryNodeOffsetCornerInFace.rst
-bpy.types.GeometryNodeOffsetPointInCurve.rst
-bpy.types.GeometryNodePoints.rst
-bpy.types.GeometryNodePointsOfCurve.rst
-bpy.types.GeometryNodePointsToCurves.rst
-bpy.types.GeometryNodePointsToSDFGrid.rst
-bpy.types.GeometryNodePointsToVertices.rst
-bpy.types.GeometryNodePointsToVolume.rst
-bpy.types.GeometryNodeProximity.rst
-bpy.types.GeometryNodeRasterizePoints.rst
-bpy.types.GeometryNodeRaycast.rst
-bpy.types.GeometryNodeRealizeInstances.rst
-bpy.types.GeometryNodeRemoveAttribute.rst
-bpy.types.GeometryNodeRenameAttribute.rst
-bpy.types.GeometryNodeRepeatInput.rst
-bpy.types.GeometryNodeRepeatOutput.rst
-bpy.types.GeometryNodeReplaceMaterial.rst
-bpy.types.GeometryNodeResampleCurve.rst
-bpy.types.GeometryNodeReverseCurve.rst
-bpy.types.GeometryNodeRotateInstances.rst
-bpy.types.GeometryNodeSDFGridBoolean.rst
-bpy.types.GeometryNodeSDFGridFillet.rst
-bpy.types.GeometryNodeSDFGridLaplacian.rst
-bpy.types.GeometryNodeSDFGridMean.rst
-bpy.types.GeometryNodeSDFGridMeanCurvature.rst
-bpy.types.GeometryNodeSDFGridMedian.rst
-bpy.types.GeometryNodeSDFGridOffset.rst
-bpy.types.GeometryNodeSampleCurve.rst
-bpy.types.GeometryNodeSampleGrid.rst
-bpy.types.GeometryNodeSampleGridIndex.rst
-bpy.types.GeometryNodeSampleIndex.rst
-bpy.types.GeometryNodeSampleNearest.rst
-bpy.types.GeometryNodeSampleNearestSurface.rst
-bpy.types.GeometryNodeSampleSoundFrequencies.rst
-bpy.types.GeometryNodeSampleUVSurface.rst
-bpy.types.GeometryNodeScaleElements.rst
-bpy.types.GeometryNodeScaleInstances.rst
-bpy.types.GeometryNodeSelfObject.rst
-bpy.types.GeometryNodeSeparateComponents.rst
-bpy.types.GeometryNodeSeparateGeometry.rst
-bpy.types.GeometryNodeSetCurveHandlePositions.rst
-bpy.types.GeometryNodeSetCurveNormal.rst
-bpy.types.GeometryNodeSetCurveRadius.rst
-bpy.types.GeometryNodeSetCurveTilt.rst
-bpy.types.GeometryNodeSetGeometryBundle.rst
-bpy.types.GeometryNodeSetGeometryName.rst
-bpy.types.GeometryNodeSetGreasePencilColor.rst
-bpy.types.GeometryNodeSetGreasePencilDepth.rst
-bpy.types.GeometryNodeSetGreasePencilSoftness.rst
-bpy.types.GeometryNodeSetGridBackground.rst
-bpy.types.GeometryNodeSetGridTransform.rst
-bpy.types.GeometryNodeSetID.rst
-bpy.types.GeometryNodeSetInstanceTransform.rst
-bpy.types.GeometryNodeSetMaterial.rst
-bpy.types.GeometryNodeSetMaterialIndex.rst
-bpy.types.GeometryNodeSetMeshNormal.rst
-bpy.types.GeometryNodeSetNURBSOrder.rst
-bpy.types.GeometryNodeSetNURBSWeight.rst
-bpy.types.GeometryNodeSetPointRadius.rst
-bpy.types.GeometryNodeSetPosition.rst
-bpy.types.GeometryNodeSetShadeSmooth.rst
-bpy.types.GeometryNodeSetSplineCyclic.rst
-bpy.types.GeometryNodeSetSplineResolution.rst
-bpy.types.GeometryNodeSimulationInput.rst
-bpy.types.GeometryNodeSimulationOutput.rst
-bpy.types.GeometryNodeSortElements.rst
-bpy.types.GeometryNodeSortList.rst
-bpy.types.GeometryNodeSplineLength.rst
-bpy.types.GeometryNodeSplineParameter.rst
-bpy.types.GeometryNodeSplitEdges.rst
-bpy.types.GeometryNodeSplitToInstances.rst
-bpy.types.GeometryNodeStoreNamedAttribute.rst
-bpy.types.GeometryNodeStoreNamedGrid.rst
-bpy.types.GeometryNodeStringJoin.rst
-bpy.types.GeometryNodeStringToCurves.rst
-bpy.types.GeometryNodeSubdivideCurve.rst
-bpy.types.GeometryNodeSubdivideMesh.rst
-bpy.types.GeometryNodeSubdivisionSurface.rst
-bpy.types.GeometryNodeSwitch.rst
-bpy.types.GeometryNodeTagFilter.rst
-bpy.types.GeometryNodeTool3DCursor.rst
-bpy.types.GeometryNodeToolActiveElement.rst
-bpy.types.GeometryNodeToolFaceSet.rst
-bpy.types.GeometryNodeToolMousePosition.rst
-bpy.types.GeometryNodeToolSelection.rst
-bpy.types.GeometryNodeToolSetFaceSet.rst
-bpy.types.GeometryNodeToolSetSelection.rst
-bpy.types.GeometryNodeTransferAttributes.rst
-bpy.types.GeometryNodeTransform.rst
-bpy.types.GeometryNodeTranslateInstances.rst
-bpy.types.GeometryNodeTriangulate.rst
-bpy.types.GeometryNodeTrimCurve.rst
-bpy.types.GeometryNodeUVPackIslands.rst
-bpy.types.GeometryNodeUVTangent.rst
-bpy.types.GeometryNodeUVUnwrap.rst
-bpy.types.GeometryNodeVertexOfCorner.rst
-bpy.types.GeometryNodeViewer.rst
-bpy.types.GeometryNodeViewportTransform.rst
-bpy.types.GeometryNodeVolumeCube.rst
-bpy.types.GeometryNodeVolumeToMesh.rst
-bpy.types.GeometryNodeWarning.rst
-bpy.types.GeometryNodeXPBDSolver.rst
+bpy.types.SurfaceCurve.rst
+bpy.types.TextCurve.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.EvaluateClosureNodeViewerPathElem.rst
-bpy.types.ForeachGeometryElementZoneViewerPathElem.rst
-bpy.types.GroupNodeViewerPathElem.rst
-bpy.types.IDViewerPathElem.rst
-bpy.types.ModifierViewerPathElem.rst
-bpy.types.RepeatZoneViewerPathElem.rst
-bpy.types.SimulationZoneViewerPathElem.rst
-bpy.types.ViewerNodeViewerPathElem.rst
+bpy.types.LightProbePlane.rst
+bpy.types.LightProbeSphere.rst
+bpy.types.LightProbeVolume.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.bpy_struct.rst
-
-bpy.types.bpy_prop.rst
-bpy.types.bpy_prop_array.rst
-bpy.types.bpy_prop_collection_idprop.rst
-bpy.types.bpy_prop_collection.rst
-bpy.types.BlendDataPathMeta.rst
-bpy.types.ContextTempOverride.rst
-bpy.types.GeometrySet.rst
-bpy.types.InlineShaderNodes.rst
-
-:titlesonly:
-
-Shared Enum Types <bpy_types_enum_items/index>
-
-:hidden:
-:maxdepth: 1
-
-Types with Custom Property Support <bpy_types_custom_properties>
-
-:hidden:
-:maxdepth: 1
-
-bpy.types.FileAssetSelectParams.rst
+bpy.types.CompositorNodeAlphaOver.rst
+bpy.types.CompositorNodeAntiAliasing.rst
+bpy.types.CompositorNodeBilateralblur.rst
+bpy.types.CompositorNodeBlankImage.rst
+bpy.types.CompositorNodeBlur.rst
+bpy.types.CompositorNodeBokehBlur.rst
+bpy.types.CompositorNodeBokehImage.rst
+bpy.types.CompositorNodeBoxMask.rst
+bpy.types.CompositorNodeBrightContrast.rst
+bpy.types.CompositorNodeChannelMatte.rst
+bpy.types.CompositorNodeChromaMatte.rst
+bpy.types.CompositorNodeColorBalance.rst
+bpy.types.CompositorNodeColorCorrection.rst
+bpy.types.CompositorNodeColorMatte.rst
+bpy.types.CompositorNodeColorSpill.rst
+bpy.types.CompositorNodeCombineColor.rst
+bpy.types.CompositorNodeConvertColorSpace.rst
+bpy.types.CompositorNodeConvertToDisplay.rst
+bpy.types.CompositorNodeConvolve.rst
+bpy.types.CompositorNodeCornerPin.rst
+bpy.types.CompositorNodeCrop.rst
+bpy.types.CompositorNodeCryptomatte.rst
+bpy.types.CompositorNodeCryptomatteV2.rst
+bpy.types.CompositorNodeCurveRGB.rst
+bpy.types.CompositorNodeCustomGroup.rst
+bpy.types.CompositorNodeDBlur.rst
+bpy.types.CompositorNodeDefocus.rst
+bpy.types.CompositorNodeDenoise.rst
+bpy.types.CompositorNodeDespeckle.rst
+bpy.types.CompositorNodeDiffMatte.rst
+bpy.types.CompositorNodeDilateErode.rst
+bpy.types.CompositorNodeDisplace.rst
+bpy.types.CompositorNodeDistanceMatte.rst
+bpy.types.CompositorNodeDoubleEdgeMask.rst
+bpy.types.CompositorNodeEllipseMask.rst
+bpy.types.CompositorNodeExposure.rst
+bpy.types.CompositorNodeFilter.rst
+bpy.types.CompositorNodeFlip.rst
+bpy.types.CompositorNodeGamma.rst
+bpy.types.CompositorNodeGlare.rst
+bpy.types.CompositorNodeGroup.rst
+bpy.types.CompositorNodeHueCorrect.rst
+bpy.types.CompositorNodeHueSat.rst
+bpy.types.CompositorNodeIDMask.rst
+bpy.types.CompositorNodeImage.rst
+bpy.types.CompositorNodeImageCoordinates.rst
+bpy.types.CompositorNodeImageInfo.rst
+bpy.types.CompositorNodeInpaint.rst
+bpy.types.CompositorNodeInvert.rst
+bpy.types.CompositorNodeKeying.rst
+bpy.types.CompositorNodeKeyingScreen.rst
+bpy.types.CompositorNodeKuwahara.rst
+bpy.types.CompositorNodeLensdist.rst
+bpy.types.CompositorNodeLevels.rst
+bpy.types.CompositorNodeLumaMatte.rst
+bpy.types.CompositorNodeMapUV.rst
+bpy.types.CompositorNodeMask.rst
+bpy.types.CompositorNodeMaskToSDF.rst
+bpy.types.CompositorNodeMovieClip.rst
+bpy.types.CompositorNodeMovieDistortion.rst
+bpy.types.CompositorNodeNormal.rst
+bpy.types.CompositorNodeNormalize.rst
+bpy.types.CompositorNodeOutputFile.rst
+bpy.types.CompositorNodePixelate.rst
+bpy.types.CompositorNodePlaneTrackDeform.rst
+bpy.types.CompositorNodePosterize.rst
+bpy.types.CompositorNodePremulKey.rst
+bpy.types.CompositorNodeRGB.rst
+bpy.types.CompositorNodeRGBToBW.rst
+bpy.types.CompositorNodeRLayers.rst
+bpy.types.CompositorNodeRelativeToPixel.rst
+bpy.types.CompositorNodeRotate.rst
+bpy.types.CompositorNodeScale.rst
+bpy.types.CompositorNodeSceneTime.rst
+bpy.types.CompositorNodeSeparateColor.rst
+bpy.types.CompositorNodeSequencerStripInfo.rst
+bpy.types.CompositorNodeSetAlpha.rst
+bpy.types.CompositorNodeSplit.rst
+bpy.types.CompositorNodeStabilize.rst
+bpy.types.CompositorNodeStringToImage.rst
+bpy.types.CompositorNodeSwitch.rst
+bpy.types.CompositorNodeSwitchView.rst
+bpy.types.CompositorNodeTime.rst
+bpy.types.CompositorNodeTonemap.rst
+bpy.types.CompositorNodeTrackPos.rst
+bpy.types.CompositorNodeTransform.rst
+bpy.types.CompositorNodeTranslate.rst
+bpy.types.CompositorNodeVecBlur.rst
+bpy.types.CompositorNodeViewer.rst
+bpy.types.CompositorNodeZcombine.rst
 
 :caption: Subclasses
 :maxdepth: 1
-
-Attributes are used to store data that corresponds to geometry elements.
-Geometry elements are items in one of the geometry domains like points, curves, or faces.
-
-An attribute has a name
-
-, a type
-
-, and is stored on a domain
-
-.
-
-name
-
-
-    The name of this attribute. Names have to be unique within the same geometry.
-    If the name starts with a .
-
-    , the attribute is hidden from the UI.
-
-type
-
-
-    The type of data that this attribute stores, e.g. a float, integer, color, etc.
-    See Attribute Type Items.
-
-domain
-
-
-    The geometry domain that the attribute is stored on.
-    See Attribute Domain Items.
 
 
 --------------------
 
-Attributes can be stored on geometries like Mesh, Curves, PointCloud, etc.
-These geometries have attribute groups (usually called attributes
+This script is a simple panel which will draw into the object properties
+section.
 
-).
-Using the groups, attributes can then be accessed by their name:
-
-```
-radii = curves.attributes["radius"]
-```
-
-Creating and storing custom attributes is done using the attributes.new
-
- function:
-
-```
-# Add a new attribute named `my_attribute_name` of type `float` on the point domain of the geometry.
-my_attribute = curves.attributes.new("my_attribute_name", 'FLOAT', 'POINT')
-```
-
-Removing attributes can be done like so:
-
-```
-attribute = drawing.attributes["some_attribute"]
-drawing.attributes.remove(attribute)
-```
+Notice the 'CATEGORY_PT_name' Panel.bl_idname, this is a naming
+convention for panels.
 
 [NOTE]
-Some attributes are required and cannot be removed, like "position"
+Panel subclasses must be registered for Blender to use them.
 
-.
+```../examples/bpy.types.Panel.0.py```
 
-Attribute values are read by accessing their attribute.data
 
- collection property.
-However, in cases where multiple values should be read at once,
-it is better to use the bpy_prop_collection.foreach_get function and read the values into a numpy
+--------------------
 
- buffer.
+This panel has a Panel.poll and Panel.draw_header function,
+even though the contents is basic this closely resembles blenders panels.
 
-```
-import numpy as np
+```../examples/bpy.types.Panel.1.py```
 
-# Get the radius attribute.
-radii = curves.attributes["radius"]
-# Print the radius of the first point.
-print(radii.data[0].value)
-# Output: 0.005
 
-# Get the total number of points.
-num_points = attributes.domain_size('POINT')
-# Create an empty buffer to read all the radii into.
-radii_data = np.zeros(num_points, dtype=np.float32)
-# Read all the radii of the curves into `radii_data` at once.
-radii.data.foreach_get('value', radii_data)
-# Print all the radii.
-print(radii_data)
-# Output: [0.1, 0.2, 0.3, 0.4, ... ]
-```
+--------------------
 
-[NOTE]
-Some attribute types use different named properties to access their value.
-Instead of value
+A mix-in parent class can be used to share common properties and
+Menu.poll function.
 
-, vectors use vector
+```../examples/bpy.types.Panel.2.py```
 
-, and colors use color
-
-.
-
-Writing to different attribute types is very similar. You can simply assign to a value directly.
-Again, when writing to multiple values, it is recommended to use the bpy_prop_collection.foreach_set function
-to write the values from a numpy
-
- buffer.
-
-```
-import numpy as np
-
-radii = curves.attributes["radius"]
-# Write a radius with a value of 0.5 to the first point.
-radii.data[0].value = 0.5
-print(radii.data[0].value)
-# Output: 0.5
-
-num_points = attributes.domain_size('POINT')
-# Generate random radii with values between 0.001 and 0.05 using numpy.
-new_radii = np.random.uniform(0.001, 0.05, num_points)
-# Write the new radii to the radius attribute.
-radii.data.foreach_set('value', new_radii)
-```
-
-The bpy_prop_collection.foreach_get / bpy_prop_collection.foreach_set methods require a flat array.
-This is sometimes not desirable, e.g. when reading/writing positions, which are 3D vectors.
-In these cases, it's possible to use np.ravel
-
- to pass the data as a flat array:
-
-```
-num_points = attributes.domain_size('POINT')
-positions = curves.attributes['position']
-# Here, we're using a numpy array with shape (num_points, 3) so that each
-# element is a 3d vector.
-positions_data = np.zeros((num_points, 3), dtype=np.float32)
-# The `np.ravel` function will pass the `positions_data` as a flat array
-# without changing the original shape.
-positions.data.foreach_get('vector', np.ravel(positions_data))
-print(positions_data)
-# Output: [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], ...]
-```
-
-bpy.types.BoolAttribute.rst
-bpy.types.ByteColorAttribute.rst
-bpy.types.ByteIntAttribute.rst
-bpy.types.Float2Attribute.rst
-bpy.types.Float4Attribute.rst
-bpy.types.Float4x4Attribute.rst
-bpy.types.FloatAttribute.rst
-bpy.types.FloatColorAttribute.rst
-bpy.types.FloatVectorAttribute.rst
-bpy.types.Int2Attribute.rst
-bpy.types.IntAttribute.rst
-bpy.types.QuaternionAttribute.rst
-bpy.types.Short2Attribute.rst
-bpy.types.StringAttribute.rst
+bpy.types.IMAGE_AST_brush_paint.rst
+bpy.types.NODE_AST_compositor.rst
+bpy.types.VIEW3D_AST_brush_gpencil_paint.rst
+bpy.types.VIEW3D_AST_brush_gpencil_sculpt.rst
+bpy.types.VIEW3D_AST_brush_gpencil_vertex.rst
+bpy.types.VIEW3D_AST_brush_gpencil_weight.rst
+bpy.types.VIEW3D_AST_brush_sculpt.rst
+bpy.types.VIEW3D_AST_brush_sculpt_curves.rst
+bpy.types.VIEW3D_AST_brush_texture_paint.rst
+bpy.types.VIEW3D_AST_brush_vertex_paint.rst
+bpy.types.VIEW3D_AST_brush_weight_paint.rst
+bpy.types.VIEW3D_AST_pose_library.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-
---------------------
-
-PropertyGroups are the base class for dynamically defined sets of properties.
-
-They can be used to extend existing Blender data with your own types which can
-be animated, accessed from the user interface and from Python.
-
-[NOTE]
-The values assigned to Blender data are saved to disk but the class
-definitions are not, this means whenever you load Blender the class needs
-to be registered too.
-This is best done by creating an add-on which loads on startup and registers
-your properties.
-
-[NOTE]
-PropertyGroups must be registered before assigning them to Blender data.
-
-Property types used in class declarations are all in bpy.props
-
-
-
-```../examples/bpy.types.PropertyGroup.0.py```
-
-bpy.types.OperatorFileListElement.rst
-bpy.types.OperatorMousePath.rst
-bpy.types.OperatorStrokeElement.rst
-bpy.types.SelectedUvElement.rst
+bpy.types.CurvesSculpt.rst
+bpy.types.GpPaint.rst
+bpy.types.GpSculptPaint.rst
+bpy.types.GpVertexPaint.rst
+bpy.types.GpWeightPaint.rst
+bpy.types.ImagePaint.rst
+bpy.types.Sculpt.rst
+bpy.types.VertexPaint.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.LineStyleAlphaModifier.rst
-bpy.types.LineStyleColorModifier.rst
-bpy.types.LineStyleGeometryModifier.rst
-bpy.types.LineStyleThicknessModifier.rst
+bpy.types.ActionKeyframeStrip.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-
---------------------
-
-The mesh data is accessed in object mode and intended for compact storage,
-for more flexible mesh editing from Python see bmesh.
-
-Blender stores 4 main arrays to define mesh geometry.
-
-* Mesh.vertices (3 points in space)
-* Mesh.edges (reference 2 vertices)
-* Mesh.loops (reference a single vertex and edge)
-* Mesh.polygons: (reference a range of loops)
-
-Each polygon references a slice in the loop array, this way,
-polygons do not store vertices or corner data such as UVs directly,
-only a reference to loops that the polygon uses.
-
-Mesh.loops, Mesh.uv_layers Mesh.vertex_colors are all aligned so the same polygon loop
-indices can be used to find the UVs and vertex colors as with as the vertices.
-
-To compare mesh API options see: NGons and Tessellation Faces <info_gotcha_mesh_faces>
-
-This example script prints the vertices and UVs for each polygon, assumes the active object is a mesh with UVs.
-
-```../examples/bpy.types.Mesh.0.py```
-
-bpy.types.ShaderNodeAddShader.rst
-bpy.types.ShaderNodeAmbientOcclusion.rst
-bpy.types.ShaderNodeAttribute.rst
-bpy.types.ShaderNodeBackground.rst
-bpy.types.ShaderNodeBevel.rst
-bpy.types.ShaderNodeBlackbody.rst
-bpy.types.ShaderNodeBrightContrast.rst
-bpy.types.ShaderNodeBsdfAnisotropic.rst
-bpy.types.ShaderNodeBsdfDiffuse.rst
-bpy.types.ShaderNodeBsdfGlass.rst
-bpy.types.ShaderNodeBsdfHair.rst
-bpy.types.ShaderNodeBsdfHairPrincipled.rst
-bpy.types.ShaderNodeBsdfMetallic.rst
-bpy.types.ShaderNodeBsdfPrincipled.rst
-bpy.types.ShaderNodeBsdfRayPortal.rst
-bpy.types.ShaderNodeBsdfRefraction.rst
-bpy.types.ShaderNodeBsdfSheen.rst
-bpy.types.ShaderNodeBsdfToon.rst
-bpy.types.ShaderNodeBsdfTranslucent.rst
-bpy.types.ShaderNodeBsdfTransparent.rst
-bpy.types.ShaderNodeBump.rst
-bpy.types.ShaderNodeCameraData.rst
-bpy.types.ShaderNodeClamp.rst
-bpy.types.ShaderNodeCombineColor.rst
-bpy.types.ShaderNodeCombineXYZ.rst
-bpy.types.ShaderNodeCustomGroup.rst
-bpy.types.ShaderNodeDisplacement.rst
-bpy.types.ShaderNodeEeveeSpecular.rst
-bpy.types.ShaderNodeEmission.rst
-bpy.types.ShaderNodeFloatCurve.rst
-bpy.types.ShaderNodeFresnel.rst
-bpy.types.ShaderNodeGamma.rst
-bpy.types.ShaderNodeGroup.rst
-bpy.types.ShaderNodeHairInfo.rst
-bpy.types.ShaderNodeHoldout.rst
-bpy.types.ShaderNodeHueSaturation.rst
-bpy.types.ShaderNodeInvert.rst
-bpy.types.ShaderNodeLayerWeight.rst
-bpy.types.ShaderNodeLightAccumulation.rst
-bpy.types.ShaderNodeLightEvaluation.rst
-bpy.types.ShaderNodeLightFalloff.rst
-bpy.types.ShaderNodeLightInfo.rst
-bpy.types.ShaderNodeLightIterInternalInput.rst
-bpy.types.ShaderNodeLightIterInternalOutput.rst
-bpy.types.ShaderNodeLightPath.rst
-bpy.types.ShaderNodeMapRange.rst
-bpy.types.ShaderNodeMapping.rst
-bpy.types.ShaderNodeMath.rst
-bpy.types.ShaderNodeMix.rst
-bpy.types.ShaderNodeMixRGB.rst
-bpy.types.ShaderNodeMixShader.rst
-bpy.types.ShaderNodeNewGeometry.rst
-bpy.types.ShaderNodeNormal.rst
-bpy.types.ShaderNodeNormalMap.rst
-bpy.types.ShaderNodeObjectInfo.rst
-bpy.types.ShaderNodeOutputAOV.rst
-bpy.types.ShaderNodeOutputLight.rst
-bpy.types.ShaderNodeOutputLineStyle.rst
-bpy.types.ShaderNodeOutputMaterial.rst
-bpy.types.ShaderNodeOutputWorld.rst
-bpy.types.ShaderNodeParticleInfo.rst
-bpy.types.ShaderNodePointInfo.rst
-bpy.types.ShaderNodeRGB.rst
-bpy.types.ShaderNodeRGBCurve.rst
-bpy.types.ShaderNodeRGBToBW.rst
-bpy.types.ShaderNodeRadialTiling.rst
-bpy.types.ShaderNodeRaycast.rst
-bpy.types.ShaderNodeScript.rst
-bpy.types.ShaderNodeSeparateColor.rst
-bpy.types.ShaderNodeSeparateXYZ.rst
-bpy.types.ShaderNodeShaderToRGB.rst
-bpy.types.ShaderNodeShadowRaycast.rst
-bpy.types.ShaderNodeSqueeze.rst
-bpy.types.ShaderNodeSubsurfaceScattering.rst
-bpy.types.ShaderNodeTangent.rst
-bpy.types.ShaderNodeTexBrick.rst
-bpy.types.ShaderNodeTexChecker.rst
-bpy.types.ShaderNodeTexCoord.rst
-bpy.types.ShaderNodeTexEnvironment.rst
-bpy.types.ShaderNodeTexGabor.rst
-bpy.types.ShaderNodeTexGradient.rst
-bpy.types.ShaderNodeTexIES.rst
-bpy.types.ShaderNodeTexImage.rst
-bpy.types.ShaderNodeTexMagic.rst
-bpy.types.ShaderNodeTexNoise.rst
-bpy.types.ShaderNodeTexSky.rst
-bpy.types.ShaderNodeTexVoronoi.rst
-bpy.types.ShaderNodeTexWave.rst
-bpy.types.ShaderNodeTexWhiteNoise.rst
-bpy.types.ShaderNodeUVAlongStroke.rst
-bpy.types.ShaderNodeUVMap.rst
-bpy.types.ShaderNodeValToRGB.rst
-bpy.types.ShaderNodeValue.rst
-bpy.types.ShaderNodeVectorCurve.rst
-bpy.types.ShaderNodeVectorDisplacement.rst
-bpy.types.ShaderNodeVectorMath.rst
-bpy.types.ShaderNodeVectorRotate.rst
-bpy.types.ShaderNodeVectorTransform.rst
-bpy.types.ShaderNodeVertexColor.rst
-bpy.types.ShaderNodeVolumeAbsorption.rst
-bpy.types.ShaderNodeVolumeCoefficients.rst
-bpy.types.ShaderNodeVolumeInfo.rst
-bpy.types.ShaderNodeVolumePrincipled.rst
-bpy.types.ShaderNodeVolumeScatter.rst
-bpy.types.ShaderNodeWavelength.rst
-bpy.types.ShaderNodeWireframe.rst
+bpy.types.LineStyleAlphaModifier_AlongStroke.rst
+bpy.types.LineStyleAlphaModifier_CreaseAngle.rst
+bpy.types.LineStyleAlphaModifier_Curvature_3D.rst
+bpy.types.LineStyleAlphaModifier_DistanceFromCamera.rst
+bpy.types.LineStyleAlphaModifier_DistanceFromObject.rst
+bpy.types.LineStyleAlphaModifier_Material.rst
+bpy.types.LineStyleAlphaModifier_Noise.rst
+bpy.types.LineStyleAlphaModifier_Tangent.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.ProjectVariableFloat.rst
-bpy.types.ProjectVariableInteger.rst
-bpy.types.ProjectVariableString.rst
+bpy.types.LineStyleColorModifier_AlongStroke.rst
+bpy.types.LineStyleColorModifier_CreaseAngle.rst
+bpy.types.LineStyleColorModifier_Curvature_3D.rst
+bpy.types.LineStyleColorModifier_DistanceFromCamera.rst
+bpy.types.LineStyleColorModifier_DistanceFromObject.rst
+bpy.types.LineStyleColorModifier_Material.rst
+bpy.types.LineStyleColorModifier_Noise.rst
+bpy.types.LineStyleColorModifier_Tangent.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-
---------------------
-
-This example shows an implementation of USDHook
-
- to extend USD
-export and import functionality.
-
-
---------------------
-
-One may optionally define any or all of the following callback functions
-in the USDHook
-
- subclass.
-
-
---------------------
-
-Called before the USD export finalizes, allowing modifications to the USD
-stage immediately before it is saved.
-
-Args:
-
-* export_context
-
- (USDSceneExportContext): Provides access to the stage and dependency graph
-
-Returns:
-
-* True
-
- on success or False
-
- if the operation was bypassed or otherwise failed to complete
-
-
---------------------
-
-Called for each material that is exported, allowing modifications to the USD material,
-such as shader generation.
-
-Args:
-
-* export_context
-
- (USDMaterialExportContext): Provides access to the stage and a texture export utility function
-* bl_material
-
- (bpy.types.Material
-
-): The source Blender material
-* usd_material
-
- (pxr.UsdShade.Material
-
-): The target USD material to be exported
-
-Returns:
-
-* True
-
- on success or False
-
- if the operation was bypassed or otherwise failed to complete
-
-Note that the target USD material might already have connected shaders created by the USD exporter or
-by other material export hooks.
-
-
---------------------
-
-Called after the USD import finalizes.
-
-Args:
-
-* import_context
-
- (USDSceneImportContext):
-Provides access to the stage and a map associating USD prim paths and Blender IDs
-
-Returns:
-
-* True
-
- on success or False
-
- if the operation was bypassed or otherwise failed to complete
-
-
---------------------
-
-Called to determine if the USDHook
-
- implementation can convert a given USD material.
-
-Args:
-
-* import_context
-
- (USDMaterialImportContext): Provides access to the stage and a texture import utility function
-* usd_material
-
- (pxr.UsdShade.Material
-
-): The source USD material to be exported
-
-Returns:
-
-* True
-
- if the hook can convert the material or False
-
- otherwise
-
-If any hook returns True
-
- from material_import_poll
-
-, the USD importer will skip standard USD Preview Surface
-
-
-or MaterialX
-
- import and invoke the hook's on_material_import method to convert the material instead.
-
-
---------------------
-
-Called for each material that is imported, to allow converting the USD material to nodes on the Blender material.
-To ensure that this function gets called, the hook must also implement the material_import_poll()
-
-
-callback to return True
-
- for the given USD material.
-
-Args:
-
-* import_context
-
- (USDMaterialImportContext): Provides access to the stage and a texture import utility function
-* bl_material
-
- (bpy.types.Material
-
-): The target Blender material with an empty node tree
-* usd_material
-
- (pxr.UsdShade.Material
-
-): The source USD material to be imported
-
-Returns:
-
-* True
-
- on success or False
-
- if the conversion failed or otherwise did not complete
-
-
---------------------
-
-Instances of the following built-in classes are provided as arguments to the callbacks.
-
-
---------------------
-
-Argument for on_export.
-
-Methods:
-
-* get_stage()
-
-: returns the USD stage to be saved
-* get_depsgraph()
-
-: returns the Blender scene dependency graph
-* get_prim_map()
-
- returns a dict
-
- where the key is an exported USD Prim path and the value a list
-
-
-of the IDs associated with that prim.
-
-
---------------------
-
-Argument for on_material_export.
-
-Methods:
-
-* get_stage()
-
-: returns the USD stage to be saved
-* export_texture(image: bpy.types.Image)
-
-: Returns the USD asset path for the given texture image
-
-The export_texture
-
- function will save in-memory images and may copy texture assets,
-depending on the current USD export options.
-For example, by default calling export_texture(/foo/bar.png)
-
- will copy the file to a textures
-
-
-directory next to the exported USD and will return the relative path ./textures/bar.png
-
-.
-
-
---------------------
-
-Argument for on_import.
-
-Methods:
-
-* get_prim_map()
-
- returns a dict
-
- where the key is an imported USD Prim path and the value a list
-
-
-of the IDs created by the imported prim.
-* get_stage()
-
- returns the USD stage which was imported.
-
-
---------------------
-
-Argument for material_import_poll and on_material_import.
-
-Methods:
-
-* get_stage()
-
-:
-returns the USD stage to be saved.
-* import_texture(asset_path: str)
-
-:
-for the given USD texture asset path, returns a tuple[str, bool]
-
-,
-containing the asset's local path and a bool indicating whether the path references a temporary file.
-
-The import_texture
-
- function may copy the texture to the local file system if the given asset path is a
-package-relative path for a USDZ archive, depending on the current USD Import Textures
-
- options.
-When the Import Textures
-
- mode is Packed
-
-, the texture is saved to a temporary location and the
-second element of the returned tuple is True
-
-, indicating that the file is temporary, in which
-case it may be necessary to pack the image. The original asset path will be returned unchanged if it's
-already a local file or if it could not be copied to a local destination.
-
-
---------------------
-
-Exceptions raised by these functions will be reported in Blender with the exception details printed to the console.
-
-
---------------------
-
-The USDHookExample
-
- class in the example below implements the following functions:
-
-* on_export()
-
- function to add custom data to the stage's root layer.
-* on_material_export()
-
- function to create a simple MaterialX
-
- shader on the given USD material.
-* on_import()
-
- function to create a text object to display the stage's custom layer data.
-* material_import_poll()
-
- returns True
-
- if the given USD material has an mtlx
-
- context.
-* on_material_import()
-
- function to convert a simple MaterialX
-
- shader with a base_color
-
- input.
-
-```../examples/bpy.types.USDHook.0.py```
-
-bpy.types.NodeTreeInterfacePanel.rst
-bpy.types.NodeTreeInterfaceSocket.rst
+bpy.types.BoidRuleAverageSpeed.rst
+bpy.types.BoidRuleAvoid.rst
+bpy.types.BoidRuleAvoidCollision.rst
+bpy.types.BoidRuleFight.rst
+bpy.types.BoidRuleFollowLeader.rst
+bpy.types.BoidRuleGoal.rst
 
 :caption: Subclasses
 :maxdepth: 1
-
-
---------------------
-
-This script shows simple operator which prints a message.
-
-Since the operator only has an Operator.execute function it takes no
-user input.
-
-The function should return {'FINISHED'}
-
- or {'CANCELLED'}
-
-, the latter
-meaning that operator execution was aborted without making any changes, and
-that no undo step will created (see next example for more info about undo).
-
-[NOTE]
-Operator subclasses must be registered before accessing them from Blender.
-
-```../examples/bpy.types.Operator.0.py```
-
-
---------------------
-
-Any operator modifying Blender data should enable the 'UNDO'
-
- option.
-This will make Blender automatically create an undo step when the operator
-finishes its execute
-
- (or invoke
-
-, see below) functions, and returns
-{'FINISHED'}
-
-.
-
-Otherwise, no undo step will be created, which will at best corrupt the
-undo stack and confuse the user (since modifications done by the operator
-may either not be undoable, or be undone together with other edits done
-before). In many cases, this can even lead to data corruption and crashes.
-
-Note that when an operator returns {'CANCELLED'}
-
-, no undo step will be
-created. This means that if an error occurs *after* modifying some data
-already, it is better to return {'FINISHED'}
-
-, unless it is possible to
-fully undo the changes before returning.
-
-[NOTE]
-Most examples in this page do not do any edit to Blender data, which is
-why it is safe to keep the default bl_options
-
- value for these operators.
-
-[NOTE]
-In some complex cases, the automatic undo step created on operator exit may
-not be enough. For example, if the operator does mode switching, or calls
-other operators that should create an extra undo step, etc.
-Such manual undo push is possible using the bpy.ops.ed.undo_push
-function. Be careful though, this is considered an advanced feature and
-requires some understanding of the actual undo system in Blender code.
-
-```../examples/bpy.types.Operator.1.py```
-
-
---------------------
-
-Operator.invoke is used to initialize the operator from the context
-at the moment the operator is called.
-invoke() is typically used to assign properties which are then used by
-execute().
-Some operators don't have an execute() function, removing the ability to be
-repeated from a script or macro.
-
-When an operator is called via bpy.ops, the execution context depends
-on the argument provided to bpy.ops. By default, it uses execute().
-When an operator is activated from a button or menu item, it follows
-the setting in UILayout.operator_context. In most cases, invoke() is used.
-Running an operator via a key shortcut always uses invoke(),
-and this behavior cannot be changed.
-
-This example shows how to define an operator which gets mouse input to
-execute a function and that this operator can be invoked or executed from
-the Python API.
-
-Also notice this operator defines its own properties, these are different
-to typical class properties because Blender registers them with the
-operator, to use as arguments when called, saved for operator undo/redo and
-automatically added into the user interface.
-
-```../examples/bpy.types.Operator.2.py```
-
-
---------------------
-
-This example shows how an operator can use the file selector.
-
-Notice the invoke function calls a window manager method and returns
-{'RUNNING_MODAL'}
-
-, this means the file selector stays open and the operator does not
-exit immediately after invoke finishes.
-
-The file selector runs the operator, calling Operator.execute when the
-user confirms.
-
-The Operator.poll function is optional, used to check if the operator
-can run.
-
-```../examples/bpy.types.Operator.3.py```
-
-
---------------------
-
-This operator uses its Operator.invoke function to call a popup.
-
-```../examples/bpy.types.Operator.4.py```
-
-
---------------------
-
-By default operator properties use an automatic user interface layout.
-If you need more control you can create your own layout with a
-Operator.draw function.
-
-This works like the Panel and Menu draw functions, its used
-for dialogs and file selectors.
-
-```../examples/bpy.types.Operator.5.py```
-
-
---------------------
-
-This operator defines a Operator.modal function that will keep being
-run to handle events until it returns {'FINISHED'}
-
- or {'CANCELLED'}
-
-.
-
-Modal operators run every time a new event is detected, such as a mouse click
-or key press. Conversely, when no new events are detected, the modal operator
-will not run. Modal operators are especially useful for interactive tools, an
-operator can have its own state where keys toggle options as the operator runs.
-Grab, Rotate, Scale, and Fly-Mode are examples of modal operators.
-
-Operator.invoke is used to initialize the operator as being active
-by returning {'RUNNING_MODAL'}
-
-, initializing the modal loop.
-
-Notice __init__()
-
- and __del__()
-
- are declared.
-For other operator types they are not useful but for modal operators they will
-be called before the Operator.invoke and after the operator finishes.
-Also see the
-class construction and destruction section <info_overview_class_construction_destruction>.
-
-```../examples/bpy.types.Operator.6.py```
-
-
---------------------
-
-You may want to have an operator prompt the user to select an item
-from a search field, this can be done using bpy.types.Operator.invoke_search_popup.
-
-```../examples/bpy.types.Operator.7.py```
-
-
---------------------
-
-This example shows how an add-on can register custom keyboard shortcuts.
-Keymaps are added to keyconfigs.addon
-
- and removed when unregistered.
-
-Store (keymap, keymap_item)
-
- tuples for safe cleanup, as multiple add-ons may use the same keymap.
-
-[NOTE]
-Users can customize add-on shortcuts in the Keymap Preferences.
-Add-on keymaps appear under their respective editors and can be
-modified or disabled without editing the add-on code.
-Add-ons should only manipulate keymaps in keyconfigs.addon
-
- and not manipulate the user's keymaps
-because add-on keymaps serve as a default which users may customize.
-Modifying user keymaps directly interferes with users' own preferences.
-
-[WARNING]
-Add-ons can add items to existing modal keymaps but cannot create
-new modal keymaps via Python. Use modal=True
-
- when targeting
-an existing modal keymap such as "Knife Tool Modal Map".
-
-```../examples/bpy.types.KeyMaps.1.py```
-
-bpy.types.CompositorNode.rst
-bpy.types.FunctionNode.rst
-bpy.types.GeometryNode.rst
-bpy.types.NodeClosureInput.rst
-bpy.types.NodeClosureOutput.rst
-bpy.types.NodeCombineBundle.rst
-bpy.types.NodeEnableOutput.rst
-bpy.types.NodeEvaluateClosure.rst
-bpy.types.NodeFrame.rst
-bpy.types.NodeGetBundleItem.rst
-bpy.types.NodeGetNestedBundlePaths.rst
-bpy.types.NodeGroup.rst
-bpy.types.NodeGroupInput.rst
-bpy.types.NodeGroupOutput.rst
-bpy.types.NodeImplicitConversion.rst
-bpy.types.NodeJoinBundle.rst
-bpy.types.NodeReroute.rst
-bpy.types.NodeSeparateBundle.rst
-bpy.types.NodeStoreBundleItem.rst
-bpy.types.ShaderNode.rst
-bpy.types.TextureNode.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.FunctionNodeAlignEulerToVector.rst
-bpy.types.FunctionNodeAlignRotationToVector.rst
-bpy.types.FunctionNodeAxesToRotation.rst
-bpy.types.FunctionNodeAxisAngleToRotation.rst
-bpy.types.FunctionNodeBitMath.rst
-bpy.types.FunctionNodeBooleanMath.rst
-bpy.types.FunctionNodeCombineColor.rst
-bpy.types.FunctionNodeCombineMatrix.rst
-bpy.types.FunctionNodeCombineTransform.rst
-bpy.types.FunctionNodeCompare.rst
-bpy.types.FunctionNodeEulerToRotation.rst
-bpy.types.FunctionNodeFindInString.rst
-bpy.types.FunctionNodeFloatToInt.rst
-bpy.types.FunctionNodeFormatString.rst
-bpy.types.FunctionNodeGetVectorComponent.rst
-bpy.types.FunctionNodeHashValue.rst
-bpy.types.FunctionNodeInputBool.rst
-bpy.types.FunctionNodeInputColor.rst
-bpy.types.FunctionNodeInputInt.rst
-bpy.types.FunctionNodeInputIntVector.rst
-bpy.types.FunctionNodeInputMenu.rst
-bpy.types.FunctionNodeInputRotation.rst
-bpy.types.FunctionNodeInputSpecialCharacters.rst
-bpy.types.FunctionNodeInputString.rst
-bpy.types.FunctionNodeInputVector.rst
-bpy.types.FunctionNodeIntegerMath.rst
-bpy.types.FunctionNodeInvertMatrix.rst
-bpy.types.FunctionNodeInvertRotation.rst
-bpy.types.FunctionNodeMatchString.rst
-bpy.types.FunctionNodeMatrixDeterminant.rst
-bpy.types.FunctionNodeMatrixMultiply.rst
-bpy.types.FunctionNodeMatrixSVD.rst
-bpy.types.FunctionNodeProjectPoint.rst
-bpy.types.FunctionNodeQuaternionToRotation.rst
-bpy.types.FunctionNodeRandomValue.rst
-bpy.types.FunctionNodeReplaceString.rst
-bpy.types.FunctionNodeReverseString.rst
-bpy.types.FunctionNodeRotateEuler.rst
-bpy.types.FunctionNodeRotateRotation.rst
-bpy.types.FunctionNodeRotateVector.rst
-bpy.types.FunctionNodeRotationToAxisAngle.rst
-bpy.types.FunctionNodeRotationToEuler.rst
-bpy.types.FunctionNodeRotationToQuaternion.rst
-bpy.types.FunctionNodeSeparateColor.rst
-bpy.types.FunctionNodeSeparateMatrix.rst
-bpy.types.FunctionNodeSeparateTransform.rst
-bpy.types.FunctionNodeSetStringCase.rst
-bpy.types.FunctionNodeSliceString.rst
-bpy.types.FunctionNodeSplitString.rst
-bpy.types.FunctionNodeStringLength.rst
-bpy.types.FunctionNodeStringToValue.rst
-bpy.types.FunctionNodeTransformDirection.rst
-bpy.types.FunctionNodeTransformPoint.rst
-bpy.types.FunctionNodeTransposeMatrix.rst
-bpy.types.FunctionNodeTrimString.rst
-bpy.types.FunctionNodeValueToString.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-This script demonstrates basic operations on object like creating new
-object, placing it into a view layer, selecting it and making it active.
-
-```../examples/bpy.types.Object.0.py```
 
 bpy.types.NodeSocketBool.rst
 bpy.types.NodeSocketBundle.rst
@@ -2654,531 +3132,53 @@ bpy.types.NodeSocketVirtual.rst
 
 --------------------
 
-```../examples/bpy.types.InlineShaderNodes.0.py```
+The mesh data is accessed in object mode and intended for compact storage,
+for more flexible mesh editing from Python see bmesh.
 
-bpy.types.TextureNodeAt.rst
-bpy.types.TextureNodeBricks.rst
-bpy.types.TextureNodeChecker.rst
-bpy.types.TextureNodeCombineColor.rst
-bpy.types.TextureNodeCompose.rst
-bpy.types.TextureNodeCoordinates.rst
-bpy.types.TextureNodeCurveRGB.rst
-bpy.types.TextureNodeCurveTime.rst
-bpy.types.TextureNodeDecompose.rst
-bpy.types.TextureNodeDistance.rst
-bpy.types.TextureNodeGroup.rst
-bpy.types.TextureNodeHueSaturation.rst
-bpy.types.TextureNodeImage.rst
-bpy.types.TextureNodeInvert.rst
-bpy.types.TextureNodeMath.rst
-bpy.types.TextureNodeMixRGB.rst
-bpy.types.TextureNodeOutput.rst
-bpy.types.TextureNodeRGBToBW.rst
-bpy.types.TextureNodeRotate.rst
-bpy.types.TextureNodeScale.rst
-bpy.types.TextureNodeSeparateColor.rst
-bpy.types.TextureNodeTexBlend.rst
-bpy.types.TextureNodeTexClouds.rst
-bpy.types.TextureNodeTexDistNoise.rst
-bpy.types.TextureNodeTexMagic.rst
-bpy.types.TextureNodeTexMarble.rst
-bpy.types.TextureNodeTexMusgrave.rst
-bpy.types.TextureNodeTexNoise.rst
-bpy.types.TextureNodeTexStucci.rst
-bpy.types.TextureNodeTexVoronoi.rst
-bpy.types.TextureNodeTexWood.rst
-bpy.types.TextureNodeTexture.rst
-bpy.types.TextureNodeTranslate.rst
-bpy.types.TextureNodeValToNor.rst
-bpy.types.TextureNodeValToRGB.rst
-bpy.types.TextureNodeViewer.rst
+Blender stores 4 main arrays to define mesh geometry.
+
+* Mesh.vertices (3 points in space)
+* Mesh.edges (reference 2 vertices)
+* Mesh.loops (reference a single vertex and edge)
+* Mesh.polygons: (reference a range of loops)
+
+Each polygon references a slice in the loop array, this way,
+polygons do not store vertices or corner data such as UVs directly,
+only a reference to loops that the polygon uses.
+
+Mesh.loops, Mesh.uv_layers Mesh.vertex_colors are all aligned so the same polygon loop
+indices can be used to find the UVs and vertex colors as with as the vertices.
+
+To compare mesh API options see: NGons and Tessellation Faces <info_gotcha_mesh_faces>
+
+This example script prints the vertices and UVs for each polygon, assumes the active object is a mesh with UVs.
+
+```../examples/bpy.types.Mesh.0.py```
+
+bpy.types.BlendTexture.rst
+bpy.types.CloudsTexture.rst
+bpy.types.DistortedNoiseTexture.rst
+bpy.types.ImageTexture.rst
+bpy.types.MagicTexture.rst
+bpy.types.MarbleTexture.rst
+bpy.types.MusgraveTexture.rst
+bpy.types.NoiseTexture.rst
+bpy.types.StucciTexture.rst
+bpy.types.VoronoiTexture.rst
+bpy.types.WoodTexture.rst
 
 :caption: Subclasses
 :maxdepth: 1
 
-bpy.types.LineStyleAlphaModifier_AlongStroke.rst
-bpy.types.LineStyleAlphaModifier_CreaseAngle.rst
-bpy.types.LineStyleAlphaModifier_Curvature_3D.rst
-bpy.types.LineStyleAlphaModifier_DistanceFromCamera.rst
-bpy.types.LineStyleAlphaModifier_DistanceFromObject.rst
-bpy.types.LineStyleAlphaModifier_Material.rst
-bpy.types.LineStyleAlphaModifier_Noise.rst
-bpy.types.LineStyleAlphaModifier_Tangent.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-A file handler allows custom drag-and-drop behavior to be associated with a given Operator
-
-
-(FileHandler.bl_import_operator) and set of file extensions
-(FileHandler.bl_file_extensions). Control over which area of the UI accepts the
-drag-in-drop action is specified using the FileHandler.poll_drop method.
-
-Similar to operators that use a file select window, operators participating in drag-and-drop, and
-only accepting a single file, must define the following property:
-
-```
-filepath: bpy.props.StringProperty(subtype='FILE_PATH', options={'SKIP_SAVE'})
-```
-
-This filepath
-
- property will be set to the full path of the file dropped by the user.
-
-```../examples/bpy.types.FileHandler.1.py```
-
-
---------------------
-
-Operators which support being executed with multiple files from drag-and-drop require the
-following properties be defined:
-
-```
-directory: StringProperty(subtype='DIR_PATH', options={'SKIP_SAVE', 'HIDDEN'})
-files: CollectionProperty(type=OperatorFileListElement, options={'SKIP_SAVE', 'HIDDEN'})
-```
-
-These directory
-
- and files
-
- properties will be set with the necessary data from the
-drag-and-drop operation.
-
-Additionally, if the operator provides operator properties that need to be accessible to the user,
-the ImportHelper.invoke_popup method can be used to show a dialog leveraging the standard
-Operator.draw method for layout and display.
-
-```../examples/bpy.types.FileHandler.2.py```
-
-bpy.types.IMAGE_FH_drop_handler.rst
-bpy.types.IO_FH_gltf2.rst
-bpy.types.IO_FH_svg_as_curves.rst
-bpy.types.NODE_FH_image_node.rst
-bpy.types.SEQUENCER_FH_image_strip.rst
-bpy.types.SEQUENCER_FH_movie_strip.rst
-bpy.types.SEQUENCER_FH_sound_strip.rst
-bpy.types.VIEW3D_FH_camera_background_image.rst
-bpy.types.VIEW3D_FH_empty_image.rst
-bpy.types.VIEW3D_FH_vdb_volume.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-This script is a simple panel which will draw into the object properties
-section.
-
-Notice the 'CATEGORY_PT_name' Panel.bl_idname, this is a naming
-convention for panels.
-
-[NOTE]
-Panel subclasses must be registered for Blender to use them.
-
-```../examples/bpy.types.Panel.0.py```
-
-
---------------------
-
-This panel has a Panel.poll and Panel.draw_header function,
-even though the contents is basic this closely resembles blenders panels.
-
-```../examples/bpy.types.Panel.1.py```
-
-
---------------------
-
-A mix-in parent class can be used to share common properties and
-Menu.poll function.
-
-```../examples/bpy.types.Panel.2.py```
-
-bpy.types.SurfaceCurve.rst
-bpy.types.TextCurve.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.BrightContrastModifier.rst
-bpy.types.ColorBalanceModifier.rst
-bpy.types.CurvesModifier.rst
-bpy.types.EchoModifier.rst
-bpy.types.HueCorrectModifier.rst
-bpy.types.MaskStripModifier.rst
-bpy.types.PitchModifier.rst
-bpy.types.SequencerCompositorModifierData.rst
-bpy.types.SequencerTonemapModifierData.rst
-bpy.types.SoundEqualizerModifier.rst
-bpy.types.WhiteBalanceModifier.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.BoidRuleAverageSpeed.rst
-bpy.types.BoidRuleAvoid.rst
-bpy.types.BoidRuleAvoidCollision.rst
-bpy.types.BoidRuleFight.rst
-bpy.types.BoidRuleFollowLeader.rst
-bpy.types.BoidRuleGoal.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-This example demonstrates access to the evaluated ID (such as object, material, etc.) state from
-an original ID.
-This is needed every time one needs to access state with animation, constraints, and modifiers
-taken into account.
-
-```../examples/bpy.types.Depsgraph.1.py```
-
-
---------------------
-
-This example demonstrates access to the original ID.
-Such access is needed to check whether object is selected, or to compare pointers.
-
-```../examples/bpy.types.Depsgraph.2.py```
-
-
---------------------
-
-Sometimes it is needed to know all the instances with their matrices (for example, when writing an
-exporter or a custom render engine).
-This example shows how to access all objects and instances in the scene.
-
-```../examples/bpy.types.Depsgraph.3.py```
-
-
---------------------
-
-Function to get a mesh from any object with geometry. It is typically used by exporters, render
-engines and tools that need to access the evaluated mesh as displayed in the viewport.
-
-Object.to_mesh() is closely interacting with dependency graph: its behavior depends on whether it
-is used on original or evaluated object.
-
-When is used on original object, the result mesh is calculated from the object without taking
-animation or modifiers into account:
-
-* For meshes this is similar to duplicating the source mesh.
-* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
-* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
-
-When is used on evaluated object all modifiers are taken into account.
-
-[NOTE]
-The result mesh is owned by the object. It can be freed by calling ~Object.to_mesh_clear.
-
-[NOTE]
-The result mesh must be treated as temporary, and cannot be referenced from objects in the main
-database. If the mesh intended to be used in a persistent manner use ~BlendDataMeshes.new_from_object
-instead.
-
-[NOTE]
-If object does not have geometry (i.e. camera) the functions returns None.
-
-```../examples/bpy.types.Depsgraph.4.py```
-
-
---------------------
-
-Function to copy a new mesh from any object with geometry. The mesh is added to the main
-database and can be referenced by objects. Typically used by tools that create new objects
-or apply modifiers.
-
-When is used on original object, the result mesh is calculated from the object without taking
-animation or modifiers into account:
-
-* For meshes this is similar to duplicating the source mesh.
-* For curves this disables own modifiers, and modifiers of objects used as bevel and taper.
-* For meta-balls this produces an empty mesh since polygonization is done as a modifier evaluation.
-
-When is used on evaluated object all modifiers are taken into account.
-
-All the references (such as materials) are re-mapped to original. This ensures validity and
-consistency of the main database.
-
-[NOTE]
-If object does not have geometry (i.e. camera) the functions returns None.
-
-```../examples/bpy.types.Depsgraph.5.py```
-
-
---------------------
-
-This example is a combination of all previous ones, and shows how to write a simple exporter
-script.
-
-```../examples/bpy.types.Depsgraph.6.py```
-
-
---------------------
-
-Function to get a curve from text and curve objects. It is typically used by exporters, render
-engines, and tools that need to access the curve representing the object.
-
-The function takes the evaluated dependency graph as a required parameter and optionally a boolean
-apply_modifiers which defaults to false. If apply_modifiers is true and the object is a curve object,
-the spline deform modifiers are applied on the control points. Note that constructive modifiers and
-modifiers that are not spline-enabled will not be applied. So modifiers like Array will not be applied
-and deform modifiers that have Apply On Spline disabled will not be applied.
-
-If the object is a text object. The text will be converted into a 3D curve and returned. Modifiers are
-never applied on text objects and apply_modifiers will be ignored. If the object is neither a curve nor
-a text object, an error will be reported.
-
-[NOTE]
-The resulting curve is owned by the object. It can be freed by calling ~Object.to_curve_clear.
-
-[NOTE]
-The resulting curve must be treated as temporary, and cannot be referenced from objects in the main
-database.
-
-```../examples/bpy.types.Depsgraph.7.py```
-
-bpy.types.ShaderFxBlur.rst
-bpy.types.ShaderFxColorize.rst
-bpy.types.ShaderFxFlip.rst
-bpy.types.ShaderFxGlow.rst
-bpy.types.ShaderFxPixel.rst
-bpy.types.ShaderFxRim.rst
-bpy.types.ShaderFxShadow.rst
-bpy.types.ShaderFxSwirl.rst
-bpy.types.ShaderFxWave.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.ArmatureModifier.rst
-bpy.types.ArrayModifier.rst
-bpy.types.BevelModifier.rst
-bpy.types.BooleanModifier.rst
-bpy.types.BuildModifier.rst
-bpy.types.CastModifier.rst
-bpy.types.ClothModifier.rst
-bpy.types.CollisionModifier.rst
-bpy.types.CorrectiveSmoothModifier.rst
-bpy.types.CurveModifier.rst
-bpy.types.DataTransferModifier.rst
-bpy.types.DecimateModifier.rst
-bpy.types.DisplaceModifier.rst
-bpy.types.DynamicPaintModifier.rst
-bpy.types.EdgeSplitModifier.rst
-bpy.types.ExplodeModifier.rst
-bpy.types.FluidModifier.rst
-bpy.types.GreasePencilArmatureModifier.rst
-bpy.types.GreasePencilArrayModifier.rst
-bpy.types.GreasePencilBuildModifier.rst
-bpy.types.GreasePencilColorModifier.rst
-bpy.types.GreasePencilDashModifierData.rst
-bpy.types.GreasePencilEnvelopeModifier.rst
-bpy.types.GreasePencilHookModifier.rst
-bpy.types.GreasePencilLatticeModifier.rst
-bpy.types.GreasePencilLengthModifier.rst
-bpy.types.GreasePencilLineartModifier.rst
-bpy.types.GreasePencilMirrorModifier.rst
-bpy.types.GreasePencilMultiplyModifier.rst
-bpy.types.GreasePencilNoiseModifier.rst
-bpy.types.GreasePencilOffsetModifier.rst
-bpy.types.GreasePencilOpacityModifier.rst
-bpy.types.GreasePencilOutlineModifier.rst
-bpy.types.GreasePencilShrinkwrapModifier.rst
-bpy.types.GreasePencilSimplifyModifier.rst
-bpy.types.GreasePencilSmoothModifier.rst
-bpy.types.GreasePencilSubdivModifier.rst
-bpy.types.GreasePencilTextureModifier.rst
-bpy.types.GreasePencilThickModifierData.rst
-bpy.types.GreasePencilTimeModifier.rst
-bpy.types.GreasePencilTintModifier.rst
-bpy.types.GreasePencilWeightAngleModifier.rst
-bpy.types.GreasePencilWeightProximityModifier.rst
-bpy.types.HookModifier.rst
-bpy.types.LaplacianDeformModifier.rst
-bpy.types.LaplacianSmoothModifier.rst
-bpy.types.LatticeModifier.rst
-bpy.types.MaskModifier.rst
-bpy.types.MeshCacheModifier.rst
-bpy.types.MeshDeformModifier.rst
-bpy.types.MeshSequenceCacheModifier.rst
-bpy.types.MeshToVolumeModifier.rst
-bpy.types.MirrorModifier.rst
-bpy.types.MultiresModifier.rst
-bpy.types.NodesModifier.rst
-bpy.types.NormalEditModifier.rst
-bpy.types.OceanModifier.rst
-bpy.types.ParticleInstanceModifier.rst
-bpy.types.ParticleSystemModifier.rst
-bpy.types.RemeshModifier.rst
-bpy.types.ScrewModifier.rst
-bpy.types.ShrinkwrapModifier.rst
-bpy.types.SimpleDeformModifier.rst
-bpy.types.SkinModifier.rst
-bpy.types.SmoothModifier.rst
-bpy.types.SoftBodyModifier.rst
-bpy.types.SolidifyModifier.rst
-bpy.types.SubsurfModifier.rst
-bpy.types.SurfaceDeformModifier.rst
-bpy.types.SurfaceModifier.rst
-bpy.types.TriangulateModifier.rst
-bpy.types.UVProjectModifier.rst
-bpy.types.UVWarpModifier.rst
-bpy.types.VertexWeightEditModifier.rst
-bpy.types.VertexWeightMixModifier.rst
-bpy.types.VertexWeightProximityModifier.rst
-bpy.types.VolumeDisplaceModifier.rst
-bpy.types.VolumeToMeshModifier.rst
-bpy.types.WarpModifier.rst
-bpy.types.WaveModifier.rst
-bpy.types.WeightedNormalModifier.rst
-bpy.types.WeldModifier.rst
-bpy.types.WireframeModifier.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.EffectStrip.rst
-bpy.types.ImageStrip.rst
-bpy.types.MaskStrip.rst
-bpy.types.MetaStrip.rst
-bpy.types.MovieClipStrip.rst
-bpy.types.MovieStrip.rst
-bpy.types.SceneStrip.rst
-bpy.types.SoundStrip.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.GreasePencilLayer.rst
-bpy.types.GreasePencilLayerGroup.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-```../examples/bpy.types.GeometrySet.0.py```
-
-
---------------------
-
-Here is an example of a simple menu. Menus differ from panels in that they must
-reference from a header, panel or another menu.
-
-Notice the 'CATEGORY_MT_name' in  Menu.bl_idname, this is a naming
-convention for menus.
-
-[NOTE]
-Menu subclasses must be registered before referencing them from Blender.
-
-[NOTE]
-Menus have their UILayout.operator_context initialized as
-'EXEC_REGION_WIN' rather than 'INVOKE_REGION_WIN' (see Execution Context <rna_enum_operator_context_items>).
-If the operator context needs to initialize inputs from the
-Operator.invoke function, then this needs to be explicitly set.
-When a menu is added to UI elements such as a panel or header,
-the operator execution context will be inherited from them.
-
-```../examples/bpy.types.Menu.0.py```
-
-
---------------------
-
-This menu demonstrates some different functions.
-
-```../examples/bpy.types.Menu.1.py```
-
-
---------------------
-
-When creating menus for add-ons you can't reference menus
-in Blender's default scripts.
-Instead, the add-on can add menu items to existing menus.
-
-The function menu_draw acts like Menu.draw.
-
-```../examples/bpy.types.Menu.2.py```
-
-
---------------------
-
-Preset menus are simply a convention that uses a menu sub-class
-to perform the common task of managing presets.
-
-This example shows how you can add a preset menu.
-
-This example uses the object display options,
-however you can use properties defined by your own scripts too.
-
-```../examples/bpy.types.Menu.3.py```
-
-
---------------------
-
-This example enables you to insert your own menu entry into the common
-right click menu that you get while hovering over a UI button (e.g. operator,
-value field, color, string, etc.)
-
-To make the example work, you have to first select an object
-then right click on an user interface element (maybe a color in the
-material properties) and choose *Execute Custom Action*.
-
-Executing the operator will then print all values.
-
-```../examples/bpy.types.Menu.4.py```
-
-bpy.types.SpreadsheetTableIDGeometry.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-
---------------------
-
-The NodeTree.poll function determines if a node tree is visible
-in the given context (similar to how Panel.poll
-and Menu.poll define visibility). If it returns False,
-the node tree type will not be selectable in the node editor.
-
-A typical condition for shader nodes would be to check the active render engine
-of the scene and only show nodes of the renderer they are designed for.
-
-```../examples/bpy.types.NodeTree.0.py```
-
-bpy.types.CompositorNodeTree.rst
-bpy.types.GeometryNodeTree.rst
-bpy.types.ShaderNodeTree.rst
-bpy.types.TextureNodeTree.rst
-
-:caption: Subclasses
-:maxdepth: 1
-
-bpy.types.AddStrip.rst
-bpy.types.AdjustmentStrip.rst
-bpy.types.AlphaOverStrip.rst
-bpy.types.AlphaUnderStrip.rst
-bpy.types.ColorMixStrip.rst
-bpy.types.ColorStrip.rst
-bpy.types.CompositorStrip.rst
-bpy.types.CrossStrip.rst
-bpy.types.GammaCrossStrip.rst
-bpy.types.GaussianBlurStrip.rst
-bpy.types.GlowStrip.rst
-bpy.types.MulticamStrip.rst
-bpy.types.MultiplyStrip.rst
-bpy.types.SpeedControlStrip.rst
-bpy.types.SubtractStrip.rst
-bpy.types.TextStrip.rst
-bpy.types.WipeStrip.rst
+bpy.types.LineStyleThicknessModifier_AlongStroke.rst
+bpy.types.LineStyleThicknessModifier_Calligraphy.rst
+bpy.types.LineStyleThicknessModifier_CreaseAngle.rst
+bpy.types.LineStyleThicknessModifier_Curvature_3D.rst
+bpy.types.LineStyleThicknessModifier_DistanceFromCamera.rst
+bpy.types.LineStyleThicknessModifier_DistanceFromObject.rst
+bpy.types.LineStyleThicknessModifier_Material.rst
+bpy.types.LineStyleThicknessModifier_Noise.rst
+bpy.types.LineStyleThicknessModifier_Tangent.rst
 
 :caption: Subclasses
 :maxdepth: 1
@@ -89115,6 +89115,9 @@ class PreferencesExperimental(bpy_struct):
     show_asset_debug_info: bool
     """ Enable some extra fields in the Asset Browser to aid in debugging (default False)"""
 
+    use_3d_texture_paint: bool
+    """ Use experimental 3D texture painting (default False)"""
+
     use_all_linked_data_direct: bool
     """ Forces all linked data to be considered as directly linked. Workaround for current issues/limitations in BAT (Blender studio pipeline tool) (default False)"""
 
@@ -89147,9 +89150,6 @@ class PreferencesExperimental(bpy_struct):
 
     use_remote_asset_libraries: bool
     """ Enable asset libraries served over HTTP/HTTPS (default False, readonly)"""
-
-    use_sculpt_texture_paint: bool
-    """ Use texture painting in Sculpt Mode (default False)"""
 
     use_shader_node_previews: bool
     """ Enables previews in the shader node editor (default False)"""
@@ -90842,6 +90842,9 @@ class Region(bpy_struct):
 
     height: int
     """ Region height (in [0, 32767], default 0, readonly)"""
+
+    search_filter: str
+    """ Live search filtering string (default "", never None)"""
 
     type: typing.Literal[bpy.stub_internal.rna_enums.RegionTypeItems]
     """ Type of this region (default 'WINDOW', readonly)"""
@@ -94745,7 +94748,7 @@ class SequencerToolSettings(bpy_struct):
     """ How to resolve overlap after transformation (default 'EXPAND')"""
 
     pivot_point: typing.Literal["CENTER", "MEDIAN", "CURSOR", "INDIVIDUAL_ORIGINS"]
-    """ Rotation or scaling pivot point (default 'CENTER')"""
+    """ Rotation or scaling pivot point (default 'MEDIAN')"""
 
     snap_distance: int
     """ Maximum distance for snapping in pixels (in [-inf, inf], default 15)"""
@@ -104589,6 +104592,9 @@ class SpaceOutliner(Space, bpy_struct):
     show_restrict_column_viewport: bool
     """ Globally disable in viewports (default False)"""
 
+    use_filter_bone_collections: bool
+    """ Show armature bone collections (default True)"""
+
     use_filter_case_sensitive: bool
     """ Only use case sensitive matches of search string (default False)"""
 
@@ -104601,6 +104607,9 @@ class SpaceOutliner(Space, bpy_struct):
     use_filter_complete: bool
     """ Only use complete matches of search string (default False)"""
 
+    use_filter_grease_pencil_effects: bool
+    """ Show grease pencil effects (default True)"""
+
     use_filter_id_type: bool
     """ Show only data-blocks of one type (default False)"""
 
@@ -104610,14 +104619,23 @@ class SpaceOutliner(Space, bpy_struct):
     use_filter_object: bool
     """ Show objects (default True)"""
 
+    use_filter_object_animation: bool
+    """ Show animation data (default True)"""
+
     use_filter_object_armature: bool
     """ Show armature objects (default True)"""
 
     use_filter_object_camera: bool
     """ Show camera objects (default True)"""
 
+    use_filter_object_constraints: bool
+    """ Show object constraints (default True)"""
+
     use_filter_object_content: bool
     """ Show what is inside the objects elements (default True)"""
+
+    use_filter_object_data: bool
+    """ Show object data (default True)"""
 
     use_filter_object_empty: bool
     """ Show empty objects (default True)"""
@@ -104628,11 +104646,26 @@ class SpaceOutliner(Space, bpy_struct):
     use_filter_object_light: bool
     """ Show light objects (default True)"""
 
+    use_filter_object_materials: bool
+    """ Show object materials (default True)"""
+
     use_filter_object_mesh: bool
     """ Show mesh objects (default True)"""
 
+    use_filter_object_modifiers: bool
+    """ Show object modifiers (default True)"""
+
     use_filter_object_others: bool
     """ Show curves, lattices, light probes, fonts, ... (default True)"""
+
+    use_filter_object_shape_keys: bool
+    """ Show object shape keys (default True)"""
+
+    use_filter_object_vertex_groups: bool
+    """ Show object vertex groups (default True)"""
+
+    use_filter_pose_bones: bool
+    """ Show pose bones of armatures (default True)"""
 
     use_filter_view_layers: bool
     """ Show all the view layers (default True)"""
@@ -111271,8 +111304,8 @@ class ThemeCommonAnim(bpy_struct):
     long_key_selected: bpy_prop_array[float]
     """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
-    playhead: mathutils.Color
-    """ (array of 3 items, in [0, 1], default (0.0, 0.0, 0.0))"""
+    playhead: bpy_prop_array[float]
+    """ (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
 
     preview_range: bpy_prop_array[float]
     """ Color of preview range overlay (array of 4 items, in [0, 1], default (0.0, 0.0, 0.0, 0.0))"""
@@ -118926,7 +118959,7 @@ class View3DShading(bpy_struct):
     """ Method to display/shade objects in the 3D View (default 'SOLID')"""
 
     use_compositor: typing.Literal["DISABLED", "CAMERA", "ALWAYS"]
-    """ When to preview the compositor output inside the viewport (default 'DISABLED')"""
+    """ When to preview the compositor output inside the viewport (default 'ALWAYS')"""
 
     use_dof: bool
     """ Use depth of field on viewport using the values from the active camera (default False)"""
@@ -134292,7 +134325,27 @@ class _ShaderNodeBsdfGlass_NodeInputs(NodeInputs):
 
     @typing.overload
     def __getitem__(
-        self, key: typing.Literal[2] | typing.Literal["IOR"]
+        self, key: typing.Literal[2] | typing.Literal["Anisotropy"]
+    ) -> NodeSocketFloatFactor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[3] | typing.Literal["Rotation"]
+    ) -> NodeSocketFloatFactor:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[4] | typing.Literal["IOR"]
     ) -> NodeSocketFloat:
         """
 
@@ -134302,7 +134355,7 @@ class _ShaderNodeBsdfGlass_NodeInputs(NodeInputs):
 
     @typing.overload
     def __getitem__(
-        self, key: typing.Literal[3] | typing.Literal["Normal"]
+        self, key: typing.Literal[5] | typing.Literal["Normal"]
     ) -> NodeSocketVector:
         """
 
@@ -134312,7 +134365,17 @@ class _ShaderNodeBsdfGlass_NodeInputs(NodeInputs):
 
     @typing.overload
     def __getitem__(
-        self, key: typing.Literal[4] | typing.Literal["Weight"]
+        self, key: typing.Literal[6] | typing.Literal["Tangent"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[7] | typing.Literal["Weight"]
     ) -> NodeSocketFloat:
         """
 
@@ -134322,7 +134385,7 @@ class _ShaderNodeBsdfGlass_NodeInputs(NodeInputs):
 
     @typing.overload
     def __getitem__(
-        self, key: typing.Literal[5] | typing.Literal["Thin Film Thickness"]
+        self, key: typing.Literal[8] | typing.Literal["Thin Film Thickness"]
     ) -> NodeSocketFloatWavelength:
         """
 
@@ -134332,7 +134395,7 @@ class _ShaderNodeBsdfGlass_NodeInputs(NodeInputs):
 
     @typing.overload
     def __getitem__(
-        self, key: typing.Literal[6] | typing.Literal["Thin Film IOR"]
+        self, key: typing.Literal[9] | typing.Literal["Thin Film IOR"]
     ) -> NodeSocketFloat:
         """
 
@@ -148975,6 +149038,8 @@ OUTLINER_PT_filter: bl_ui.space_outliner.OUTLINER_PT_filter
 
 OUTLINER_PT_options_filter: bl_ui.space_outliner.OUTLINER_PT_options_filter
 
+OUTLINER_PT_options_object_data: bl_ui.space_outliner.OUTLINER_PT_options_object_data
+
 OUTLINER_PT_options_search: bl_ui.space_outliner.OUTLINER_PT_options_search
 
 PARTICLE_MT_context_menu: bl_ui.properties_particle.PARTICLE_MT_context_menu
@@ -149863,9 +149928,13 @@ SEQUENCER_HT_tool_header: bl_ui.space_sequencer.SEQUENCER_HT_tool_header
 
 SEQUENCER_MT_add: bl_ui.space_sequencer.SEQUENCER_MT_add
 
+SEQUENCER_MT_add_clip: bl_ui.space_sequencer.SEQUENCER_MT_add_clip
+
 SEQUENCER_MT_add_effect: bl_ui.space_sequencer.SEQUENCER_MT_add_effect
 
 SEQUENCER_MT_add_empty: bl_ui.space_sequencer.SEQUENCER_MT_add_empty
+
+SEQUENCER_MT_add_mask: bl_ui.space_sequencer.SEQUENCER_MT_add_mask
 
 SEQUENCER_MT_add_transitions: bl_ui.space_sequencer.SEQUENCER_MT_add_transitions
 
@@ -150881,6 +150950,10 @@ VIEW3D_MT_select_object: bl_ui.space_view3d.VIEW3D_MT_select_object
 
 VIEW3D_MT_select_object_more_less: bl_ui.space_view3d.VIEW3D_MT_select_object_more_less
 
+VIEW3D_MT_select_paint_grease_pencil: (
+    bl_ui.space_view3d.VIEW3D_MT_select_paint_grease_pencil
+)
+
 VIEW3D_MT_select_paint_mask: bl_ui.space_view3d.VIEW3D_MT_select_paint_mask
 
 VIEW3D_MT_select_paint_mask_vertex: (
@@ -151335,6 +151408,10 @@ VIEW3D_PT_tools_imagepaint_options_external: (
 
 VIEW3D_PT_tools_imagepaint_symmetry: (
     bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_symmetry
+)
+
+VIEW3D_PT_tools_imagepaint_symmetry_for_topbar: (
+    bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_imagepaint_symmetry_for_topbar
 )
 
 VIEW3D_PT_tools_mask_texture: bl_ui.space_view3d_toolbar.VIEW3D_PT_tools_mask_texture

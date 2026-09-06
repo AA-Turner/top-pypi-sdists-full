@@ -1,25 +1,26 @@
 import logging
 import warnings
 from collections import OrderedDict
+from collections.abc import Callable
+from functools import wraps
 from typing import Any
 
 from sqllineage import DEFAULT_DIALECT, SQLPARSE_DIALECT
-from sqllineage.config import SQLLineageConfig
 from sqllineage.core.holders import SQLLineageHolder
 from sqllineage.core.metadata.dummy import DummyMetaDataProvider
 from sqllineage.core.metadata_provider import MetaDataProvider
-from sqllineage.core.models import Column, Table
+from sqllineage.core.models import Column, Path, Table
 from sqllineage.core.parser.sqlfluff.analyzer import SqlFluffLineageAnalyzer
 from sqllineage.core.parser.sqlparse.analyzer import SqlParseLineageAnalyzer
 from sqllineage.drawing import draw_lineage_graph
 from sqllineage.io import to_cytoscape
 from sqllineage.utils.constant import LineageLevel
-from sqllineage.utils.helpers import split, trim_comment
 
 logger = logging.getLogger(__name__)
 
 
 def lazy_method(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         self = args[0]
         if not self._evaluated:
@@ -131,49 +132,79 @@ Target Tables:
         """
         a list of SQL statements.
         """
-        return [trim_comment(s) for s in self._stmt]
+        return self._stmt
 
     @lazy_property
-    def source_tables(self) -> list[Table]:
+    def source_tables(self) -> list[Table | Path]:
         """
         a list of source :class:`sqllineage.models.Table`
         """
         return sorted(self._sql_holder.source_tables, key=lambda x: str(x))
 
     @lazy_property
-    def target_tables(self) -> list[Table]:
+    def target_tables(self) -> list[Table | Path]:
         """
         a list of target :class:`sqllineage.models.Table`
         """
         return sorted(self._sql_holder.target_tables, key=lambda x: str(x))
 
     @lazy_property
-    def intermediate_tables(self) -> list[Table]:
+    def intermediate_tables(self) -> list[Table | Path]:
         """
         a list of intermediate :class:`sqllineage.models.Table`
         """
         return sorted(self._sql_holder.intermediate_tables, key=lambda x: str(x))
 
     @lazy_method
+    def find_nodes(
+        self, predicate: Callable[[Column | Table | Path], bool]
+    ) -> list[Column | Table | Path]:
+        """
+        a list of :class:`sqllineage.models.Column`/:class:`sqllineage.models.Table`/
+        :class:`sqllineage.models.Path` for which ``predicate`` is true. To discover
+        a ``node`` to pass into :meth:`get_column_lineage`, filter the result to
+        :class:`sqllineage.models.Column` instances first.
+        """
+        return self._sql_holder.find_nodes(predicate)
+
+    @lazy_method
     def get_column_lineage(
-        self, exclude_path_ending_in_subquery=True, exclude_subquery_columns=False
-    ) -> list[tuple[Column, Column]]:
+        self,
+        exclude_path_ending_in_subquery=True,
+        exclude_subquery_columns=False,
+        node: Column | None = None,
+    ) -> list[tuple[Column, ...]]:
         """
         a list of column tuple :class:`sqllineage.models.Column`
+
+        :param exclude_path_ending_in_subquery:  exclude_subquery rename to exclude_path_ending_in_subquery
+               exclude column from SubQuery in the ending path
+        :param exclude_subquery_columns: exclude column from SubQuery in the path.
+        :param node: restrict the result to paths that touch this column. Use
+               :meth:`find_nodes` to discover a candidate, filtering its
+               result to :class:`sqllineage.models.Column` instances first,
+               since ``find_nodes`` can also return
+               :class:`sqllineage.models.Table` and
+               :class:`sqllineage.models.Path` vertices that this method
+               rejects.
         """
-        # sort by target column, and then source column
+        # sort by target column, then source column, then the full path as a
+        # tiebreaker so paths sharing both endpoints get a deterministic order
+        # regardless of Column's hash-randomization-dependent set iteration order
         return sorted(
             self._sql_holder.get_column_lineage(
-                exclude_path_ending_in_subquery, exclude_subquery_columns
+                exclude_path_ending_in_subquery, exclude_subquery_columns, node
             ),
-            key=lambda x: (str(x[-1]), str(x[0])),
+            key=lambda x: (str(x[-1]), str(x[0]), tuple(str(c) for c in x)),
         )
 
-    def print_column_lineage(self) -> None:
+    def print_column_lineage(self, node: Column | None = None) -> None:
         """
         print column level lineage to stdout
+
+        :param node: see :meth:`get_column_lineage`
         """
-        for path in self.get_column_lineage():
+        for path in self.get_column_lineage(node=node):
             print(" <- ".join(str(col) for col in reversed(path)))
 
     def print_table_lineage(self) -> None:
@@ -182,23 +213,15 @@ Target Tables:
         """
         print(str(self))
 
-    def _eval(self):
+    def _eval(self) -> None:
         analyzer = (
-            SqlParseLineageAnalyzer()
+            SqlParseLineageAnalyzer(self._sql)
             if self._dialect == SQLPARSE_DIALECT
             else SqlFluffLineageAnalyzer(
-                self._file_path, self._dialect, self._silent_mode
+                self._sql, self._file_path, self._dialect, self._silent_mode
             )
         )
-        if SQLLineageConfig.TSQL_NO_SEMICOLON and self._dialect == "tsql":
-            self._stmt = analyzer.split_tsql(self._sql.strip())
-        else:
-            if SQLLineageConfig.TSQL_NO_SEMICOLON and self._dialect != "tsql":
-                warnings.warn(
-                    f"Dialect={self._dialect}, TSQL_NO_SEMICOLON will be ignored unless dialect is tsql"
-                )
-            self._stmt = split(self._sql.strip())
-
+        self._stmt = analyzer.statements
         with self._metadata_provider.session() as session:
             stmt_holders = []
             for stmt in self._stmt:

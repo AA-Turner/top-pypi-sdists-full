@@ -1,15 +1,13 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11.1,<0.12.0"]
+build-backend = "uv_build"
 
 [project]
 name = "eerepr"
-dynamic = ["version"]
+version = "0.1.3"
 description = "Code Editor-style reprs for Earth Engine data in a Jupyter notebook."
 readme = "README.md"
-license = { file = "LICENSE" }
-requires-python = ">=3.8"
-authors = [{ name = "Aaron Zuspan" }]
+requires-python = ">=3.10"
 keywords = [
     "earthengine",
     "gee",
@@ -18,35 +16,58 @@ keywords = [
     "notebook",
     "reprs",
 ]
-dependencies = [
-    "earthengine-api",
-]
+dependencies = ["earthengine-api"]
+
+[project.license]
+file = "LICENSE"
+
+[[project.authors]]
+name = "Aaron Zuspan"
 
 [project.urls]
 Homepage = "https://github.com/aazuspan/eerepr"
 
-[tool.hatch.version]
-path = "eerepr/__init__.py"
-
-[tool.hatch.build.targets.sdist]
-include = ["/eerepr"]
-
-[tool.hatch.envs.default]
-dependencies = ["pre-commit"]
-
-[tool.hatch.envs.test]
-dependencies = [
-    "pytest",
+[dependency-groups]
+dev = [
+    "poethepoet",
+    "ruff>=0.15.8",
+    "pytest>=9.0.3",
     "pytest-cov",
     "pytest-regressions",
     "pytest-mock",
+    "mypy>=1.14.1",
 ]
 
-[tool.hatch.envs.test.scripts]
-all = "pytest . {args}"
-cov = "pytest . --cov=eerepr {args}"
-html = "python tests/preview_html.py"
-
 [tool.ruff.lint]
-select = ["E", "I", "F", "B", "FA", "UP", "ISC", "PT", "Q", "RET", "SIM", "PERF"]
+select = [
+    "E",
+    "I",
+    "F",
+    "B",
+    "FA",
+    "UP",
+    "ISC",
+    "PT",
+    "Q",
+    "RET",
+    "SIM",
+    "PERF",
+]
 exclude = ["*.ipynb"]
+
+[tool.mypy]
+ignore_missing_imports = true
+exclude = ["tests/*"]
+
+[tool.poe.tasks]
+lint = "ruff check . --fix"
+format = "ruff format ."
+type-check = "mypy ."
+check = [
+    "lint",
+    "format",
+    "type-check",
+]
+test = "pytest"
+coverage = "pytest . --cov=eerepr {args}"
+preview = "uv run python -m tests.preview_html"

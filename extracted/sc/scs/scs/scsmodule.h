@@ -1,6 +1,9 @@
 #ifndef PY_SCSMODULE_H
 #define PY_SCSMODULE_H
 
+/* from scs/py_ctrlc.c */
+extern int scs_py_ctrlc_init(void);
+
 static PyObject *version(PyObject *self) {
   return Py_BuildValue("s", scs_version());
 }
@@ -51,6 +54,10 @@ static PyObject *moduleinit(void) {
   m = Py_InitModule("_scs_mkl", scs_module_methods);
 #elif defined PY_CUDSS
   m = Py_InitModule("_scs_cudss", scs_module_methods);
+#elif defined PY_ACCELERATE
+  m = Py_InitModule("_scs_accelerate", scs_module_methods);
+#elif defined PY_DENSE
+  m = Py_InitModule("_scs_dense", scs_module_methods);
 #else
   m = Py_InitModule("_scs_direct", scs_module_methods);
 #endif
@@ -60,17 +67,33 @@ static PyObject *moduleinit(void) {
     return NULL;
   }
 
+#ifdef Py_GIL_DISABLED
+  PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
+
   /* Initialize SCS_Type */
   SCS_Type.tp_new = PyType_GenericNew;
   if (PyType_Ready(&SCS_Type) < 0)
-    return NULL;
+    goto fail;
 
   /* Add type to the module dictionary and initialize it */
   Py_INCREF(&SCS_Type);
-  if (PyModule_AddObject(m, "SCS", (PyObject *)&SCS_Type) < 0)
-    return NULL;
+  if (PyModule_AddObject(m, "SCS", (PyObject *)&SCS_Type) < 0) {
+    Py_DECREF(&SCS_Type);
+    goto fail;
+  }
+
+  /* Join (or create) the process-shared interrupt state; see
+   * scs/py_ctrlc.c. Must run while the GIL is held. */
+  if (scs_py_ctrlc_init() < 0)
+    goto fail;
 
   return m;
+
+fail:
+  /* every failure exit after PyModule_Create must release the module */
+  Py_DECREF(m);
+  return NULL;
 };
 
 #if PY_MAJOR_VERSION >= 3
@@ -83,6 +106,10 @@ PyInit__scs_gpu(void)
 PyInit__scs_mkl(void)
 #elif defined PY_CUDSS
 PyInit__scs_cudss(void)
+#elif defined PY_ACCELERATE
+PyInit__scs_accelerate(void)
+#elif defined PY_DENSE
+PyInit__scs_dense(void)
 #else
 PyInit__scs_direct(void)
 #endif
@@ -100,6 +127,10 @@ init_scs_gpu(void)
 init_scs_mkl(void)
 #elif defined PY_CUDSS
 init_scs_cudss(void)
+#elif defined PY_ACCELERATE
+init_scs_accelerate(void)
+#elif defined PY_DENSE
+init_scs_dense(void)
 #else
 init_scs_direct(void)
 #endif

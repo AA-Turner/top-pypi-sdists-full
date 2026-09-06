@@ -1938,7 +1938,16 @@ class RouteBinding:
         chat_type: Chat type ("dm" | "group" | "channel").
         peer: Sender/user id (most specific).
         role: Role / guild-role membership of the sender.
-        channel_id: Specific chat/channel id.
+        channel_id: Specific chat/channel id. Also matches a message whose
+            parent channel is this id (a thread/forum-post under it), so a
+            channel-level route naturally covers the threads beneath it
+            without listing each thread by hand (Issue #4839).
+        thread_id: Specific thread / forum-post id (most specific unit — one
+            triage-spun support thread can route to a specialist agent,
+            Issue #4839).
+        guild_id: Server / workspace id. One rule covers every current and
+            future channel in the guild, so an operator can multiplex by the
+            tenant boundary they actually think in (Issue #4839).
         account: Receiving bot account (for multi-account channels).
         priority: Higher wins; ties are broken by specificity then order.
         trust: Optional trust tier ("untrusted" | "standard" | "trusted").
@@ -1967,13 +1976,21 @@ class RouteBinding:
     allow_tools: Optional[List[str]] = None
     deny_tools: Optional[List[str]] = None
     profile: Optional[str] = None
+    # New optional conditions are appended here (never inserted mid-list) so
+    # existing positional constructors — RouteBinding("a", "dm", ..., priority)
+    # — keep their meaning and stay backward-compatible (Issue #4839 review).
+    thread_id: Optional[str] = None
+    guild_id: Optional[str] = None
 
-    # Specificity weights — exact peer beats role/channel beats account
-    # beats chat-type. Higher means more specific.
+    # Specificity weights — exact thread beats peer beats role/channel beats
+    # guild/account beats chat-type. Higher means more specific, so a single
+    # thread rule wins over a whole-guild rule (Issue #4839).
     _SPECIFICITY = {
+        "thread_id": 32,
         "peer": 16,
         "role": 8,
         "channel_id": 8,
+        "guild_id": 4,
         "account": 4,
         "chat_type": 2,
     }
@@ -2017,7 +2034,20 @@ class RouteBinding:
         """Return True if every constrained condition equals the facts."""
         if self.peer is not None and str(self.peer) != str(facts.peer):
             return False
-        if self.channel_id is not None and str(self.channel_id) != str(facts.channel_id):
+        if self.channel_id is not None:
+            # Parent-chain match (Issue #4839): a channel_id condition matches
+            # the channel itself OR a thread/forum-post whose parent is that
+            # channel, so channel-level routes cover the threads beneath them
+            # without enumerating each thread.
+            expected_channel = str(self.channel_id)
+            candidates = {str(facts.channel_id)}
+            if facts.parent_channel_id is not None:
+                candidates.add(str(facts.parent_channel_id))
+            if expected_channel not in candidates:
+                return False
+        if self.thread_id is not None and str(self.thread_id) != str(facts.thread_id):
+            return False
+        if self.guild_id is not None and str(self.guild_id) != str(facts.guild_id):
             return False
         if self.account is not None and str(self.account) != str(facts.account):
             return False
@@ -2066,6 +2096,8 @@ class RouteBinding:
             role=data.get("role"),
             channel_id=_as_opt_str(data.get("channel_id")),
             account=_as_opt_str(data.get("account")),
+            thread_id=_as_opt_str(data.get("thread_id")),
+            guild_id=_as_opt_str(data.get("guild_id")),
             priority=int(data.get("priority", 0) or 0),
             trust=_as_opt_str(data.get("trust")),
             allow_tools=_as_opt_str_list(data.get("allow_tools")),
@@ -2084,6 +2116,13 @@ class RouteFacts:
         roles: Roles/guild-role memberships of the sender.
         channel_id: The chat/channel id the message arrived in.
         account: The receiving bot account (multi-account channels).
+        thread_id: The thread / forum-post id the message arrived in, when the
+            platform threads conversations (Issue #4839).
+        guild_id: The server / workspace id the message belongs to (Discord
+            guild, Slack workspace), used for whole-server routing (Issue #4839).
+        parent_channel_id: The parent channel of a thread/forum-post, so a
+            channel-level binding can cover the threads beneath it via
+            parent-chain matching (Issue #4839).
     """
 
     chat_type: str = "default"
@@ -2091,6 +2130,9 @@ class RouteFacts:
     roles: List[str] = field(default_factory=list)
     channel_id: Optional[str] = None
     account: Optional[str] = None
+    thread_id: Optional[str] = None
+    guild_id: Optional[str] = None
+    parent_channel_id: Optional[str] = None
 
 
 @dataclass
@@ -2148,8 +2190,9 @@ def resolve_route(
     """Resolve the handling agent from priority-ordered bindings.
 
     Bindings are evaluated most-specific-first: the matching binding with the
-    highest ``priority`` wins; ties are broken by specificity (exact peer →
-    role/channel → account → chat-type), then by declaration order.
+    highest ``priority`` wins; ties are broken by specificity (exact thread →
+    peer → role/channel → guild/account → chat-type), then by declaration
+    order.
 
     Args:
         bindings: Candidate route bindings (any order).
@@ -3379,6 +3422,150 @@ class ScaleToZeroPolicy:
 # ``*Protocol`` suffix convention (e.g. ``SendPolicyProtocol``); the old
 # name is retained so existing imports keep working.
 GatewayIdlePolicy = GatewayIdlePolicyProtocol
+
+
+# ---------------------------------------------------------------------------
+# Gateway freeze-thaw (involuntary host-suspend gap) recovery (Issue #4767)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ThawDecision:
+    """Result of a freeze-thaw (host-suspend gap) evaluation.
+
+    Attributes:
+        suspended: Whether an involuntary host-suspend gap was detected
+            since the previous observation.
+        gap_seconds: Estimated duration the host was frozen (0.0 when not
+            suspended).
+        restart_transports: Whether the wrapper should re-probe / restart
+            outbound channel sockets (idle-gated) because they may be
+            silently half-dead after the freeze.
+        reconcile_schedule: Whether the wrapper should reconcile the
+            scheduler (coalesce missed cron fires) against the gap instead
+            of letting wall-clock catch-up storm on resume.
+    """
+
+    suspended: bool
+    gap_seconds: float = 0.0
+    restart_transports: bool = False
+    reconcile_schedule: bool = False
+
+
+@runtime_checkable
+class ThawPolicyProtocol(Protocol):
+    """Protocol for freeze-thaw (involuntary host-suspend) detection.
+
+    Pure, import-free decision contract consumed by the wrapper's
+    ``BotOS`` run-loop. The wrapper ticks the policy with a matched pair
+    of ``time.monotonic()`` and ``time.time()`` readings; the policy
+    compares the elapsed monotonic delta against the elapsed wall-clock
+    delta and returns a :class:`ThawDecision`. On Linux ``CLOCK_MONOTONIC``
+    does not advance while the host is suspended, so a wall-clock delta
+    that runs far ahead of the monotonic delta is a positive signature of
+    a freeze the process could not otherwise observe. Concrete recovery
+    (restart channel sockets when idle, refresh presence, reconcile the
+    scheduler) lives in the wrapper; this contract keeps the *detection*
+    testable in isolation.
+    """
+
+    def observe(self, *, monotonic_now: float, wall_now: float) -> ThawDecision:
+        """Return a :class:`ThawDecision` for the supplied clock readings."""
+        ...
+
+
+class WallClockGapThawPolicy:
+    """Config-driven default freeze-thaw detector.
+
+    The default referenced by ``gateway.thaw:`` blocks in ``gateway.yaml``
+    and the ``BotOS(..., thaw_policy=...)`` Python surface. It is
+    intentionally minimal and dependency-free so the decision lives in
+    core and is provable in isolation; the wrapper owns the side effects
+    (restart channel sockets, refresh presence, reconcile the scheduler).
+
+    A suspend gap is detected when, between two consecutive
+    :meth:`observe` calls, the wall-clock delta ran ahead of the monotonic
+    delta by more than ``gap_threshold_s`` *and* the monotonic clock itself
+    stayed near-frozen (advanced by no more than one tick plus a small
+    tolerance). Both conditions are the true signature of a frozen host:
+    wall-clock jumps forward while ``CLOCK_MONOTONIC`` stalls. The reported
+    ``gap_seconds`` is the wall-vs-monotonic divergence — the time the host
+    was actually frozen.
+
+    Requiring the monotonic delta to stay near-frozen distinguishes a real
+    host suspend from a forward *wall-clock correction* (NTP step / manual
+    clock set) that occurs while the process is running normally: in the
+    correction case monotonic keeps advancing on schedule, so no recovery
+    is requested and healthy transports/schedule are left untouched.
+
+    The first observation only seeds the baseline and never reports a gap,
+    so the default preserves current behaviour when no freeze occurs.
+
+    Example::
+
+        WallClockGapThawPolicy(tick_interval_s=15.0, gap_threshold_s=60.0)
+    """
+
+    def __init__(
+        self,
+        tick_interval_s: float = 15.0,
+        gap_threshold_s: float = 60.0,
+        enabled: bool = True,
+    ):
+        if tick_interval_s <= 0:
+            raise ValueError(
+                f"tick_interval_s must be > 0, got {tick_interval_s!r}"
+            )
+        if gap_threshold_s <= 0:
+            raise ValueError(
+                f"gap_threshold_s must be > 0, got {gap_threshold_s!r}"
+            )
+        self.tick_interval_s = float(tick_interval_s)
+        self.gap_threshold_s = float(gap_threshold_s)
+        self.enabled = bool(enabled)
+        self._last_monotonic: Optional[float] = None
+        self._last_wall: Optional[float] = None
+
+    def observe(self, *, monotonic_now: float, wall_now: float) -> ThawDecision:
+        if not self.enabled:
+            return ThawDecision(suspended=False)
+
+        prev_monotonic = self._last_monotonic
+        prev_wall = self._last_wall
+        self._last_monotonic = monotonic_now
+        self._last_wall = wall_now
+
+        # First tick only seeds the baseline; nothing to compare against.
+        if prev_monotonic is None or prev_wall is None:
+            return ThawDecision(suspended=False)
+
+        monotonic_delta = monotonic_now - prev_monotonic
+        wall_delta = wall_now - prev_wall
+        # Divergence: how far wall-clock ran ahead of the process's own
+        # elapsed (monotonic) time — i.e. the frozen window.
+        divergence = wall_delta - monotonic_delta
+
+        # A real host suspend freezes CLOCK_MONOTONIC: it stalls, so across
+        # the gap it advances by less than one scheduled tick. A forward
+        # wall-clock *correction* (NTP step / manual set) instead leaves
+        # monotonic advancing in step with the loop — a full tick or more —
+        # proving the process kept running. Requiring monotonic to have
+        # stalled below one tick rejects that false positive so healthy
+        # transports and the scheduler are left untouched.
+        monotonic_frozen = monotonic_delta < self.tick_interval_s
+        gap_detected = (
+            divergence > self.gap_threshold_s
+            and monotonic_frozen
+        )
+        if not gap_detected:
+            return ThawDecision(suspended=False)
+
+        return ThawDecision(
+            suspended=True,
+            gap_seconds=divergence,
+            restart_transports=True,
+            reconcile_schedule=True,
+        )
 
 
 # ---------------------------------------------------------------------------

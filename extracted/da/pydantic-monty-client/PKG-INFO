@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-monty-client
-Version: 0.0.22
+Version: 0.0.23
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -21,6 +21,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Internet
 Classifier: Programming Language :: Python :: Implementation
 Requires-Dist: typing-extensions>=4.5
+Requires-Dist: opentelemetry-api>=1.39.0 ; extra == 'opentelemetry'
+Provides-Extra: opentelemetry
 Summary: Python client for the Monty sandboxed Python interpreter
 Home-Page: https://github.com/pydantic/monty/
 License: MIT

@@ -3,7 +3,7 @@
 # :Created:   dom 17 mar 2019 12:38:24 CET
 # :Author:    Lele Gaifax <lele@metapensiero.it>
 # :License:   MIT License
-# :Copyright: © 2019, 2021 Lele Gaifax
+# :Copyright: © 2019, 2021, 2026 Lele Gaifax
 #
 
 from collections import OrderedDict
@@ -39,7 +39,7 @@ class JoinDuplicatedKeysDecoder(ObjectsAsKeyValuePairsDecoder):
         d = {}
         for k, v in ordered_pairs:
             if k in d:
-                if type(d[k]) == list:
+                if type(d[k]) is list:
                     d[k].append(v)
                 else:
                     newlist = []

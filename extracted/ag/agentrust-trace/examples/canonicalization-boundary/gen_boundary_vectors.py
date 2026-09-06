@@ -23,9 +23,11 @@ The ad-hoc forms make a ladder, each rung needing a sharper vector to expose:
   sorts str by code point, and the two orders differ exactly when a key contains a
   supplementary-plane character.
 
-There is no vector for RFC 8785's IEEE 754 number serialization: the v0.2 schema types
-no field as ``number``, so the divergence is unreachable in a schema-valid record. The
-test suite pins that fact so a future numeric field demands a vector here.
+There is no vector for RFC 8785's IEEE 754 number serialization. No v0.2 field is typed
+``number``, every integer field is held to the range RFC 8785 Appendix B note 1 names,
+and the members a JWK may carry without this schema naming them are held to the same
+range, so a record that reaches the number divergence is schema-invalid and no positive
+vector can carry it. ``tests/test_canonicalization_boundary.py`` pins all three.
 
 Deterministic key, so the set regenerates byte-for-byte. Public test material.
 """
@@ -163,6 +165,35 @@ def main() -> None:
         "true RFC 8785 serializer from json.dumps with every option set carefully: "
         "compact separators and ensure_ascii=False survive vectors 01 and 02, and "
         "fail here.",
+        r,
+        ["sort_keys_default", "sort_keys_compact", "sort_keys_compact_utf8"],
+    )))
+
+    r = copy.deepcopy(BASE_RECORD)
+    # The same UTF-16 divergence as vector 03, one level deeper. Every key at the top
+    # of `jwk` is ASCII here, so a canonicalizer that sorts by code units at the outer
+    # levels and recurses with the default sort agrees with RFC 8785 on vector 03 and
+    # separates only here. Measured: sorting by code units to depth 2 passes 03 and
+    # fails this one, which is the second, distinct defect #124 asks a boundary to have.
+    #
+    # The margin this adds is positional rather than mechanistic. Key ordering is the
+    # only RFC 8785 divergence this schema can reach at all: no field is typed `number`,
+    # and integers are held to the safe-integer range whether the schema names the field
+    # or not, so the number serialization rule has nothing schema-valid to act on. The
+    # `cnf.jwk` members these two vectors add are subject to that same constraint, which
+    # is why they are strings. All of it is pinned in
+    # `tests/test_canonicalization_boundary.py`.
+    r["cnf"] = {"jwk": {"zmeta": {
+        "zk\U0001f600": "sorts-first-under-rfc-8785",
+        "zk\ufffd": "sorts-second-under-rfc-8785",
+    }}}
+    out.append(("04-utf16-key-order-nested.json", vector(
+        "utf16-key-order-nested",
+        "The divergence of vector 03 moved inside a nested object, so that a "
+        "canonicalizer sorting by UTF-16 code units at the outer levels and by code "
+        "points below them passes 03 and fails here. Without it the closest "
+        "non-conformant form is caught by one vector, and the boundary disappears "
+        "with that vector.",
         r,
         ["sort_keys_default", "sort_keys_compact", "sort_keys_compact_utf8"],
     )))

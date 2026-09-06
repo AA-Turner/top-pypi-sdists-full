@@ -17,6 +17,7 @@ import asyncio
 import base64
 import codecs
 import logging
+import os
 import time
 from typing import Any
 from urllib.parse import urlparse, parse_qs
@@ -968,6 +969,94 @@ async def _install_performance(context) -> None:
     await context.add_init_script(_WEB_VITALS_INIT_SCRIPT)
 
 
+# ── Read settle ──
+#
+# Every devtools read is a one-shot snapshot of state the PAGE writes
+# asynchronously: a cookie set from a React effect that runs after `load`, a
+# console line emitted during hydration, the response to a click-triggered XHR.
+# Generated tests run their steps back-to-back, so the snapshot regularly fires
+# before the write lands and the read returns "" — which the consuming assertion
+# then compares as a value. Authoring never saw this: its retry costs an LLM
+# round-trip, so the page has always settled by the time it re-reads.
+#
+# So poll the query until it yields something, bounded by
+# configure(devtools_read_timeout_ms=...). A query that is legitimately empty
+# ("no console errors") still returns "" at the deadline, and a timeout of 0
+# restores the single-snapshot behaviour exactly.
+#
+# "Something" excludes a stringified null. Authored queries routinely read a
+# field straight through str() — `return str(perf.lcp_ms)` — so a vital that has
+# not been reported yet comes back as the four characters "None", which is a
+# non-empty value and would short-circuit the poll on its first attempt (TE-26878:
+# LCP read ~1 s after goto, "None" stored, assertion failed; the same export
+# passed three minutes later when LCP happened to land in time). Those sentinels
+# are treated as "not yet" and re-polled; if the budget expires on one it is
+# returned as-is, so a query that really does evaluate to None still yields what
+# it always did, just later.
+
+_DEVTOOLS_READ_POLL_MS = 250
+_NOT_YET_SENTINELS = frozenset({"None", "null", "undefined", "nan", "NaN"})
+
+
+def _read_timeout_ms(
+    key: str = "devtools_read_timeout_ms", env_name: str = "TESTMU_DEVTOOLS_READ_TIMEOUT_MS"
+) -> int:
+    """Settle budget in ms. Env wins so a run can be tuned without a re-export."""
+    env = os.getenv(env_name, "").strip()
+    if env:
+        try:
+            return max(0, int(env))
+        except ValueError:
+            _log.warning("%s=%r is not an integer — ignoring", env_name, env)
+    return max(0, int(_configure.get(key) or 0))
+
+
+def _perf_read_timeout_ms() -> int:
+    return _read_timeout_ms("devtools_perf_read_timeout_ms", "TESTMU_DEVTOOLS_PERF_READ_TIMEOUT_MS")
+
+
+async def _settle(label: str, run_once, timeout_ms: int | None = None) -> str:
+    """Re-run `run_once` until it returns a value, or the settle budget runs out.
+
+    `run_once` is an async callable returning ``(value, error)``; the error is
+    carried only so an exhausted read can say WHY it stayed empty (a query whose
+    code raises because the entry it dereferences does not exist yet is the same
+    "too early" case as an empty result, and clears itself the same way).
+    """
+    if timeout_ms is None:
+        timeout_ms = _read_timeout_ms()
+    deadline = time.monotonic() + timeout_ms / 1000.0
+    attempts = 0
+    while True:
+        attempts += 1
+        value, error = await run_once()
+        if value and value.strip() in _NOT_YET_SENTINELS:
+            if time.monotonic() >= deadline:
+                _log.warning(
+                    "%s: still %r after %d attempt(s) over %dms — returning it",
+                    label, value, attempts, timeout_ms,
+                )
+                return value
+            await asyncio.sleep(_DEVTOOLS_READ_POLL_MS / 1000.0)
+            continue
+        if value:
+            if attempts > 1:
+                _log.info("%s: settled after %d attempt(s)", label, attempts)
+            return value
+        if time.monotonic() >= deadline:
+            if error:
+                _log.warning(
+                    "%s: empty after %d attempt(s) over %dms — last error: %s",
+                    label, attempts, timeout_ms, error,
+                )
+            elif attempts > 1:
+                _log.info(
+                    "%s: empty after %d attempt(s) over %dms", label, attempts, timeout_ms
+                )
+            return ""
+        await asyncio.sleep(_DEVTOOLS_READ_POLL_MS / 1000.0)
+
+
 # ── Query wrappers (single-arg, called by generated test code) ──
 
 async def devtoolsNetworkQuery(code: str) -> str:
@@ -982,14 +1071,17 @@ async def devtoolsNetworkQuery(code: str) -> str:
         def __init__(self, entries):
             self._entries = entries
 
-    store = _StoreAdapter(_network_entries)
-    kwargs: dict = {}
-    if _ws_configured:
-        kwargs["ws_log"] = _WsConnectionsAdapter(_ws_connections)
-    if _sse_configured:
-        kwargs["sse_log"] = _SseConnectionsAdapter(_sse_connections)
-    result = devtools_network_query(code, store, **kwargs)
-    return result.value if result.success else ""
+    async def _once():
+        store = _StoreAdapter(_network_entries)
+        kwargs: dict = {}
+        if _ws_configured:
+            kwargs["ws_log"] = _WsConnectionsAdapter(_ws_connections)
+        if _sse_configured:
+            kwargs["sse_log"] = _SseConnectionsAdapter(_sse_connections)
+        result = devtools_network_query(code, store, **kwargs)
+        return ((result.value or "") if result.success else ""), result.error
+
+    return await _settle("devtoolsNetworkQuery", _once)
 
 
 async def devtoolsConsoleQuery(code: str) -> str:
@@ -1000,9 +1092,11 @@ async def devtoolsConsoleQuery(code: str) -> str:
         def __init__(self, entries):
             self._entries = entries
 
-    store = _StoreAdapter(_console_entries)
-    result = devtools_console_query(code, store)
-    return result.value if result.success else ""
+    async def _once():
+        result = devtools_console_query(code, _StoreAdapter(_console_entries))
+        return ((result.value or "") if result.success else ""), result.error
+
+    return await _settle("devtoolsConsoleQuery", _once)
 
 
 async def devtoolsCookiesQuery(code: str) -> str:
@@ -1010,45 +1104,40 @@ async def devtoolsCookiesQuery(code: str) -> str:
     from testmu._helpers.devtools_cookies import devtools_cookies_query
     from testmu._helpers.devtools_types import CookieEntry
 
-    # Snapshot cookies from context at query time
-    raw_cookies = []
-    if _context_ref:
-        raw_cookies = await _context_ref.cookies()
-
-    entries = [
-        CookieEntry(
-            name=c.get("name", ""),
-            value=c.get("value", ""),
-            domain=c.get("domain", ""),
-            path=c.get("path", "/"),
-            expires=c.get("expires", -1),
-            http_only=c.get("httpOnly", False),
-            secure=c.get("secure", False),
-            same_site=c.get("sameSite", "None"),
-        )
-        for c in raw_cookies
-    ]
-
     class _StoreAdapter:
         def __init__(self, entries):
             self._entries = entries
 
-    store = _StoreAdapter(entries)
-    result = devtools_cookies_query(code, store)
-    return result.value if result.success else ""
+    async def _once():
+        # Re-snapshot cookies from context on every attempt — the jar is what
+        # changes while we settle.
+        raw_cookies = []
+        if _context_ref:
+            raw_cookies = await _context_ref.cookies()
+
+        entries = [
+            CookieEntry(
+                name=c.get("name", ""),
+                value=c.get("value", ""),
+                domain=c.get("domain", ""),
+                path=c.get("path", "/"),
+                expires=c.get("expires", -1),
+                http_only=c.get("httpOnly", False),
+                secure=c.get("secure", False),
+                same_site=c.get("sameSite", "None"),
+            )
+            for c in raw_cookies
+        ]
+
+        result = devtools_cookies_query(code, _StoreAdapter(entries))
+        return ((result.value or "") if result.success else ""), result.error
+
+    return await _settle("devtoolsCookiesQuery", _once)
 
 
 async def devtoolsStorageQuery(code: str) -> str:
     """Snapshot localStorage, then execute Python code against it."""
     from testmu._helpers.devtools_storage import devtools_storage_query
-
-    # Snapshot localStorage from page at query time
-    storage_data = {}
-    if _page_ref:
-        try:
-            storage_data = await _page_ref.evaluate("() => { const s = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); s[k] = localStorage.getItem(k); } return s; }")
-        except Exception:
-            pass
 
     class _StoreAdapter:
         def __init__(self, data):
@@ -1056,9 +1145,20 @@ async def devtoolsStorageQuery(code: str) -> str:
         def all(self):
             return dict(self._data)
 
-    store = _StoreAdapter(storage_data)
-    result = devtools_storage_query(code, store)
-    return result.value if result.success else ""
+    async def _once():
+        # Re-snapshot localStorage on every attempt — it is what changes while
+        # we settle.
+        storage_data = {}
+        if _page_ref:
+            try:
+                storage_data = await _page_ref.evaluate("() => { const s = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); s[k] = localStorage.getItem(k); } return s; }")
+            except Exception:
+                pass
+
+        result = devtools_storage_query(code, _StoreAdapter(storage_data))
+        return ((result.value or "") if result.success else ""), result.error
+
+    return await _settle("devtoolsStorageQuery", _once)
 
 
 async def snapshotPerformanceTrace() -> str:
@@ -1066,20 +1166,60 @@ async def snapshotPerformanceTrace() -> str:
     if not _page_ref:
         return ""
     from testmu._helpers.devtools_performance import snapshotPerformanceTrace as _snapshot
-    cwv = await _snapshot(_page_ref)
-    # Return string representation for variable assignment
-    parts = []
-    if cwv.lcp_ms is not None:
-        parts.append(f"LCP={cwv.lcp_ms:.0f}ms")
-    if cwv.fcp_ms is not None:
-        parts.append(f"FCP={cwv.fcp_ms:.0f}ms")
-    if cwv.cls is not None:
-        parts.append(f"CLS={cwv.cls:.3f}")
-    if cwv.inp_ms is not None:
-        parts.append(f"INP={cwv.inp_ms:.0f}ms")
-    if cwv.ttfb_ms is not None:
-        parts.append(f"TTFB={cwv.ttfb_ms:.0f}ms")
-    return ", ".join(parts) if parts else ""
+
+    async def _once():
+        cwv = await _snapshot(_page_ref)
+        # Return string representation for variable assignment
+        parts = []
+        if cwv.lcp_ms is not None:
+            parts.append(f"LCP={cwv.lcp_ms:.0f}ms")
+        if cwv.fcp_ms is not None:
+            parts.append(f"FCP={cwv.fcp_ms:.0f}ms")
+        if cwv.cls is not None:
+            parts.append(f"CLS={cwv.cls:.3f}")
+        if cwv.inp_ms is not None:
+            parts.append(f"INP={cwv.inp_ms:.0f}ms")
+        if cwv.ttfb_ms is not None:
+            parts.append(f"TTFB={cwv.ttfb_ms:.0f}ms")
+        # Vitals land progressively (TTFB/FCP first, LCP after paint settles), so
+        # "nothing yet" is the same too-early case the other readers hit.
+        return (", ".join(parts) if parts else ""), None
+
+    return await _settle("snapshotPerformanceTrace", _once)
+
+
+async def devtoolsPerformanceQuery(code: str) -> str:
+    """Snapshot Core Web Vitals, then execute Python code against them.
+
+    The fifth devtools surface, and the one exported tests actually call: a
+    DEVTOOLS_PERFORMANCE_QUERY op records `code`/`code_js` (e.g. "return
+    str(perf.lcp_ms / 1000)"), so code-gen emits `devtoolsPerformanceQuery(...)`
+    the same way it emits the network/console/cookies/storage queries. The
+    argument-less `snapshotPerformanceTrace()` above returns a human-readable
+    "LCP=…ms, FCP=…ms" digest and is what the analyzer/replay path reads — it
+    cannot answer a recorded query. TS parity: `devtools.ts` devtoolsPerformanceQuery.
+    """
+    if not _page_ref:
+        return ""
+    from testmu._helpers.devtools_performance import (
+        devtools_performance_query,
+        snapshotPerformanceTrace as _snapshot,
+    )
+
+    async def _once():
+        # Re-snapshot the vitals on every attempt — they land progressively
+        # (TTFB/FCP first, LCP only after paint settles), so a query reading
+        # LCP the instant the previous step returns sees None — which
+        # `str(perf.lcp_ms)` turns into "None", handled by the settle's sentinel
+        # check. A query that returns its own sentinel for a missing vital (e.g.
+        # `return "N/A"`) is still a non-empty value and short-circuits on the
+        # first attempt, by design. Vitals can trail the load event by seconds,
+        # so this read gets its own, longer budget.
+        cwv = await _snapshot(_page_ref)
+        result = devtools_performance_query(code, cwv)
+        return ((result.value or "") if result.success else ""), result.error
+
+    return await _settle("devtoolsPerformanceQuery", _once, _perf_read_timeout_ms())
 
 
 # ---------------------------------------------------------------------------
@@ -1117,7 +1257,17 @@ async def clipboardClear() -> None:
 
 
 async def devtoolsClipboardQuery(code: str) -> str:
-    """Execute Python query code against the virtual clipboard store."""
+    """Execute Python query code against the virtual clipboard store.
+
+    Settled like the other reads: the clipboard is filled by a page-side copy
+    that the step before this one may not have flushed yet, and the query runs
+    in the same sandbox pool whose first submit pays the worker's cold start.
+    """
     from testmu._helpers.clipboard import devtools_clipboard_query
-    result = devtools_clipboard_query(code, _require_clipboard())
-    return result.value if result.success else ""
+
+    async def _once():
+        # Re-read the store on every attempt — it is what changes while we settle.
+        result = devtools_clipboard_query(code, _require_clipboard())
+        return ((result.value or "") if result.success else ""), result.error
+
+    return await _settle("devtoolsClipboardQuery", _once)

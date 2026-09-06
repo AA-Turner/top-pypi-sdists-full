@@ -16,6 +16,7 @@ from .annotations import Required
 from .annotations import Returned
 from .annotations import Uniqueness
 from .attributes import ComplexAttribute
+from .attributes import ExtensibleStringEnum
 from .attributes import MultiValuedComplexAttribute
 from .base import BaseModel
 from .context import Context
@@ -31,6 +32,8 @@ from .exceptions import SCIMException
 from .exceptions import SensitiveException
 from .exceptions import TooManyException
 from .exceptions import UniquenessException
+from .lookup import get_model_by_payload
+from .lookup import get_model_by_schema
 from .messages.bulk import BulkOperation
 from .messages.bulk import BulkRequest
 from .messages.bulk import BulkResponse
@@ -45,9 +48,7 @@ from .path import URN
 from .path import Path
 from .reference import URI
 from .reference import External
-from .reference import ExternalReference
 from .reference import Reference
-from .reference import URIReference
 from .resources.enterprise_user import EnterpriseUser
 from .resources.enterprise_user import Manager
 from .resources.group import Group
@@ -80,11 +81,14 @@ from .resources.user import Photo
 from .resources.user import Role
 from .resources.user import User
 from .resources.user import X509Certificate
+from .scim_object import AnyScimObject
+from .scim_object import ScimObject
 
 __all__ = [
     "Address",
     "AnyExtension",
     "AnyResource",
+    "AnyScimObject",
     "Attribute",
     "AuthenticationScheme",
     "BaseModel",
@@ -103,9 +107,9 @@ __all__ = [
     "EnterpriseUser",
     "Entitlement",
     "Error",
+    "ExtensibleStringEnum",
     "Extension",
     "External",
-    "ExternalReference",
     "Filter",
     "Group",
     "GroupMember",
@@ -150,6 +154,7 @@ __all__ = [
     "SCIMValidator",
     "Schema",
     "SchemaExtension",
+    "ScimObject",
     "SearchRequest",
     "SearchRequestContext",
     "SearchResponseContext",
@@ -158,10 +163,11 @@ __all__ = [
     "Sort",
     "TooManyException",
     "URI",
-    "URIReference",
     "URN",
     "Uniqueness",
     "UniquenessException",
     "User",
     "X509Certificate",
+    "get_model_by_payload",
+    "get_model_by_schema",
 ]

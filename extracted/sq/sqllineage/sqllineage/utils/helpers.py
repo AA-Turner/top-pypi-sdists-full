@@ -12,14 +12,16 @@ def escape_identifier_name(name: str):
     Reference: https://stackoverflow.com/a/19933159
     """
     quote_chars = ["`", '"', "'"]
-    if any(quote_char in name for quote_char in quote_chars):
+    if name.startswith("[") and name.endswith("]"):
+        # tsql allows quoted identifier with square brackets, see reference
+        # https://learn.microsoft.com/en-us/sql/relational-databases/databases/database-identifiers?view=sql-server-ver16#classes-of-identifiers
+        # check brackets first so a bracketed identifier containing a quote char
+        # (e.g. [O'Brien]) is still correctly unquoted
+        return name.strip("[]")
+    elif any(quote_char in name for quote_char in quote_chars):
         for quote_char in quote_chars:
             name = name.strip(quote_char)
         return name
-    elif name.startswith("[") and name.endswith("]"):
-        # tsql allows quoted identifier with square brackets, see reference
-        # https://learn.microsoft.com/en-us/sql/relational-databases/databases/database-identifiers?view=sql-server-ver16#classes-of-identifiers
-        return name.strip("[]")
     else:
         return name.lower()
 
@@ -50,27 +52,3 @@ def extract_file_path_from_args(args: Namespace) -> str:
     if getattr(args, "f", None):
         file_path = args.f
     return file_path
-
-
-def split(sql: str) -> list[str]:
-    # TODO: we need a parser independent split function
-    import sqlparse
-    from sqlparse.tokens import Punctuation
-
-    result = []
-    for s in sqlparse.parse(sql):
-        if first_token := s.token_first(skip_cm=True):
-            # sometimes sqlparse split out a statement that is comment only or semicolon only, we want to exclude that
-            if first_token.ttype == Punctuation and first_token.value == ";":
-                # exclude semicolon only statement
-                continue
-            else:
-                result.append(s.value)
-    return result
-
-
-def trim_comment(sql: str) -> str:
-    # TODO: we need a parser independent trim_comment function
-    import sqlparse
-
-    return str(sqlparse.format(sql, strip_comments=True))

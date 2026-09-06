@@ -130,6 +130,35 @@ class ConfigFileParser(object):
         raise NotImplementedError("serialize(..) not implemented")
 
 
+class _WriteOutConfigFileActionMixin(object):
+    """Remembers the path this arg was given, on the parser that parsed it.
+
+    The path can't just be read back out of the parsed namespace once parsing
+    finishes: another arg sharing this one's dest could have put a value there,
+    from a config file or anywhere else, and writing a config file overwrites
+    the path it is given. Recording it as the arg is parsed means only this
+    arg decides where that write goes.
+
+    add_argument() puts this over whichever store action the program asked for,
+    so an arg that does something of its own with the path still records it.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        super(_WriteOutConfigFileActionMixin, self).__call__(
+            parser, namespace, values, option_string
+        )
+        # take the value back off the namespace: the action just put it there,
+        # and a store action of the program's own may have changed it on the
+        # way (expanding a '~', say). Keyed by the action so that repeating the
+        # arg replaces the path rather than adding a second one.
+        # a parser that isn't a ConfigArgParse one has nowhere to record it,
+        # and doesn't write config files either, so there is nothing to record
+        if hasattr(parser, "_write_out_config_file_paths"):
+            parser._write_out_config_file_paths[id(self)] = getattr(
+                namespace, self.dest, values
+            )
+
+
 class ConfigFileParserException(Exception):
     """Raised when config file parsing failed."""
 
@@ -218,6 +247,22 @@ class DefaultConfigFileParser(ConfigFileParser):
             if isinstance(value, list):
                 # handle special case of lists
                 value = "[" + ", ".join(map(str, value)) + "]"
+            else:
+                # render it the way this has always rendered it: str() differs
+                # for an Enum on Python before 3.11
+                value = "{}".format(value)
+            # this format puts one key on each line, so a newline in a key or a
+            # value would silently turn into extra keys when the file is read
+            # back in (see parse() above). There's no way to quote it, so say so
+            # instead of writing a file that means something else.
+            for field in (str(key), value):
+                if "\n" in field or "\r" in field:
+                    raise ValueError(
+                        "Config file values can't contain newlines, so {} = {} "
+                        "can't be written out in this config file format. Use a "
+                        "config_file_parser_class that supports multi-line "
+                        "values, such as YAMLConfigFileParser.".format(key, value)
+                    )
             r.write("{} = {}\n".format(key, value))
         return r.getvalue()
 
@@ -848,7 +893,7 @@ class ArgumentParser(argparse.ArgumentParser):
                 be parsed in order, with the values from each config file
                 taking precedence over previous ones. This allows an application
                 to look for config files in multiple standard locations such as
-                the install directory, home directory, and current directory.
+                the install directory, home directory, and/or current directory.
                 Also, shell \* syntax can be used to specify all conf files in a
                 directory. For example::
 
@@ -857,6 +902,14 @@ class ArgumentParser(argparse.ArgumentParser):
                     "~/.my_app_config.ini",
                     "./app_config.txt"]
 
+                Path entries may be strings, ``os.PathLike`` objects (e.g.
+                ``pathlib.Path``), or zero-argument callable functions that
+                return an open file-like object containing config file
+                contents. Any provided callable is invoked each time the parser opens
+                config files, and the returned stream is closed by the parser
+                after parsing. The callable must return a stream. This is useful
+                for sourcing config from non-filesystem locations such as in-memory
+                buffers, secrets managers, or HTTP responses.
             ignore_unknown_config_file_keys: If true, settings that are found
                 in a config file but don't correspond to any defined
                 configargparse args will be ignored. If false, they will be
@@ -880,6 +933,10 @@ class ArgumentParser(argparse.ArgumentParser):
                 file with settings based on the other provided commandline args,
                 environment variants and defaults, and then to exit.
                 (eg. ["-w", "--write-out-config-file"]). Default: []
+                These args can only be set on the command line. A config file
+                key that names one is an error, and they can't have an env_var,
+                since either would let whoever controls those overwrite an
+                arbitrary file.
             write_out_config_file_arg_help_message: The help message to use for
                 the args in args_for_writing_out_config_file.
         """
@@ -922,6 +979,14 @@ class ArgumentParser(argparse.ArgumentParser):
             if not isinstance(value, (list, tuple)):
                 hint = " (e.g. ['%s'])" % value if isinstance(value, str) else ""
                 raise TypeError("%s must be a list%s. Got: %r" % (name, hint, value))
+
+        for i, entry in enumerate(default_config_files):
+            if not (isinstance(entry, (str, bytes, os.PathLike)) or callable(entry)):
+                raise TypeError(
+                    "default_config_files[%d] must be a string, bytes, or "
+                    "os.PathLike path, or a callable that returns an open "
+                    "file-like object. Got: %r" % (i, entry)
+                )
 
         if not callable(config_file_open_func):
             raise TypeError(
@@ -1002,16 +1067,7 @@ class ArgumentParser(argparse.ArgumentParser):
         if "--" in args:
             return args.index("--")
 
-        # Find the first subcommand index, if any
-        subcmd_index = None
-        for action in self._actions:
-            if isinstance(action, argparse._SubParsersAction) and action.choices:
-                for i, arg in enumerate(args):
-                    if arg in action.choices:
-                        subcmd_index = i
-                        break
-                break
-
+        subcmd_index = self._find_subcommand_index(args)
         if subcmd_index is not None:
             return subcmd_index
 
@@ -1030,6 +1086,24 @@ class ArgumentParser(argparse.ArgumentParser):
             return 0
 
         return len(args)
+
+    def _find_subcommand_index(self, args):
+        """Find where the subcommand is on the command line, if there is one.
+
+        Args:
+            args: the command line args.
+
+        Returns:
+            int or None: the index of the first arg naming a subcommand
+        """
+        for action in self._actions:
+            if isinstance(action, argparse._SubParsersAction) and action.choices:
+                for i, arg_string in enumerate(args):
+                    if arg_string in action.choices:
+                        return i
+                return None
+
+        return None
 
     def parse_args(
         self, args=None, namespace=None, config_file_contents=None, env_vars=os.environ
@@ -1154,7 +1228,10 @@ class ArgumentParser(argparse.ArgumentParser):
             env_var_args += self.convert_item_to_command_line_arg(action, key, value)
 
         idx = self._find_insertion_index(args)
-        args = args[:idx] + env_var_args + args[idx:]
+        if self._reject_write_out_config_file_args(
+            env_var_args, "in an environment variable", self._reachable_parsers()
+        ):
+            args = args[:idx] + env_var_args + args[idx:]
 
         if env_var_args:
             self._source_to_settings[_ENV_VAR_SOURCE_KEY] = OrderedDict(
@@ -1179,64 +1256,80 @@ class ArgumentParser(argparse.ArgumentParser):
             for config_key in self.get_possible_config_keys(action)
         }
 
-        # open the config file(s)
+        # open the config file(s). config_streams is a list of (stream, source_label) tuples.
         config_streams = []
         if config_file_contents is not None:
             stream = StringIO(config_file_contents)
             stream.name = "method arg"
-            config_streams = [stream]
+            config_streams = [(stream, "method arg")]
         elif not skip_config_file_parsing:
             config_streams = self._open_config_files(args)
 
         # parse each config file
-        for stream in reversed(config_streams):
-            try:
-                config_items = self._config_file_parser.parse(stream)
-            except ConfigFileParserException as e:
-                self.error(str(e))
-            finally:
-                if hasattr(stream, "close"):
-                    stream.close()
+        try:
+            for stream, source_label in reversed(config_streams):
+                try:
+                    config_items = self._config_file_parser.parse(stream)
+                except ConfigFileParserException as e:
+                    self.error(str(e))
 
-            # add each config item to the commandline unless it's there already
-            config_args = []
-            for key, value in config_items.items():
-                if key in known_config_keys:
-                    action = known_config_keys[key]
-                    discard_this_key = already_on_command_line(
-                        args, action.option_strings, self.prefix_chars
-                    )
-                else:
-                    action = None
-                    discard_this_key = (
-                        self._ignore_unknown_config_file_keys
-                        or already_on_command_line(
-                            args,
-                            [
-                                self.get_command_line_key_for_unknown_config_file_setting(
-                                    key
-                                )
-                            ],
-                            self.prefix_chars,
+                # add each config item to the commandline unless it's there already
+                config_args = []
+                for key, value in config_items.items():
+                    if key in known_config_keys:
+                        action = known_config_keys[key]
+                        discard_this_key = already_on_command_line(
+                            args, action.option_strings, self.prefix_chars
                         )
-                    )
+                    else:
+                        action = None
+                        discard_this_key = (
+                            self._ignore_unknown_config_file_keys
+                            or already_on_command_line(
+                                args,
+                                [
+                                    self.get_command_line_key_for_unknown_config_file_setting(
+                                        key
+                                    )
+                                ],
+                                self.prefix_chars,
+                            )
+                        )
 
-                # Skip empty string values for args with nargs to match YAML behavior
-                # where empty values are treated as None/not present (see issue #296)
-                if value == "" and action and action.nargs:
-                    continue
+                    # Skip empty string values for args with nargs to match YAML behavior
+                    # where empty values are treated as None/not present (see issue #296)
+                    if value == "" and action and action.nargs:
+                        continue
 
-                if not discard_this_key:
-                    config_args += self.convert_item_to_command_line_arg(
-                        action, key, value
-                    )
-                    source_key = "%s|%s" % (_CONFIG_FILE_SOURCE_KEY, stream.name)
-                    if source_key not in self._source_to_settings:
-                        self._source_to_settings[source_key] = OrderedDict()
-                    self._source_to_settings[source_key][key] = (action, value)
+                    if not discard_this_key:
+                        config_args += self.convert_item_to_command_line_arg(
+                            action, key, value
+                        )
+                        source_key = "%s|%s" % (
+                            _CONFIG_FILE_SOURCE_KEY,
+                            source_label,
+                        )
+                        if source_key not in self._source_to_settings:
+                            self._source_to_settings[source_key] = OrderedDict()
+                        self._source_to_settings[source_key][key] = (action, value)
 
-            idx = self._find_insertion_index(args)
-            args = args[:idx] + config_args + args[idx:]
+                idx = self._find_insertion_index(args)
+                if self._reject_write_out_config_file_args(
+                    config_args,
+                    "in a config file (%s)" % source_label,
+                    self._reachable_parsers(),
+                ):
+                    args = args[:idx] + config_args + args[idx:]
+        finally:
+            # Close every stream exactly once, regardless of whether parsing
+            # succeeded or aborted partway through (e.g. a custom parser
+            # raised a non-ConfigFileParserException).
+            for stream, _ in config_streams:
+                try:
+                    if hasattr(stream, "close"):
+                        stream.close()
+                except Exception:
+                    pass
 
         # save default settings for use by print_values()
         default_settings = OrderedDict()
@@ -1263,17 +1356,19 @@ class ArgumentParser(argparse.ArgumentParser):
             self._source_to_settings[_DEFAULTS_SOURCE_KEY] = default_settings
 
         # parse all args (including commandline, config file, and env var)
+        self._write_out_config_file_paths = OrderedDict()
         namespace, unknown_args = argparse.ArgumentParser.parse_known_args(
             self, args=args, namespace=namespace
         )
-        # handle any args that have is_write_out_config_file_arg set to true
-        # check if the user specified this arg on the commandline
         output_file_paths = [
-            getattr(namespace, a.dest, None)
-            for a in self._actions
-            if getattr(a, "is_write_out_config_file_arg", False)
+            path
+            for path in self._write_out_config_file_paths.values()
+            if path is not None
         ]
-        output_file_paths = [a for a in output_file_paths if a is not None]
+        # handle any args that have is_write_out_config_file_arg set to true.
+        # Each one recorded its own path as it was parsed, which is the only
+        # place that path can have come from, and the args built from config
+        # files and env vars were kept from setting one at all above.
         self.write_config_file(namespace, output_file_paths, exit_after=True)
         return namespace, unknown_args
 
@@ -1294,6 +1389,205 @@ class ArgumentParser(argparse.ArgumentParser):
         # _source_to_settings is set in parse_know_args().
         return self._source_to_settings  # type: ignore[attribute-error]
 
+    def _reject_write_out_config_file_args(
+        self, synthesized_args, source_description, parsers
+    ):
+        """Reject synthesized command line args that set a write-out-config-file arg.
+
+        Config file entries and environment variables are turned into command
+        line args and then parsed like any others, so either one's key or its
+        value can end up naming an arg. A write-out-config-file arg overwrites
+        the path it is given and then exits the program, so only the real
+        command line may set one: otherwise whoever controls a config file the
+        program reads could destroy an arbitrary file without the user passing
+        any args at all. (This is also why get_possible_config_keys() keeps
+        these args out of the keys a config file can set.)
+
+        These args are checked against every parser reachable from this one,
+        not just the one that looks like it will parse them. Which subcommand
+        runs can't be told from the args: an option's value reads exactly like
+        a subcommand name, and the synthesized args can name a subcommand
+        themselves. So a config file may not name a write-out arg anywhere in
+        the parser tree, which costs an error on a key named after one on a
+        subcommand that wasn't going to run.
+
+        Args:
+            synthesized_args: command line args built from a config file or from
+                environment variables, before they are added to the real ones.
+            source_description: where they came from, for the error message.
+            parsers: the parsers that could end up parsing them.
+
+        Returns:
+            bool: whether the args may be used. error() is meant to stop the
+            program, but a program can override exit(), so this says so rather
+            than counting on the call not returning.
+        """
+        if not self._write_out_config_file_args(parsers):
+            return True
+
+        # any of these parsers could be the one to expand an arg that names a
+        # file of args, and each has its own idea of which chars start one
+        fromfile_prefix_chars = "".join(
+            parser.fromfile_prefix_chars or ""
+            for parser in parsers
+            if self._write_out_config_file_args(_subparsers_of(parser))
+        )
+
+        for arg_string in synthesized_args:
+            if self._names_a_write_out_config_file_arg(arg_string, parsers):
+                self.error(
+                    "%s can only be set on the command line, not %s"
+                    % (arg_string.split("=", 1)[0], source_description)
+                )
+                return False
+            if arg_string and arg_string[0] in fromfile_prefix_chars:
+                # argparse replaces this with the args read from that file, and
+                # it does so after this check, so the file's contents would go
+                # unchecked and could name any arg at all
+                self.error(
+                    "%s can't be used %s, since it would read command line args "
+                    "from a file" % (arg_string, source_description)
+                )
+                return False
+
+        return True
+
+    def _names_a_write_out_config_file_arg(self, arg_string, parsers):
+        """Check whether a command line arg would set a write-out-config-file arg.
+
+        Args:
+            arg_string: a single command line arg.
+            parsers: the parsers that could end up parsing it.
+
+        Returns:
+            bool: whether it names a write-out-config-file arg
+        """
+        return any(
+            # a parser that isn't one of ours has no matcher of its own, and
+            # this one's is close enough to decide against
+            getattr(parser, "_could_set_option", self._could_set_option)(
+                arg_string, option_string
+            )
+            for parser, action in self._write_out_config_file_args(parsers)
+            for option_string in action.option_strings
+        )
+
+    def _reachable_parsers(self):
+        """Find this parser and every subparser these args could be handed to.
+
+        A subparser is given the args this parser has put together and treats
+        them as its own command line, and argparse parses it into this parser's
+        namespace, so both what a subparser accepts and what it stores matter
+        here. Subparsers that aren't ConfigArgParse parsers are walked through
+        as well, since one of them can hold a subparser that is.
+
+        Returns:
+            list[argparse.ArgumentParser]: this parser and its subparsers
+        """
+        return _subparsers_of(self)
+
+    def _write_out_config_file_args(self, parsers):
+        """Find the write-out-config-file args the given parsers define.
+
+        Args:
+            parsers: the parsers to look in.
+
+        Returns:
+            list: each such arg as an ``(argparse.ArgumentParser,
+            argparse.Action)`` pair, since it's the parser an arg belongs to
+            that decides which command line args can set it.
+        """
+        return [
+            (parser, action)
+            for parser in parsers
+            for action in parser._actions
+            if getattr(action, "is_write_out_config_file_arg", False)
+        ]
+
+    def _could_set_option(self, arg_string, option_string):
+        """Check whether a command line arg could set the given option.
+
+        This covers every form argparse accepts: the option on its own, with its
+        value attached after an ``=`` (or, for a short option, straight after
+        it), bundled with other short options, and abbreviated. Where argparse
+        would need to look at the rest of the command line to decide, this says
+        yes, since it is used to reject args that must not reach an option at
+        all, and being wrong in that direction only costs an error message.
+
+        Args:
+            arg_string: a single command line arg.
+            option_string: an option string of the option to look for.
+
+        Returns:
+            bool: whether the arg could set the option
+        """
+        if arg_string == option_string:
+            return True
+        if arg_string == "--":
+            # argparse's end-of-options separator, which it matches literally
+            # rather than through prefix_chars, and never treats as an option
+            return False
+        if len(arg_string) < 2 or arg_string[0] not in self.prefix_chars:
+            return False
+
+        # argparse looks for an option matching the part before any '=' first,
+        # whatever the option's prefix. Failing that, a long option is looked up
+        # by that same part, while a short one keeps whatever follows it, since
+        # a short option's value can be attached straight to it.
+        is_long_option = arg_string[1] in self.prefix_chars
+        bare_key = arg_string.split("=", 1)[0]
+        key = bare_key if is_long_option else arg_string
+        if bare_key == option_string or key == option_string:
+            return True
+        matched_action = self._option_string_actions.get(
+            bare_key, self._option_string_actions.get(key)
+        )
+        if matched_action is not None and (
+            is_long_option or getattr(matched_action, "nargs", None) != 0
+        ):
+            # argparse resolves an exact match straight to that option, so an
+            # arg naming a different one can never reach this one. The exception
+            # is a single prefix char naming an option that takes no value:
+            # before Python 3.11 argparse goes on to read the rest of that arg
+            # as more short options, so keep looking.
+            return False
+
+        if is_long_option:
+            # only an unambiguous abbreviation can reach it from here
+            return self.allow_abbrev and option_string.startswith(key)
+
+        if option_string.startswith(bare_key):
+            # argparse looks a single-prefix-char arg up by the part before any
+            # '=' and takes any option starting with it, so even a lone prefix
+            # char reaches an option when it is the only candidate. Before
+            # Python 3.13 it does this whatever allow_abbrev says.
+            return True
+
+        if len(option_string) != 2:
+            # an option with a single prefix char but a longer name is only
+            # reachable whole or abbreviated, which the check above covers
+            return False
+
+        # a short option can also follow other short options that take no value
+        # of their own, with its own value attached after it. When the part
+        # before an '=' is itself a flag that takes no value, argparse before
+        # 3.11.9 and 3.12.3 starts reading short options after the '=' instead.
+        bundled = (
+            arg_string.split("=", 1)[1]
+            if matched_action is not None and "=" in arg_string
+            else arg_string[1:]
+        )
+        index = bundled.find(option_string[1])
+        if index == -1:
+            return False
+
+        return all(
+            getattr(self._option_string_actions.get(arg_string[0] + c), "nargs", None)
+            == 0
+            for c in bundled[:index]
+            if c != "="
+        )
+
     def write_config_file(self, parsed_namespace, output_file_paths, exit_after=False):
         """Write the given settings to output files.
 
@@ -1302,24 +1596,25 @@ class ArgumentParser(argparse.ArgumentParser):
             output_file_paths: any number of file paths to write the config to
             exit_after: whether to exit the program after writing the config files
         """
-        for output_file_path in output_file_paths:
-            # validate the output file path
-            try:
-                with self._config_file_open_func(output_file_path, "w") as output_file:
-                    pass
-            except IOError as e:
-                raise ValueError(
-                    "Couldn't open {} for writing: {}".format(output_file_path, e)
-                )
         if output_file_paths:
-            # generate the config file contents
+            # generate the config file contents first. Opening an output file
+            # truncates it, so nothing is opened until the contents that will
+            # replace it exist. Each file is then opened exactly once, which
+            # also avoids the gap between checking a path and writing to it.
             config_items = self.get_items_for_config_file_output(
                 self._source_to_settings, parsed_namespace
             )
             file_contents = self._config_file_parser.serialize(config_items)
             for output_file_path in output_file_paths:
-                with self._config_file_open_func(output_file_path, "w") as output_file:
-                    output_file.write(file_contents)
+                try:
+                    with self._config_file_open_func(
+                        output_file_path, "w"
+                    ) as output_file:
+                        output_file.write(file_contents)
+                except IOError as e:
+                    raise ValueError(
+                        "Couldn't open {} for writing: {}".format(output_file_path, e)
+                    )
 
             print("Wrote config file to " + ", ".join(output_file_paths))
             if exit_after:
@@ -1517,75 +1812,122 @@ class ArgumentParser(argparse.ArgumentParser):
             command_line_args: List of all args
 
         Returns:
-            list[io.IOBase]: open config files
+            list[tuple[io.IOBase, str]]: list of ``(stream, source_label)``
+            pairs. The ``source_label`` is unique per entry (file path for
+            path entries; ``"<entry_label>[<index>]"`` for callable entries),
+            so different entries cannot collapse into a single source key in
+            ``format_values()``.
         """
         # open any default config files
         config_files = []
-        for files in map(
-            glob.glob, map(os.path.expanduser, self._default_config_files)
-        ):
-            for f in files:
-                config_files.append(self._config_file_open_func(f))
-
-        # list actions with is_config_file_arg=True. Its possible there is more
-        # than one such arg.
-        user_config_file_arg_actions = [
-            a for a in self._actions if getattr(a, "is_config_file_arg", False)
-        ]
-
-        if not user_config_file_arg_actions:
-            return config_files
-
-        for action in user_config_file_arg_actions:
-            # try to parse out the config file path by using a clean new
-            # ArgumentParser that only knows this one arg/action.
-            arg_parser = argparse.ArgumentParser(
-                prefix_chars=self.prefix_chars, add_help=False
-            )
-
-            arg_parser._add_action(action)
-
-            # make parser not exit on error by replacing its error method.
-            # Otherwise it sys.exits(..) if, for example, config file
-            # is_required=True and user doesn't provide it.
-            def error_method(self, message):
-                pass
-
-            arg_parser.error = types.MethodType(error_method, arg_parser)
-
-            # check whether the user provided a value
-            parsed_arg = arg_parser.parse_known_args(args=command_line_args)
-            if not parsed_arg:
-                continue
-            namespace, _ = parsed_arg
-            user_config_file = getattr(namespace, action.dest, None)
-
-            if not user_config_file:
-                continue
-
-            # open user-provided config file
-            user_config_file = os.path.expanduser(user_config_file)
-            try:
-                stream = self._config_file_open_func(user_config_file)
-            except Exception as e:
-                if len(e.args) == 2:  # OSError
-                    errno, msg = e.args
+        try:
+            for i, entry in enumerate(self._default_config_files):
+                if isinstance(entry, (str, os.PathLike)):
+                    # Path entries (str or PathLike). Checked before callable so
+                    # objects implementing both __fspath__ and __call__ are
+                    # treated as paths, matching the documented behavior.
+                    for f in glob.glob(os.path.expanduser(os.fspath(entry))):
+                        config_files.append((self._config_file_open_func(f), f))
                 else:
-                    msg = str(e)
-                # close previously opened config files
-                for config_file in config_files:
+                    # Callable entry (validation in __init__ guarantees this).
+                    entry_label = getattr(entry, "__name__", repr(entry))
                     try:
-                        config_file.close()
-                    except Exception:
-                        pass
-                self.error(
-                    "Unable to open config file: %s. Error: %s"
-                    % (user_config_file, msg)
+                        stream = entry()
+                    except Exception as e:
+                        raise ConfigFileParserException(
+                            "default_config_files entry %r raised while being "
+                            "called: %s" % (entry_label, e)
+                        ) from e
+                    if stream is None:
+                        raise TypeError(
+                            "default_config_files entry %r returned None; "
+                            "must return an open file-like object." % (entry_label,)
+                        )
+                    # Use a source label that always includes the entry index
+                    # so two callables returning streams with the same .name
+                    # (or even the same library-generated name from a previous
+                    # iteration) cannot collide into one _source_to_settings
+                    # entry. The label also doubles as stream.name when the
+                    # stream lacks one, for readable parser error messages.
+                    display_name = (
+                        getattr(stream, "name", None)
+                        if hasattr(stream, "name")
+                        else None
+                    )
+                    source_label = "%s[%d]" % (display_name or entry_label, i)
+                    # Append before attempting .name so the outer cleanup
+                    # closes the stream if the assignment below raises.
+                    config_files.append((stream, source_label))
+                    if not hasattr(stream, "name"):
+                        try:
+                            stream.name = source_label
+                        except Exception as e:
+                            raise ConfigFileParserException(
+                                "default_config_files entry %r returned a "
+                                "stream whose .name attribute could not be "
+                                "set: %s" % (entry_label, e)
+                            ) from e
+
+            # list actions with is_config_file_arg=True. Its possible there is
+            # more than one such arg.
+            user_config_file_arg_actions = [
+                a for a in self._actions if getattr(a, "is_config_file_arg", False)
+            ]
+
+            if not user_config_file_arg_actions:
+                return config_files
+
+            for action in user_config_file_arg_actions:
+                # try to parse out the config file path by using a clean new
+                # ArgumentParser that only knows this one arg/action.
+                arg_parser = argparse.ArgumentParser(
+                    prefix_chars=self.prefix_chars, add_help=False
                 )
 
-            config_files += [stream]
+                arg_parser._add_action(action)
 
-        return config_files
+                # make parser not exit on error by replacing its error method.
+                # Otherwise it sys.exits(..) if, for example, config file
+                # is_required=True and user doesn't provide it.
+                def error_method(self, message):
+                    pass
+
+                arg_parser.error = types.MethodType(error_method, arg_parser)
+
+                # check whether the user provided a value
+                namespace, _ = arg_parser.parse_known_args(args=command_line_args)
+                user_config_file = getattr(namespace, action.dest, None)
+
+                if not user_config_file:
+                    continue
+
+                # open user-provided config file
+                user_config_file = os.path.expanduser(user_config_file)
+                try:
+                    stream = self._config_file_open_func(user_config_file)
+                except Exception as e:
+                    self.error(
+                        "Unable to open config file: %s. Error: %s"
+                        % (user_config_file, str(e))
+                    )
+
+                config_files.append((stream, user_config_file))
+
+            return config_files
+        except BaseException:
+            # If anything in the body above raises (callable failure, .name
+            # assignment failure, glob/open failure, an inner argparse type=
+            # callback raising during user-config-file parsing, self.error()
+            # exiting, etc.), close every stream we opened so we don't leak
+            # file handles. close() is idempotent for standard streams, so it
+            # is safe to call on streams already closed by a nested handler.
+            for cf, _ in config_files:
+                try:
+                    if hasattr(cf, "close"):
+                        cf.close()
+                except Exception:
+                    pass
+            raise
 
     def format_values(self):
         """Returns a string with all args and settings and where they came from
@@ -1606,7 +1948,7 @@ class ArgumentParser(argparse.ArgumentParser):
             source,
             settings,
         ) in self._source_to_settings.items():  # type: ignore[argument-error]
-            source = source.split("|")
+            source = source.split("|", 1)
             source = source_key_to_display_value_map[source[0]] % tuple(source[1:])
             r.write(source)
             for key, (action, value) in settings.items():
@@ -1659,9 +2001,26 @@ class ArgumentParser(argparse.ArgumentParser):
                 if config_arg_string:
                     config_arg_string = "specified via " + config_arg_string
                 if default_config_files or config_arg_string:
+                    # Mirror _open_config_files: path entries (str/PathLike)
+                    # are checked before callable, so an object that is both
+                    # PathLike and callable is rendered as a path here too.
+                    # os.fsdecode() handles bytes-returning __fspath__ (PEP
+                    # 519 allows it); the try/except handles malformed
+                    # PathLike whose __fspath__ returns the wrong type.
+                    def _describe_default_config_file_entry(e):
+                        if isinstance(e, (str, os.PathLike)):
+                            try:
+                                return os.fsdecode(os.fspath(e))
+                            except (TypeError, ValueError):
+                                return repr(e)
+                        return getattr(e, "__name__", "<callable>")
+
+                    described_files = tuple(
+                        _describe_default_config_file_entry(e)
+                        for e in default_config_files
+                    )
                     msg += " (%s)." % " or ".join(
-                        tuple(map(str, default_config_files))
-                        + tuple(filter(None, [config_arg_string]))
+                        described_files + tuple(filter(None, [config_arg_string]))
                     )
                 msg += " " + self._config_file_parser.get_syntax_description()
 
@@ -1714,9 +2073,13 @@ def add_argument(self, *args, **kwargs):
             the ArgumentParser(fromfile_prefix_chars=..) mechanism.
             Default: False
         is_write_out_config_file_arg: If True, this arg will be treated as a
-            config file path, and, when it is specified, will cause
-            configargparse to write all current commandline args to this file
-            as config options and then exit.
+            config file path, and, when it is specified on the command line,
+            will cause configargparse to write all current commandline args to
+            this file as config options and then exit. It can only be set on the
+            command line: a config file key that names it is an error, and it
+            can't be combined with env_var, nor be a positional arg, since a
+            config file value would be indistinguishable from a path the user
+            typed and could overwrite an arbitrary file.
             Default: False
 
     Returns:
@@ -1733,6 +2096,16 @@ def add_argument(self, *args, **kwargs):
 
     action = self.original_add_argument_method(*args, **kwargs)
 
+    if is_write_out_config_file_arg and isinstance(action, argparse._StoreAction):
+        # this arg has to record the path it is given as it is parsed, rather
+        # than leave it to be read back out of the namespace later. Whatever
+        # store action the program asked for keeps doing its own work.
+        action.__class__ = type(
+            type(action).__name__,
+            (_WriteOutConfigFileActionMixin, type(action)),
+            {},
+        )
+
     action.is_positional_arg = not action.option_strings
     action.env_var = env_var
     action.is_config_file_arg = is_config_file_arg
@@ -1744,14 +2117,73 @@ def add_argument(self, *args, **kwargs):
         raise ValueError("arg with is_config_file_arg=True must have " "action='store'")
     if action.is_write_out_config_file_arg:
         error_prefix = "arg with is_write_out_config_file_arg=True "
-        if not isinstance(action, argparse._StoreAction):
+        if not isinstance(action, _WriteOutConfigFileActionMixin):
             raise ValueError(error_prefix + "must have action='store'")
         if is_config_file_arg:
             raise ValueError(
                 error_prefix + "can't also have " "is_config_file_arg=True"
             )
+        if env_var:
+            # writing out a config file overwrites the given path and then
+            # exits, so an env var that sets one could destroy an arbitrary file
+            raise ValueError(error_prefix + "can't also have env_var set")
+        if action.is_positional_arg:
+            # a config file value becomes a plain command line arg, and a
+            # positional would take one of those just as readily as one the user
+            # typed, leaving no way to keep a config file from choosing the path
+            # that gets overwritten
+            raise ValueError(error_prefix + "can't be a positional arg")
 
     return action
+
+
+def _subparsers_of(parser, seen=None):
+    """Find a parser and every subparser reachable from it.
+
+    Args:
+        parser: the parser to start from.
+        seen: ids of the parsers already visited, so that a subparser leading
+            back to one of its own ancestors doesn't loop forever.
+
+    Returns:
+        list[argparse.ArgumentParser]: the parser and its subparsers
+    """
+    if seen is None:
+        seen = set()
+    if id(parser) in seen:
+        return []
+    seen.add(id(parser))
+
+    parsers = [parser]
+    for action in getattr(parser, "_actions", []):
+        if _dispatches_to_subparsers(action):
+            for subparser in action.choices.values():
+                if isinstance(subparser, argparse.ArgumentParser):
+                    parsers += _subparsers_of(subparser, seen)
+
+    return parsers
+
+
+def _dispatches_to_subparsers(action):
+    """Check whether an action hands the rest of the command line to a subparser.
+
+    Nearly always this is an ``argparse._SubParsersAction``, but a program can
+    register a class of its own for the job, so recognize the shape too: a
+    mapping of subcommand names to parsers, taking the rest of the args.
+
+    Args:
+        action: the action to check.
+
+    Returns:
+        bool: whether it dispatches to subparsers
+    """
+    if isinstance(action, argparse._SubParsersAction):
+        return True
+
+    return getattr(action, "nargs", None) in (
+        argparse.PARSER,
+        argparse.REMAINDER,
+    ) and isinstance(getattr(action, "choices", None), dict)
 
 
 def already_on_command_line(

@@ -1174,24 +1174,33 @@ def get_pre_season_init_months(
         wrapping across the year boundary when needed.
     """
     earliest = (planting_month - max_lead - 1) % 12 + 1
-    if extend_to_month is not None:
-        stop_month = extend_to_month
-    else:
-        stop_month = (planting_month - 1) if planting_month > 1 else 12
+    stop1 = (planting_month - 1) if planting_month > 1 else 12
 
+    # The walk must ALWAYS cover the full pre-season window
+    # (earliest .. planting-1). ``extend_to_month`` only EXTENDS it through
+    # in-season init months; it must never truncate it. Previously
+    # ``extend_to = current month`` was used directly as the stop, so running
+    # in September for a November planting cut the window to [5..9] and
+    # silently dropped the October init for every HINDCAST year too (October
+    # S2S data exists for past years).
     months = []
     m = earliest
     first_iter = True
+    reached_stop1 = False
+    reached_ext = extend_to_month is None
     while True:
         # Guard the wrap case: when ``extend_to_month`` happens to equal
         # ``earliest`` (e.g. current month == earliest pre-season init), the
-        # first iteration would otherwise hit ``m == stop_month`` immediately
-        # and return only one month. ``first_iter`` lets us walk a full
-        # 12-month cycle and stop the *second* time we hit ``earliest``.
+        # first iteration must not stop the walk — walk the full 12-month
+        # cycle and stop the *second* time we hit ``earliest``.
         if not first_iter and m == earliest:
             break
         months.append(m)
-        if m == stop_month and not first_iter:
+        if m == stop1:
+            reached_stop1 = True
+        if extend_to_month is not None and m == extend_to_month and not first_iter:
+            reached_ext = True
+        if reached_stop1 and reached_ext and not first_iter:
             break
         first_iter = False
         m = m % 12 + 1

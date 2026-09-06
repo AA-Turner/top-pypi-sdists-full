@@ -4,13 +4,11 @@ from collections.abc import Generator, Mapping
 import logging
 import os
 import re
-import shlex
+import time
 from typing import TYPE_CHECKING, Any, cast
 
 import click
-import sqlparse
 
-from mycli.compat import WIN
 from mycli.config import write_default_config
 from mycli.main_modes.repl import set_all_external_titles
 from mycli.packages import special
@@ -18,9 +16,12 @@ from mycli.packages.batch_utils import statements_from_filehandle
 from mycli.packages.filepaths import dir_path_exists
 from mycli.packages.interactive_utils import confirm_destructive_query
 from mycli.packages.ptoolkit.history import FileHistoryWithTimestamp
-from mycli.packages.special import main as special_main
-from mycli.packages.special.iocommands import expand_favorite_query
 from mycli.packages.special.main import ArgType, SpecialCommandAlias
+from mycli.packages.special.source import (
+    SOURCE_HELP_ROWS,
+    parse_source_arguments,
+    source_special_command_is_safe,
+)
 from mycli.packages.sqlresult import SQLResult
 from mycli.sqlexecute import SQLExecute
 
@@ -36,136 +37,12 @@ MISSING_CONFIG_VALUE = object()
 DSN_CONFIG_VALUE = object()
 FAVORITES_CONFIG_VALUE = object()
 HIDDEN_CONFIG_SECTIONS = frozenset({'alias_dsn', 'favorite_queries'})
-INVALID_SOURCE_FILENAME = 'Source accepts exactly one filename; filenames containing spaces must be quoted.'
-SOURCE_SAFE_SPECIAL_COMMANDS = frozenset({
-    'connect',
-    'fd',
-    'fs',
-    'help',
-    'l',
-    'nowarnings',
-    'ping',
-    'prompt',
-    'redirectformat',
-    'rehash',
-    'status',
-    'tableformat',
-    'timing',
-    'use',
-    'warnings',
-    'dt',
-})
-SOURCE_SAFE_SUBCOMMANDS = {
-    'config': frozenset({'help', 'get', 'search'}),
-    'dsn': frozenset({'help', 'list', 'show', 'save', 'delete'}),
-    'favorite': frozenset({'help', 'list', 'reload', 'run', 'save', 'delete'}),
-}
 
 
 def _render_config_value(value: Any) -> str:
     if isinstance(value, list):
         return ', '.join(str(item) for item in value)
     return str(value)
-
-
-def _parse_source_arguments(arg: str) -> tuple[str, bool, bool, bool]:
-    allow_special = False
-    show_queries = False
-    page_output = False
-    filename = arg
-    while arguments := filename.split(maxsplit=1):
-        if arguments[0] == '--special':
-            allow_special = True
-        elif arguments[0] == '--show':
-            show_queries = True
-        elif arguments[0] == '--page':
-            page_output = True
-        else:
-            break
-        filename = arguments[1] if len(arguments) == 2 else ''
-    return filename, allow_special, show_queries, page_output
-
-
-def _has_unquoted_whitespace(value: str) -> bool:
-    quote: str | None = None
-    escaped = False
-    for character in value:
-        if escaped:
-            if quote is None and character.isspace():
-                return True
-            escaped = False
-            continue
-        if not WIN and character == '\\' and quote != "'":
-            escaped = True
-            continue
-        if character in ("'", '"'):
-            if quote is None:
-                quote = character
-            elif quote == character:
-                quote = None
-        elif quote is None and character.isspace():
-            return True
-    return False
-
-
-def _parse_source_filename(filename: str) -> str:
-    if not filename:
-        return ''
-    if _has_unquoted_whitespace(filename):
-        raise ValueError(INVALID_SOURCE_FILENAME)
-    try:
-        arguments = shlex.split(filename, posix=not WIN)
-    except ValueError as error:
-        raise ValueError(f'Invalid source filename: {error}.') from None
-    if len(arguments) != 1:
-        raise ValueError(INVALID_SOURCE_FILENAME)
-    parsed_filename = arguments[0]
-    if WIN and len(parsed_filename) >= 2 and parsed_filename[0] == parsed_filename[-1] and parsed_filename[0] in ("'", '"'):
-        parsed_filename = parsed_filename[1:-1]
-    return parsed_filename
-
-
-def _registered_special_command(query: str) -> tuple[str, str] | None:
-    command, _verbosity, arg = special.parse_special_command(query)
-    registered = special_main.COMMANDS.get(command)
-    if registered is None:
-        registered = special_main.COMMANDS.get(command.lower())
-    if registered is None:
-        return None
-    return registered.command.removeprefix('\\').removeprefix('/').lower(), arg
-
-
-def _favorite_source_command_is_safe(arg: str) -> bool:
-    query, _error = expand_favorite_query(arg)
-    if query is None:
-        return True
-    return not any(special.is_special_command(statement.rstrip(';')) for statement in sqlparse.split(query))
-
-
-def _source_special_command_is_safe(query: str) -> bool:
-    parsed = _registered_special_command(query)
-    if parsed is None:
-        return False
-
-    command, arg = parsed
-    if command == 'f':
-        return not arg or _favorite_source_command_is_safe(arg)
-    if command in ('fd', 'fs'):
-        return True
-    if command in SOURCE_SAFE_SPECIAL_COMMANDS:
-        return True
-
-    subcommands = SOURCE_SAFE_SUBCOMMANDS.get(command)
-    if subcommands is None:
-        return False
-    arguments = arg.split(maxsplit=1)
-    subcommand = arguments[0].lower() if arguments else 'help'
-    if subcommand not in subcommands:
-        return False
-    if command == 'favorite' and subcommand == 'run':
-        run_arg = arguments[1] if len(arguments) == 2 else ''
-        return not run_arg or _favorite_source_command_is_safe(run_arg)
-    return True
 
 
 def _iter_config_values(
@@ -279,7 +156,7 @@ class ClientCommandsMixin:
         special.register_special_command(
             self.execute_from_file,
             "source",
-            "/source [--special|--show|--page] <file>",
+            "/source [options] <file>",
             "Execute queries from a file.",
             aliases=[SpecialCommandAlias("\\.", case_sensitive=False)],
             completion_snippet='execute queries from file',
@@ -412,16 +289,19 @@ class ClientCommandsMixin:
         yield SQLResult(status=msg)
 
     def execute_from_file(self, arg: str, **_) -> Generator[SQLResult, None, None]:
-        filename, allow_special, show_queries, page_output = _parse_source_arguments(arg)
-        if page_output:
-            yield SQLResult(command={'name': 'source_page'})
         try:
-            filename = _parse_source_filename(filename)
+            source_arguments = parse_source_arguments(arg)
         except ValueError as error:
             yield SQLResult(status=str(error), is_error=True)
             return
+        if source_arguments.show_help:
+            yield SQLResult(header=['Argument', 'Description'], rows=SOURCE_HELP_ROWS)
+            return
+        if source_arguments.page_output:
+            yield SQLResult(command={'name': 'source_page'})
+        filename = source_arguments.filename
         if not filename:
-            yield SQLResult(status="Missing required argument: filename.", is_error=True)
+            yield SQLResult(status="Missing required argument: filename.  See /source --help.", is_error=True)
             return
 
         try:
@@ -431,6 +311,7 @@ class ClientCommandsMixin:
             return
 
         assert isinstance(self.sqlexecute, SQLExecute)
+        executed_statement = False
         with file_h:
             statements = statements_from_filehandle(file_h)
             while True:
@@ -444,35 +325,41 @@ class ClientCommandsMixin:
 
                 special_query = query.rstrip(';')
                 if special.is_special_command(special_query):
-                    if not allow_special:
+                    if not source_arguments.allow_special:
                         yield SQLResult(
                             status='Special commands are not supported without /source --special.',
                             is_error=True,
                         )
                         return
-                    if not _source_special_command_is_safe(special_query):
+                    if not source_special_command_is_safe(special_query):
                         command, _verbosity, _arg = special.parse_special_command(special_query)
                         yield SQLResult(
                             status=f'Special command is never permitted in source files: {command}.',
                             is_error=True,
                         )
                         return
-                    if show_queries:
-                        if page_output:
+                    if executed_statement and source_arguments.throttle > 0:
+                        time.sleep(source_arguments.throttle)
+                    if source_arguments.show_queries:
+                        if source_arguments.page_output:
                             yield SQLResult(command={'name': 'source_show', 'text': special_query})
                         else:
                             click.secho(f'> {special_query}')
                     yield from self.sqlexecute.run(special_query)
+                    executed_statement = True
                     continue
 
                 if self.destructive_warning and confirm_destructive_query(self.destructive_keywords, query) is False:
                     continue
-                if show_queries:
-                    if page_output:
+                if executed_statement and source_arguments.throttle > 0:
+                    time.sleep(source_arguments.throttle)
+                if source_arguments.show_queries:
+                    if source_arguments.page_output:
                         yield SQLResult(command={'name': 'source_show', 'text': query})
                     else:
                         click.secho(f'> {query}')
                 yield from self.sqlexecute.run(query)
+                executed_statement = True
 
     def change_prompt_format(self, arg: str, **_) -> list[SQLResult]:
         """

@@ -35,18 +35,6 @@ from ..goal.loop import GoalLoopMixin
 # Module-level logger for thread safety errors and debugging
 logger = get_logger(__name__)
 
-_COMPLETION_NEGATION_RE = re.compile(
-    r'\b(?:not|never|no longer|hardly|barely|isn\'t|aren\'t|wasn\'t|weren\'t|hasn\'t|haven\'t|hadn\'t|won\'t|wouldn\'t|can\'t|couldn\'t|shouldn\'t|don\'t|doesn\'t|didn\'t)\b'
-    r'.{0,20}'
-)
-_COMPLETION_PATTERNS = (
-    (re.compile(r'\btask\s+completed?\b'), False),
-    (re.compile(r'\bcompleted\s+successfully\b'), False),
-    (re.compile(r'\ball\s+done\b'), False),
-    (re.compile(r'\bdone\b'), True),
-    (re.compile(r'\bfinished\b'), True),
-)
-
 # ============================================================================
 # Performance: Lazy imports for heavy dependencies
 # Rich, LLM, and display utilities are only imported when needed (output=verbose)
@@ -250,6 +238,12 @@ _COMPLETION_PATTERNS = (
     (re.compile(r'\bfinished\b'), True),      # 'finished' needs negation check
 )
 
+# Emitted at most once per process: pointing at a non-OpenAI endpoint without
+# naming a model silently falls back to OpenAI's default, which that endpoint
+# almost certainly does not serve.
+_LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED = False
+
+
 class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, UnifiedExecutionMixin, ToolExecutionMixin, ChatHandlerMixin, SessionManagerMixin, ChatMixin, ExecutionMixin, MemoryMixin, AsyncMemoryMixin):
     # Class-level counter for generating unique display names for nameless agents
     _agent_counter = 0
@@ -391,9 +385,26 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             self._llm_init_params = params
             self._using_custom_llm = True
 
+    def _wire_deferred_history_callback(self):
+        """Point the LLM instance's deferred re-injection at the Agent's own history.
+
+        The LLM's own ``chat_history`` list has no readers when driven by an
+        Agent (Agent passes its separately-maintained history as a parameter),
+        so a resolved ``defer(...)`` result appended there would be lost. Wiring
+        the Agent's thread-safe append here lets background-completed deferred
+        tool results reach the next turn's context.
+        """
+        inst = self._llm_instance
+        if inst is not None:
+            try:
+                inst._agent_history_append = self._append_to_chat_history
+            except Exception:
+                pass
+
     def _ensure_llm_instance(self):
         """Lazy-create LLM instance from deferred init params (avoids import at Agent())."""
         if self._llm_instance is not None:
+            self._wire_deferred_history_callback()
             return self._llm_instance
         if self._panel_descriptor is not None:
             try:
@@ -410,6 +421,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                     "LLM features requested but dependencies not installed. "
                     "Please install with: pip install \"praisonaiagents[llm]\""
                 ) from e
+            self._wire_deferred_history_callback()
             return self._llm_instance
         if self._llm_init_params:
             try:
@@ -420,6 +432,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                     "LLM features requested but dependencies not installed. "
                     "Please install with: pip install \"praisonaiagents[llm]\""
                 ) from e
+        self._wire_deferred_history_callback()
         return self._llm_instance
 
     @property
@@ -431,6 +444,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         self._llm_instance = value
         if value is not None:
             self._llm_init_params = None
+            self._wire_deferred_history_callback()
 
     def _ensure_loop_guard(self):
         """Lazy-create loop guard on first tool execution."""
@@ -1436,7 +1450,16 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 elif memory_backend == "file":
                     memory = True
                 elif _memory_config.config:
-                    memory = _memory_config.config
+                    # Carry the backend into the dict. _init_memory reads the
+                    # provider as memory.get("provider", memory.get("backend",
+                    # "file")), so handing it the bare config lost the backend
+                    # entirely and silently fell back to FileMemory --
+                    # MemoryConfig(backend="sqlite", config={...}) built a
+                    # FileMemory while to_dict() went on reporting "sqlite".
+                    # An explicit provider/backend inside config still wins.
+                    memory = dict(_memory_config.config)
+                    if "provider" not in memory and "backend" not in memory:
+                        memory["provider"] = memory_backend
                 else:
                     memory = memory_backend
             elif hasattr(_memory_config, 'search') and hasattr(_memory_config, 'add'):
@@ -1459,9 +1482,18 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             if learn is False:
                 _learn_config = None
             elif learn is True:
-                # learn=True shorthand enables AGENTIC mode (auto-learning)
+                # learn=True is a coordinated posture (Issue #4864): enable
+                # AGENTIC extraction AND a conversational-aware nudge cadence in
+                # one switch, so an always-on companion bot actually learns.
+                # nudge_min_tool_iters=0 lets a chat-only turn (no tool calls)
+                # still nudge; auto_memory is turned on below so durable facts
+                # are captured on every turn, not just tool-using ones.
                 from ..memory.learn.protocols import LearnMode
-                _learn_config = LearnConfig(mode=LearnMode.AGENTIC)
+                _learn_config = LearnConfig(
+                    mode=LearnMode.AGENTIC,
+                    nudge_interval=10,
+                    nudge_min_tool_iters=0,
+                )
             elif isinstance(learn, LearnConfig):
                 _learn_config = learn
             elif isinstance(learn, dict):
@@ -1508,6 +1540,14 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         elif _learn_config is not None and isinstance(memory, dict):
             # Merge learn config into memory dict
             memory["learn"] = _learn_config.to_dict() if hasattr(_learn_config, 'to_dict') else _learn_config
+
+        # Coordinated learn posture (Issue #4864): the ``learn=True`` shorthand
+        # turns on conversational fact extraction too, so an always-on companion
+        # accrues durable persona/preferences from plain chat — not just from
+        # tool-using turns. Only defaults it on when the caller did not set
+        # auto_memory explicitly (via MemoryConfig), so an explicit choice wins.
+        if learn is True and auto_memory is None:
+            auto_memory = True
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve HISTORY from MemoryConfig - FAST PATH
@@ -2137,6 +2177,21 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         if reasoning_effort is not None:
             self._llm_option_kwargs['reasoning_effort'] = reasoning_effort
 
+        # Local-runtime descriptor: llm="local" (or "local:<engine>/<model>").
+        # Opt-in only -- discovery never fires for any other spec, so a fully
+        # configured agent pays nothing. Resolved here into a concrete
+        # provider/model so the normal LLM path handles it unchanged.
+        if isinstance(llm, str) and (llm == "local" or llm.startswith("local:")):
+            from ..local import resolve as _resolve_local
+            _spec = llm[len("local:"):] if llm.startswith("local:") else None
+            _target = _resolve_local(_spec or None)
+            llm = _target.litellm_model
+            if base_url is None:
+                base_url = _target.base_url
+            if api_key is None:
+                api_key = _target.api_key
+            self._local_target = _target
+
         # Panel (multi-model) descriptor: "panel:<name>" or {"provider": "panel"}.
         # Resolved lazily into a PanelLLM; composes with the normal tool loop.
         # Detected inline (no heavy import) to keep Agent() construction lazy.
@@ -2238,14 +2293,57 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # Otherwise, fall back to OpenAI environment/name (cached for performance)
         else:
             model_name = llm or Agent._get_default_model()
-            if auth:
+            # Pointing at a non-OpenAI endpoint without naming a model leaves the
+            # OpenAI default in place, so the endpoint is asked for a model it
+            # has never heard of -- Ollama answers 404 "model 'gpt-4o-mini' not
+            # found", which reads like an SDK bug rather than a missing line of
+            # config. Warn, don't raise: an OpenAI-compatible proxy may legitimately
+            # serve that exact name.
+            #
+            # Only fire when the resolved default really is the OpenAI default:
+            # a provider credential (e.g. OLLAMA_HOST) resolves an
+            # already-correct provider-prefixed model, so there is nothing to
+            # warn about. Read the endpoint in the order the OpenAI client uses
+            # (OPENAI_API_BASE before OPENAI_BASE_URL, see openai_client.py) so
+            # the message names the endpoint the request actually goes to.
+            if (
+                llm is None
+                and model_name == 'gpt-4o-mini'
+                and not os.getenv('OPENAI_MODEL_NAME')
+            ):
+                _endpoint = os.getenv('OPENAI_API_BASE') or os.getenv('OPENAI_BASE_URL')
+                if _endpoint and 'api.openai.com' not in _endpoint:
+                    global _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED
+                    if not _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED:
+                        with Agent._env_cache_lock:
+                            if not _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED:
+                                _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED = True
+                                logging.warning(
+                                    "No model specified, so the OpenAI default %r will be sent to %s. "
+                                    "That endpoint probably does not serve it. Set OPENAI_MODEL_NAME "
+                                    "to a model it does serve (e.g. OPENAI_MODEL_NAME=ollama/llama3.2), "
+                                    "or pass llm= explicitly.",
+                                    model_name, _endpoint,
+                                )
+            # A provider-prefixed model must be built as an LLM instance, which
+            # owns provider routing and the per-provider adapters. The
+            # `"/" in llm` branch above only inspects the explicit `llm=`
+            # argument, so a prefixed model that arrived from a credential env
+            # var (_PROVIDER_DEFAULT_MODELS) or from OPENAI_MODEL_NAME lands
+            # here instead and would otherwise fall through to the plain OpenAI
+            # client holding a model name OpenAI has never heard of. Re-check
+            # the *resolved* name so `llm="ollama/x"` and OLLAMA_HOST agree.
+            _has_provider_prefix = isinstance(model_name, str) and "/" in model_name
+            if auth or _has_provider_prefix:
                 # A subscription auth provider only takes effect inside LLM
                 # (which injects the resolved OAuth credentials), so a bare
                 # model name plus auth= must still build an LLM instance rather
                 # than falling through to the plain OpenAI client.
-                llm_params = {'model': model_name, 'auth': auth}
+                llm_params = {'model': model_name}
                 if api_key:
                     llm_params['api_key'] = api_key
+                if auth:
+                    llm_params['auth'] = auth
                 llm_params['metrics'] = metrics
                 llm_params['web_search'] = web_search
                 llm_params['web_fetch'] = web_fetch
@@ -2798,6 +2896,10 @@ Your Goal: {self.goal}
         # Learning configuration (top-level, peer to memory)
         # Stored for access via agent._learn_config
         self._learn_config = _learn_config
+        # Raw learn= intent, so surfaces that default-enable learning (e.g. the
+        # gateway/bot) can tell "unset" (None) apart from an explicit opt-out
+        # (learn=False) — both of which leave _learn_config None (Issue #4864).
+        self._learn_enabled = learn
 
         # Agent-centric feature instances (lazy loaded for zero performance impact)
         self._auto_memory = auto_memory
@@ -6572,6 +6674,9 @@ Answer:"""
         # ``self._tool_call_guardrails`` but nothing ever assigned it, so the
         # whole ``validate_tool_call`` surface was dead code. Always define it.
         self._tool_call_guardrails = []
+        # ``tool_execution._apply_tool_result_guardrails`` reads this to gate a
+        # tool's raw output before it re-enters the LLM context. Always define it.
+        self._tool_result_guardrails = []
         if self.guardrail is None:
             self._guardrail_fn = None
             return
@@ -6647,6 +6752,17 @@ Answer:"""
             and not getattr(_fn, "_praison_output_only", False)
         ):
             self._tool_call_guardrails = [_fn]
+
+        # Register the tool-result surface the same way. Output-only (string/LLM)
+        # guardrails are excluded on purpose: running an LLM validation after
+        # every tool result would be a hot-path regression, mirroring the
+        # tool-call exclusion above.
+        if (
+            _fn is not None
+            and callable(getattr(_fn, "validate_tool_result", None))
+            and not getattr(_fn, "_praison_output_only", False)
+        ):
+            self._tool_result_guardrails = [_fn]
 
     def _process_handoffs(self):
         """Process handoffs and convert them to tools that can be used by the agent."""

@@ -10,11 +10,17 @@ canonicalizer is one of the ad-hoc forms below.
 Each fixture declares ``diverges_under``. The declaration is recomputed here, not
 trusted: a vector that stopped diverging would otherwise keep documenting a
 distinction it no longer makes.
+
+RFC 8785's third divergence, number serialization, is in
+``tests/test_safe_integer_range.py``. No vector can carry it: a positive vector is
+a schema-valid record, and the records that reach that divergence are exactly the
+ones the schema rejects.
 """
 
 from __future__ import annotations
 
 import json
+from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -56,6 +62,7 @@ def test_vector_set_is_complete() -> None:
         "01-non-ascii-values.json",
         "02-non-bmp-values.json",
         "03-utf16-key-order.json",
+        "04-utf16-key-order-nested.json",
     ]
 
 
@@ -104,30 +111,25 @@ def test_every_adhoc_form_is_caught_by_some_vector() -> None:
     assert killed == set(ADHOC)
 
 
-def test_number_divergence_is_still_unreachable() -> None:
-    """No schema field is typed ``number``, so RFC 8785's IEEE 754 serialization
-    cannot diverge inside a schema-valid record and no vector exercises it.
+def test_every_adhoc_form_is_caught_by_at_least_two_vectors() -> None:
+    """Covered once is covered until that vector changes.
 
-    This pins the claim. The day a numeric field enters the schema, this fails, and
-    the correct response is a number-formatting vector in this set, not an edit here.
+    `sort_keys_compact_utf8` is the form a careful implementer actually reaches, and
+    it was separated by `03` alone: weaken or retire that one vector and the closest
+    non-conformant canonicalizer passes the whole set, with every other assertion
+    here still green. This is the margin rule of agentrust-io/trace-spec#124 applied
+    to the set that measures the section 3.2.2 MUST.
+
+    `04` is the second vector, and it is a distinct defect rather than a restatement:
+    it moves the divergence inside a nested object, so a canonicalizer that sorts by
+    UTF-16 code units at the outer levels and by code points below them passes `03`
+    and fails `04`.
     """
-    schema = json.loads(
-        (REPO_ROOT / "schema" / "trace-claim.json").read_text(encoding="utf-8")
+    counts = Counter(name for path in FIXTURE_PATHS
+                     for name in _load(path)["diverges_under"])
+    assert set(counts) == set(ADHOC), "a form is separated by no vector at all"
+    thin = {name: n for name, n in counts.items() if n < 2}
+    assert not thin, (
+        f"separated by a single vector: {thin}. One vector is coverage until that "
+        "vector changes; two are required per boundary."
     )
-
-    def types(node: Any) -> set[str]:
-        found: set[str] = set()
-        if isinstance(node, dict):
-            declared = node.get("type")
-            if isinstance(declared, str):
-                found.add(declared)
-            elif isinstance(declared, list):
-                found.update(t for t in declared if isinstance(t, str))
-            for value in node.values():
-                found |= types(value)
-        elif isinstance(node, list):
-            for item in node:
-                found |= types(item)
-        return found
-
-    assert "number" not in types(schema)

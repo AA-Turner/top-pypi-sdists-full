@@ -191,6 +191,57 @@ SQLITE_CONNECT_ALLOWLIST: dict[str, Classification] = {
         "test_deploy_coord_db_backup.py directly above, and filed A alongside "
         "it.",
     ),
+    "test_dr_verify.py": Classification(
+        4, (BUCKET_A,),
+        "#3119's DR-verify lane — the restore half of test_backup.py directly "
+        "above, and filed A for the same reason. All four sites build or "
+        "mutate a real on-disk SQLite *file* that is then snapshotted, "
+        "uploaded through a fake restic and restored: make_store() writes the "
+        "live schema to a path (the whole lane is about a file that leaves the "
+        "machine and comes back), and hollow_out_assignments() / the "
+        "`schema_version` rewind mutate a copy to manufacture the two "
+        "restores-cleanly-but-is-not-a-recovery cases the acceptance criteria "
+        "name. +1 for #3135's add_ancient_terminal_assignments(), which bulk-"
+        "inserts old terminal rows into the live store *file* so that #762's "
+        "board retention cap makes `/board` serve materially fewer assignments "
+        "than the raw table holds — the production shape whose absence let the "
+        "parity step compare a filtered `/board` count against an unfiltered "
+        "table count and stay permanently red. It has to be that same on-disk "
+        "file, because the very next thing the test does is restic it and "
+        "restore it. (The zero-assignments parity case reuses "
+        "hollow_out_assignments() rather than opening its own connection, so "
+        "#3135 added one site, not two.) "
+        "The autouse coord_db fixture cannot serve any of them — there "
+        "is no file to restic — and scratch_database() is out for the usual "
+        "backend-following reason: under COORD_TEST_BACKEND=postgres these "
+        "would be asserting about a database with no integrity_check and no "
+        "`schema_version` file to rewind. The Postgres arm of this lane "
+        "(pg_restore --list, and the refusal to claim recovery it cannot "
+        "prove) is tested through a monkeypatched backend and adds no site "
+        "here.",
+    ),
+    "test_dr_promote.py": Classification(
+        2, (BUCKET_A,),
+        "#3129's DR-promote lane — rung D3, the third file of the same "
+        "on-disk-file lane as test_backup.py and test_dr_verify.py directly "
+        "above, and filed A for the same reason. Both sites are a real "
+        "SQLite *file* whose file-ness is the subject, because this rung is "
+        "about a store that leaves one machine and is stood back up on "
+        "another: the first seeds the snapshot restic will restore "
+        "(`_ensure_schema` + the #748 board fixture written to a path inside "
+        "the fake restic repo), and the second — `store_assignments()` — "
+        "re-opens the *restored* file by path to count `assignments`, which "
+        "is the parity assertion the whole rung exists to make. The autouse "
+        "coord_db fixture cannot serve either: there is no path to hand "
+        "restic, and the file under assertion is one a subprocess created. "
+        "scratch_database() is out for the usual backend-following reason — "
+        "under COORD_TEST_BACKEND=postgres there is no file for restic to "
+        "snapshot and no restored file to re-open, so these would be "
+        "asserting about a different recovery story than the one shipped. "
+        "The credential, unit-state and git halves of this file go through "
+        "real subprocess shims on $PATH rather than a database and add no "
+        "site here.",
+    ),
     "test_test_orchestrator.py": Classification(
         2, (BUCKET_A,),
         "Judgement call: _migrate_add_columns idempotency + PRAGMA "

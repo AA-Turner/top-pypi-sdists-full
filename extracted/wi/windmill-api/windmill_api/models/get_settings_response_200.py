@@ -63,6 +63,12 @@ class GetSettingsResponse200:
             server. NULL or 0 means disabled.
         error_handler_fallback_to_instance_alerts (Union[Unset, bool]): Report failed jobs to the instance critical
             alert channels when no workspace error handler is set.
+        guest_access_enabled (Union[Unset, bool]): Whether this workspace admits guest sessions. An app's own `guest`
+            execution mode is inert while this is false.
+        guest_jwt_public_key (Union[Unset, str]): PEM public key a guest JWT (`jwt_guest_`) is verified against for this
+            workspace. Mutually exclusive with `guest_jwt_jwks_url`.
+        guest_jwt_jwks_url (Union[Unset, str]): JWKS URL a guest JWT (`jwt_guest_`) is verified against for this
+            workspace. Mutually exclusive with `guest_jwt_public_key`.
     """
 
     workspace_id: Union[Unset, str] = UNSET
@@ -95,6 +101,9 @@ class GetSettingsResponse200:
     operator_settings: Union[Unset, None, "GetSettingsResponse200OperatorSettings"] = UNSET
     public_app_execution_limit_per_minute: Union[Unset, int] = UNSET
     error_handler_fallback_to_instance_alerts: Union[Unset, bool] = UNSET
+    guest_access_enabled: Union[Unset, bool] = UNSET
+    guest_jwt_public_key: Union[Unset, str] = UNSET
+    guest_jwt_jwks_url: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -164,6 +173,9 @@ class GetSettingsResponse200:
 
         public_app_execution_limit_per_minute = self.public_app_execution_limit_per_minute
         error_handler_fallback_to_instance_alerts = self.error_handler_fallback_to_instance_alerts
+        guest_access_enabled = self.guest_access_enabled
+        guest_jwt_public_key = self.guest_jwt_public_key
+        guest_jwt_jwks_url = self.guest_jwt_jwks_url
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -228,6 +240,12 @@ class GetSettingsResponse200:
             field_dict["public_app_execution_limit_per_minute"] = public_app_execution_limit_per_minute
         if error_handler_fallback_to_instance_alerts is not UNSET:
             field_dict["error_handler_fallback_to_instance_alerts"] = error_handler_fallback_to_instance_alerts
+        if guest_access_enabled is not UNSET:
+            field_dict["guest_access_enabled"] = guest_access_enabled
+        if guest_jwt_public_key is not UNSET:
+            field_dict["guest_jwt_public_key"] = guest_jwt_public_key
+        if guest_jwt_jwks_url is not UNSET:
+            field_dict["guest_jwt_jwks_url"] = guest_jwt_jwks_url
 
         return field_dict
 
@@ -369,6 +387,12 @@ class GetSettingsResponse200:
 
         error_handler_fallback_to_instance_alerts = d.pop("error_handler_fallback_to_instance_alerts", UNSET)
 
+        guest_access_enabled = d.pop("guest_access_enabled", UNSET)
+
+        guest_jwt_public_key = d.pop("guest_jwt_public_key", UNSET)
+
+        guest_jwt_jwks_url = d.pop("guest_jwt_jwks_url", UNSET)
+
         get_settings_response_200 = cls(
             workspace_id=workspace_id,
             slack_name=slack_name,
@@ -400,6 +424,9 @@ class GetSettingsResponse200:
             operator_settings=operator_settings,
             public_app_execution_limit_per_minute=public_app_execution_limit_per_minute,
             error_handler_fallback_to_instance_alerts=error_handler_fallback_to_instance_alerts,
+            guest_access_enabled=guest_access_enabled,
+            guest_jwt_public_key=guest_jwt_public_key,
+            guest_jwt_jwks_url=guest_jwt_jwks_url,
         )
 
         get_settings_response_200.additional_properties = d

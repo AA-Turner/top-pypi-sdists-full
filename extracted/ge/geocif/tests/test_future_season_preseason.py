@@ -143,6 +143,27 @@ class TestPreSeasonInitMonths(unittest.TestCase):
 
         self.assertEqual(get_pre_season_init_months(3), [9, 10, 11, 12, 1, 2])
 
+    def test_extend_to_never_truncates_pre_season_window(self):
+        """Running in Sep for a Nov planting must still cover the Oct init
+        (hindcast years HAVE October data); extend_to only extends."""
+        from geocif.utils import get_pre_season_init_months
+
+        # current month (9) before planting-1 (10): full window, no extension
+        self.assertEqual(
+            get_pre_season_init_months(11, extend_to_month=9),
+            [5, 6, 7, 8, 9, 10],
+        )
+        # current month past planting (12): window + in-season inits 11, 12
+        self.assertEqual(
+            get_pre_season_init_months(11, extend_to_month=12),
+            [5, 6, 7, 8, 9, 10, 11, 12],
+        )
+        # wrap case preserved: extend == earliest walks the full cycle
+        self.assertEqual(
+            get_pre_season_init_months(3, extend_to_month=9),
+            [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7, 8],
+        )
+
 
 class TestMaxForecastSeason(unittest.TestCase):
     def test_reads_max_across_countries(self):
@@ -325,6 +346,47 @@ class TestExecuteGuardPsOnlySeason(unittest.TestCase):
         ns, called = self._ns(df)
         ns.execute()
         self.assertEqual(called["multi"], 1)
+
+
+class TestMergeDataPsMonths(unittest.TestCase):
+    """Anchor drift: CID uses mode-of-transitions planting (Nov), ML uses
+    longest-Stage_ID chain (Oct when one region plants early). Data-backed
+    PS months must always get a step, in chronological order."""
+
+    def test_data_month_outside_window_is_added(self):
+        from geocif.geocif import Geocif
+
+        # ML window computed [4..9] (season_start=10), data has PS_6..PS_10
+        out = Geocif.merge_data_ps_months(
+            [4, 5, 6, 7, 8, 9], [6, 7, 8, 9, 10], season_start=10
+        )
+        self.assertEqual(out, [4, 5, 6, 7, 8, 9, 10])
+
+    def test_no_drift_is_identity(self):
+        from geocif.geocif import Geocif
+
+        out = Geocif.merge_data_ps_months(
+            [5, 6, 7, 8, 9, 10], [6, 7, 8, 9, 10], season_start=11
+        )
+        self.assertEqual(out, [5, 6, 7, 8, 9, 10])
+
+    def test_in_season_months_sort_after_ps(self):
+        from geocif.geocif import Geocif
+
+        # forecast-only extension past planting: 11, 12 are in-season
+        out = Geocif.merge_data_ps_months(
+            [5, 6, 7, 8, 9, 10, 11, 12], [6, 10], season_start=11
+        )
+        self.assertEqual(out, [5, 6, 7, 8, 9, 10, 11, 12])
+
+    def test_wrap_season_order(self):
+        from geocif.geocif import Geocif
+
+        # Togo-like: planting Mar, window Sep..Feb
+        out = Geocif.merge_data_ps_months(
+            [9, 10, 11, 12, 1, 2], [10, 1], season_start=3
+        )
+        self.assertEqual(out, [9, 10, 11, 12, 1, 2])
 
 
 class TestCiGateFutureSeason(unittest.TestCase):

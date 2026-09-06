@@ -3,7 +3,7 @@
 # :Author:    John Anderson <sontek@gmail.com>
 # :License:   MIT License
 # :Copyright: © 2015 John Anderson
-# :Copyright: © 2016, 2017, 2018, 2019, 2020, 2021, 2024 Lele Gaifax
+# :Copyright: © 2016, 2017, 2018, 2019, 2020, 2021, 2024, 2026 Lele Gaifax
 #
 
 import random
@@ -103,6 +103,27 @@ def test_dumps_default():
 
     result = rj.dumps(2 + 1j, default=encode_complex)
     assert result == '[2.0,1.0]'
+
+
+def test_dumps_default_issue238():
+    lst = [object() for _ in range(256)]
+
+    def default(o):
+        del lst[128:]
+        return None
+
+    result = rj.dumps(lst, default=default)
+    assert len(rj.loads(result)) == 128
+
+    lst = [object() for _ in range(128)]
+
+    def default(o):
+        if len(lst) < 256:
+            lst.append(object())
+        return None
+
+    result = rj.dumps(lst, default=default)
+    assert len(rj.loads(result)) == 256
 
 
 def test_encoder_default():

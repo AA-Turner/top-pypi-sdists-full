@@ -27,7 +27,6 @@ __TyperOption: Type["typer.core.TyperOption"]
 
 
 class _PatchedTyperContext(RichContext):
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         RichContext.__init__(self, *args, **kwargs)
 
@@ -251,15 +250,15 @@ class _PatchedRichCommand(RichCommand, metaclass=PatchMeta):
     pass
 
 
-class _PatchedRichMultiCommand(RichMultiCommand, _PatchedRichCommand):
+class _PatchedRichMultiCommand(RichMultiCommand, _PatchedRichCommand):  # type: ignore[misc,unused-ignore]
     pass
 
 
-class _PatchedRichCommandCollection(RichCommandCollection, _PatchedRichCommand):
+class _PatchedRichCommandCollection(RichCommandCollection, _PatchedRichCommand):  # type: ignore[misc,unused-ignore]
     pass
 
 
-class _PatchedRichGroup(RichGroup, _PatchedRichCommand):
+class _PatchedRichGroup(RichGroup, _PatchedRichCommand):  # type: ignore[misc,unused-ignore]
     pass
 
 
@@ -290,7 +289,7 @@ def rich_group(*args, **kwargs):  # type: ignore[no-untyped-def]
 def patch(
     rich_config: Optional[RichHelpConfiguration] = None,
     *,
-    patch_rich_click: bool = False,
+    patch_rich_click: bool = True,
     patch_typer: bool = False,
 ) -> None:
     """Patch Click internals to use rich-click types."""
@@ -307,15 +306,15 @@ def patch(
         rich_click.rich_command.OVERRIDES_GUARD = True
         click.group = rich_group
         click.command = rich_command
-        click.Group = _PatchedRichGroup  # type: ignore[misc]
-        click.Command = _PatchedRichCommand  # type: ignore[misc]
-        click.CommandCollection = _PatchedRichCommandCollection  # type: ignore[misc]
+        click.Group = _PatchedRichGroup  # type: ignore[assignment,misc,unused-ignore]
+        click.Command = _PatchedRichCommand  # type: ignore[assignment,misc,unused-ignore]
+        click.CommandCollection = _PatchedRichCommandCollection  # type: ignore[assignment,misc,unused-ignore]
         click.Argument = _PatchedArgument  # type: ignore[misc]
         click.Option = _PatchedOption  # type: ignore[misc]
 
-        click.core.Group = _PatchedRichGroup  # type: ignore[misc]
-        click.core.Command = _PatchedRichCommand  # type: ignore[misc]
-        click.core.CommandCollection = _PatchedRichCommandCollection  # type: ignore[misc]
+        click.core.Group = _PatchedRichGroup  # type: ignore[assignment,misc,unused-ignore]
+        click.core.Command = _PatchedRichCommand  # type: ignore[assignment,misc,unused-ignore]
+        click.core.CommandCollection = _PatchedRichCommandCollection  # type: ignore[assignment,misc,unused-ignore]
         click.core.Argument = _PatchedArgument  # type: ignore[misc]
         click.core.Option = _PatchedOption  # type: ignore[misc]
 
@@ -324,9 +323,9 @@ def patch(
         if patch_rich_click:
             rich_click.group = rich_group
             rich_click.command = rich_command
-            rich_click.Group = _PatchedRichGroup  # type: ignore[misc]
-            rich_click.Command = _PatchedRichCommand  # type: ignore[misc]
-            rich_click.CommandCollection = _PatchedRichCommandCollection  # type: ignore[misc]
+            rich_click.Group = _PatchedRichGroup  # type: ignore[assignment,misc,unused-ignore]
+            rich_click.Command = _PatchedRichCommand  # type: ignore[assignment,misc,unused-ignore]
+            rich_click.CommandCollection = _PatchedRichCommandCollection  # type: ignore[assignment,misc,unused-ignore]
             if hasattr(click, "MultiCommand"):
                 rich_click.MultiCommand = _PatchedRichMultiCommand  # type: ignore[assignment,misc,unused-ignore]
 

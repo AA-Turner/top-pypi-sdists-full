@@ -3,7 +3,7 @@
 # :Created:   dom 10 feb 2019 13:47:32 CET
 # :Author:    Lele Gaifax <lele@metapensiero.it>
 # :License:   MIT License
-# :Copyright: © 2019, 2025 Lele Gaifax
+# :Copyright: © 2019, 2025, 2026 Lele Gaifax
 #
 
 import io
@@ -12,6 +12,7 @@ import gc
 
 import pytest
 import rapidjson as rj
+
 
 tracemalloc = pytest.importorskip("tracemalloc")
 
@@ -124,4 +125,31 @@ def test_failed_validation():
 
     for stat in top_stats[:10]:
         # Uhm, with Py 3.14, on macOS,  the diff is 3...
+        assert stat.count_diff <= 3
+
+
+def test_rejected_rawjson_value():
+    tracemalloc.start()
+
+    snapshot1 = tracemalloc.take_snapshot().filter_traces((
+        tracemalloc.Filter(True, __file__),))
+
+    # start the test
+    for j in range(1000):
+        try:
+            rj.RawJSON(j)
+        except TypeError:
+            pass
+
+    del j
+
+    gc.collect()
+
+    snapshot2 = tracemalloc.take_snapshot().filter_traces((
+        tracemalloc.Filter(True, __file__),))
+
+    top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+    tracemalloc.stop()
+
+    for stat in top_stats[:10]:
         assert stat.count_diff <= 3

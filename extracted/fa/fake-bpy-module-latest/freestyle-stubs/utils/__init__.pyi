@@ -13,6 +13,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import _bpy_types
 import bpy.types
 import freestyle.types
 import mathutils
@@ -184,7 +185,7 @@ def iter_distance_from_object(
 def iter_material_value(
     stroke: freestyle.types.Stroke,
     func: collections.abc.Callable[
-        [freestyle.types.Interface0DIterator], freestyle.types.Material
+        [freestyle.types.Interface0DIterator], _bpy_types.Material
     ],
     attribute: str,
 ) -> None:
@@ -201,7 +202,7 @@ def iter_t2d_along_stroke(stroke: freestyle.types.Stroke) -> None:
     :param stroke: A stroke.
     """
 
-def material_from_fedge(fe: freestyle.types.FEdge) -> None | freestyle.types.Material:
+def material_from_fedge(fe: freestyle.types.FEdge) -> None | _bpy_types.Material:
     """Get the diffuse RGBA color from an FEdge.
 
     :param fe: An FEdge.

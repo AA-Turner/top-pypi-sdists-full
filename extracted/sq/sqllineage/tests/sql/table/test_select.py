@@ -1,3 +1,7 @@
+import pytest
+
+from sqllineage.core.models import Schema, Table
+
 from ...helpers import assert_table_lineage_equal
 
 
@@ -193,6 +197,21 @@ WHERE col1 IN (SELECT max(col1) FROM tab2)""",
     )
 
 
+def test_select_scalar_subquery_in_projection():
+    assert_table_lineage_equal(
+        "SELECT (SELECT max(col1) FROM tab1) AS c1, col2 FROM tab2",
+        {"tab1", "tab2"},
+    )
+
+
+def test_select_subquery_in_case_else():
+    assert_table_lineage_equal(
+        "SELECT CASE WHEN col1 = 1 THEN col2 "
+        "ELSE (SELECT max(col3) FROM tab2) END AS c FROM tab1",
+        {"tab1", "tab2"},
+    )
+
+
 def test_select_subquery_in_function():
     assert_table_lineage_equal(
         "SELECT TO_DATE((SELECT MIN(dt) FROM tab1))",
@@ -366,3 +385,26 @@ def test_non_reserved_keyword_as_source():
 
 def test_select_in_parenthesis():
     assert_table_lineage_equal("(SELECT * FROM tab1)", {"tab1"}, test_sqlparse=False)
+
+
+def test_select_from_quoted_table_with_dots():
+    """quoted identifier with dots is a single table name, not schema.table"""
+    assert_table_lineage_equal(
+        'SELECT * FROM "1.2.3.SomeTable"',
+        {Table("1.2.3.SomeTable", escaped=True)},
+    )
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ('SELECT * FROM "MyTable"', {Table("MyTable", escaped=True)}),
+        (
+            'SELECT * FROM schema."MyTable"',
+            {Table("MyTable", Schema("schema"), escaped=True)},
+        ),
+    ],
+)
+def test_select_from_quoted_table_preserves_case(sql: str, expected: set[Table]):
+    """quoted table name is case-sensitive, not lowercased"""
+    assert_table_lineage_equal(sql, expected)

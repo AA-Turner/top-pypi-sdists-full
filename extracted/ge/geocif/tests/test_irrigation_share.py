@@ -161,6 +161,29 @@ def test_annual_region_block_is_disjoint_from_static_eo():
     assert not (set(di.dict_annual_region) & set(di.dict_static_eo))
 
 
+def test_bare_columns_survive_the_correlation_plots_false_fallback():
+    """The usa_admin2 config runs ``correlation_plots = False``, which takes
+    the branch that REPLACES feature_names with get_cid_column_names(df_train)
+    and never reaches the force-include block at the end of
+    create_feature_names. If the irrigation columns did not survive that
+    filter they would be silently dropped and the A/B arms would come out
+    bit-identical -- precisely the bug that wasted the 2026-09-02 CCI arms.
+    """
+    from geocif import utils
+
+    df = pd.DataFrame({
+        "Region": ["a"], "Harvest Year": [2012], "Yield (tn per ha)": [1.0],
+        "MEAN_NDVI Jul 1-Jul 31": [0.5],
+        "IRR_SHARE": [0.5], "IRR_SHARE_X_STRESS": [0.1],
+    })
+    cols = utils.filter_cid_columns(
+        df, ["Region", "Harvest Year"], "Yield (tn per ha)", []
+    )
+    assert "IRR_SHARE" in cols and "IRR_SHARE_X_STRESS" in cols, (
+        "irrigation features are dropped when correlation_plots = False"
+    )
+
+
 def test_create_feature_names_force_includes_the_annual_block():
     src = (pathlib.Path(__import__("geocif").__file__).parent
            / "geocif.py").read_text(encoding="utf-8", errors="ignore")

@@ -1,4 +1,4 @@
-project('scs', 'c')
+project('scs', 'c', default_options: ['b_lto=true'])
 
 py = import('python').find_installation(pure: false)
 
@@ -21,15 +21,73 @@ print(incdir)
 '''], check: true).stdout().strip()
 
 # Get BLAS
+#
+# link_mkl links every extension against a dynamic MKL from the environment
+# (conda/source builds). mkl_static_prefix builds only _scs_mkl, with MKL
+# linked statically, while every other extension uses the platform BLAS: the
+# x86-64 Linux wheel configuration (see pyproject.toml for why).
 blas_deps = []
+mkl_blas_deps = []
+mkl_pkg_name = ''
+mkl_static_prefix = get_option('mkl_static_prefix')
+if get_option('link_mkl') and mkl_static_prefix != ''
+    error('link_mkl and mkl_static_prefix are mutually exclusive.')
+endif
 if get_option('link_mkl')
-    blas_deps = [cc.find_library('mkl_rt', required : false)]
-    if not blas_deps[0].found()
-        blas_deps = [dependency('mkl-sdl', required : false)]
+    if get_option('use_blas64') and get_option('int32')
+        error('MKL BLAS64 requires 64-bit SCS integers. Re-run Meson with -Dint32=false.')
     endif
-    if not blas_deps[0].found()
-      blas_deps = [ dependency('mkl-dynamic-ilp64-iomp', required: false) ]
+    # Link against MKL component libraries. The integer width must match:
+    #   use_blas64=false (default) -> LP64  (32-bit BLAS integers)
+    #   use_blas64=true            -> ILP64 (64-bit BLAS integers)
+    #
+    # Note: PARDISO integer width is independent — it is controlled by the
+    # pardiso vs pardiso_64 entry point (selected via DLONG), not by the
+    # interface layer. See linsys/mkl/direct/private.c for details.
+    # Prefer Intel OpenMP (iomp) for multi-threaded MKL, fall back to
+    # sequential if iomp is not available.
+    #
+    # TODO: On Windows the conda MKL iomp .pc file (mkl-dynamic-*-iomp)
+    # has broken Cflags (raw path without -I prefix). Revisit once Intel
+    # ships a fixed pkg-config file; until then Windows gets sequential MKL.
+    if get_option('use_blas64')
+        _mkl_iomp = 'mkl-dynamic-ilp64-iomp'
+        _mkl_seq = 'mkl-dynamic-ilp64-seq'
+    else
+        _mkl_iomp = 'mkl-dynamic-lp64-iomp'
+        _mkl_seq = 'mkl-dynamic-lp64-seq'
     endif
+    if host_machine.system() == 'windows'
+        # On Windows the conda MKL iomp .pc file has broken Cflags (raw path
+        # without -I prefix). Use sequential MKL until Intel ships a fix.
+        mkl_blas_deps = [dependency(_mkl_seq, required : false)]
+        if mkl_blas_deps[0].found()
+            mkl_pkg_name = _mkl_seq
+        endif
+    else
+        mkl_blas_deps = [dependency(_mkl_iomp, required : false)]
+        if not mkl_blas_deps[0].found()
+            mkl_blas_deps = [dependency(_mkl_seq, required : false)]
+            if mkl_blas_deps[0].found()
+                mkl_pkg_name = _mkl_seq
+            endif
+        else
+            mkl_pkg_name = _mkl_iomp
+        endif
+    endif
+    if not mkl_blas_deps[0].found()
+        mkl_blas_deps = [cc.find_library('mkl_rt', required : false)]
+    endif
+    if not mkl_blas_deps[0].found()
+        mkl_blas_deps = [dependency('mkl-sdl', required : false)]
+    endif
+    if not mkl_blas_deps[0].found() and not get_option('sdist_mode')
+        error('link_mkl was requested but MKL was not found.')
+    endif
+endif
+
+if get_option('link_mkl')
+    blas_deps = mkl_blas_deps
 else
     if host_machine.system() == 'darwin'
         blas_deps = [dependency('Accelerate')]
@@ -70,19 +128,31 @@ if not blas_deps[0].found() and not get_option('sdist_mode')
 endif
 
 # Common
-common_c_args = cc.get_supported_arguments('-Wno-unused-result') + [
-  '-DPYTHON', '-DCTRLC=1'
-]
+common_c_args = cc.get_supported_arguments(
+  '-Wno-unused-result',
+  '-fno-math-errno',   # math fns need not set errno; SCS never checks it
+  '-funroll-loops',    # matches scs.mk; benefits tight ADMM iteration loops
+) + ['-DPYTHON', '-DCTRLC=1']
 common_includes = [
   'scs',
   'scs_source/include',
   'scs_source/linsys',
   incdir_numpy
 ]
-_deps = [blas_deps]
-if get_option('use_openmp')
-  _deps += dependency('openmp')
+if get_option('native_arch')
+  native_flag = cc.get_supported_arguments('-march=native')
+  if native_flag.length() > 0
+    common_c_args += native_flag
+  else
+    warning('native_arch requested but -march=native is not supported by this compiler')
+  endif
 endif
+
+_base_deps = [dependency('threads')]
+if get_option('use_openmp')
+  _base_deps += dependency('openmp')
+endif
+_deps = [blas_deps] + _base_deps
 
 is_linux = host_machine.system() == 'linux'
 if is_linux
@@ -93,11 +163,25 @@ if get_option('use_lapack')
   common_c_args += '-DUSE_LAPACK=1'
 endif
 
+use_spectral_cones = get_option('use_spectral_cones')
+if use_spectral_cones
+  if not get_option('use_lapack')
+    error('Spectral cones require LAPACK. Please re-run Meson with -Duse_lapack=true')
+  endif
+  common_c_args += '-DUSE_SPECTRAL_CONES=1'
+endif
+
 if get_option('use_singleprec')
   common_c_args += '-DSFLOAT=1'
 endif
 
 if get_option('use_blas64')
+  if not get_option('link_mkl')
+    # Declaring 64-bit BLAS integers while linking an LP64 BLAS (the standard
+    # Accelerate/OpenBLAS builds) corrupts every BLAS call; only the MKL ILP64
+    # configuration is verified.
+    error('use_blas64=true requires link_mkl=true (ILP64 MKL).')
+  endif
   common_c_args += '-DBLAS64=1'
 endif
 
@@ -121,35 +205,11 @@ if is_gpu_build and not cuda_dep.found()
   error('GPU build requested but CUDA toolkit was not found.')
 endif
 
-if get_option('use_gpu')
-  gpu_c_args = common_c_args + ['-DPY_GPU=1', '-DINDIRECT=1']
-  _deps += cuda_dep
-  if get_option('gpu_atrans')
-    gpu_c_args += '-DGPU_TRANSPOSE_MAT=1'
-  endif
-  ext_modules += py.extension_module(
-    '_scs_gpu',
-    common_sources,
-    # In Meson, sources with a `.cu` extension are compiled with nvcc by default.
-    # To compile `.c` files with nvcc, they must be explicitly targeted.
-    # It is strongly recommended to rename CUDA-C files to `.cu`.
-    fs.glob('scs_source/linsys/gpu/*.c'),
-    fs.glob('scs_source/linsys/gpu/indirect/*.c'),
-    c_args: gpu_c_args,
-    dependencies: _deps,
-    include_directories: [
-      common_includes, 'scs_source/linsys/gpu/', 'scs_source/linsys/gpu/indirect'
-    ],
-    install: true,
-    install_dir: scs_dir,
-  )
-endif
-
 # Sources
 scs_core_sources = files(
   'scs_source/src/aa.c',
   'scs_source/src/cones.c',
-  'scs_source/src/ctrlc.c',
+  'scs/py_ctrlc.c',
   'scs_source/src/exp_cone.c',
   'scs_source/src/linalg.c',
   'scs_source/src/normalize.c',
@@ -163,6 +223,21 @@ common_linsys_sources = files(
   'scs_source/linsys/scs_matrix.c',
   'scs_source/linsys/csparse.c'
 )
+
+spectral_cone_sources = []
+if use_spectral_cones
+  spectral_cone_sources = files(
+    'scs_source/src/spectral_cones/logdeterminant/log_cone_Newton.c',
+    'scs_source/src/spectral_cones/logdeterminant/log_cone_IPM.c',
+    'scs_source/src/spectral_cones/logdeterminant/log_cone_wrapper.c',
+    'scs_source/src/spectral_cones/logdeterminant/logdet_cone.c',
+    'scs_source/src/spectral_cones/nuclear/ell1_cone.c',
+    'scs_source/src/spectral_cones/nuclear/nuclear_cone.c',
+    'scs_source/src/spectral_cones/sum-largest/sum_largest_cone.c',
+    'scs_source/src/spectral_cones/sum-largest/sum_largest_eval_cone.c',
+    'scs_source/src/spectral_cones/util_spectral_cones.c',
+  )
+endif
 
 amd_sources = files(
   'scs_source/linsys/external/amd/amd_1.c',
@@ -191,6 +266,7 @@ py.extension_module(
   common_linsys_sources,
   scs_core_sources,
   amd_sources,
+  spectral_cone_sources,
   c_args: common_c_args,
   include_directories: common_includes + [
     'scs_source/linsys/cpu/direct',
@@ -208,6 +284,7 @@ py.extension_module(
   'scs_source/linsys/cpu/indirect/private.c',
   common_linsys_sources,
   scs_core_sources,
+  spectral_cone_sources,
   c_args: common_c_args + ['-DPY_INDIRECT', '-DINDIRECT=1'],
   include_directories: common_includes + ['scs_source/linsys/cpu/indirect'],
   dependencies: _deps,
@@ -215,15 +292,143 @@ py.extension_module(
   install: true,
 )
 
+if get_option('use_lapack')
+  py.extension_module(
+    '_scs_dense',
+    'scs/scspy.c',
+    'scs_source/linsys/cpu/dense/private.c',
+    common_linsys_sources,
+    scs_core_sources,
+    spectral_cone_sources,
+    c_args: common_c_args + ['-DPY_DENSE'],
+    include_directories: common_includes + ['scs_source/linsys/cpu/dense'],
+    dependencies: _deps,
+    install_dir: scs_dir,
+    install: true,
+  )
+endif
+
+if get_option('use_gpu')
+  gpu_c_args = common_c_args + ['-DPY_GPU=1', '-DINDIRECT=1']
+  cublas_dep = cc.find_library('cublas', required: false)
+  if not cublas_dep.found()
+    cublas_dep = dependency('cublas', required: true)
+  endif
+  cusparse_dep = cc.find_library('cusparse', required: false)
+  if not cusparse_dep.found()
+    cusparse_dep = dependency('cusparse', required: true)
+  endif
+  # Scope the CUDA libraries to this target rather than mutating the shared
+  # `_deps`, so they don't leak into _scs_mkl / _scs_accelerate / _scs_cudss
+  # when use_gpu is combined with those backends.
+  gpu_deps = _deps + [cuda_dep, cublas_dep, cusparse_dep]
+  if get_option('gpu_atrans')
+    gpu_c_args += '-DGPU_TRANSPOSE_MAT=1'
+  endif
+  py.extension_module(
+    '_scs_gpu',
+    'scs/scspy.c',
+    common_linsys_sources,
+    scs_core_sources,
+    spectral_cone_sources,
+    # In Meson, sources with a `.cu` extension are compiled with nvcc by default.
+    # To compile `.c` files with nvcc, they must be explicitly targeted.
+    # It is strongly recommended to rename CUDA-C files to `.cu`.
+    # Meson's fs module has no glob(), so these are listed explicitly; keep in
+    # sync with the .c files under scs_source/linsys/gpu{,/indirect}.
+    'scs_source/linsys/gpu/gpu.c',
+    'scs_source/linsys/gpu/indirect/private.c',
+    c_args: gpu_c_args,
+    dependencies: gpu_deps,
+    include_directories: [
+      common_includes, 'scs_source/linsys/gpu/', 'scs_source/linsys/gpu/indirect'
+    ],
+    install: true,
+    install_dir: scs_dir,
+  )
+endif
+
 if get_option('link_mkl')
+  # The MKL backend calls MKL_Set_Interface_Layer() for a runtime interface
+  # check. This symbol is only exported by mkl_rt (the single dynamic library),
+  # not by component libraries (mkl_intel_lp64 etc.) that pkg-config may link.
+  # Add mkl_rt explicitly so the symbol is always available.
+  mkl_rt_dep = dependency('mkl-sdl', required : false)
+  if not mkl_rt_dep.found()
+    mkl_rt_dep = cc.find_library('mkl_rt', required : false)
+  endif
+  if not mkl_rt_dep.found() and mkl_pkg_name != ''
+    # Search next to the pkg-config-provided MKL component libraries.
+    _mkl_libdir = mkl_blas_deps[0].get_variable(pkgconfig: 'libdir', default_value: '')
+    if _mkl_libdir != ''
+      mkl_rt_dep = cc.find_library('mkl_rt', dirs: [_mkl_libdir], required : false)
+    endif
+  endif
+  if not mkl_rt_dep.found()
+    error('link_mkl requires mkl_rt (or mkl-sdl). _scs_mkl calls MKL_Set_Interface_Layer() at startup and cannot be built safely without it.')
+  endif
+  _mkl_deps = _deps + [mkl_rt_dep]
+  # The core's reference to MKL_Set_Interface_Layer is weak (static MKL has
+  # no mkl_rt), so with --as-needed the linker would drop mkl_rt, the
+  # symbol would resolve to NULL and the interface-layer guard would be
+  # skipped. Keep mkl_rt a hard dependency of the dynamic build.
+  _mkl_link_args = is_linux ? ['-Wl,--no-as-needed'] : []
+elif mkl_static_prefix != ''
+  # Intel's mkl-static archives: LP64, sequential, linked as a group (they
+  # reference each other) with every MKL symbol hidden so an MKL already in
+  # the process is never interposed. The core's MKL_Set_Interface_Layer
+  # reference is weak, so the mkl_rt-only runtime check is skipped.
+  if get_option('use_blas64')
+    error('mkl_static_prefix links the LP64 interface; use link_mkl for ILP64 MKL builds.')
+  endif
+  _mkl_lib = mkl_static_prefix / 'lib'
+  _mkl_archives = []
+  foreach _a : ['libmkl_intel_lp64.a', 'libmkl_sequential.a', 'libmkl_core.a']
+    if not fs.exists(_mkl_lib / _a)
+      error('mkl_static_prefix: ' + (_mkl_lib / _a) + ' not found (pip install mkl-static).')
+    endif
+    _mkl_archives += _mkl_lib / _a
+  endforeach
+  _mkl_deps = _base_deps + [cc.find_library('dl'), cc.find_library('m'), cc.find_library('rt')]
+  _mkl_link_args = ['-Wl,--start-group'] + _mkl_archives + ['-Wl,--end-group', '-Wl,--exclude-libs,ALL']
+  # Intel Simplified Software License: the notice ships with the binaries.
+  install_data('LICENSE-INTEL-MKL.txt', install_dir: scs_dir)
+endif
+if get_option('link_mkl') or mkl_static_prefix != ''
   py.extension_module(
     '_scs_mkl',
     'scs/scspy.c',
     'scs_source/linsys/mkl/direct/private.c',
     common_linsys_sources,
     scs_core_sources,
-    c_args: common_c_args + ['-DPY_MKL'],
+    spectral_cone_sources,
+    c_args: common_c_args + ['-DPY_MKL', '-DSCS_MKL=1'],
     include_directories: common_includes + ['scs_source/linsys/mkl/direct'],
+    dependencies: _mkl_deps,
+    link_args: _mkl_link_args,
+    install_dir: scs_dir,
+    install: true,
+  )
+endif
+
+# Apple Accelerate backend (macOS only, requires 32-bit ints)
+if host_machine.system() == 'darwin'
+  # Filter out DLONG from c_args since Accelerate requires 32-bit integers
+  accel_c_args = []
+  foreach arg : common_c_args
+    if arg != '-DDLONG=1'
+      accel_c_args += arg
+    endif
+  endforeach
+  py.extension_module(
+    '_scs_accelerate',
+    'scs/scspy.c',
+    'scs_source/linsys/accelerate/direct/private.c',
+    common_linsys_sources,
+    scs_core_sources,
+    spectral_cone_sources,
+    c_args: accel_c_args + ['-DPY_ACCELERATE'],
+    include_directories: common_includes + ['scs_source/linsys/accelerate/direct'],
     dependencies: _deps,
     install_dir: scs_dir,
     install: true,
@@ -231,18 +436,20 @@ if get_option('link_mkl')
 endif
 
 if get_option('link_cudss')
-  _deps += cuda_dep
   cudss_dep = dependency('cudss', required: true)
-  _deps += cudss_dep
+  # Scope the CUDA libraries to this target rather than mutating the shared
+  # `_deps` (see the use_gpu block above).
+  cudss_deps = _deps + [cuda_dep, cudss_dep]
   py.extension_module(
     '_scs_cudss',
     'scs/scspy.c',
     'scs_source/linsys/cudss/direct/private.c',
     common_linsys_sources,
     scs_core_sources,
+    spectral_cone_sources,
     c_args: common_c_args + ['-DPY_CUDSS'],
     include_directories: common_includes + ['scs_source/linsys/cudss/direct'],
-    dependencies: _deps,
+    dependencies: cudss_deps,
     install_dir: scs_dir,
     install: true,
   )

@@ -1,6 +1,6 @@
 """Cookidoo API package."""
 
-__version__ = "0.17.2"
+__version__ = "0.18.1"
 
 from .cookidoo import Cookidoo
 from .exceptions import (
@@ -12,23 +12,35 @@ from .exceptions import (
     CookidooResponseException,
     CookidooUnavailableException,
 )
-from .helpers import get_country_options, get_language_options, get_localization_options
+from .helpers import (
+    cooking_activity_from_push,
+    get_country_options,
+    get_language_options,
+    get_localization_options,
+)
 from .types import (
     CookidooAdditionalItem,
+    CookidooAuthData,
     CookidooCategory,
     CookidooChapter,
     CookidooChapterRecipe,
     CookidooCollection,
     CookidooConfig,
+    CookidooCookingActivity,
+    CookidooCookState,
+    CookidooDevice,
     CookidooIngredient,
     CookidooIngredientItem,
     CookidooItem,
     CookidooLocalizationConfig,
     CookidooRecipeCollection,
+    CookidooSearchRecipeHit,
+    CookidooSearchResult,
     CookidooShoppingRecipe,
     CookidooShoppingRecipeDetails,
     CookidooSubscription,
     CookidooUserInfo,
+    ThermomixMachineType,
 )
 
 __all__ = [
@@ -41,6 +53,11 @@ __all__ = [
     "CookidooUserInfo",
     "CookidooSubscription",
     "CookidooItem",
+    "CookidooDevice",
+    "CookidooAuthData",
+    "CookidooCookingActivity",
+    "CookidooCookState",
+    "cooking_activity_from_push",
     "CookidooAdditionalItem",
     "CookidooIngredientItem",
     "CookidooShoppingRecipe",
@@ -49,6 +66,8 @@ __all__ = [
     "CookidooChapter",
     "CookidooChapterRecipe",
     "CookidooRecipeCollection",
+    "CookidooSearchRecipeHit",
+    "CookidooSearchResult",
     "CookidooIngredient",
     "CookidooCollection",
     "CookidooException",
@@ -58,4 +77,5 @@ __all__ = [
     "CookidooRequestException",
     "CookidooResponseException",
     "CookidooUnavailableException",
+    "ThermomixMachineType",
 ]

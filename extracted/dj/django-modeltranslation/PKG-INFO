@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-modeltranslation
-Version: 0.20.4
+Version: 0.20.5
 Summary: Translates Django models using a registration approach.
 Project-URL: Homepage, https://github.com/deschler/django-modeltranslation
 Project-URL: Source, https://github.com/deschler/django-modeltranslation

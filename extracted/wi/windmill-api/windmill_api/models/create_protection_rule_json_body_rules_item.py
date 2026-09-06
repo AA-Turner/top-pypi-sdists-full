@@ -6,6 +6,7 @@ class CreateProtectionRuleJsonBodyRulesItem(str, Enum):
     DISABLEWORKSPACEFORKING = "DisableWorkspaceForking"
     RESTRICTANONYMOUSAPPDEPLOYMENT = "RestrictAnonymousAppDeployment"
     RESTRICTDEPLOYTODEPLOYERS = "RestrictDeployToDeployers"
+    RESTRICTGUESTAPPDEPLOYMENT = "RestrictGuestAppDeployment"
     RESTRICTPUBLICRUNSHARING = "RestrictPublicRunSharing"
 
     def __str__(self) -> str:

@@ -20,8 +20,9 @@ class DocumentListProcessingParams(TypedDict, total=False):
     page: Union[str, float]
     """Page number to fetch. Used with `view=all`."""
 
-    view: Literal["active", "all"]
+    view: Literal["active", "pending", "all"]
     """`active` returns in-flight documents updated in the last 4 hours.
 
-    `all` also includes failed and stuck documents.
+    `pending` returns every document that is not done or failed, with no time
+    cutoff. `all` also includes failed documents, paginated.
     """

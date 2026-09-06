@@ -1,9 +1,14 @@
-import numbers
 from array import array
 from typing import Any, NamedTuple
 
 from pyproj._crs import _CRS, AreaOfUse, Base, CoordinateOperation
-from pyproj.enums import ProjVersion, TransformDirection
+from pyproj.enums import (
+    CRSExtentUse,
+    GridAvailabilityUse,
+    IntermediateCRSUse,
+    ProjVersion,
+    TransformDirection,
+)
 
 class AreaOfInterest(NamedTuple):
     west_lon_degree: float
@@ -39,6 +44,10 @@ class _TransformerGroup:
         accuracy: float | None,
         allow_ballpark: bool,
         allow_superseded: bool,
+        crs_extent_use: CRSExtentUse | str | None = None,
+        pivot_crs_use: IntermediateCRSUse | str | None = None,
+        pivot_crs_list: tuple[str, ...] | None = None,
+        grid_check: GridAvailabilityUse | str | None = None,
     ) -> None: ...
 
 class _Transformer(Base):
@@ -85,7 +94,10 @@ class _Transformer(Base):
         only_best: bool | None = None,
     ) -> _Transformer: ...
     @staticmethod
-    def from_pipeline(proj_pipeline: bytes) -> _Transformer: ...
+    def from_pipeline(
+        proj_pipeline: bytes,
+        always_xy: bool = False,
+    ) -> _Transformer: ...
     def _transform(
         self,
         inx: Any,
@@ -98,14 +110,14 @@ class _Transformer(Base):
     ) -> None: ...
     def _transform_point(
         self,
-        inx: numbers.Real,
-        iny: numbers.Real,
-        inz: numbers.Real,
-        intime: numbers.Real,
+        inx: Any,
+        iny: Any,
+        inz: Any,
+        intime: Any,
         direction: TransformDirection | str,
         radians: bool,
         errcheck: bool,
-    ) -> None: ...
+    ) -> tuple[float, ...] | None: ...
     def _transform_sequence(
         self,
         stride: int,

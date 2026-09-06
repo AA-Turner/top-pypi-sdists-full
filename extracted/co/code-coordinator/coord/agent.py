@@ -154,7 +154,14 @@ _ADVISORY_TYPES = ("work",)
 # Kept as a literal tuple (not an import of WORK_LIKE_TYPES) because
 # `coord/agent.py` is the agent-side module and must stay importable on a
 # fleet machine without the coordinator's model layer.
-_ZERO_COMMIT_TYPES = ("work", "mock-author", "test-author")
+#
+# ``epic-decompose`` (#3132) gets a real worktree + branch and is documented
+# (see WRITE_CAPABLE_SPEC_TYPES above) to commit/push the first slice's
+# implementation — same mutation shape as `work`/`mock-author`, so a clean
+# exit with zero commits ahead of base is exactly as much a contradiction
+# here as it is for those two, and must not be trusted as a real "done"
+# (the #1534/#2316 truncation incident this constant exists to catch).
+_ZERO_COMMIT_TYPES = ("work", "mock-author", "test-author", "epic-decompose")
 
 # #1394: assignment types whose worktree, when left dirty, holds real source
 # the worker meant to ship — so an automatic WIP commit on the assignment
@@ -166,7 +173,12 @@ _ZERO_COMMIT_TYPES = ("work", "mock-author", "test-author")
 #     markers — committing those to the branch would be actively harmful.
 # Excluded types are still never force-deleted while dirty; they're preserved
 # by KEEPING the worktree (see `AgentServer._rescue_uncommitted_work`).
-_WIP_RESCUE_TYPES = ("work", "fix", "test-author", "mock-author")
+#
+# ``epic-decompose`` (#3132) is included for the same reason as `work`/
+# `test-author`/`mock-author`: it leaves real, worth-keeping source in the
+# worktree (the first slice's implementation), so a dirty exit deserves a
+# rescue commit rather than force-deletion.
+_WIP_RESCUE_TYPES = ("work", "fix", "test-author", "mock-author", "epic-decompose")
 
 # #1394: subject prefix for the coordinator's rescue commit.  Deliberately
 # loud — it lands on the assignment branch and a human (or the adversarial
@@ -364,6 +376,20 @@ _PTY_INJECT_RETRY_BACKOFF_S = 0.4
 # daemon-spawn stall report (anthropics/claude-code#56268).
 _FIRST_OUTPUT_TIMEOUT = 600.0    # seconds of zero output before the watchdog kills
 NO_FIRST_OUTPUT_EXIT = 124       # exit code reported when the TTFT watchdog fires
+
+# #3145: the pre-stash `build_command`'s own ceiling (`_run_pre_stash_build`
+# below), named here rather than inlined at its `subprocess.run` call because a
+# SECOND module is sized against it: `coord/drive_queue.py`'s
+# `DISPATCH_FAILURE_MIN_BACKOFF_SECONDS` is deliberately wider than this, so a
+# dispatch-only death's one remaining retry fires only AFTER any single such
+# stall has ended rather than landing inside the very stall it is retrying
+# (the 2026-09-05 vimcode#821 shape). Two hand-copied literals in two modules
+# answering one question is the split-brain #2085 warns about, so the ordering
+# between them is asserted directly, in
+# `tests/test_drive_queue.py::test_the_dispatch_failure_backoff_outlasts_a_pre_stash_build_stall`
+# — raising this ceiling (or lowering that floor) without moving the other
+# fails that test instead of silently re-opening the incident.
+PRE_STASH_BUILD_TIMEOUT_SECONDS = 600.0
 
 # #2131: distinct exit code for a leg killed by the per-leg spend ceiling. It
 # must NOT collide with NO_FIRST_OUTPUT_EXIT (or any plausible worker exit
@@ -2358,11 +2384,12 @@ def _run_pre_stash_build(
     executed so that build artifacts exist in the worktree regardless of which
     feature flags the worker itself used during development.
 
-    The command is run via ``/bin/sh -c`` in *worktree* with a 10-minute
-    timeout.  stdout and stderr are captured and appended to *log_path* (if
-    set) so the operator can diagnose build failures.  Returns ``True`` on
-    exit code 0, ``False`` on any failure.  Never raises — this is best-effort
-    pre-stash housekeeping.
+    The command is run via ``/bin/sh -c`` in *worktree* with a
+    ``PRE_STASH_BUILD_TIMEOUT_SECONDS`` (10-minute) timeout.  stdout and
+    stderr are captured and appended to *log_path* (if set) so the operator
+    can diagnose build failures.  Returns ``True`` on exit code 0, ``False``
+    on any failure.  Never raises — this is best-effort pre-stash
+    housekeeping.
     """
     try:
         result = subprocess.run(
@@ -2372,7 +2399,7 @@ def _run_pre_stash_build(
             text=True,
             encoding="utf-8",
             errors="replace",
-            timeout=600,
+            timeout=PRE_STASH_BUILD_TIMEOUT_SECONDS,
         )
         ok = result.returncode == 0
         if log_path:
@@ -4401,7 +4428,8 @@ being built.
 declared medium, under `tests/acceptance/ms-NN/mocks/` — something the \
 operator can look at and react to, not a text description. For a \
 `web-playwright` driver: one hand-authored, self-contained `.html` file \
-PER SCREEN STATE (not one giant multi-state file). Each must OPEN IN A \
+PER SCREEN STATE (not one giant multi-state file)‹INTERACTIVE_CARVEOUT› \
+Each file must OPEN IN A \
 BROWSER AND LOOK LIKE THE SCREEN — inline `<style>` CSS is expected and \
 encouraged, since the mock is the visual contract as well as the \
 structural one. Do not ship a bare DOM skeleton with no styling and call \
@@ -4441,6 +4469,33 @@ manually verify in the rendered mock.
   - [scenario] — [how to trigger] — [what to look for]
   END_SMOKE_TESTS
 """
+
+# #3131 review: the CSS-only `:target` interactive-walkthrough carve-out is
+# spliced into MOCK_AUTHOR_SYSTEM_PROMPT (replacing the ‹INTERACTIVE_CARVEOUT›
+# sentinel below, at dispatch time — see the `mock-author` branch further
+# down) ONLY when `coord.mock_author.INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED`
+# is true. Before this, the sentence was unconditional prose in the constant
+# itself: every mock-author session — including one dispatched via an
+# operator's own free-text `coord acceptance mock ... --amend "make this a
+# :target interactive walkthrough"` — was told the technique was permitted,
+# regardless of the flag. That's the exact pre-coord-portal#314 CSP degrade
+# the flag exists to prevent (`style-src` falls back to `default-src
+# 'self'`, so the mock's own inline `<style>` is dropped: every `.screen`
+# renders stacked at once with the nav inert). Gating the sentinel closes
+# that path without needing `dispatch_acceptance_mock` to pattern-match
+# amend text for the technique's name — a worker that is never told the
+# exception exists has no instruction to act on even if asked.
+MOCK_AUTHOR_INTERACTIVE_CARVEOUT = (
+    " — UNLESS the seed briefing explicitly calls for a CSS-only `:target` "
+    "interactive walkthrough (#3131), in which case the screens it covers "
+    "belong TOGETHER in that one file by design: `:target` needs them "
+    "sharing a single document and stylesheet to switch which one is "
+    "visible."
+)
+
+#: Spliced in when the flag above is false — closes the sentence the
+#: sentinel sits inside without mentioning the exception at all.
+MOCK_AUTHOR_INTERACTIVE_CARVEOUT_DISABLED = "."
 
 # Deny list applied to mock-author workers.  Unlike milestone-chat this type
 # DOES commit/push (it's authoring real files under tests/acceptance/), so
@@ -5015,7 +5070,25 @@ def default_worker_command(spec: AssignmentSpec, *, binary: str = DEFAULT_WORKER
         # Needs Edit/Write (create the mock/contract files) + Bash (commit,
         # push) like a normal worker, but with its own scoped system prompt
         # and deny list instead of the generic WORKER_SYSTEM_PROMPT.
-        system_prompt = spec.system_prompt if spec.system_prompt else MOCK_AUTHOR_SYSTEM_PROMPT
+        if spec.system_prompt:
+            system_prompt = spec.system_prompt
+        else:
+            from coord import mock_author  # noqa: PLC0415
+
+            # #3131 review: only mention the `:target` interactive-walkthrough
+            # exception to a mock-author session when the flag that gates
+            # the technique itself is on — see
+            # MOCK_AUTHOR_INTERACTIVE_CARVEOUT's docstring above for why an
+            # unconditional mention here is the one artifact that would ship
+            # the pre-#314 CSP degrade even while the flag stays off.
+            carveout = (
+                MOCK_AUTHOR_INTERACTIVE_CARVEOUT
+                if mock_author.INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED
+                else MOCK_AUTHOR_INTERACTIVE_CARVEOUT_DISABLED
+            )
+            system_prompt = MOCK_AUTHOR_SYSTEM_PROMPT.replace(
+                "‹INTERACTIVE_CARVEOUT›", carveout
+            )
         system_prompt += build_deny_prompt(MOCK_AUTHOR_DENY_COMMANDS)
         # `--setting-sources user` (below) drops CLAUDE.md auto-discovery —
         # see _claude_md_system_prompt_suffix.
@@ -5247,6 +5320,12 @@ def _user_message_line(text: str) -> bytes:
 # whole job is to mutate GitHub (`coord issue create` / `coord milestone
 # create`/`add-child`) and the drive queue (`coord drive-queue add`), the
 # same "no worktree, but real mutation" shape ``milestone-chat`` has above.
+# ``epic-decompose`` (#3132, ``coord.models.EPIC_DECOMPOSE_TYPE``) gets a
+# real worktree + branch and commits/pushes the first slice's implementation
+# — same mutation shape as ``work``/``mock-author`` — AND files child issues
+# / queues them (`coord issue create`, `coord milestone add-child`, `coord
+# drive-queue add`), the same GitHub-mutation shape ``decomposition-chat``
+# has, so it belongs here on both counts.
 WRITE_CAPABLE_SPEC_TYPES: frozenset[str] = frozenset({
     "work",
     "review",
@@ -5257,6 +5336,7 @@ WRITE_CAPABLE_SPEC_TYPES: frozenset[str] = frozenset({
     "mock-author",
     "test-author",
     "pr-helper",
+    "epic-decompose",
 })
 
 

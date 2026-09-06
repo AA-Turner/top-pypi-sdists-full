@@ -21,6 +21,8 @@ class GetPublicSettingsResponse200:
     """
     Attributes:
         workspace_id (str):
+        guest_access_enabled (bool): Whether this workspace admits guest sessions. An app's own `guest` execution mode
+            is inert while this is false.
         slack_name (Union[Unset, str]):
         slack_team_id (Union[Unset, str]):
         teams_team_id (Union[Unset, str]):
@@ -33,6 +35,7 @@ class GetPublicSettingsResponse200:
     """
 
     workspace_id: str
+    guest_access_enabled: bool
     slack_name: Union[Unset, str] = UNSET
     slack_team_id: Union[Unset, str] = UNSET
     teams_team_id: Union[Unset, str] = UNSET
@@ -46,6 +49,7 @@ class GetPublicSettingsResponse200:
 
     def to_dict(self) -> Dict[str, Any]:
         workspace_id = self.workspace_id
+        guest_access_enabled = self.guest_access_enabled
         slack_name = self.slack_name
         slack_team_id = self.slack_team_id
         teams_team_id = self.teams_team_id
@@ -70,6 +74,7 @@ class GetPublicSettingsResponse200:
         field_dict.update(
             {
                 "workspace_id": workspace_id,
+                "guest_access_enabled": guest_access_enabled,
             }
         )
         if slack_name is not UNSET:
@@ -103,6 +108,8 @@ class GetPublicSettingsResponse200:
 
         d = src_dict.copy()
         workspace_id = d.pop("workspace_id")
+
+        guest_access_enabled = d.pop("guest_access_enabled")
 
         slack_name = d.pop("slack_name", UNSET)
 
@@ -139,6 +146,7 @@ class GetPublicSettingsResponse200:
 
         get_public_settings_response_200 = cls(
             workspace_id=workspace_id,
+            guest_access_enabled=guest_access_enabled,
             slack_name=slack_name,
             slack_team_id=slack_team_id,
             teams_team_id=teams_team_id,

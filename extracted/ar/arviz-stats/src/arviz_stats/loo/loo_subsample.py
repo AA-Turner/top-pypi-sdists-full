@@ -37,6 +37,7 @@ def loo_subsample(
     param_names=None,
     log=True,
     log_jacobian=None,
+    model=None,
 ):
     r"""Compute PSIS-LOO-CV using sub-sampling.
 
@@ -89,8 +90,11 @@ def loo_subsample(
     method: str, optional
         Method used for approximating the pointwise log predictive density:
 
-        - ``lpd``: Use standard log predictive density approximation (default)
-        - ``plpd``: Use point log predictive density approximation which requires a ``log_lik_fn``.
+        - ``lpd``: Use standard log predictive density approximation (default). The stored
+          log likelihood values are used unless ``log_lik_fn`` or ``model`` is provided,
+          in which case the approximation is recomputed from it.
+        - ``plpd``: Use point log predictive density approximation which requires a ``log_lik_fn``
+          or a ``model`` from which one is built.
     thin: int or str, optional
         Thinning factor for posterior draws. Can be an integer to thin by that factor,
         "auto" to automatically determine thinning based on bulk and tail ESS, or None
@@ -118,6 +122,11 @@ def loo_subsample(
         original response scale :math:`y`. The value should be :math:`\log|\frac{dz}{dy}|`
         (the log absolute value of the derivative of the transformation). Must be a DataArray
         with dimensions matching the observation dimensions.
+    model : Model, optional
+        A model object. Currently supported models are PyMC and Bambi.
+        If provided and ``log_lik_fn`` is not, it will be used to auto-build ``log_lik_fn``,
+        so it does not have to be constructed manually. ``param_names`` is ignored in
+        this case. If both are provided, ``log_lik_fn`` takes precedence and a warning is issued.
 
     Returns
     -------
@@ -194,8 +203,6 @@ def loo_subsample(
 
     if method not in ["lpd", "plpd"]:
         raise ValueError("Method must be either 'lpd' or 'plpd'")
-    if method == "plpd" and log_lik_fn is None:
-        raise ValueError("log_lik_fn must be provided when method='plpd'")
 
     log_likelihood = loo_inputs.log_likelihood
     if reff is None:
@@ -218,6 +225,7 @@ def loo_subsample(
         loo_inputs.n_data_points,
         loo_inputs.n_samples,
         thin,
+        model=model,
     )
 
     lpd_approx_all = subsample_data.lpd_approx_all
@@ -226,6 +234,11 @@ def loo_subsample(
 
     lpd_approx_sample = _select_obs_by_indices(
         lpd_approx_all, subsample_data.indices, loo_inputs.obs_dims, "__obs__"
+    )
+    lpd_sample = logsumexp(
+        subsample_data.log_likelihood_sample,
+        dims=loo_inputs.sample_dims,
+        b=1 / loo_inputs.n_samples,
     )
 
     sample_ds = xr.Dataset({loo_inputs.var_name: subsample_data.log_likelihood_sample})
@@ -277,6 +290,7 @@ def loo_subsample(
             jacobian_da, subsample_data.indices, loo_inputs.obs_dims, "__obs__"
         )
         elpd_loo_i = elpd_loo_i + jacobian_sample
+        lpd_sample = lpd_sample + jacobian_sample
 
     warn_mg, good_k = _warn_pareto_k(pareto_k_sample_da, loo_inputs.n_samples)
 
@@ -288,7 +302,7 @@ def loo_subsample(
 
     # Calculate p_loo using SRS estimation directly on the p_loo values
     # from the subsample
-    p_loo_sample = lpd_approx_sample - elpd_loo_i
+    p_loo_sample = lpd_sample - elpd_loo_i
     p_loo, _, _ = p_loo_sample.azstats.srs_estimator(
         n_data_points=loo_inputs.n_data_points,
     )
@@ -372,6 +386,7 @@ def update_subsample(
     log_lik_fn=None,
     param_names=None,
     log=True,
+    model=None,
 ):
     """Update a sub-sampled PSIS-LOO-CV object with new observations.
 
@@ -415,8 +430,11 @@ def update_subsample(
     method: str, optional
         Method used for approximating the pointwise log predictive density:
 
-        - ``lpd``: Use standard log predictive density approximation (default)
-        - ``plpd``: Use point log predictive density approximation which requires a ``log_lik_fn``.
+        - ``lpd``: Use standard log predictive density approximation (default). The stored
+          log likelihood values are used unless ``log_lik_fn`` or ``model`` is provided,
+          in which case the approximation is recomputed from it.
+        - ``plpd``: Use point log predictive density approximation which requires a ``log_lik_fn``
+          or a ``model`` from which one is built.
     log_lik_fn : callable, optional
         Custom log-likelihood function. The signature must be ``log_lik_fn(observed, data)``
         where ``observed`` is a :class:`~xarray.DataArray` containing one or more observations
@@ -432,6 +450,11 @@ def update_subsample(
     log: bool, optional
         Whether the ``log_lik_fn`` returns log-likelihood (True) or likelihood (False).
         Default is True.
+    model : Model, optional
+        A model object. Currently supported models are PyMC and Bambi.
+        If provided and ``log_lik_fn`` is not, it will be used to auto-build ``log_lik_fn``,
+        so it does not have to be constructed manually. ``param_names`` is ignored in
+        this case. If both are provided, ``log_lik_fn`` takes precedence and a warning is issued.
 
     Returns
     -------
@@ -498,17 +521,26 @@ def update_subsample(
         raise ValueError("Original loo_subsample result must have pointwise=True")
     if method not in ["lpd", "plpd"]:
         raise ValueError("Method must be either 'lpd' or 'plpd'")
-    if method == "plpd" and log_lik_fn is None:
-        raise ValueError("log_lik_fn must be provided when method='plpd'")
 
     thin = getattr(loo_orig, "thin_factor", None)
     loo_inputs = _prepare_loo_inputs(data, var_name, thin)
-    update_data = _prepare_update_subsample(
-        loo_orig, data, observations, var_name, seed, method, log_lik_fn, param_names, log, thin
-    )
 
     if reff is None:
         reff = _get_r_eff(data, loo_inputs.n_samples)
+
+    update_data = _prepare_update_subsample(
+        loo_orig,
+        data,
+        observations,
+        var_name,
+        seed,
+        method,
+        log_lik_fn,
+        param_names,
+        log,
+        thin,
+        model=model,
+    )
 
     log_jacobian = getattr(loo_orig, "log_jacobian", None)
     jacobian_da = _check_log_jacobian(log_jacobian, loo_inputs.obs_dims)
@@ -581,6 +613,7 @@ def update_subsample(
     combined_pareto_k_da = xr.concat(
         [update_data.old_pareto_k, pareto_k_new_da], dim=update_data.concat_dim
     )
+    combined_indices = np.concatenate((update_data.old_indices, update_data.new_indices))
 
     good_k = loo_orig.good_k
     warn_mg, _ = _warn_pareto_k(combined_pareto_k_da, loo_inputs.n_samples)
@@ -597,12 +630,25 @@ def update_subsample(
 
     # Calculate p_loo using SRS estimation directly on the p_loo values
     # from the subsample
-    p_loo_sample = lpd_approx_sample_da - combined_elpd_i_da
+    log_likelihood_sample_da = _select_obs_by_indices(
+        loo_inputs.log_likelihood, combined_indices, loo_inputs.obs_dims, "__obs__"
+    )
+    lpd_sample_da = logsumexp(
+        log_likelihood_sample_da,
+        dims=loo_inputs.sample_dims,
+        b=1 / loo_inputs.n_samples,
+    )
+    if jacobian_da is not None:
+        jacobian_sample_da = _select_obs_by_indices(
+            jacobian_da, combined_indices, loo_inputs.obs_dims, "__obs__"
+        )
+        lpd_sample_da = lpd_sample_da + jacobian_sample_da
+
+    p_loo_sample = lpd_sample_da - combined_elpd_i_da
     p_loo, _, _ = p_loo_sample.azstats.srs_estimator(
         n_data_points=loo_inputs.n_data_points,
     )
 
-    combined_indices = np.concatenate((update_data.old_indices, update_data.new_indices))
     elpd_i_full, pareto_k_full = _prepare_full_arrays(
         combined_elpd_i_da,
         combined_pareto_k_da,

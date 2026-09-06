@@ -7,12 +7,29 @@
 
 /* Include Tests */
 #include "problems/degenerate.h"
+#include "problems/dense_qp.h"
 #include "problems/hs21_tiny_qp.h"
+#include "problems/infeasible_lp.h"
+#include "problems/infeasible_socp.h"
 #include "problems/infeasible_tiny_qp.h"
+#include "problems/lp_update.h"
 #include "problems/qafiro_tiny_qp.h"
 #include "problems/small_lp.h"
 #include "problems/small_qp.h"
+#include "problems/test_dual_exp_cone.h"
 #include "problems/test_exp_cone.h"
+#include "problems/test_inaccurate.h"
+#include "problems/test_mixed_cones.h"
+#include "problems/test_normalize_roundtrip.h"
+#include "problems/test_power_cone.h"
+#include "problems/test_root_plus.h"
+#include "problems/test_soc_sizes.h"
+#include "problems/test_box_cone.h"
+#include "problems/test_psd_n1.h"
+#include "problems/test_solver_options.h"
+#include "problems/test_zero_cone.h"
+#include "problems/unbounded_lp.h"
+#include "problems/unbounded_socp.h"
 #include "problems/unbounded_tiny_qp.h"
 
 int tests_run = 0;
@@ -35,9 +52,11 @@ _SKIP(test_validation)
 #if defined(USE_LAPACK)
 #include "problems/complex_PSD.h"
 #include "problems/sd_and_complex_sd.h"
+#include "problems/test_psd_metric.h"
 #else
 _SKIP(complex_PSD)
 _SKIP(sd_and_complex_sd)
+_SKIP(test_psd_metric)
 #endif
 
 /* solve SDPs from data files, requires blas / lapack */
@@ -57,6 +76,8 @@ _SKIP(rob_gauss_cov_est)
 #include "spectral_cones_problems/several_logdet_cones.h"
 #include "spectral_cones_problems/several_nuc_cone.h"
 #include "spectral_cones_problems/several_sum_largest.h"
+#include "spectral_cones_problems/test_ell1_cone.h"
+#include "spectral_cones_problems/test_ell1_and_nuc.h"
 #else
 _SKIP(exp_design)
 _SKIP(robust_pca)
@@ -64,15 +85,19 @@ _SKIP(graph_partitioning)
 _SKIP(several_sum_largest)
 _SKIP(several_nuc_cone)
 _SKIP(several_logdet_cones)
+_SKIP(test_ell1_cone)
+_SKIP(test_ell1_and_nuc)
 #endif
 
 /* solves problems from data files */
 #if NO_READ_WRITE == 0
 #include "problems/hs21_tiny_qp_rw.h"
+#include "problems/test_rw_settings.h"
 #include "problems/max_ent.h"
 #include "problems/mpc_bug.h"
 #else
 _SKIP(hs21_tiny_qp_rw)
+_SKIP(test_rw_settings)
 _SKIP(max_ent)
 _SKIP(mpc_bug)
 #endif
@@ -80,26 +105,72 @@ _SKIP(mpc_bug)
 static const char *all_tests(void) {
   mu_run_test(test_validation);
   mu_run_test(degenerate);
+  mu_run_test(dense_qp);
   mu_run_test(small_lp);
   mu_run_test(small_qp);
+  mu_run_test(lp_update);
   mu_run_test(rob_gauss_cov_est);
   mu_run_test(complex_PSD);
   mu_run_test(sd_and_complex_sd);
+  mu_run_test(test_psd_metric);
   mu_run_test(hs21_tiny_qp);
   mu_run_test(hs21_tiny_qp_rw);
+  mu_run_test(test_rw_settings);
   mu_run_test(qafiro_tiny_qp);
   mu_run_test(infeasible_tiny_qp);
+  mu_run_test(infeasible_lp);
+  mu_run_test(infeasible_socp);
   mu_run_test(unbounded_tiny_qp);
+  mu_run_test(unbounded_lp);
+  mu_run_test(unbounded_socp);
   mu_run_test(random_prob);
   mu_run_test(max_ent);
   mu_run_test(mpc_bug);
   mu_run_test(test_exp_cone);
+  mu_run_test(test_dual_exp_cone);
+  mu_run_test(test_power_cone);
+  mu_run_test(test_power_cone_p09);
+  mu_run_test(test_dual_power_cone);
+  mu_run_test(test_multi_power);
+  mu_run_test(test_power_cone_infeasible);
+  mu_run_test(test_soc_size1);
+  mu_run_test(test_soc_size2);
+  mu_run_test(test_soc_size3);
+  mu_run_test(test_soc_size5);
+  mu_run_test(test_multi_soc);
+  mu_run_test(test_zero_cone);
+  mu_run_test(test_box_cone_lp);
+  mu_run_test(test_psd_n1);
+  mu_run_test(test_solved_inaccurate);
+  mu_run_test(test_infeasible_inaccurate);
+  mu_run_test(test_unbounded_inaccurate);
+  mu_run_test(test_max_iters_1);
+  mu_run_test(test_adaptive_scale);
+  mu_run_test(test_no_acceleration);
+  mu_run_test(test_type2_acceleration);
+  mu_run_test(test_aa_relaxation_sweep);
+  mu_run_test(test_aa_regularization_sweep);
+  mu_run_test(test_negative_lookback_rejected);
+  mu_run_test(test_invalid_aa_relaxation_rejected);
+  mu_run_test(test_pinned_negative_regularization_solves);
+  mu_run_test(test_invalid_aa_regularization_rejected);
+  mu_run_test(test_normalize_off);
+  mu_run_test(test_normalize_roundtrip);
+  mu_run_test(test_scs_version);
+  mu_run_test(test_time_limit_secs);
+  mu_run_test(test_warm_start);
+  mu_run_test(test_mixed_cones);
+  mu_run_test(test_root_plus_equivalence);
+  mu_run_test(test_normalize_roundtrip_lp);
+  mu_run_test(test_normalize_roundtrip_qp);
   mu_run_test(exp_design);
   mu_run_test(robust_pca);
   mu_run_test(graph_partitioning);
   mu_run_test(several_sum_largest);
   mu_run_test(several_nuc_cone);
   mu_run_test(several_logdet_cones);
+  mu_run_test(test_ell1_cone);
+  mu_run_test(test_ell1_and_nuc);
   return 0;
 }
 int main(void) {

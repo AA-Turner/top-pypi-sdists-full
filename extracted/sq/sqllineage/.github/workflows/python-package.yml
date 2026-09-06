@@ -21,13 +21,13 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
     - name: Set up Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: '22'
     - name: Install
@@ -35,7 +35,30 @@ jobs:
     - name: Script
       run: tox -e py
     - name: After Success
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: sqllineagejs/package-lock.json
+    - name: Install dependencies
+      working-directory: sqllineagejs
+      run: npm ci
+    - name: Lint
+      working-directory: sqllineagejs
+      run: npm run lint
+    - name: Check formatting
+      working-directory: sqllineagejs
+      run: npm run format:check
+    - name: Build
+      working-directory: sqllineagejs
+      run: npm run build

@@ -1,4 +1,4 @@
-"""agentrust-trace — TRACE Trust Record models, validation, and signing."""
+"""agentrust-trace: TRACE Trust Record models, validation, and signing."""
 
 from importlib import metadata as _metadata
 
@@ -18,6 +18,7 @@ from agentrust_trace.models import (
     JWK,
     ModelInfo,
     PolicyInfo,
+    Reference,
     RuntimeInfo,
     ToolTranscript,
     TrustRecord,
@@ -32,6 +33,11 @@ from agentrust_trace.sign import (
     load_signing_key,
     sign_record,
     verify_record,
+)
+from agentrust_trace.revocation import (
+    RevocationCheck,
+    VerificationResult,
+    check_bundle,
 )
 from agentrust_trace.validate import (
     iter_errors,
@@ -66,10 +72,14 @@ __all__ = [
     "JWK",
     "ModelInfo",
     "PolicyInfo",
+    "Reference",
     "RuntimeInfo",
     "ToolTranscript",
     "TrustRecord",
+    "RevocationCheck",
     "RevocationStore",
+    "VerificationResult",
+    "check_bundle",
     "TRACE_PROFILE_V0_2",
     "SCHEMA",
     "iter_errors",
@@ -93,3 +103,6 @@ __all__ = [*__all__, "provenance"]
 from agentrust_trace import content_marking as content_marking  # noqa: E402
 
 __all__ = [*__all__, "content_marking"]
+from agentrust_trace import intent_bridge as intent_bridge  # noqa: E402
+
+__all__ = [*__all__, "intent_bridge"]

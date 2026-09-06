@@ -17,7 +17,7 @@ from django.db.models import Model
 from django.db.models.query import QuerySet
 
 from .completers.model import ModelObjectCompleter
-from .config import traceback_config
+from .config import manage_script, traceback_config
 from .parsers.model import ModelObjectParser, ReturnType
 
 # DO NOT IMPORT ANYTHING FROM TYPER HERE - SEE patch.py
@@ -66,20 +66,39 @@ def get_usage_script(script: str | None = None) -> Path | str:
     Return the script name if it is on the path or the absolute path to the script
     if it is not.
 
+    The name is used when invoking it from the shell would run the given script. This
+    is true when the name resolves on the path to the script itself, or when the
+    script was launched through an absolute path (i.e. the shell resolved it from the
+    path, possibly through a shim or wrapper of the same name). A script invoked
+    through an explicit relative path is only reported by name if it is the same file
+    the path resolves to.
+
+    If ``script`` is not given and ``DT_MANAGE_SCRIPT`` is set, in the settings module or
+    failing that in the environment, it is returned verbatim in lieu of any detection.
+
     :param script: The script name to check. If None the current script is used.
     :return: The script name or the relative path to the script from cwd.
     """
     import shutil
 
+    if not script:
+        override = manage_script()
+        if override:
+            return override
+
     cmd_pth = Path(script or sys.argv[0])
     on_path: str | Path | None = shutil.which(cmd_pth.name)
     on_path = on_path and Path(on_path)
-    if (
-        on_path
-        and on_path.is_absolute()
-        and (on_path == cmd_pth.absolute() or not cmd_pth.is_file())
-    ):
-        return cmd_pth.name
+    # which() may return a relative path if PATH has relative entries and on windows
+    # it searches the cwd first, returning .\name - a cwd hit is not "on the path"
+    if on_path and on_path.is_absolute():
+        if cmd_pth.is_absolute() or not cmd_pth.is_file():
+            return cmd_pth.name
+        try:
+            if on_path.samefile(cmd_pth):
+                return cmd_pth.name
+        except OSError:  # pragma: no cover
+            pass
     try:
         return cmd_pth.absolute().relative_to(Path(os.getcwd()))
     except ValueError:
@@ -440,6 +459,7 @@ def model_parser_completer(
     on_error: ModelObjectParser.error_handler | None = ModelObjectParser.on_error,
     order_by: str | t.Sequence[str] | None = None,
     return_type: ReturnType = ModelObjectParser.return_type,
+    return_lookup_on_miss: bool = ModelObjectParser.return_lookup_on_miss,
 ) -> dict[str, t.Any]:
     """
     A factory function that returns a dictionary that can be used to specify
@@ -474,9 +494,12 @@ def model_parser_completer(
     :param distinct: whether to filter out already provided parameters in the
         completion suggestions, True by default
     :param on_error: a callable that will be called if the parser lookup fails
-        to produce a matching object - by default a CommandError will be raised
+        to produce a matching object - by default a CommandError will be raised.
+        Whatever it returns becomes the parsed value.
     :param return_type: An enumeration switch to return either a model instance,
         queryset or model field value type.
+    :param return_lookup_on_miss: return the (coerced) lookup value instead of
+        erroring when no matching object exists, default: False
     """
     return {
         "parser": ModelObjectParser(
@@ -485,6 +508,7 @@ def model_parser_completer(
             case_insensitive=case_insensitive,
             on_error=on_error,
             return_type=return_type,
+            return_lookup_on_miss=return_lookup_on_miss,
         ),
         "shell_complete": ModelObjectCompleter(
             model_or_qry,

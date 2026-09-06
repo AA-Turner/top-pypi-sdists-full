@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 from starlette.testclient import TestClient
@@ -507,6 +509,168 @@ def test_worktree_clean_no_body_still_works(tmp_path: Path) -> None:
     # #1402 adds the shared cargo-cache GC counters; the original three keys
     # are unchanged so an older client keeps working.
     assert {"cleaned", "kept", "bytes_freed"} <= set(r.json())
+
+
+def test_worktree_clean_does_not_block_concurrent_health(tmp_path: Path) -> None:
+    """#3145: a slow ``clean_worktrees`` (real life: a per-repo pre-stash
+    ``build_command`` blocking on ``subprocess.run(..., timeout=600)``, see
+    ``coord/agent.py``'s ``_run_pre_stash_build``) must not freeze the
+    uvicorn event loop. Before the fix, ``async def worktree_clean`` called
+    ``server.clean_worktrees(...)`` inline — a single in-flight
+    ``/worktree-clean`` blocked *every* other request on this agent
+    (``/health``, ``/assign``, ``/status``) for up to 600s, which is exactly
+    what happened on dellserver on 2026-09-05 (616s, zero requests served).
+
+    This is a black-box test through the real ASGI app (not a unit test on
+    ``clean_worktrees`` in isolation): it drives two concurrent HTTP
+    requests through the same running app and asserts the one that must
+    stay fast (``/health``) actually does, while the slow one is genuinely
+    still in flight.
+
+    Requires using the ``TestClient`` as a context manager (``with
+    client:``): only then does starlette keep one ``anyio`` portal (one
+    event loop) alive across requests. Without it, each ``client.get``/
+    ``client.post`` spins up its own short-lived portal/event loop, so two
+    calls from separate threads never actually share a loop to contend
+    over — that would pass even against the un-fixed handler and prove
+    nothing.
+    """
+    client, server = _client(tmp_path)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_clean_worktrees(*, recent_secs: float = 300.0, protect=None) -> dict:
+        started.set()
+        # Stand-in for a long pre-stash build subprocess. Bounded so the
+        # test can't hang forever if the fix regresses and /health itself
+        # ends up serialized behind this.
+        release.wait(timeout=10)
+        return {"cleaned": 0, "kept": 0, "bytes_freed": 0}
+
+    # Patch the instance, not the class — this test only cares that
+    # agent_app's handler offloads whatever `clean_worktrees` does, not
+    # about clean_worktrees' own internals (those are covered by the tests
+    # above and by coord/agent.py's own suite).
+    server.clean_worktrees = _slow_clean_worktrees  # type: ignore[method-assign]
+
+    clean_response: dict[str, object] = {}
+
+    with client:
+
+        def _run_clean() -> None:
+            clean_response["response"] = client.post("/worktree-clean")
+
+        clean_thread = threading.Thread(target=_run_clean)
+        clean_thread.start()
+        try:
+            assert started.wait(timeout=5), "clean_worktrees was never invoked"
+
+            health_start = time.monotonic()
+            health_response = client.get("/health")
+            health_elapsed = time.monotonic() - health_start
+
+            assert health_response.status_code == 200
+            # Today (pre-fix) this would take ~10s (the full release.wait
+            # timeout) because /health queues behind the blocking call on
+            # the single event-loop thread. 2s is a generous bound for a
+            # loaded/shared CI box — still miles clear of the ~10s pre-fix
+            # behavior, so it can't false-pass a regression, just avoids
+            # flaking on contention (#3145 review nit).
+            assert health_elapsed < 2.0, (
+                f"/health took {health_elapsed:.2f}s while /worktree-clean "
+                "was in flight — the event loop was blocked"
+            )
+            # The slow call must still be genuinely running (not already
+            # finished coincidentally quickly), so the fast /health above
+            # actually proves concurrency rather than sequencing luck.
+            assert not clean_response
+        finally:
+            release.set()
+            clean_thread.join(timeout=10)
+            assert not clean_thread.is_alive()
+
+    assert clean_response["response"].status_code == 200  # type: ignore[union-attr]
+    assert clean_response["response"].json() == {  # type: ignore[union-attr]
+        "cleaned": 0,
+        "kept": 0,
+        "bytes_freed": 0,
+    }
+
+
+def test_worktree_clean_does_not_delay_concurrent_assign(tmp_path: Path) -> None:
+    """#3145 secondary finding 1: the issue's own acceptance bullet for the
+    600s-pre-stash / 15s-``auto_loop``-dispatch-timeout mismatch is "a
+    dispatch attempted during a long stash either succeeds, or fails with a
+    reason naming the stall — not a bare ``timed out``".
+
+    With ``worktree_clean`` offloaded to a thread (this fix), a concurrent
+    ``POST /assign`` never shares the event loop with the slow call at all,
+    so it can't queue behind it — it just succeeds, comfortably inside
+    ``auto_loop``'s 15s ``client.post(..., timeout=15)`` budget
+    (``coord/auto_loop.py:1302``). That is the "succeeds" half of the
+    acceptance bullet: once the freeze itself is gone, there is no dispatch
+    left for the agent to report a stall reason FOR. Same concurrency-proof
+    shape as ``test_worktree_clean_does_not_block_concurrent_health`` above
+    (shared ``TestClient`` portal, real thread contention, no sleeps).
+    """
+    repo = _init_repo(tmp_path / "repo")
+    client, server = _client(tmp_path, repo_path=repo)
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_clean_worktrees(*, recent_secs: float = 300.0, protect=None) -> dict:
+        started.set()
+        # Stand-in for a long pre-stash build subprocess (real life: up to
+        # 600s, coord/agent.py's `_run_pre_stash_build`). Bounded so the
+        # test can't hang forever if the fix regresses.
+        release.wait(timeout=10)
+        return {"cleaned": 0, "kept": 0, "bytes_freed": 0}
+
+    server.clean_worktrees = _slow_clean_worktrees  # type: ignore[method-assign]
+
+    clean_response: dict[str, object] = {}
+
+    with client:
+
+        def _run_clean() -> None:
+            clean_response["response"] = client.post("/worktree-clean")
+
+        clean_thread = threading.Thread(target=_run_clean)
+        clean_thread.start()
+        try:
+            assert started.wait(timeout=5), "clean_worktrees was never invoked"
+
+            assign_start = time.monotonic()
+            assign_response = client.post(
+                "/assign", json=_payload(tmp_path, repo_path=repo)
+            )
+            assign_elapsed = time.monotonic() - assign_start
+
+            assert assign_response.status_code == 202
+            # auto_loop's fix-dispatch gives up after 15s
+            # (coord/auto_loop.py:1302) — 2s is a generous bound for a
+            # loaded/shared CI box, still miles clear of both that 15s
+            # ceiling and the ~10s pre-fix-class freeze (#3145 review nit,
+            # matching the /health test's bound above).
+            assert assign_elapsed < 2.0, (
+                f"/assign took {assign_elapsed:.2f}s while /worktree-clean "
+                "was in flight — a dispatch during a long stash must "
+                "succeed promptly, not queue behind it"
+            )
+            # The slow call must still be genuinely running, so the fast
+            # /assign above proves concurrency rather than sequencing luck.
+            assert not clean_response
+
+            server.wait_for(assign_response.json()["id"])
+        finally:
+            release.set()
+            clean_thread.join(timeout=10)
+            assert not clean_thread.is_alive()
+
+    assert clean_response["response"].status_code == 200  # type: ignore[union-attr]
+    server.shutdown()
 
 
 # ── GET /artifact/{repo}/{branch} ─────────────────────────────────────────────

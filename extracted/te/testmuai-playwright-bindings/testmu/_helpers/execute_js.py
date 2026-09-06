@@ -2,6 +2,8 @@
 
 Variable injection: reads from testmu._vars._variable_store and injects
 valid JS identifiers as const declarations before the user's code runs.
+Names that are JavaScript reserved words are skipped -- declaring one would
+make the whole program fail to parse.
 
 Raises RuntimeError on JS error or evaluation failure.
 Returns the value directly (no wrapper dict).
@@ -13,6 +15,22 @@ import re
 _log = logging.getLogger("testmu")
 
 _JS_IDENT = re.compile(r'^[a-zA-Z_$][a-zA-Z0-9_$]*$')
+
+# Reserved words and literals: valid identifiers by SHAPE, illegal in declaration
+# position. A variable named e.g. `try` renders as `const try = "1";`, which is a
+# parse error -- and a parse error anywhere makes the WHOLE program fail to parse,
+# so the user's snippet never runs and the try/catch below (runtime-only) never
+# fires. Includes strict-mode / module-only reservations so the set stays correct
+# if the wrapper ever becomes strict or a module.
+_JS_RESERVED = frozenset({
+    "arguments", "await", "break", "case", "catch", "class", "const", "continue",
+    "debugger", "default", "delete", "do", "else", "enum", "eval", "export",
+    "extends", "false", "finally", "for", "function", "if", "implements",
+    "import", "in", "instanceof", "interface", "let", "new", "null", "package",
+    "private", "protected", "public", "return", "static", "super", "switch",
+    "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
+    "yield",
+})
 
 
 async def execute_js(page, script: str):
@@ -44,6 +62,11 @@ async def execute_js(page, script: str):
         preamble = ""
         for name, value in _variable_store.items():
             if not _JS_IDENT.match(name):
+                continue
+            if name in _JS_RESERVED:
+                _log.warning(
+                    "    [execute_js] skipping variable %r: JavaScript reserved word; "
+                    "rename it to use it in a JS snippet", name)
                 continue
             preamble += f"const {name} = {json.dumps(value, default=str)};\n"
 

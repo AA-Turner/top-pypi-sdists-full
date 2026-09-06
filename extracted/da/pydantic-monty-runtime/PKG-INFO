@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-monty-runtime
-Version: 0.0.22
+Version: 0.0.23
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Rust
 Classifier: Intended Audience :: Developers

@@ -48,18 +48,19 @@ def set_force_color(context, _, value):
 
 
 def show_locals(context, param, _):
-    from click.core import ParameterSource
+    from typer._click.core import ParameterSource
 
     if context.get_parameter_source(param.name) is not ParameterSource.DEFAULT:
         from .config import traceback_config
         from .utils import install_traceback
 
-        install_traceback(
-            {
-                **traceback_config(),
-                "show_locals": param.name == "show_locals",
-            }
-        )
+        show = param.name == "show_locals"
+        install_traceback({**traceback_config(), "show_locals": show})
+        # Typer renders uncaught exceptions with its own hook using the app level
+        # setting, so keep that in step with the flag as well. This callback only
+        # ever runs on django-typer's own context, which always carries the
+        # command (access the app on the class - on the instance it is a proxy).
+        type(context.django_command).typer_app.pretty_exceptions_show_locals = show
 
 
 Version = Annotated[

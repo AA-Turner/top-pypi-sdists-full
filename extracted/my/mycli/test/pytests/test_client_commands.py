@@ -14,6 +14,7 @@ from mycli import client_commands
 from mycli.client_commands import ClientCommandsMixin
 from mycli.packages import special
 from mycli.packages.special import main as special_main
+from mycli.packages.special import source as source_commands
 from mycli.packages.sqlresult import SQLResult
 
 
@@ -96,73 +97,6 @@ def result_statuses(results: Any) -> list[str | None]:
     return [result.status for result in list(results)]
 
 
-@pytest.mark.parametrize(
-    ('arg', 'expected'),
-    [
-        ('query.sql', ('query.sql', False, False, False)),
-        ('--special query.sql', ('query.sql', True, False, False)),
-        ('--show query.sql', ('query.sql', False, True, False)),
-        ('--page query.sql', ('query.sql', False, False, True)),
-        ('--special --show --page query file.sql', ('query file.sql', True, True, True)),
-        ('--page --show --special query file.sql', ('query file.sql', True, True, True)),
-        ('--show --show query.sql', ('query.sql', False, True, False)),
-        ('--page --page query.sql', ('query.sql', False, False, True)),
-        ('--show', ('', False, True, False)),
-    ],
-)
-def test_parse_source_arguments(arg: str, expected: tuple[str, bool, bool, bool]) -> None:
-    assert client_commands._parse_source_arguments(arg) == expected
-
-
-@pytest.mark.parametrize(
-    ('filename', 'expected'),
-    [
-        ('query.sql', 'query.sql'),
-        ('"query file.sql"', 'query file.sql'),
-        ("'query file.sql'", 'query file.sql'),
-        ('prefix" query".sql', 'prefix query.sql'),
-    ],
-)
-def test_parse_source_filename(filename: str, expected: str) -> None:
-    assert client_commands._parse_source_filename(filename) == expected
-
-
-@pytest.mark.parametrize(
-    'filename',
-    [
-        'query file.sql',
-        r'query\ file.sql',
-        '"first file.sql" second.sql',
-    ],
-)
-def test_parse_source_filename_rejects_multiple_unquoted_arguments(filename: str) -> None:
-    with pytest.raises(ValueError, match='filenames containing spaces must be quoted'):
-        client_commands._parse_source_filename(filename)
-
-
-def test_parse_source_filename_rejects_unclosed_quote() -> None:
-    with pytest.raises(ValueError, match='No closing quotation'):
-        client_commands._parse_source_filename('"query file.sql')
-
-
-def test_parse_source_filename_rejects_missing_parsed_argument(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(client_commands.shlex, 'split', lambda *_args, **_kwargs: [])
-
-    with pytest.raises(ValueError, match='accepts exactly one filename'):
-        client_commands._parse_source_filename('query.sql')
-
-
-def test_source_filename_whitespace_scanner_allows_escaped_non_whitespace() -> None:
-    assert not client_commands._has_unquoted_whitespace(r'query\name.sql')
-
-
-def test_parse_source_filename_preserves_windows_backslashes(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(client_commands, 'WIN', True)
-
-    assert client_commands._parse_source_filename(r'C:\queries\query.sql') == r'C:\queries\query.sql'
-    assert client_commands._parse_source_filename(r'"C:\my queries\query.sql"') == r'C:\my queries\query.sql'
-
-
 def test_register_special_commands_registers_expected_commands(monkeypatch: pytest.MonkeyPatch) -> None:
     client = DummyClient()
     calls: list[tuple[Any, ...]] = []
@@ -186,7 +120,10 @@ def test_register_special_commands_registers_expected_commands(monkeypatch: pyte
     assert calls[3][0] == client.change_table_format
     assert calls[4][0] == client.change_redirect_format
     assert calls[5][0] == client.execute_from_file
-    assert calls[5][2:4] == ('/source [--special|--show|--page] <file>', 'Execute queries from a file.')
+    assert calls[5][2:4] == (
+        '/source [options] <file>',
+        'Execute queries from a file.',
+    )
     assert calls[6][0] == client.change_prompt_format
     assert calls[6][2:4] == ('/prompt [string]', 'Show or change prompt format.')
     assert calls[7][0] == client.config_command
@@ -576,7 +513,9 @@ def test_change_db_without_argument_reports_error(monkeypatch: pytest.MonkeyPatc
 def test_execute_from_file_requires_filename() -> None:
     client = DummyClient()
 
-    assert list(client.execute_from_file('')) == [SQLResult(status='Missing required argument: filename.', is_error=True)]
+    assert list(client.execute_from_file('')) == [
+        SQLResult(status='Missing required argument: filename.  See /source --help.', is_error=True)
+    ]
 
 
 def test_execute_from_file_reports_open_errors() -> None:
@@ -711,6 +650,83 @@ def test_execute_from_file_runs_file_query(tmp_path: Path) -> None:
     assert client.sqlexecute.runs == ['select 1;']
 
 
+def test_execute_from_file_help_is_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = DummyClient()
+    client.sqlexecute = FakeSQLExecute()
+    opened_paths: list[str] = []
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(client_commands, 'open', lambda path: opened_paths.append(path), raising=False)
+    monkeypatch.setattr(client_commands.time, 'sleep', lambda seconds: sleep_calls.append(seconds))
+
+    assert list(client.execute_from_file('--page --help ignored.sql')) == [
+        SQLResult(
+            header=['Argument', 'Description'],
+            rows=[
+                ('--special', 'Allow supported special /commands in the source file.'),
+                ('--show', 'Show each statement before executing it.'),
+                ('--page', 'Display all source output using the pager.'),
+                (
+                    '--throttle <float>, --throttle=<float>',
+                    'Seconds to wait between executing statements.',
+                ),
+                ('--help', 'Show this help.'),
+                ('<filename>', 'File containing SQL to execute.'),
+            ],
+        )
+    ]
+    assert opened_paths == []
+    assert client.sqlexecute.runs == []
+    assert sleep_calls == []
+
+
+def test_execute_from_file_throttles_between_executed_statements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = DummyClient()
+    sql_file = tmp_path / 'query.sql'
+    sql_file.write_text('select 1; /status; select 2;', encoding='utf-8')
+    client.destructive_warning = False
+    client.destructive_keywords = set()
+    client.sqlexecute = FakeSQLExecute()
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(client_commands.time, 'sleep', lambda seconds: sleep_calls.append(seconds))
+
+    results = list(client.execute_from_file(f'--special --throttle 0.25 {sql_file}'))
+
+    assert result_statuses(results) == ['ran select 1;', 'ran /status', 'ran select 2;']
+    assert sleep_calls == [0.25, 0.25]
+
+
+def test_execute_from_file_does_not_throttle_after_declined_statement(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = DummyClient()
+    sql_file = tmp_path / 'query.sql'
+    sql_file.write_text('drop table users; select 1;', encoding='utf-8')
+    client.destructive_warning = True
+    client.destructive_keywords = {'drop'}
+    client.sqlexecute = FakeSQLExecute()
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(client_commands, 'confirm_destructive_query', lambda keywords, query: not query.startswith('drop'))
+    monkeypatch.setattr(client_commands.time, 'sleep', lambda seconds: sleep_calls.append(seconds))
+
+    results = list(client.execute_from_file(f'--throttle=0.25 {sql_file}'))
+
+    assert result_statuses(results) == ['ran select 1;']
+    assert client.sqlexecute.runs == ['select 1;']
+    assert sleep_calls == []
+
+
+def test_execute_from_file_reports_invalid_throttle_without_opening_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = DummyClient()
+    opened_paths: list[str] = []
+    monkeypatch.setattr(client_commands, 'open', lambda path: opened_paths.append(path), raising=False)
+
+    assert list(client.execute_from_file('--throttle nope query.sql')) == [
+        SQLResult(
+            status="invalid float value: 'nope'",
+            is_error=True,
+        )
+    ]
+    assert opened_paths == []
+
+
 def test_execute_from_file_emits_page_and_show_commands_lazily(tmp_path: Path) -> None:
     client = DummyClient()
     sql_file = tmp_path / 'query.sql'
@@ -790,7 +806,7 @@ def test_execute_from_file_parses_special_option_and_preserves_filename(
 def test_execute_from_file_reports_missing_filename_after_options(options: str) -> None:
     client = DummyClient()
 
-    expected = [SQLResult(status='Missing required argument: filename.', is_error=True)]
+    expected = [SQLResult(status='Missing required argument: filename.  See /source --help.', is_error=True)]
     if '--page' in options:
         expected.insert(0, SQLResult(command={'name': 'source_page'}))
     assert list(client.execute_from_file(options)) == expected
@@ -801,7 +817,7 @@ def test_execute_from_file_rejects_unquoted_filename_with_spaces(monkeypatch: py
     opened_paths: list[str] = []
     monkeypatch.setattr(client_commands, 'open', lambda path: opened_paths.append(path), raising=False)
 
-    assert list(client.execute_from_file('query file.sql')) == [SQLResult(status=client_commands.INVALID_SOURCE_FILENAME, is_error=True)]
+    assert list(client.execute_from_file('query file.sql')) == [SQLResult(status=source_commands.INVALID_SOURCE_FILENAME, is_error=True)]
     assert opened_paths == []
 
 
@@ -809,15 +825,16 @@ def test_execute_from_file_pages_invalid_filename_error() -> None:
     client = DummyClient()
 
     assert list(client.execute_from_file('--page query file.sql')) == [
-        SQLResult(command={'name': 'source_page'}),
-        SQLResult(status=client_commands.INVALID_SOURCE_FILENAME, is_error=True),
+        SQLResult(status=source_commands.INVALID_SOURCE_FILENAME, is_error=True),
     ]
 
 
 def test_execute_from_file_treats_empty_quotes_as_missing_filename() -> None:
     client = DummyClient()
 
-    assert list(client.execute_from_file('""')) == [SQLResult(status='Missing required argument: filename.', is_error=True)]
+    assert list(client.execute_from_file('""')) == [
+        SQLResult(status='Missing required argument: filename.  See /source --help.', is_error=True)
+    ]
 
 
 def test_execute_from_file_runs_permitted_special_commands(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
@@ -885,101 +902,6 @@ def test_execute_from_file_requires_semicolon_for_special_commands(tmp_path: Pat
 
     assert result_statuses(client.execute_from_file(f'--special {sql_file}')) == ['ran /status\nselect 1;']
     assert client.sqlexecute.runs == ['/status\nselect 1;']
-
-
-@pytest.mark.parametrize(
-    ('command', 'arg', 'expected'),
-    [
-        ('status', '', True),
-        ('ping', '', True),
-        ('connect', 'db', True),
-        ('config', 'get main.prompt', True),
-        ('config', 'edit', False),
-        ('dsn', 'list', True),
-        ('dsn', 'edit prod', False),
-        ('favorite', 'list', True),
-        ('favorite', 'eval report', False),
-        ('pager', '', False),
-        ('delimiter', '$$', False),
-        ('plugin_command', '', False),
-    ],
-)
-def test_source_special_command_policy(
-    monkeypatch: pytest.MonkeyPatch,
-    command: str,
-    arg: str,
-    expected: bool,
-) -> None:
-    monkeypatch.setattr(client_commands, '_registered_special_command', lambda query: (command, arg))
-
-    assert client_commands._source_special_command_is_safe('/command') is expected
-
-
-def test_registered_source_special_command_uses_case_insensitive_registry_lookup(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    registered = special_main.SpecialCommand(
-        handler=lambda: None,
-        command='status',
-        usage='/status',
-        description='Show status.',
-        arg_type=special_main.ArgType.NO_ARGUMENT,
-        hidden=False,
-        case_sensitive=False,
-        aliases=None,
-        backslash_only=False,
-    )
-    monkeypatch.setattr(special_main, 'COMMANDS', {'/status': registered})
-
-    assert client_commands._registered_special_command('/STATUS verbose') == ('status', 'verbose')
-
-
-def test_registered_source_special_command_rejects_unknown_command(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(special_main, 'COMMANDS', {})
-
-    assert client_commands._registered_special_command('/unknown') is None
-    assert client_commands._source_special_command_is_safe('/unknown') is False
-
-
-@pytest.mark.parametrize('command', ['fd', 'fs'])
-def test_source_special_command_policy_allows_favorite_aliases(
-    monkeypatch: pytest.MonkeyPatch,
-    command: str,
-) -> None:
-    monkeypatch.setattr(client_commands, '_registered_special_command', lambda query: (command, 'report'))
-
-    assert client_commands._source_special_command_is_safe('/command') is True
-
-
-@pytest.mark.parametrize(
-    ('expanded_query', 'expected'),
-    [
-        ('select 1; select 2;', True),
-        ('select 1; /system echo unsafe;', False),
-        (None, True),
-    ],
-)
-def test_favorite_source_command_requires_sql_only_expansion(
-    monkeypatch: pytest.MonkeyPatch,
-    expanded_query: str | None,
-    expected: bool,
-) -> None:
-    monkeypatch.setattr(
-        client_commands,
-        'expand_favorite_query',
-        lambda arg: (expanded_query, None if expanded_query is not None else 'invalid arguments'),
-    )
-
-    assert client_commands._favorite_source_command_is_safe('report') is expected
-
-
-@pytest.mark.parametrize('command', ['f', 'favorite'])
-def test_source_favorite_run_uses_expansion_policy(monkeypatch: pytest.MonkeyPatch, command: str) -> None:
-    arg = 'report' if command == 'f' else 'run report'
-    monkeypatch.setattr(client_commands, '_registered_special_command', lambda query: (command, arg))
-    monkeypatch.setattr(client_commands, '_favorite_source_command_is_safe', lambda favorite_arg: False)
-
-    assert client_commands._source_special_command_is_safe('/favorite') is False
 
 
 @pytest.mark.parametrize(

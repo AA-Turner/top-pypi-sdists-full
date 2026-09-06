@@ -542,7 +542,7 @@ class DocumentsResource(SyncAPIResource):
         container_tags: str | Omit = omit,
         limit: Union[str, float] | Omit = omit,
         page: Union[str, float] | Omit = omit,
-        view: Literal["active", "all"] | Omit = omit,
+        view: Literal["active", "pending", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -553,7 +553,8 @@ class DocumentsResource(SyncAPIResource):
         """Get documents that are currently being processed.
 
         Default `view=active` is the
-        live in-flight queue. `view=all` also includes failed and stuck documents.
+        live in-flight queue. `view=pending` is every unfinished document with no time
+        cutoff. `view=all` also includes failed documents, paginated.
 
         Args:
           container_tags: Comma-separated container tags to filter by
@@ -562,8 +563,9 @@ class DocumentsResource(SyncAPIResource):
 
           page: Page number to fetch. Used with `view=all`.
 
-          view: `active` returns in-flight documents updated in the last 4 hours. `all` also
-              includes failed and stuck documents.
+          view: `active` returns in-flight documents updated in the last 4 hours. `pending`
+              returns every document that is not done or failed, with no time cutoff. `all`
+              also includes failed documents, paginated.
 
           extra_headers: Send extra headers
 
@@ -1209,7 +1211,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
         container_tags: str | Omit = omit,
         limit: Union[str, float] | Omit = omit,
         page: Union[str, float] | Omit = omit,
-        view: Literal["active", "all"] | Omit = omit,
+        view: Literal["active", "pending", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1220,7 +1222,8 @@ class AsyncDocumentsResource(AsyncAPIResource):
         """Get documents that are currently being processed.
 
         Default `view=active` is the
-        live in-flight queue. `view=all` also includes failed and stuck documents.
+        live in-flight queue. `view=pending` is every unfinished document with no time
+        cutoff. `view=all` also includes failed documents, paginated.
 
         Args:
           container_tags: Comma-separated container tags to filter by
@@ -1229,8 +1232,9 @@ class AsyncDocumentsResource(AsyncAPIResource):
 
           page: Page number to fetch. Used with `view=all`.
 
-          view: `active` returns in-flight documents updated in the last 4 hours. `all` also
-              includes failed and stuck documents.
+          view: `active` returns in-flight documents updated in the last 4 hours. `pending`
+              returns every document that is not done or failed, with no time cutoff. `all`
+              also includes failed documents, paginated.
 
           extra_headers: Send extra headers
 

@@ -7,6 +7,7 @@
 #
 
 import typing as t
+from typing_extensions import disjoint_base  # type: ignore[attr-defined]
 
 
 __rapidjson_exact_version__: str
@@ -164,19 +165,20 @@ class JSONDecodeError(Exception): ...
 class ValidationError(Exception): ...
 
 
+@disjoint_base
 class Decoder:
     datetime_mode: _DatetimeMode
     number_mode: _NumberMode
     parse_mode: _ParseMode
     uuid_mode: _UUIDMode
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         datetime_mode: t.Optional[_DatetimeMode] = DM_NONE,
         number_mode: t.Optional[_NumberMode] = NM_NAN,
         parse_mode: t.Optional[_ParseMode] = PM_NONE,
         uuid_mode: t.Optional[_UUIDMode] = UM_NONE,
-    ) -> None: ...
+    ) -> Decoder: ...
     def __call__(
         self,
         json: t.Union[str, bytes, bytearray, t.IO],
@@ -184,6 +186,7 @@ class Decoder:
     ) -> t.Any: ...
 
 
+@disjoint_base
 class Encoder:
     bytes_mode: _BytesMode
     datetime_mode: _DatetimeMode
@@ -198,8 +201,8 @@ class Encoder:
     uuid_mode: _UUIDMode
     write_mode: _WriteMode
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         skip_invalid_keys: t.Optional[bool] = False,
         ensure_ascii: t.Optional[bool] = True,
         write_mode: t.Optional[_WriteMode] = WM_COMPACT,
@@ -211,7 +214,7 @@ class Encoder:
         bytes_mode: t.Optional[_BytesMode] = BM_UTF8,
         iterable_mode: t.Optional[_IterableMode] = IM_ANY_ITERABLE,
         mapping_mode: t.Optional[_MappingMode] = MM_ANY_MAPPING,
-    ) -> None: ...
+    ) -> Encoder: ...
     def __call__(
         self,
         obj: t.Any,
@@ -222,11 +225,13 @@ class Encoder:
 
 @t.final
 class RawJSON:
-    value: RawJSON
-    def __init__(self, value: str) -> None: ...
+    value: str
+    def __new__(cls, value: str) -> RawJSON: ...
 
 
 @t.final
 class Validator:
-    def __init__(self, json_schema: t.Union[str, bytes, bytearray]) -> None: ...
+    def __new__(
+        cls, json_schema: t.Union[str, bytes, bytearray]
+    ) -> Validator: ...
     def __call__(self, json: t.Union[str, bytes, bytearray]) -> None: ...

@@ -1,6 +1,11 @@
 name: Build and Test
 
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
 
 jobs:
   linux:
@@ -11,12 +16,26 @@ jobs:
         lapack: [0, 1]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y libopenblas-dev liblapack-dev
+      - name: Check single-precision settings serialization
+        if: matrix.long == 0 && matrix.lapack == 0
+        run: |
+          make out/test_rw_settings SFLOAT=1 USE_LAPACK=0
+          out/test_rw_settings
+          make purge
       - run: make DLONG=${{ matrix.long }} USE_LAPACK=${{ matrix.lapack }}
       - run: make test DLONG=${{ matrix.long }} USE_LAPACK=${{ matrix.lapack }}
       - run: out/run_tests_direct
       - run: out/run_tests_indirect
+      - name: Run dense tests
+        if: matrix.lapack == 1
+        run: out/run_tests_dense
+      - name: Install and check the versioned shared library
+        run: |
+          make install DLONG=${{ matrix.long }} USE_LAPACK=${{ matrix.lapack }} PREFIX=$PWD/_inst
+          test -L _inst/lib/libscsdir.so && test -e _inst/lib/libscsdir.so
+          readelf -d _inst/lib/libscsdir.so | grep -q 'SONAME.*libscsdir\.so\.[0-9]'
 
   windows:
     strategy:
@@ -29,7 +48,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up MSYS2 (UCRT64) + toolchain + BLAS/LAPACK
         uses: msys2/setup-msys2@v2
@@ -65,6 +84,10 @@ jobs:
       - name: Run indirect tests
         run: out/run_tests_indirect
 
+      - name: Run dense tests
+        if: matrix.lapack == 1
+        run: out/run_tests_dense
+
   mac:
     strategy:
       fail-fast: false
@@ -73,10 +96,20 @@ jobs:
         lapack: [0, 1]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - run: brew update && brew install openblas lapack
       - run: make DLONG=${{ matrix.long }} USE_LAPACK=${{ matrix.lapack }}
       - run: make test DLONG=${{ matrix.long }} USE_LAPACK=${{ matrix.lapack }}
       - run: out/run_tests_direct
       - run: out/run_tests_indirect
-
+      - name: Run dense tests
+        if: matrix.lapack == 1
+        run: out/run_tests_dense
+      - name: Run accelerate tests
+        if: matrix.long == 0
+        run: out/run_tests_accelerate
+      - name: Install and check the versioned shared library
+        run: |
+          make install DLONG=${{ matrix.long }} USE_LAPACK=${{ matrix.lapack }} PREFIX=$PWD/_inst
+          test -L _inst/lib/libscsdir.dylib && test -e _inst/lib/libscsdir.dylib
+          otool -D _inst/lib/libscsdir.dylib | grep -q 'libscsdir\.[0-9].*\.dylib'

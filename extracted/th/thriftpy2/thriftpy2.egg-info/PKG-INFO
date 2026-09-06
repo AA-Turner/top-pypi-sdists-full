@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: thriftpy2
-Version: 0.7.0
+Version: 0.7.1
 Summary: Pure python implementation of Apache Thrift.
 Author-email: ThriftPy Organization <gotzehsing@gmail.com>
 License: The MIT License (MIT)

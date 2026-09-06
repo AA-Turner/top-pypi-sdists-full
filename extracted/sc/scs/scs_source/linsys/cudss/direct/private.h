@@ -5,22 +5,45 @@
 extern "C" {
 #endif
 
+#include "csparse.h"
+#include "linsys.h"
+#include <cuda_runtime.h>
+#include <cudss.h>
+
+/* cuDSS 0.8.0 renamed cudaDataType_t to cudssDataType_t (so CUDA_R_* enum
+ * values become CUDSS_R_*) and added an offsetType parameter to
+ * cudssMatrixCreateCsr. cudss.h exposes CUDSS_VERSION = MAJOR*10000 +
+ * MINOR*100 + PATCH; gate on that so the same source still builds against
+ * older cuDSS (<=0.7.x). */
+#if defined(CUDSS_VERSION) && CUDSS_VERSION >= 800
+#define SCS_CUDSS_NEW_API 1
+#else
+#define SCS_CUDSS_NEW_API 0
+#endif
+
+#if SCS_CUDSS_NEW_API
+#ifndef SFLOAT
+#define SCS_CUDA_FLOAT CUDSS_R_64F
+#else
+#define SCS_CUDA_FLOAT CUDSS_R_32F
+#endif
+#ifndef DLONG
+#define SCS_CUDA_INDEX CUDSS_R_32I
+#else
+#define SCS_CUDA_INDEX CUDSS_R_64I
+#endif
+#else
 #ifndef SFLOAT
 #define SCS_CUDA_FLOAT CUDA_R_64F
 #else
 #define SCS_CUDA_FLOAT CUDA_R_32F
 #endif
-
 #ifndef DLONG
 #define SCS_CUDA_INDEX CUDA_R_32I
 #else
 #define SCS_CUDA_INDEX CUDA_R_64I
 #endif
-
-#include "csparse.h"
-#include "linsys.h"
-#include <cuda_runtime.h>
-#include <cudss.h>
+#endif
 
 struct SCS_LIN_SYS_WORK {
   /* General problem dimensions */
@@ -30,7 +53,6 @@ struct SCS_LIN_SYS_WORK {
 
   /* CPU matrices and vectors */
   ScsMatrix *kkt; /* KKT matrix in CSR format */
-  scs_float *sol; /* solution to the KKT system */
 
   /* cuDSS handle and descriptors */
   cudssHandle_t handle;    /* cuDSS library handle */
@@ -46,6 +68,10 @@ struct SCS_LIN_SYS_WORK {
   /* Device memory for vectors */
   scs_float *d_b;   /* device copy of right-hand side */
   scs_float *d_sol; /* device copy of solution */
+
+  /* Pinned host memory for faster H<->D transfers */
+  scs_float *h_b_pinned;   /* pinned host staging buffer for RHS */
+  scs_float *h_sol_pinned; /* pinned host staging buffer for solution */
 
   /* These are required for matrix updates */
   scs_int *diag_r_idxs; /* indices where R appears in the KKT matrix */

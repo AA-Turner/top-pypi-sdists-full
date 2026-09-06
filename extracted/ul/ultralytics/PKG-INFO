@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.140
+Version: 8.4.142
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, instance segmentation, semantic segmentation, depth estimation, classification, pose estimation, oriented object detection, and multi-object tracking.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -65,9 +65,10 @@ Requires-Dist: onnx>=1.20.0; (platform_system == "Darwin" and python_version >= 
 Requires-Dist: onnxslim>=0.1.82; extra == "export-base"
 Requires-Dist: onnxruntime<1.20.0; (python_version < "3.11" and (platform_machine != "aarch64" or platform_system != "Linux")) and extra == "export-base"
 Requires-Dist: onnxruntime>=1.20.0; python_version >= "3.11" and extra == "export-base"
-Requires-Dist: nncf<4.0.0,>=2.14.0; python_version >= "3.9" and extra == "export-base"
-Requires-Dist: openvino>=2024.0.0; extra == "export-base"
-Requires-Dist: packaging>=26.0; (platform_machine == "aarch64" and platform_system == "Linux" and python_version >= "3.9") and extra == "export-base"
+Provides-Extra: export-openvino
+Requires-Dist: nncf<4.0.0,>=2.14.0; python_version >= "3.9" and extra == "export-openvino"
+Requires-Dist: openvino>=2024.0.0; extra == "export-openvino"
+Requires-Dist: packaging>=26.0; (platform_machine == "aarch64" and platform_system == "Linux" and python_version >= "3.9") and extra == "export-openvino"
 Provides-Extra: export-legacy-torch
 Requires-Dist: numpy<2; extra == "export-legacy-torch"
 Requires-Dist: setuptools<81.0.0; python_version >= "3.9" and extra == "export-legacy-torch"
@@ -99,6 +100,7 @@ Requires-Dist: ai-edge-litert>=2.1.4; ((platform_system == "Linux" and platform_
 Requires-Dist: ai-edge-quantizer>=0.6.0; ((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and extra == "export-litert"
 Provides-Extra: export
 Requires-Dist: ultralytics[export-base]; extra == "export"
+Requires-Dist: ultralytics[export-openvino]; extra == "export"
 Requires-Dist: ultralytics[export-tensorflow]; extra == "export"
 Requires-Dist: ultralytics[export-coreml]; extra == "export"
 Requires-Dist: ultralytics[export-litert]; extra == "export"

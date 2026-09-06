@@ -47,6 +47,7 @@ pub mod glossary;
 pub mod host_bridge;
 pub mod machine_hood;
 pub mod markdown_link_refs;
+pub mod migration;
 pub mod model_completion;
 pub mod model_route;
 pub mod notifications;
@@ -55,6 +56,7 @@ pub mod perf_logs;
 pub mod plan;
 pub mod procs;
 pub mod project_spec;
+pub mod prompt_archive;
 pub mod prompt_artifact;
 pub mod prompt_literals;
 mod prompt_rewrite;
@@ -154,22 +156,18 @@ pub use agent_group_archive::{
 };
 pub use agent_identity::{
     agent_link_target, agent_local_hood, agent_name_ancestors,
-    agent_name_in_hood, classify_agent_ownership,
-    classify_legacy_v1_group_ownership, globalize_agent_name,
-    globalize_legacy_agent_name, localize_agent_name,
-    normalize_agent_archive_name, parse_agent_family_name,
-    rewrite_agent_relationship_batch, strip_global_agent_name,
-    validate_agent_name, validate_agent_relationship_batch,
-    validate_agent_username, AgentContainerKind, AgentFamilyNameWire,
-    AgentIdentityError, AgentLinkTargetWire, AgentOwnerIdentity,
-    AgentOwnershipClassification, AgentRelationshipBatchWire,
+    agent_name_in_hood, globalize_agent_name, normalize_agent_archive_name,
+    parse_agent_family_name, rewrite_agent_relationship_batch,
+    strip_global_agent_name, validate_agent_name,
+    validate_agent_relationship_batch, validate_agent_username,
+    AgentContainerKind, AgentFamilyNameWire, AgentIdentityError,
+    AgentLinkTargetWire, AgentOwnerIdentity, AgentRelationshipBatchWire,
     AgentRelationshipError, AgentRelationshipKind, AgentRelationshipTargetWire,
     AgentRelationshipWire, AgentRunContainerWire, AgentRunWire,
-    AgentSourceOwnerIdentity, LegacyV1GroupOwnershipClassification,
-    LegacyV1GroupOwnershipEvidence, RewrittenAgentRelationshipBatchWire,
-    RewrittenAgentRelationshipTargetWire, RewrittenAgentRelationshipWire,
-    RewrittenAgentRunContainerWire, RewrittenAgentRunWire,
-    ValidatedAgentRelationshipSummaryWire, AGENT_RELATIONSHIP_SCHEMA_VERSION,
+    RewrittenAgentRelationshipBatchWire, RewrittenAgentRelationshipTargetWire,
+    RewrittenAgentRelationshipWire, RewrittenAgentRunContainerWire,
+    RewrittenAgentRunWire, ValidatedAgentRelationshipSummaryWire,
+    AGENT_RELATIONSHIP_SCHEMA_VERSION,
 };
 pub use agent_launch::{
     admission_unit_results, agent_unit_dispatch_prompt,
@@ -704,6 +702,24 @@ pub use markdown_link_refs::{
     scan_markdown_reference_links, MarkdownReferenceDefinitionWire,
     MarkdownReferenceScanWire, MARKDOWN_LINK_REFS_WIRE_SCHEMA_VERSION,
 };
+pub use migration::{
+    acquire_bounded_lock as acquire_migration_bounded_lock, classify,
+    classify_many, fingerprint as migration_fingerprint, plan_next_step,
+    reconcile_plan as reconcile_migration_procs,
+    tree_digest as migration_tree_digest, MigrationBackupRecord,
+    MigrationCanonicalProcRefWire, MigrationConflictRecord,
+    MigrationDigestError, MigrationDigestMismatchWire,
+    MigrationFingerprintWire, MigrationHeldLock, MigrationJournalRecord,
+    MigrationJournalStateWire, MigrationLegacyProcRowWire, MigrationLockError,
+    MigrationManifest, MigrationOperationEntry, MigrationProcConflictWire,
+    MigrationProcMatchWire, MigrationProcReconcilePlanWire,
+    MigrationRefusalWire, MigrationResidueClassificationWire,
+    MigrationResidueDecisionWire, MigrationResidueEntryWire,
+    MigrationResidueFactsWire, MigrationResumePlanWire,
+    MigrationTreeDigestEntryWire, MigrationTreeDigestWire,
+    MIGRATION_FINGERPRINT_ALGORITHM, MIGRATION_TREE_DIGEST_ALGORITHM,
+    MIGRATION_WIRE_SCHEMA_VERSION,
+};
 pub use model_completion::{
     filter_model_completion_candidates, filter_model_completion_entries,
     ModelCompletionCandidateWire, ModelCompletionEntryWire,
@@ -798,6 +814,11 @@ pub use project_spec::{
     ProjectLifecycleWire, ProjectRecordWire, LEGACY_PROJECT_SPEC_EXTENSION,
     PROJECT_LIFECYCLE_WIRE_SCHEMA_VERSION, PROJECT_SPEC_ARCHIVE_SUFFIX,
     PROJECT_SPEC_EXTENSION,
+};
+pub use prompt_archive::{
+    prompt_archive_inventory, PromptArchiveDocumentWire,
+    PromptArchiveInventoryRequestWire, PromptArchiveInventoryWire,
+    PROMPT_ARCHIVE_INVENTORY_WIRE_SCHEMA_VERSION,
 };
 pub use prompt_literals::inline_code_ranges;
 pub use prompt_stash::{

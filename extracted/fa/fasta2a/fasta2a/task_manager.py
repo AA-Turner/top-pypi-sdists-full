@@ -61,27 +61,40 @@ The flow:
 from __future__ import annotations as _annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from typing import Any
 
 from .broker import Broker
 from .schema import (
+    STREAM_ENDING_STATES,
     CancelTaskRequest,
     CancelTaskResponse,
+    DeleteTaskPushNotificationConfigRequest,
+    DeleteTaskPushNotificationConfigResponse,
     GetTaskPushNotificationRequest,
     GetTaskPushNotificationResponse,
     GetTaskRequest,
     GetTaskResponse,
+    ListTaskPushNotificationConfigRequest,
+    ListTaskPushNotificationConfigResponse,
+    ListTasksRequest,
+    ListTasksResponse,
+    PushNotificationNotSupportedError,
     ResubscribeTaskRequest,
     SendMessageRequest,
     SendMessageResponse,
+    SendMessageResult,
     SetTaskPushNotificationRequest,
     SetTaskPushNotificationResponse,
     StreamMessageRequest,
     StreamMessageResponse,
+    StreamResponse,
     TaskNotFoundError,
     TaskSendParams,
+    UnsupportedOperationError,
+    stream_message_response_ta,
 )
 from .storage import Storage
 
@@ -113,7 +126,7 @@ class TaskManager:
         self._aexit_stack = None
 
     async def send_message(self, request: SendMessageRequest) -> SendMessageResponse:
-        """Send a message using the A2A v0.3.0 protocol."""
+        """Send a message using the A2A protocol."""
         request_id = request['id']
         message = request['params']['message']
         context_id = message.get('context_id', str(uuid.uuid4()))
@@ -125,9 +138,13 @@ class TaskManager:
         history_length = config.get('history_length')
         if history_length is not None:
             broker_params['history_length'] = history_length
+        metadata = request['params'].get('metadata')
+        if metadata:
+            broker_params['metadata'] = metadata
 
         await self.broker.run_task(broker_params)
-        return SendMessageResponse(jsonrpc='2.0', id=request_id, result=task)
+        result = SendMessageResult(task=task)
+        return SendMessageResponse(jsonrpc='2.0', id=request_id, result=result)
 
     async def get_task(self, request: GetTaskRequest) -> GetTaskResponse:
         """Get a task, and return it to the client.
@@ -156,19 +173,108 @@ class TaskManager:
             )
         return CancelTaskResponse(jsonrpc='2.0', id=request['id'], result=task)
 
-    async def stream_message(self, request: StreamMessageRequest) -> StreamMessageResponse:
-        """Stream messages using Server-Sent Events."""
-        raise NotImplementedError('message/stream method is not implemented yet.')
+    async def stream_message(self, request: StreamMessageRequest) -> AsyncIterator[bytes]:
+        """Stream a message response as SSE events."""
+        request_id = request['id']
+        message = request['params']['message']
+        context_id = message.get('context_id', str(uuid.uuid4()))
+
+        task = await self.storage.submit_task(context_id, message)
+        task_id = task['id']
+
+        broker_params: TaskSendParams = {'id': task_id, 'context_id': context_id, 'message': message}
+        config = request['params'].get('configuration', {})
+        history_length = config.get('history_length')
+        if history_length is not None:
+            broker_params['history_length'] = history_length
+        metadata = request['params'].get('metadata')
+        if metadata:
+            broker_params['metadata'] = metadata
+
+        async with self.broker.event_bus.subscribe(task_id) as receive_stream:
+            await self.broker.run_task(broker_params)
+
+            # Send initial task state
+            initial_response = StreamMessageResponse(jsonrpc='2.0', id=request_id, result=StreamResponse(task=task))
+            yield self._format_sse_event(initial_response)
+
+            async for event in receive_stream:
+                response = StreamMessageResponse(jsonrpc='2.0', id=request_id, result=event)
+                yield self._format_sse_event(response)
+
+    async def resubscribe_task(self, request: ResubscribeTaskRequest) -> AsyncIterator[bytes]:
+        """Resubscribe to an existing task's event stream."""
+        request_id = request['id']
+        task_id = request['params']['id']
+
+        task = await self.storage.load_task(task_id)
+        if task is None:
+            error_response = StreamMessageResponse(
+                jsonrpc='2.0',
+                id=request_id,
+                error=TaskNotFoundError(code=-32001, message='Task not found'),
+            )
+            yield self._format_sse_event(error_response)
+            return
+
+        # Send current task state
+        initial_response = StreamMessageResponse(jsonrpc='2.0', id=request_id, result=StreamResponse(task=task))
+        yield self._format_sse_event(initial_response)
+
+        # A task at one of these states has ended its stream: nothing more to wait for.
+        if task['status']['state'] in STREAM_ENDING_STATES:
+            return
+
+        async with self.broker.event_bus.subscribe(task_id) as receive_stream:
+            async for event in receive_stream:
+                response = StreamMessageResponse(jsonrpc='2.0', id=request_id, result=event)
+                yield self._format_sse_event(response)
+
+    @staticmethod
+    def _format_sse_event(response: StreamMessageResponse) -> bytes:
+        """Format a StreamMessageResponse as an SSE event."""
+        data = stream_message_response_ta.dump_json(response, by_alias=True)
+        return b'data: ' + data + b'\n\n'
 
     async def set_task_push_notification(
         self, request: SetTaskPushNotificationRequest
     ) -> SetTaskPushNotificationResponse:
-        raise NotImplementedError('SetTaskPushNotification is not implemented yet.')
+        return SetTaskPushNotificationResponse(
+            jsonrpc='2.0',
+            id=request['id'],
+            error=PushNotificationNotSupportedError(code=-32003, message='Push notification not supported'),
+        )
 
     async def get_task_push_notification(
         self, request: GetTaskPushNotificationRequest
     ) -> GetTaskPushNotificationResponse:
-        raise NotImplementedError('GetTaskPushNotification is not implemented yet.')
+        return GetTaskPushNotificationResponse(
+            jsonrpc='2.0',
+            id=request['id'],
+            error=PushNotificationNotSupportedError(code=-32003, message='Push notification not supported'),
+        )
 
-    async def resubscribe_task(self, request: ResubscribeTaskRequest) -> None:
-        raise NotImplementedError('Resubscribe is not implemented yet.')
+    async def list_task_push_notification_configs(
+        self, request: ListTaskPushNotificationConfigRequest
+    ) -> ListTaskPushNotificationConfigResponse:
+        return ListTaskPushNotificationConfigResponse(
+            jsonrpc='2.0',
+            id=request['id'],
+            error=PushNotificationNotSupportedError(code=-32003, message='Push notification not supported'),
+        )
+
+    async def delete_task_push_notification_config(
+        self, request: DeleteTaskPushNotificationConfigRequest
+    ) -> DeleteTaskPushNotificationConfigResponse:
+        return DeleteTaskPushNotificationConfigResponse(
+            jsonrpc='2.0',
+            id=request['id'],
+            error=PushNotificationNotSupportedError(code=-32003, message='Push notification not supported'),
+        )
+
+    async def list_tasks(self, request: ListTasksRequest) -> ListTasksResponse:
+        return ListTasksResponse(
+            jsonrpc='2.0',
+            id=request['id'],
+            error=UnsupportedOperationError(code=-32004, message='This operation is not supported'),
+        )

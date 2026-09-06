@@ -854,6 +854,8 @@ class AccountsClient:
     def update_onboarding_state(
         self,
         *,
+        country: typing.Optional[str] = OMIT,
+        dismissed: typing.Optional[bool] = OMIT,
         path: typing.Optional[OnboardingPath] = OMIT,
         pricing_page_url: typing.Optional[str] = OMIT,
         track: typing.Optional[OnboardingTrack] = OMIT,
@@ -863,6 +865,10 @@ class AccountsClient:
         """
         Parameters
         ----------
+        country : typing.Optional[str]
+
+        dismissed : typing.Optional[bool]
+
         path : typing.Optional[OnboardingPath]
 
         pricing_page_url : typing.Optional[str]
@@ -889,6 +895,8 @@ class AccountsClient:
         client.accounts.update_onboarding_state()
         """
         _response = self._raw_client.update_onboarding_state(
+            country=country,
+            dismissed=dismissed,
             path=path,
             pricing_page_url=pricing_page_url,
             track=track,
@@ -1905,6 +1913,8 @@ class AsyncAccountsClient:
     async def update_onboarding_state(
         self,
         *,
+        country: typing.Optional[str] = OMIT,
+        dismissed: typing.Optional[bool] = OMIT,
         path: typing.Optional[OnboardingPath] = OMIT,
         pricing_page_url: typing.Optional[str] = OMIT,
         track: typing.Optional[OnboardingTrack] = OMIT,
@@ -1914,6 +1924,10 @@ class AsyncAccountsClient:
         """
         Parameters
         ----------
+        country : typing.Optional[str]
+
+        dismissed : typing.Optional[bool]
+
         path : typing.Optional[OnboardingPath]
 
         pricing_page_url : typing.Optional[str]
@@ -1948,6 +1962,8 @@ class AsyncAccountsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update_onboarding_state(
+            country=country,
+            dismissed=dismissed,
             path=path,
             pricing_page_url=pricing_page_url,
             track=track,

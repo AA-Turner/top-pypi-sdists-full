@@ -17,7 +17,7 @@ from hypothesis.strategies import integers
 from lxml.etree import XMLSyntaxError
 
 import pikepdf
-from pikepdf import Dictionary, Name, PasswordError, Pdf, Stream
+from pikepdf import Dictionary, Name, PasswordError, Pdf, Stream, XmpTypeWarning
 from pikepdf.models.metadata import (
     XMP_NS_DC,
     XMP_NS_PDF,
@@ -277,12 +277,39 @@ def test_date_docinfo_from_xmp():
         assert DateConverter.docinfo_from_xmp(xmp_val) == docinfo_val
 
 
+def test_xmp_date_forms_docinfo_from_xmp():
+    """Every form in XMP Specification Part 1, 8.2.1.2, converts to DocumentInfo.
+
+    ``datetime.fromisoformat`` on Python 3.10 rejects fractions that are not
+    exactly 3 or 6 digits and offsets without a colon, so the converter must
+    not depend on it.
+    """
+    VALS = [
+        ('2018-12-04', "D:20181204"),
+        ('2018-12-04T03:02Z', "D:20181204030200+00'00"),
+        ('2018-12-04T03:02:01.5Z', "D:20181204030201+00'00"),
+        ('2018-12-04T03:02:01.12-06:00', "D:20181204030201-06'00"),
+        ('2018-12-04T03:02:01.1234567+05:30', "D:20181204030201+05'30"),
+        ('2018-12-04T03:02:01-0600', "D:20181204030201-06'00"),
+        ('2018-12-04T03:02:01.5', "D:20181204030201"),
+    ]
+    for xmp_val, docinfo_val in VALS:
+        assert DateConverter.docinfo_from_xmp(xmp_val) == docinfo_val
+
+
+def test_invalid_xmp_date_docinfo_from_xmp():
+    for bad in ['not a date', '2018-13-04', '2018-12-04T25:00:00', '2018-12-04T']:
+        with pytest.raises(ValueError):
+            DateConverter.docinfo_from_xmp(bad)
+
+
 def test_reduced_precision_date_docinfo_from_xmp():
     VALS = [
         ('2023', 'D:2023'),
         ('2023-11', 'D:202311'),
         ('1999', 'D:1999'),
         ('2000-01', 'D:200001'),
+        ('2000-01-31', 'D:20000131'),
     ]
     for xmp_val, docinfo_val in VALS:
         assert DateConverter.docinfo_from_xmp(xmp_val) == docinfo_val
@@ -294,13 +321,14 @@ def test_reduced_precision_date_xmp_from_docinfo():
         ('D:202311', '2023-11'),
         ('D:1999', '1999'),
         ('D:200001', '2000-01'),
+        ('D:20000131', '2000-01-31'),
     ]
     for docinfo_val, xmp_val in VALS:
         assert DateConverter.xmp_from_docinfo(docinfo_val) == xmp_val
 
 
 def test_reduced_precision_date_roundtrip():
-    VALS = ['2023', '2023-11', '1999', '2000-01']
+    VALS = ['2023', '2023-11', '1999', '2000-01', '2000-01-31']
     for xmp_date in VALS:
         pdf_date = DateConverter.docinfo_from_xmp(xmp_date)
         roundtrip = DateConverter.xmp_from_docinfo(pdf_date)
@@ -538,6 +566,10 @@ def test_degenerate_xml_recoverable(trivial, xml):
 @example(548)
 @example(1154)
 @example(1155)
+@example(460)
+@example(519)
+@example(578)
+@example(914)
 @example(1195)
 @example(1303)
 @pytest.mark.filterwarnings('ignore:The DocumentInfo field')
@@ -554,6 +586,9 @@ def test_truncated_xml(resources, idx):
             pass
 
         with sandwich.open_metadata(strict=False) as xmp:
+            for key in xmp:
+                assert key in xmp
+                xmp[key]
             xmp['pdfaid:part'] = '7'
 
 
@@ -683,9 +718,11 @@ def test_issue_162(trivial, author):
     )
     with trivial.open_metadata() as m:
         docinfo = pikepdf.Dictionary(Author=author)
-        with pytest.warns(UserWarning, match=r'Merging elements'):
-            m.load_from_docinfo(docinfo, raise_failure=True)
+        m.load_from_docinfo(docinfo, raise_failure=True)
+        # dc:creator was stored as an attribute, which cannot hold the rdf:Seq
+        # the specification requires, so it is rebuilt as an element
         assert m['dc:creator'] == [author]
+        assert 'dc:creator="' not in str(m)
 
 
 def test_set_empty_string(graph):
@@ -1219,7 +1256,7 @@ def test_metadata_roundtrip_without_lang_alts(tmp_path):
     with pikepdf.Pdf.new() as pdf:
         with pdf.open_metadata(set_pikepdf_as_editor=False) as meta:
             # Use non-LANG_ALT fields
-            meta["dc:creator"] = "Test Author"
+            meta["dc:creator"] = ["Test Author"]
             meta["pdf:Producer"] = "pikepdf-test"
 
         pdf.save(out)
@@ -1227,5 +1264,254 @@ def test_metadata_roundtrip_without_lang_alts(tmp_path):
     # Reload and verify metadata survived
     with pikepdf.open(out) as pdf:
         meta = pdf.open_metadata()
-        assert meta["dc:creator"] == "Test Author"
+        assert meta["dc:creator"] == ["Test Author"]
         assert meta["pdf:Producer"] == "pikepdf-test"
+
+
+UNDECLARED_PREFIX_XMP = b"""\
+<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmp:CreateDate="2024-01-01T00:00:00Z">
+    <xmp:MetadataDate>2024-06-01T00:00:00Z</xmp:MetadataDate>
+    <dc:title>Untitled</dc:title>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>"""
+
+
+class TestUndeclaredNamespacePrefix:
+    """Issue 634.
+
+    When XMP fails a strict parse, the recovery parser preserves elements
+    whose namespace prefix was never declared as literal names such as
+    ``xmp:MetadataDate``, with no namespace. Iteration yielded those names
+    while lookup resolved the prefix to a URI, so every key iteration
+    produced raised KeyError.
+    """
+
+    def test_iteration_matches_lookup(self):
+        xmp = XmpDocument(UNDECLARED_PREFIX_XMP)
+        keys = list(xmp)
+        assert keys
+        for key in keys:
+            assert key in xmp
+            xmp[key]  # Must not raise KeyError
+
+    def test_prefixes_are_rebound(self):
+        xmp = XmpDocument(UNDECLARED_PREFIX_XMP)
+        assert xmp['xmp:MetadataDate'] == '2024-06-01T00:00:00Z'
+        assert xmp['xmp:CreateDate'] == '2024-01-01T00:00:00Z'
+        assert xmp['dc:title'] == 'Untitled'
+
+    def test_output_is_well_formed(self):
+        """Repaired XMP serializes to XML that a strict parser accepts."""
+        xmp = XmpDocument(UNDECLARED_PREFIX_XMP)
+        ET.fromstring(str(xmp))  # Would raise on an undeclared prefix
+
+    def test_unknown_prefix_is_dropped(self):
+        """A prefix we cannot resolve leaves data that cannot be written out."""
+        xmp = XmpDocument(
+            b"""\
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" nosuchns:Attr="1">
+    <nosuchns:Element>value</nosuchns:Element>
+    <dc:title>Untitled</dc:title>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>"""
+        )
+        assert xmp['dc:title'] == 'Untitled'
+        assert 'nosuchns:Element' not in xmp
+        ET.fromstring(str(xmp))
+
+    def test_truncated_start_tag_is_dropped(self):
+        """A truncated start tag yields a prefix with no local name."""
+        xmp = XmpDocument(
+            b"""\
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="">
+    <dc:title>Untitled</dc:title>
+    <xmp:>"""
+        )
+        assert list(xmp) == [XmpDocument.qname('dc:title')]
+        ET.fromstring(str(xmp))
+
+    def test_pdf_metadata_items(self, trivial):
+        """End to end: pdfarranger iterates metadata.items()."""
+        trivial.Root.Metadata = Stream(trivial, UNDECLARED_PREFIX_XMP)
+        with trivial.open_metadata() as meta:
+            assert dict(meta.items())
+
+    def test_malformed_key_is_not_found(self):
+        xmp = XmpDocument()
+        assert 'xmp:' not in xmp
+        assert xmp.get('xmp:') is None
+        with pytest.raises(KeyError):
+            xmp['xmp:']
+
+    def test_iteration_includes_empty_attribute_value(self):
+        """A key that tests as present must also be produced by iteration."""
+        xmp = XmpDocument(
+            b"""\
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"
+      pdf:Keywords=""/>
+ </rdf:RDF>
+</x:xmpmeta>"""
+        )
+        assert 'pdf:Keywords' in xmp
+        assert xmp['pdf:Keywords'] == ''
+        assert list(xmp) == [XmpDocument.qname('pdf:Keywords')]
+        assert len(xmp) == 1
+
+    def test_contains_empty_value(self):
+        """A key that iterates and reads back must also test as present."""
+        xmp = XmpDocument()
+        xmp['dc:format'] = ''
+        assert xmp['dc:format'] == ''
+        assert 'dc:format' in xmp
+        assert list(xmp) == [XmpDocument.qname('dc:format')]
+
+
+class TestXmpPropertyTypes:
+    """Issue 555.
+
+    Well known XMP properties have a type defined by the XMP specification.
+    pikepdf used to pick the RDF container from the Python type it was
+    handed, so ``m['dc:subject'] = ['a', 'b']`` emitted an rdf:Seq where the
+    schema requires an rdf:Bag - metadata that other tools silently discard.
+    """
+
+    def test_list_to_bag_property(self):
+        xmp = XmpDocument()
+        xmp['dc:subject'] = ['keyword1', 'keyword2']
+        assert b'rdf:Bag' in xmp.to_bytes()
+        assert xmp['dc:subject'] == {'keyword1', 'keyword2'}
+
+    def test_set_to_seq_property(self):
+        xmp = XmpDocument()
+        xmp['dc:creator'] = {'Only Author'}
+        assert b'rdf:Seq' in xmp.to_bytes()
+        assert xmp['dc:creator'] == ['Only Author']
+
+    def test_set_to_seq_property_is_sorted(self):
+        """A set has no order, so give it a reproducible one."""
+        xmp = XmpDocument()
+        xmp['dc:creator'] = {'Zed', 'Amy', 'Kim'}
+        assert xmp['dc:creator'] == ['Amy', 'Kim', 'Zed']
+
+    def test_set_to_bag_property_is_sorted_in_xml(self):
+        xmp = XmpDocument()
+        xmp['dc:subject'] = {'zebra', 'apple'}
+        out = xmp.to_bytes()
+        assert out.index(b'apple') < out.index(b'zebra')
+
+    def test_datetime_with_seconds_offset(self):
+        """XMP time zones are whole minutes; an offset with seconds is rounded."""
+        xmp = XmpDocument()
+        tz = timezone(timedelta(hours=5, minutes=30, seconds=15))
+        xmp['xmp:ModifyDate'] = datetime(2024, 6, 1, 12, 0, tzinfo=tz)
+        assert xmp['xmp:ModifyDate'] == '2024-06-01T12:00:00+05:30'
+
+    def test_str_to_array_property_warns(self):
+        xmp = XmpDocument()
+        with pytest.warns(XmpTypeWarning, match='dc:contributor'):
+            xmp['dc:contributor'] = 'One Person'
+        assert xmp['dc:contributor'] == {'One Person'}
+        assert b'rdf:Bag' in xmp.to_bytes()
+
+    def test_str_to_array_property_strict(self):
+        xmp = XmpDocument(overwrite_invalid_xml=False)
+        with pytest.raises(TypeError, match='dc:contributor'):
+            xmp['dc:contributor'] = 'One Person'
+
+    def test_array_to_simple_property_strict(self):
+        xmp = XmpDocument(overwrite_invalid_xml=False)
+        with pytest.raises(TypeError, match='pdf:Keywords'):
+            xmp['pdf:Keywords'] = ['a', 'b']
+
+    def test_array_to_simple_property_merges(self):
+        xmp = XmpDocument()
+        with pytest.warns(UserWarning, match='Merging elements'):
+            xmp['pdf:Keywords'] = ['a', 'b']
+        assert xmp['pdf:Keywords'] == 'a; b'
+
+    def test_datetime_to_date_property(self):
+        xmp = XmpDocument()
+        when = datetime(2024, 6, 1, 12, 30, tzinfo=timezone.utc)
+        xmp['xmp:ModifyDate'] = when
+        assert xmp['xmp:ModifyDate'] == when.isoformat()
+        assert datetime.fromisoformat(xmp['xmp:ModifyDate']) == when
+
+    def test_date_to_date_property(self):
+        from datetime import date
+
+        xmp = XmpDocument()
+        xmp['xmp:CreateDate'] = date(2024, 6, 1)
+        assert xmp['xmp:CreateDate'] == '2024-06-01'
+
+    def test_datetime_in_array_property(self):
+        xmp = XmpDocument()
+        xmp['dc:date'] = [datetime(2024, 6, 1, tzinfo=timezone.utc)]
+        assert xmp['dc:date'] == ['2024-06-01T00:00:00+00:00']
+
+    def test_int_to_integer_property(self):
+        xmp = XmpDocument()
+        xmp['pdfaid:part'] = 2
+        assert xmp['pdfaid:part'] == '2'
+
+    def test_bool_to_boolean_property(self):
+        xmp = XmpDocument()
+        xmp['xmpRights:Marked'] = True
+        assert xmp['xmpRights:Marked'] == 'True'
+
+    def test_datetime_to_text_property_rejected(self):
+        xmp = XmpDocument()
+        with pytest.raises(TypeError):
+            xmp['pdf:Producer'] = datetime(2024, 6, 1)
+
+    def test_unknown_property_infers_container(self):
+        """Properties outside the schema keep the legacy behavior."""
+        XmpDocument.register_xml_namespace('http://example.com/ns2/', 'example2')
+        xmp = XmpDocument()
+        xmp['example2:ordered'] = ['a', 'b']
+        assert b'rdf:Seq' in xmp.to_bytes()
+        xmp['example2:unordered'] = {'a'}
+        assert b'rdf:Bag' in xmp.to_bytes()
+
+    def test_unregistered_prefix_rejected(self):
+        xmp = XmpDocument()
+        with pytest.raises(KeyError, match='register_xml_namespace'):
+            xmp['nosuchns:key'] = 'value'
+
+    def test_attribute_form_array_property_rebuilt(self):
+        """An array property stored as an attribute becomes a proper array."""
+        xmp = XmpDocument(
+            b"""\
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"
+      dc:creator="Old Author"/>
+ </rdf:RDF>
+</x:xmpmeta>"""
+        )
+        xmp['dc:creator'] = ['New Author']
+        assert xmp['dc:creator'] == ['New Author']
+        assert b'rdf:Seq' in xmp.to_bytes()
+        assert b'dc:creator="' not in xmp.to_bytes()
+
+    def test_pdf_metadata_strict_raises(self, trivial):
+        with trivial.open_metadata(strict=True) as meta:
+            with pytest.raises(TypeError, match='dc:creator'):
+                meta['dc:creator'] = 'A String'
+
+    def test_pdf_metadata_warns(self, trivial):
+        with trivial.open_metadata() as meta:
+            with pytest.warns(XmpTypeWarning, match='dc:creator'):
+                meta['dc:creator'] = 'A String'
+            assert meta['dc:creator'] == ['A String']

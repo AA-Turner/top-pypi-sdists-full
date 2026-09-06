@@ -14,6 +14,7 @@ from mteb.models.model_meta import ModelMeta, ScoringFunction
 from mteb.types import PromptType
 
 if TYPE_CHECKING:
+    import requests
     from torch.utils.data import DataLoader
 
     from mteb.abstasks.task_metadata import TaskMetadata
@@ -272,7 +273,14 @@ PROMPTS_DICT = {
 
 class GeeVecLiteModel(InstructSentenceTransformerModel):
     def encode(
-        self, inputs, *, task_metadata, hf_split, hf_subset, prompt_type=None, **kwargs
+        self,
+        inputs,
+        *,
+        task_metadata,
+        hf_split,
+        hf_subset,
+        prompt_type=None,
+        **kwargs: Any,
     ):
         sentences = [text for batch in inputs for text in batch["text"]]
         domain = _resolve_geevec_domain(task_metadata, hf_subset, kwargs.get("domain"))
@@ -319,8 +327,8 @@ class GeeVecAPIModel(AbsEncoder):
         apply_instruction_to_passages: bool = False,
         base_url: str | None = None,
         api_key: str | None = None,
-        session: Any | None = None,
-        **kwargs,
+        session: requests.Session | None = None,
+        **kwargs: Any,
     ) -> None:
         import requests
 

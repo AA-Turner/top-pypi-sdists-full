@@ -40,55 +40,58 @@ class TestGroupsHowto(TestCase):
     cmd = "groups"
 
     root_help = """
- Usage: ./howto.py groups [OPTIONS] COMMAND [ARGS]...                           
-                                                                                
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Django ─────────────────────────────────────────────────────────────────────╮
-│ --version                  Show program's version number and exit.           │
-│ --settings           TEXT  The Python path to a settings module, e.g.        │
-│                            "myproject.settings.main". If this isn't          │
-│                            provided, the DJANGO_SETTINGS_MODULE environment  │
-│                            variable will be used.                            │
-│ --pythonpath         PATH  A directory to add to the Python path, e.g.       │
-│                            "/home/djangoprojects/myproject".                 │
-│ --traceback                Raise on CommandError exceptions                  │
-│ --show-locals              Print local variables in tracebacks.              │
-│ --no-color                 Don't colorize the command output.                │
-│ --force-color              Force colorization of the command output.         │
-│ --skip-checks              Skip system checks.                               │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ group1                                                                       │
-│ group2                                                                       │
-╰──────────────────────────────────────────────────────────────────────────────╯
-"""
+
+     Usage: ./howto.py groups [OPTIONS] COMMAND [ARGS]...                           
+
+    ╭─ Options ────────────────────────────────────────────────────────────────────╮
+    │ --help          Show this message and exit.                                  │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    ╭─ Django ─────────────────────────────────────────────────────────────────────╮
+    │ --version                    Show program's version number and exit.         │
+    │ --settings           <str>   The Python path to a settings module, e.g.      │
+    │                              "myproject.settings.main". If this isn't        │
+    │                              provided, the DJANGO_SETTINGS_MODULE            │
+    │                              environment variable will be used.              │
+    │ --pythonpath         <path>  A directory to add to the Python path, e.g.     │
+    │                              "/home/djangoprojects/myproject".               │
+    │ --traceback                  Raise on CommandError exceptions                │
+    │ --show-locals                Print local variables in tracebacks.            │
+    │ --no-color                   Don't colorize the command output.              │
+    │ --force-color                Force colorization of the command output.       │
+    │ --skip-checks                Skip system checks.                             │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+    │ group1                                                                       │
+    │ group2                                                                       │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    """
 
     group1_help = """
- Usage: ./howto.py groups group1 [OPTIONS] COMMAND [ARGS]...                    
-                                                                                
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --common-option    --no-common-option      [default: no-common-option]       │
-│ --help                                     Show this message and exit.       │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ grp1-subcommand1                                                             │
-│ grp1-subcommand2                                                             │
-│ subgroup1                                                                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-"""
+
+     Usage: ./howto.py groups group1 [OPTIONS] COMMAND [ARGS]...                    
+
+    ╭─ Options ────────────────────────────────────────────────────────────────────╮
+    │ --common-option    --no-common-option      [default: no-common-option]       │
+    │ --help                                     Show this message and exit.       │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+    │ grp1-subcommand1                                                             │
+    │ grp1-subcommand2                                                             │
+    │ subgroup1                                                                    │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    """
 
     subgroup1_help = """
- Usage: ./howto.py groups group1 subgroup1 [OPTIONS] COMMAND [ARGS]...          
-                                                                                
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ subgrp-command                                                               │
-╰──────────────────────────────────────────────────────────────────────────────╯
-"""
+
+     Usage: ./howto.py groups group1 subgroup1 [OPTIONS] COMMAND [ARGS]...          
+
+    ╭─ Options ────────────────────────────────────────────────────────────────────╮
+    │ --help          Show this message and exit.                                  │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    ╭─ Commands ───────────────────────────────────────────────────────────────────╮
+    │ subgrp-command                                                               │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    """
 
     def test_howto_groups(self):
         stdout = StringIO()
@@ -157,33 +160,33 @@ class TestDefaultOptionsHowto(TestCase):
     cmd = "default_options"
 
     cmd_help = """
- Usage: ./howto.py default_options [OPTIONS]                                    
-                                                                                
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Django ─────────────────────────────────────────────────────────────────────╮
-│ --verbosity          INTEGER RANGE [0<=x<=3]  Verbosity level; 0=minimal     │
-│                                               output, 1=normal output,       │
-│                                               2=verbose output, 3=very       │
-│                                               verbose output                 │
-│                                               [default: 1]                   │
-│ --version                                     Show program's version number  │
-│                                               and exit.                      │
-│ --pythonpath         PATH                     A directory to add to the      │
-│                                               Python path, e.g.              │
-│                                               "/home/djangoprojects/myproje… │
-│ --traceback                                   Raise on CommandError          │
-│                                               exceptions                     │
-│ --show-locals                                 Print local variables in       │
-│                                               tracebacks.                    │
-│ --no-color                                    Don't colorize the command     │
-│                                               output.                        │
-│ --force-color                                 Force colorization of the      │
-│                                               command output.                │
-│ --skip-checks                                 Skip system checks.            │
-╰──────────────────────────────────────────────────────────────────────────────╯
-"""
+
+     Usage: ./howto.py default_options [OPTIONS]                                    
+
+    ╭─ Options ────────────────────────────────────────────────────────────────────╮
+    │ --help          Show this message and exit.                                  │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    ╭─ Django ─────────────────────────────────────────────────────────────────────╮
+    │ --verbosity          <int range> [0<=x<=3]  Verbosity level; 0=minimal       │
+    │                                             output, 1=normal output,         │
+    │                                             2=verbose output, 3=very verbose │
+    │                                             output                           │
+    │                                             [default: 1]                     │
+    │ --version                                   Show program's version number    │
+    │                                             and exit.                        │
+    │ --pythonpath         <path>                 A directory to add to the Python │
+    │                                             path, e.g.                       │
+    │                                             "/home/djangoprojects/myproject… │
+    │ --traceback                                 Raise on CommandError exceptions │
+    │ --show-locals                               Print local variables in         │
+    │                                             tracebacks.                      │
+    │ --no-color                                  Don't colorize the command       │
+    │                                             output.                          │
+    │ --force-color                               Force colorization of the        │
+    │                                             command output.                  │
+    │ --skip-checks                               Skip system checks.              │
+    ╰──────────────────────────────────────────────────────────────────────────────╯
+    """
 
     def test_howto_default_options(self):
         stdout = StringIO()
@@ -508,22 +511,53 @@ class TestPrintResultHowTo(TestCase):
     def test_howto_print_result_run(self):
         self.assertEqual(
             run_command(self.command, "--settings", "tests.settings.howto")[0].strip(),
-            "",
+            "This will be printed",
         )
 
     def test_howto_print_result_call(self):
         output = StringIO()
         with redirect_stdout(output):
-            self.assertEqual(call_command(self.command), "This will not be printed")
-        self.assertEqual(output.getvalue().strip(), "")
+            self.assertEqual(call_command(self.command), "This will be printed")
+        self.assertEqual(output.getvalue().strip(), "This will be printed")
 
     def test_howto_print_result_obj(self):
-        command = get_command(self.command)
-        self.assertEqual(
-            command.handle(),
-            "This will not be printed",
-        )
+        # calling the function directly never prints
+        output = StringIO()
+        with redirect_stdout(output):
+            command = get_command(self.command)
+            self.assertEqual(command.handle(), "This will be printed")
+        self.assertEqual(output.getvalue().strip(), "")
 
 
 class TestPrintResultTyperHowTo(TestPrintResultHowTo):
     command = "print_result_typer"
+
+
+@override_settings(
+    INSTALLED_APPS=[
+        "tests.apps.howto",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+    ]
+)
+class TestAtomicHowTo(TestCase):
+    command = "atomic"
+
+    def test_howto_atomic(self):
+        from django.contrib.auth.models import Group
+
+        call_command(self.command, "create", "a", "create", "b", "rename", "a", "c")
+        self.assertEqual(
+            sorted(Group.objects.values_list("name", flat=True)), ["b", "c"]
+        )
+
+        # the failing subcommand rolls back the ones that ran before it
+        with self.assertRaises(Group.DoesNotExist):
+            call_command(self.command, "create", "d", "delete", "nope")
+        self.assertEqual(
+            sorted(Group.objects.values_list("name", flat=True)), ["b", "c"]
+        )
+
+
+class TestAtomicTyperHowTo(TestAtomicHowTo):
+    command = "atomic_typer"

@@ -54,6 +54,10 @@ from testmu._helpers.devtools_storage import devtools_storage_query
 from testmu._helpers.devtools_types import ApiCallEntry
 from testmu._helpers.api_calls import api_calls_query
 from testmu._helpers.clipboard import ClipboardStore, devtools_clipboard_query, install_clipboard
+# Text coercion for fill/type values — public because generated tests wrap
+# their fill/type argument in it (the value may be a type-preserved var()
+# lookup or a raw execute_js result). TS twin: asText, exported from index.ts.
+from testmu._action_specs import as_text
 from testmu._devtools_capture import (
     devtoolsNetworkQuery,
     devtoolsConsoleQuery,
@@ -63,6 +67,7 @@ from testmu._devtools_capture import (
     clipboardPaste,
     clipboardClear,
     devtoolsClipboardQuery,
+    devtoolsPerformanceQuery,
     snapshotPerformanceTrace,
 )
 
@@ -167,6 +172,7 @@ __all__ = [
     "clipboardPaste",
     "clipboardClear",
     "devtoolsClipboardQuery",
+    "as_text",
     # Version-gated public API (additive — only active when kane_version == "v3")
     "scroll_until_element",
     "locator",

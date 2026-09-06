@@ -20,6 +20,17 @@ _config_data = {
     "tc_id": "",
     "network": False,
     "devtools": {},
+    # Settle budget for devtools reads (network/console/cookies/storage/
+    # performance). They snapshot state the page writes asynchronously, so a
+    # bare snapshot taken the instant the previous step returns can miss it;
+    # the read re-polls until it has a value or this budget runs out. 0 = a
+    # single snapshot. Env override: TESTMU_DEVTOOLS_READ_TIMEOUT_MS.
+    "devtools_read_timeout_ms": 5000,
+    # Same, for devtoolsPerformanceQuery only. Core Web Vitals land as the page
+    # renders, and LCP in particular can legitimately arrive seconds after the
+    # load event, so a performance read gets a longer budget than the store
+    # reads above. Env override: TESTMU_DEVTOOLS_PERF_READ_TIMEOUT_MS.
+    "devtools_perf_read_timeout_ms": 30000,
     "timezone": "",
     "chrome_options": [],
     "custom_headers": {},

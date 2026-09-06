@@ -86,6 +86,11 @@ def build_assertion(
         record = json.loads(record_bytes)
     except ValueError as exc:
         raise ContentMarkingError(f"record_bytes is not JSON: {exc}") from exc
+    if not isinstance(record, dict):
+        raise ContentMarkingError(
+            f"record_bytes must decode to a JSON object, got {type(record).__name__}. A "
+            "Trust Record is always an object; anything else is not a record to bind to."
+        )
 
     subject = record.get("subject")
     profile = record.get("eat_profile")
@@ -140,10 +145,24 @@ def verify_assertion(assertion: dict[str, Any], record_bytes: bytes) -> dict[str
     ref = data.get("record")
     if not isinstance(ref, dict) or not ref.get("url"):
         raise ContentMarkingError("assertion carries no record reference")
-    alg = ref.get("alg", "sha256")
+    alg = ref.get("alg")
+    if not isinstance(alg, str):
+        raise ContentMarkingError(
+            f"unsupported digest algorithm {alg!r}; use sha256 or sha384"
+        )
     expected = ref.get("hash")
     if not _DIGEST_RE.match(str(expected or "")):
         raise ContentMarkingError(f"record.hash {expected!r} is not a sha256:/sha384: digest")
+
+    if not isinstance(record_bytes, bytes | bytearray) or not record_bytes:
+        raise ContentMarkingError(
+            f"record_bytes must be the bytes retrieved from {ref['url']}, got "
+            f"{type(record_bytes).__name__}. `build_assertion` already refuses this and "
+            "the reason it matters more here is that `bytes(5)` is five zero bytes: an "
+            "int would be hashed, would not match, and the caller would be told the "
+            "record at the URL had changed, which is a specific accusation about "
+            "somebody else's server and would be false."
+        )
 
     actual = _digest(bytes(record_bytes), alg)
     if actual != expected:
@@ -153,7 +172,17 @@ def verify_assertion(assertion: dict[str, Any], record_bytes: bytes) -> dict[str
             "the URL is serving a different one."
         )
 
-    record: dict[str, Any] = json.loads(record_bytes)
+    record: dict[str, Any]
+    try:
+        record = json.loads(record_bytes)
+    except ValueError as exc:
+        raise ContentMarkingError(f"record at {ref['url']} is not JSON: {exc}") from exc
+    if not isinstance(record, dict):
+        raise ContentMarkingError(
+            f"the record at {ref['url']} must decode to a JSON object, got "
+            f"{type(record).__name__}. It matched the declared hash, so this is what the "
+            "record actually is at that URL, not a mismatch to report as RecordMismatch."
+        )
     if record.get("subject") != data.get("subject"):
         raise RecordMismatch(
             f"assertion names subject {data.get('subject')!r} and the record says "

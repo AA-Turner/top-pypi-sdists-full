@@ -15,6 +15,7 @@ class CreditLeaseResponseData(UniversalBaseModel):
     granted_amount: float
     id: str
     released_at: typing.Optional[dt.datetime] = None
+    tracked_amount: float
     updated_at: dt.datetime
 
     if IS_PYDANTIC_V2:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: camoufox
-Version: 0.5.5
+Version: 0.5.6
 Summary: Wrapper around Playwright to help launch Camoufox
 License: MIT
 Keywords: client,fingerprint,browser,scraping,injector,firefox,playwright
@@ -28,7 +28,7 @@ Requires-Dist: lxml
 Requires-Dist: numpy
 Requires-Dist: orjson
 Requires-Dist: platformdirs
-Requires-Dist: playwright (<1.61)
+Requires-Dist: playwright (<1.63)
 Requires-Dist: pysocks
 Requires-Dist: pyyaml
 Requires-Dist: requests

@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: MIT
+"""
+JGB37-520 geared DC motor with magnetic quadrature encoder.
+
+This is a 6-wire motor: two power leads (into an H-bridge, typically L298N),
+Vcc and GND for the hall sensors, and two encoder channels A and B.
+
+Typical spec sheet values (varies by gear ratio variant):
+    * Encoder CPR at motor shaft: 11
+    * Gear ratio (example): 1:30  -> output shaft CPR = 11 * 30 * 4 = 1320 edges
+      (multiply by 4 because we count both edges on both channels)
+
+This class is a thin Python wrapper over the C ``Servo`` type in
+``_openbricks_native`` (see ``native/user_c_modules/openbricks/servo.c``).
+The wrapper's job is to build the hardware handles (Pin / PWM / encoder)
+from pin numbers and pass them to the native servo — the closed-loop
+control tick runs in C at the ``motor_process`` tick rate (1 kHz default).
+"""
+
+import time
+
+from machine import Pin, PWM
+
+from openbricks import pins
+from openbricks import estop
+from openbricks._native import QuadratureEncoder, Servo
+from openbricks.interfaces import Motor
+
+_PWM_FREQ_HZ = 20_000
+_DEFAULT_KP = 0.3
+
+
+class JGB37Motor(Motor):
+    """JGB37-520 DC gear motor with quadrature encoder, closed-loop.
+
+    Runs the full ``Motor`` contract on the native 1 kHz servo core:
+    ``run_speed(deg_per_s)``, ``run_angle(deg_per_s, target_angle)``,
+    ``dc(duty)``, ``brake()`` / ``coast()``, ``angle()`` /
+    ``reset_angle()``, ``speed()``. Pair two of them in a
+    :class:`~openbricks.robotics.drivebase.DriveBase` for the coupled
+    2-DOF chassis controller.
+
+    Args:
+        in1, in2, pwm: H-bridge pins (e.g. L298N IN1/IN2/EN).
+        encoder_a, encoder_b: quadrature encoder channel pins.
+        counts_per_output_rev: encoder edges per output-shaft
+            revolution (4 × PPR × gear ratio; 1320 for the common
+            11-PPR 1:30 variant).
+        invert: flip motor command AND encoder together — for a motor
+            wired backwards end-to-end (typically the mirrored side
+            of a drivebase).
+        encoder_invert: flip ONLY the encoder reading — for
+            mirror-mounted encoders that count down on motor-forward.
+        kp: speed-loop proportional gain (native servo core).
+
+    Example::
+
+        from openbricks.drivers.jgb37_520 import JGB37Motor
+
+        m = JGB37Motor(in1=12, in2=14, pwm=27,
+                       encoder_a=18, encoder_b=19)
+        m.run_angle(360, 720)      # two turns at 360 deg/s, blocking
+        print(m.angle())
+    """
+
+    def __init__(
+        self,
+        in1, in2, pwm,
+        encoder_a, encoder_b,
+        counts_per_output_rev=1320,
+        invert=False,
+        encoder_invert=False,
+        kp=_DEFAULT_KP,
+    ):
+        # See ``MG370Motor`` for ``encoder_invert`` semantics: it flips
+        # ONLY the encoder reading (mirror-mounted motor pairs where
+        # the encoder counts down on motor-forward), unlike ``invert``
+        # which flips both motor command and encoder together (motors
+        # wired backwards end-to-end).
+        from openbricks.drivers.mg370 import _InvertedEncoder
+        pins.check(in1, "H-bridge IN1")
+        pins.check(in2, "H-bridge IN2")
+        pins.check(pwm, "H-bridge PWM/EN")
+        pins.check(encoder_a, "encoder channel A", output=False)
+        pins.check(encoder_b, "encoder channel B", output=False)
+        self._in1 = Pin(in1, Pin.OUT, value=0)
+        self._in2 = Pin(in2, Pin.OUT, value=0)
+        self._pwm = PWM(Pin(pwm), freq=_PWM_FREQ_HZ, duty=0)
+        self._enc = QuadratureEncoder(pin_a=encoder_a, pin_b=encoder_b)
+        encoder_for_servo = _InvertedEncoder(self._enc) if encoder_invert else self._enc
+        self._servo = Servo(
+            in1=self._in1,
+            in2=self._in2,
+            pwm=self._pwm,
+            encoder=encoder_for_servo,
+            counts_per_rev=counts_per_output_rev,
+            invert=invert,
+            kp=kp,
+        )
+
+    # --- Open-loop passthroughs (native Servo detaches from scheduler) ---
+    def dc(self, duty):
+        estop.check()
+        self._servo.run(float(duty))
+
+    def speed(self):
+        # Measured deg/s from the native servo core's α-β observer
+        # (already in output-shaft degrees; invert handled core-side).
+        return self._servo.measured_dps()
+
+    def brake(self):
+        self._servo.brake()
+
+    def coast(self):
+        self._servo.coast()
+
+    # --- Closed-loop state ---
+    def angle(self):
+        return self._servo.angle()
+
+    def reset_angle(self, angle=0):
+        self._servo.reset_angle(float(angle))
+
+    def run_speed(self, deg_per_s):
+        """Enter closed-loop speed control with the given target (deg/s)."""
+        estop.check()
+        self._servo.run_speed(float(deg_per_s))
+
+    def run_angle(self, deg_per_s, target_angle, wait=True,
+                  accel_dps2=1500.0):
+        """Rotate by ``target_angle`` degrees, following a trapezoidal
+        profile at up to ``deg_per_s``.
+
+        The native servo builds the profile once and the scheduler samples
+        it at 1 kHz, so acceleration / cruise / deceleration phases are
+        smooth and the move stops cleanly at the target without overshoot
+        (apart from small integration error).
+
+        With ``wait=False`` the scheduler keeps running the profile; the
+        caller can poll ``self._servo.is_done()`` or eventually call
+        ``brake()`` / ``coast()``.
+        """
+        estop.check()
+        self._servo.run_target(float(target_angle),
+                               abs(float(deg_per_s)),
+                               float(accel_dps2))
+
+        if not wait:
+            return
+
+        while not self._servo.is_done():
+            time.sleep_ms(10)
+
+        self.brake()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: victron_mqtt
-Version: 2026.9.0
+Version: 2026.9.1
 Summary: Python library for communicating with Victron Venus OS MQTT interface
 Project-URL: Documentation, https://github.com/tomer-w/victron_mqtt#readme
 Project-URL: Issues, https://github.com/tomer-w/victron_mqtt/issues

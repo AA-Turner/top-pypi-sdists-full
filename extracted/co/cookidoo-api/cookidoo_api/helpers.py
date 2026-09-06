@@ -1,5 +1,7 @@
 """Cookidoo API helpers."""
 
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 import json
 import logging
 import os
@@ -15,7 +17,9 @@ from cookidoo_api.raw_types import (
     CalenderDayRecipeJSON,
     CommunityProfileJSON,
     CustomCollectionJSON,
+    CustomRecipeContentJSON,
     CustomRecipeJSON,
+    CustomRecipeTextJSON,
     DescriptiveAssetJSON,
     IngredientJSON,
     ItemJSON,
@@ -23,6 +27,8 @@ from cookidoo_api.raw_types import (
     QuantityJSON,
     RecipeDetailsJSON,
     RecipeJSON,
+    SearchRecipeHitJSON,
+    SearchResultJSON,
     SubscriptionJSON,
 )
 from cookidoo_api.types import (
@@ -33,7 +39,10 @@ from cookidoo_api.types import (
     CookidooChapter,
     CookidooChapterRecipe,
     CookidooCollection,
+    CookidooCookingActivity,
+    CookidooCookState,
     CookidooCustomRecipe,
+    CookidooDevice,
     CookidooIngredient,
     CookidooIngredientItem,
     CookidooLocalizationConfig,
@@ -41,15 +50,45 @@ from cookidoo_api.types import (
     CookidooNutritionGroup,
     CookidooRecipeCollection,
     CookidooRecipeNutrition,
+    CookidooRecipeStep,
+    CookidooRecipeStepGroup,
+    CookidooSearchRecipeHit,
+    CookidooSearchResult,
     CookidooShoppingRecipe,
     CookidooShoppingRecipeDetails,
     CookidooSubscription,
     CookidooUserInfo,
+    ThermomixMachineType,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 localization_file_path = os.path.join(os.path.dirname(__file__), "localization.json")
+
+
+def normalize_list_param(value: str | list[str] | None) -> str | None:
+    """Normalize list/string params to comma-separated string."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return ",".join([v for v in value if v])
+    return value
+
+
+def normalize_tmv_param(
+    value: ThermomixMachineType | str | list[ThermomixMachineType | str] | None,
+) -> str | None:
+    """Normalize TMV param to comma-separated string."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        normalized: list[str] = []
+        for item in value:
+            normalized.append(
+                item.value if isinstance(item, ThermomixMachineType) else str(item)
+            )
+        return ",".join([v for v in normalized if v])
+    return value.value if isinstance(value, ThermomixMachineType) else value
 
 
 def cookidoo_user_info_from_json(
@@ -78,6 +117,115 @@ def cookidoo_subscription_from_json(
         subscription_source=subscription["subscriptionSource"],
         type=subscription["type"],
         extended_type=subscription["extendedType"],
+    )
+
+
+def cookidoo_device_from_json(model: str) -> CookidooDevice:
+    """Convert a device machine type received from the API to a cookidoo device.
+
+    The devices endpoint returns bare machine-type strings (e.g. ``"TM7"``).
+    """
+    return CookidooDevice(type=ThermomixMachineType(model))
+
+
+def _push_timestamp(value: object) -> datetime | None:
+    """Parse a push timestamp (ISO-8601 or epoch millis/seconds)."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        seconds = value / 1000.0 if value > 1e12 else float(value)
+        return datetime.fromtimestamp(seconds, tz=UTC)
+    if isinstance(value, str):
+        text = value.strip()
+        if text.isdigit():
+            return _push_timestamp(int(text))
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
+
+
+def _push_number(value: object) -> float | None:
+    """Parse a numeric display field; the app uses ``"---"`` for 'no value'."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip()
+    if not text or set(text) <= {"-", "–", "—"}:
+        return None
+    try:
+        return float(text.replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _push_bool(value: object) -> bool:
+    """Parse a boolean; push values are strings, so ``"false"`` must be falsy."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("true", "1", "yes")
+    return bool(value)
+
+
+def cooking_activity_from_push(
+    data: Mapping[str, object],
+) -> CookidooCookingActivity:
+    """Convert a remote-monitoring push payload into a cooking activity.
+
+    Appliance state is delivered out of band (a Firebase Cloud Messaging data
+    message) rather than as an HTTP response, so consumers receive it via their
+    own push channel and decode it here. Both the on-the-wire field names
+    (``leadingText``/``trailingText``/``completedDate``/``staleDate``/…) and the
+    app's parsed names are accepted.
+    """
+
+    def first(*keys: str) -> object:
+        for key in keys:
+            if key in data and data[key] is not None:
+                return data[key]
+        return None
+
+    remaining_raw = first("remainingDuration")
+    remaining: int | None = None
+    if isinstance(remaining_raw, (int, str)):
+        try:
+            remaining = int(remaining_raw)
+        except ValueError:
+            remaining = None
+    completed_at = _push_timestamp(first("completedDate", "completedTimestamp"))
+    end_at = _push_timestamp(first("endTimestamp"))
+    # The wire payload has no remainingDuration; derive it from the finish time.
+    if remaining is None:
+        finish = completed_at or end_at
+        if finish is not None:
+            remaining = max(0, int((finish - datetime.now(UTC)).total_seconds()))
+
+    state_raw = first("state")
+    state = CookidooCookState(str(state_raw).upper()) if state_raw is not None else None
+    recipe_type = first("recipeType")
+
+    return CookidooCookingActivity(
+        device_id=str(first("deviceId") or ""),
+        cooking_activity_id=cast("str | None", first("cookingActivityId")),
+        state=state,
+        recipe_id=cast("str | None", first("recipeId")),
+        recipe_type=str(recipe_type).upper() if recipe_type is not None else None,
+        recipe_name=cast(
+            "str | None", first("leadingText", "leadingInfoText", "infoText")
+        ),
+        step=cast("str | None", first("trailingText", "trailingInfoText")),
+        remaining_seconds=remaining,
+        is_time_estimated=_push_bool(data.get("isTimeEstimated", False)),
+        current_temperature=_push_number(first("primaryInfo")),
+        target_temperature=_push_number(first("secondaryInfo")),
+        message_title=cast("str | None", first("messageTitle")),
+        message_body=cast("str | None", first("messageBody")),
+        message_criticality=cast("str | None", first("messageCriticality")),
+        completed_at=completed_at,
+        stale_at=_push_timestamp(first("staleDate", "staleTimestamp")),
     )
 
 
@@ -205,6 +353,62 @@ def cookidoo_recipe_from_json(
     )
 
 
+def cookidoo_search_result_from_json(
+    data: SearchResultJSON,
+    localization: CookidooLocalizationConfig | None = None,
+) -> CookidooSearchResult:
+    """Convert a search result received from the API to a CookidooSearchResult.
+
+    The API may return recipes in ``data`` (search endpoint) or ``recipes``;
+    total is optional and defaults to the number of valid parsed hits.
+
+    Parameters
+    ----------
+    data
+        The raw JSON response from the search API.
+    localization
+        Optional localization config used to construct recipe URLs.
+
+    Returns
+    -------
+    CookidooSearchResult
+        The parsed search result with recipe hits and total count.
+
+    """
+    if "data" in data:
+        raw_recipes: list[SearchRecipeHitJSON] = data["data"] or []
+    elif "recipes" in data:
+        raw_recipes = data["recipes"] or []
+    else:
+        raw_recipes = []
+    recipes_data: list[object] = list(raw_recipes)
+    total_raw = data.get("total")
+    hits: list[CookidooSearchRecipeHit] = []
+    for item in recipes_data:
+        if not isinstance(item, dict):
+            continue
+        recipe_id = item.get("id", "")
+        name = item.get("title") or item.get("name", "")
+        thumbnail, image = None, None
+        descriptive_assets = item.get("descriptiveAssets")
+        if descriptive_assets and isinstance(descriptive_assets, list):
+            thumbnail, image = _extract_images_from_descriptive_assets(
+                descriptive_assets
+            )
+        url = _construct_recipe_url(localization, recipe_id)
+        hits.append(
+            CookidooSearchRecipeHit(
+                id=recipe_id,
+                name=name,
+                thumbnail=thumbnail,
+                image=image,
+                url=url,
+            )
+        )
+    total = total_raw if isinstance(total_raw, int) else len(hits)
+    return CookidooSearchResult(recipes=hits, total=total)
+
+
 def cookidoo_quantity_from_json(
     quantity: QuantityJSON,
 ) -> str:
@@ -229,6 +433,31 @@ def cookidoo_recipe_details_from_json(
     if descriptive_assets is not None:
         thumbnail, image = _extract_images_from_descriptive_assets(descriptive_assets)
     url = _construct_recipe_url(localization, recipe["id"])
+
+    active_time = next(
+        (
+            time_["quantity"]["value"]
+            for time_ in recipe["times"]
+            if time_["type"] == "activeTime" and time_["quantity"]["value"]
+        ),
+        None,
+    )
+    if active_time is None:
+        raise ValueError(
+            "Recipe details response is missing a non-null 'activeTime' entry in 'times'."
+        )
+    total_time = next(
+        (
+            time_["quantity"]["value"]
+            for time_ in recipe["times"]
+            if time_["type"] == "totalTime" and time_["quantity"]["value"]
+        ),
+        None,
+    )
+    if total_time is None:
+        raise ValueError(
+            "Recipe details response is missing a non-null 'totalTime' entry in 'times'."
+        )
 
     return CookidooShoppingRecipeDetails(
         id=recipe["id"],
@@ -259,16 +488,8 @@ def cookidoo_recipe_details_from_json(
         ],
         utensils=[utensil["utensilNotation"] for utensil in recipe["recipeUtensils"]],
         serving_size=recipe["servingSize"]["quantity"]["value"] or 0,
-        active_time=next(
-            time_["quantity"]["value"]
-            for time_ in recipe["times"]
-            if time_["type"] == "activeTime" and time_["quantity"]["value"]
-        ),
-        total_time=next(
-            time_["quantity"]["value"]
-            for time_ in recipe["times"]
-            if time_["type"] == "totalTime" and time_["quantity"]["value"]
-        ),
+        active_time=active_time,
+        total_time=total_time,
         nutrition_groups=[
             CookidooNutritionGroup(
                 name=ng["name"],
@@ -290,6 +511,19 @@ def cookidoo_recipe_details_from_json(
             )
             for ng in recipe.get("nutritionGroups", [])
         ],
+        step_groups=[
+            CookidooRecipeStepGroup(
+                title=sg["title"],
+                recipe_steps=[
+                    CookidooRecipeStep(
+                        title=step["title"],
+                        formatted_text=step["formattedText"],
+                    )
+                    for step in sg["recipeSteps"]
+                ],
+            )
+            for sg in recipe.get("recipeStepGroups", [])
+        ],
         thumbnail=thumbnail,
         image=image,
         url=url,
@@ -301,32 +535,54 @@ def cookidoo_custom_recipe_from_json(
     localization: CookidooLocalizationConfig | None = None,
 ) -> CookidooCustomRecipe:
     """Convert a custom recipe received from the API to a cookidoo custom recipe."""
-    total_time = isodate.parse_duration(
-        recipe["recipeContent"]["totalTime"]
-    ).total_seconds()
-    active_time = isodate.parse_duration(
-        recipe["recipeContent"]["prepTime"]
-    ).total_seconds()
+    def _duration_to_seconds(value: str | int | float | None) -> int:
+        if value is None:
+            return 0
+
+        if isinstance(value, int | float):
+            return int(value)
+
+        duration = isodate.parse_duration(value).total_seconds()
+        return int(duration) if isinstance(duration, float) else 0
+
+    def _extract_text_list(
+        value: Sequence[str | CustomRecipeTextJSON],
+    ) -> list[str]:
+        return [item["text"] if isinstance(item, dict) else item for item in value]
+
+    recipe_content: CustomRecipeContentJSON = recipe["recipeContent"]
+    total_time = _duration_to_seconds(recipe_content.get("totalTime"))
+    active_time = _duration_to_seconds(recipe_content.get("prepTime"))
 
     thumbnail: str | None = None
     image: str | None = None
 
-    recipe_content = recipe["recipeContent"]
     image = recipe_content.get("image", None)
     if image:
         thumbnail, image = _process_image_url(image)
 
     url = _construct_recipe_url(localization, recipe["recipeId"], "created-recipes")
+    recipe_yield = (
+        recipe_content.get("recipeYield")
+        or recipe_content.get("yield")
+        or {"value": 0, "unitText": ""}
+    )
 
     return CookidooCustomRecipe(
         id=recipe["recipeId"],
-        name=recipe["recipeContent"]["name"],
-        ingredients=recipe["recipeContent"]["recipeIngredient"],
-        instructions=recipe["recipeContent"]["recipeInstructions"],
-        serving_size=recipe["recipeContent"]["recipeYield"]["value"],
-        total_time=int(total_time) if isinstance(total_time, float) else 0,
-        active_time=int(active_time) if isinstance(active_time, float) else 0,
-        tools=recipe["recipeContent"]["tool"],
+        name=recipe_content["name"],
+        ingredients=_extract_text_list(
+            recipe_content.get("recipeIngredient")
+            or recipe_content.get("ingredients", [])
+        ),
+        instructions=_extract_text_list(
+            recipe_content.get("recipeInstructions")
+            or recipe_content.get("instructions", [])
+        ),
+        serving_size=recipe_yield["value"],
+        total_time=total_time,
+        active_time=active_time,
+        tools=recipe_content.get("tool") or recipe_content.get("tools", []),
         thumbnail=thumbnail,
         image=image,
         url=url,

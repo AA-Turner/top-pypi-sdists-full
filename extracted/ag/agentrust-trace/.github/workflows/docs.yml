@@ -4,8 +4,12 @@ on:
   push:
     branches: [main]
     paths:
+      - "index.md"
       - "docs/**"
       - "spec/**"
+      - "schema/**"
+      - "Governance/**"
+      - "PRIVACY.md"
       - "overrides/**"
       - "robots.txt"
       - "mkdocs.yml"
@@ -14,6 +18,7 @@ on:
       - "CHANGELOG.md"
       - "CONTRIBUTING.md"
       - "GOVERNANCE.md"
+      - "CHARTER.md"
       - "ROADMAP.md"
       - "LIMITATIONS.md"
       - "CNAME"
@@ -32,11 +37,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
           cache: pip
@@ -59,8 +64,12 @@ jobs:
           if [ -d docs ]; then cp -r docs $BUILD/docs; fi
           if [ -d spec ]; then cp -r spec $BUILD/spec; fi
           if [ -d examples ]; then cp -r examples $BUILD/examples; fi
+          if [ -d Governance ]; then cp -r Governance $BUILD/Governance; fi
+          # schema/ carries pic-trace-bridge-v1.json, whose $id points at this
+          # host. exclude_docs drops the three that are served from the apex.
+          if [ -d schema ]; then cp -r schema $BUILD/schema; fi
 
-          for fname in README.md CHANGELOG.md CONTRIBUTING.md GOVERNANCE.md ROADMAP.md LIMITATIONS.md CNAME robots.txt; do
+          for fname in index.md CHANGELOG.md CONTRIBUTING.md GOVERNANCE.md CHARTER.md CODE_OF_CONDUCT.md MAINTAINERS.md SPONSORS.md ROADMAP.md LIMITATIONS.md PRIVACY.md CNAME robots.txt; do
             if [ -f "$fname" ]; then cp "$fname" "$BUILD/$fname"; fi
           done
 

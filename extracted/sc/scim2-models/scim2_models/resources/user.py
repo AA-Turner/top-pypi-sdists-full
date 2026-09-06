@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import ClassVar
@@ -13,6 +12,7 @@ from ..annotations import Required
 from ..annotations import Returned
 from ..annotations import Uniqueness
 from ..attributes import ComplexAttribute
+from ..attributes import ExtensibleStringEnum
 from ..path import URN
 from ..reference import External
 from ..reference import Reference
@@ -50,7 +50,7 @@ class Name(ComplexAttribute):
 
 
 class Email(ComplexAttribute):
-    class Type(str, Enum):
+    class Type(ExtensibleStringEnum):
         work = "work"
         home = "home"
         other = "other"
@@ -71,7 +71,7 @@ class Email(ComplexAttribute):
 
 
 class PhoneNumber(ComplexAttribute):
-    class Type(str, Enum):
+    class Type(ExtensibleStringEnum):
         work = "work"
         home = "home"
         mobile = "mobile"
@@ -98,7 +98,7 @@ class PhoneNumber(ComplexAttribute):
 
 
 class Im(ComplexAttribute):
-    class Type(str, Enum):
+    class Type(ExtensibleStringEnum):
         aim = "aim"
         gtalk = "gtalk"
         icq = "icq"
@@ -126,11 +126,11 @@ class Im(ComplexAttribute):
 
 
 class Photo(ComplexAttribute):
-    class Type(str, Enum):
+    class Type(ExtensibleStringEnum):
         photo = "photo"
         thumbnail = "thumbnail"
 
-    value: Annotated[Reference[External] | None, CaseExact.true] = None
+    value: Reference[External] | None = None
     """URL of a photo of the User."""
 
     display: str | None = None
@@ -146,7 +146,7 @@ class Photo(ComplexAttribute):
 
 
 class Address(ComplexAttribute):
-    class Type(str, Enum):
+    class Type(ExtensibleStringEnum):
         work = "work"
         home = "home"
         other = "other"
@@ -198,7 +198,7 @@ class Entitlement(ComplexAttribute):
 
 
 class GroupMembership(ComplexAttribute):
-    value: Annotated[str | None, Mutability.read_only] = None
+    value: Annotated[str | None, Mutability.read_only, CaseExact.true] = None
     """The identifier of the User's group."""
 
     ref: Annotated[
@@ -234,7 +234,7 @@ class Role(ComplexAttribute):
 
 
 class X509Certificate(ComplexAttribute):
-    value: Annotated[Base64Bytes | None, CaseExact.true] = None
+    value: Base64Bytes | None = None
     """The value of an X.509 certificate."""
 
     display: str | None = None

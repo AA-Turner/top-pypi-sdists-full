@@ -85,17 +85,45 @@ class _NamePath(NamePath):
 
 # Exceptions
 
-class DataDecodingError(Exception):
-    """Exception thrown when a stream object in a PDF cannot be decoded."""
+class PikepdfError(Exception):
+    """Root of the pikepdf exception hierarchy.
 
-class JobUsageError(Exception):
+    Every exception pikepdf raises on its own behalf derives from this, so
+    ``except PikepdfError`` catches all of them. It does not catch the built-in
+    exceptions pikepdf raises for ordinary programming errors (``ValueError``,
+    ``TypeError``, ``KeyError``, ``NotImplementedError``), the ``OSError``
+    family raised by file access, or exceptions raised by Pillow during image
+    extraction.
+
+    .. versionadded:: 10.13
+    """
+
+class PdfError(PikepdfError):
+    """General pikepdf-specific exception.
+
+    Raised when a document is defective in some way. See also its subclasses
+    :class:`DataDecodingError` and :class:`ReferenceCycleError`.
+    """
+
+class DataDecodingError(PdfError):
+    """Exception thrown when a stream object in a PDF cannot be decoded.
+
+    .. versionchanged:: 10.13
+        Now derives from :class:`PdfError`, so ``except PdfError`` around
+        :meth:`Object.read_bytes` also catches undecodable streams. Previously
+        it was a sibling of ``PdfError``.
+    """
+
+class JobUsageError(PikepdfError):
     """Exception thrown when the pikepdf.Job interface is used incorrectly."""
 
-class PasswordError(Exception):
-    """Exception thrown when the supplied password is incorrect."""
+class PasswordError(PikepdfError):
+    """Exception thrown when the supplied password is incorrect.
 
-class PdfError(Exception):
-    """General pikepdf-specific exception."""
+    Deliberately *not* a :class:`PdfError`: a wrong password does not mean the
+    document is defective. Handlers that distinguish the two can order
+    ``except PdfError`` before ``except PasswordError`` safely.
+    """
 
 class ReferenceCycleError(PdfError):
     """When a direct (non-indirect) object would be made to contain itself.
@@ -107,13 +135,13 @@ class ReferenceCycleError(PdfError):
     .. versionadded:: 10.8
     """
 
-class ForeignObjectError(Exception):
+class ForeignObjectError(PikepdfError):
     """When a complex object is copied into a foreign PDF without proper methods.
 
     Use :meth:`Pdf.copy_foreign`.
     """
 
-class DeletedObjectError(Exception):
+class DeletedObjectError(PikepdfError):
     """When a required object is accessed after deletion.
 
     Thrown when accessing a :class:`Object` that relies on a :class:`Pdf`
@@ -499,22 +527,80 @@ class Object:
     def as_dict(self) -> _ObjectMapping: ...
     def as_list(self) -> _ObjectList: ...
     @overload
-    def as_int(self) -> int: ...
+    def as_int(self) -> int:
+        """Convert to int, or return default if not an integer.
+
+        In explicit conversion mode, this provides a safe way to convert
+        pikepdf.Integer to Python int with proper type hints.
+
+        Args:
+            default: Value to return if this object is not an integer.
+                If not provided and the object is not an integer,
+                raises TypeError.
+
+        Raises:
+            TypeError: If object is not an integer and no default was provided.
+
+        .. versionadded:: 10.1
+        """
     @overload
     def as_int(self, default: T) -> int | T: ...
     @overload
-    def as_bool(self) -> bool: ...
+    def as_bool(self) -> bool:
+        """Convert to bool, or return default if not a boolean.
+
+        In explicit conversion mode, this provides a safe way to convert
+        pikepdf.Boolean to Python bool with proper type hints.
+
+        Args:
+            default: Value to return if this object is not a boolean.
+                If not provided and the object is not a boolean,
+                raises TypeError.
+
+        Raises:
+            TypeError: If object is not a boolean and no default was provided.
+
+        .. versionadded:: 10.1
+        """
     @overload
     def as_bool(self, default: T) -> bool | T: ...
     @overload
-    def as_float(self) -> float: ...
+    def as_float(self) -> float:
+        """Convert to float, or return default if not numeric.
+
+        Works for both Integer and Real objects.
+
+        Args:
+            default: Value to return if this object is not numeric.
+                If not provided and the object is not numeric,
+                raises TypeError.
+
+        Raises:
+            TypeError: If object is not numeric and no default was provided.
+
+        .. versionadded:: 10.1
+        """
     @overload
     def as_float(self, default: T) -> float | T: ...
     @overload
-    def as_decimal(self) -> Decimal: ...
+    def as_decimal(self) -> Decimal:
+        """Convert to Decimal, or return default if not a Real.
+
+        Preferred over as_float() for PDF reals to preserve precision.
+        Only works for Real objects, not Integer.
+
+        Args:
+            default: Value to return if this object is not a Real.
+                If not provided and the object is not a Real,
+                raises TypeError.
+
+        Raises:
+            TypeError: If object is not a Real and no default was provided.
+
+        .. versionadded:: 10.1
+        """
     @overload
     def as_decimal(self, default: T) -> Decimal | T: ...
-    def _get_real_value(self) -> str: ...
     def copy(self) -> Object: ...
     def emplace(self, other: Object, retain: Iterable[Name] = ...) -> None:
         """Copy all items from other without making a new object.
@@ -991,8 +1077,10 @@ class ObjectHelper:
 class _ObjectList:
     """A list whose elements are always pikepdf.Object.
 
-    In all other respects, this object behaves like a standard Python
-    list.
+    Values are encoded to pikepdf.Object on the way in, and numeric objects
+    are decoded to int/bool/Decimal on the way out, so the methods below
+    accept any value that pikepdf can encode. In all other respects, this
+    object behaves like a standard Python list.
     """
 
     @overload
@@ -1003,21 +1091,21 @@ class _ObjectList:
     def __init__(self, arg0: Iterable, /) -> None: ...
     @overload
     def __init__(*args, **kwargs) -> None: ...
-    def append(self, x: Object, /) -> None: ...
+    def append(self, value: Any, /) -> None: ...
     def clear(self) -> None: ...
-    def count(self, x: Object, /) -> int: ...
+    def count(self, value: Any, /) -> int: ...
     @overload
     def extend(self, L: _ObjectList, /) -> None: ...
     @overload
-    def extend(self, L: Iterable[Object], /) -> None: ...
-    def insert(self, i: int, x: Object, /) -> None: ...
+    def extend(self, L: Iterable[Any], /) -> None: ...
+    def insert(self, index: int, value: Any, /) -> None: ...
     @overload
     def pop(self) -> Object: ...
     @overload
     def pop(self, i: int, /) -> Object: ...
-    def remove(self, x: Object, /) -> None: ...
+    def remove(self, value: Any, /) -> None: ...
     def __bool__(self) -> bool: ...
-    def __contains__(self, x: Object, /) -> bool: ...
+    def __contains__(self, value: Any, /) -> bool: ...
     @overload
     def __delitem__(self, arg0: int, /) -> None: ...
     @overload
@@ -1031,28 +1119,38 @@ class _ObjectList:
     def __len__(self) -> int: ...
     def __ne__(self, other: Any, /) -> bool: ...
     @overload
-    def __setitem__(self, arg0: int, arg1: Object, /) -> None: ...
+    def __setitem__(self, arg0: int, arg1: Any, /) -> None: ...
     @overload
     def __setitem__(self, arg0: slice, arg1: _ObjectList, /) -> None: ...
+    @overload
+    def __setitem__(self, arg0: slice, arg1: Iterable[Any], /) -> None: ...
 
 class _ObjectMapping:
-    """A mapping whose keys and values are always pikepdf.Name and pikepdf.Object."""
+    """A mapping whose keys and values are always pikepdf.Name and pikepdf.Object.
+
+    Values are encoded to pikepdf.Object on the way in, and numeric objects are
+    decoded to int/bool/Decimal on the way out, so the methods below accept any
+    value that pikepdf can encode.
+    """
 
     @overload
-    def get(self, key: Name | str, /) -> Object | None: ...
+    def get(self, key: Name | str) -> Object | None: ...
     @overload
-    def get(self, key: Name | str, default: T, /) -> Object | T: ...
+    def get(self, key: Name | str, default: T) -> Object | T: ...
     def keys(self) -> Iterator[Name]: ...
     def values(self) -> Iterator[Object]: ...
+    def update(self, other: _ObjectMapping | dict[Name | str, Any], /) -> None: ...
     def __contains__(self, key: Name | str, /) -> bool: ...
     def __init__(self) -> None: ...
     def items(self) -> Iterator: ...
     def __bool__(self) -> bool: ...
-    def __delitem__(self, key: str, /) -> None: ...
+    def __delitem__(self, key: Name | str, /) -> None: ...
+    def __eq__(self, other: Any, /) -> bool: ...
     def __getitem__(self, key: Name | str, /) -> Object: ...
     def __iter__(self) -> Iterator: ...
     def __len__(self) -> int: ...
-    def __setitem__(self, key: str, value: Object, /) -> None: ...
+    def __ne__(self, other: Any, /) -> bool: ...
+    def __setitem__(self, key: Name | str, value: Any, /) -> None: ...
 
 class AcroFormField(ObjectHelper):
     """An AcroForm field. Wrapper around a PDF dictionary."""
@@ -1498,7 +1596,8 @@ class AttachedFile:
         """Get the MD5 checksum of attached file according to the PDF creator."""
     @property
     def obj(self) -> Object: ...
-    def read_bytes(self) -> bytes: ...
+    def read_bytes(self) -> bytes:
+        """Read the attached file's decoded contents."""
     @property
     def size(self) -> int:
         """Get length of the attached file in bytes according to the PDF creator."""
@@ -1677,10 +1776,6 @@ class Attachments(MutableMapping[str, AttachedFileSpec]):
     def __len__(self) -> int: ...
     def __setitem__(self, k: str, v: AttachedFileSpec | bytes, /) -> None: ...
     def __init__(self, *args, **kwargs) -> None: ...
-    def _add_replace_filespec(self, arg0: str, arg1: AttachedFileSpec) -> None: ...
-    def _get_all_filespecs(self) -> dict[str, AttachedFileSpec]: ...
-    def _get_filespec(self, arg0: str) -> AttachedFileSpec: ...
-    def _remove_filespec(self, arg0: str) -> bool: ...
     @property
     def _has_embedded_files(self) -> bool: ...
 
@@ -1728,6 +1823,12 @@ class TokenFilter(_QPDFTokenFilter):
 class StreamParser:
     """A simple content stream parser, which must be subclassed to be used.
 
+    Pass an instance of a subclass to :meth:`pikepdf.Page.parse_contents`,
+    which calls :meth:`handle_object` once per object parsed from the
+    content stream. Because objects are handled one at a time, the content
+    stream is never materialized as a list of instructions, so memory use
+    stays bounded regardless of stream length.
+
     In practice, the performance of this class may be quite poor on long
     content streams because it creates objects and involves multiple
     function calls for every object in a content stream, some of which
@@ -1772,12 +1873,6 @@ class Page:
     def __getitem__(self, name: Any, /) -> Object: ...
     def __setattr__(self, name: Any, value: Any, /) -> None: ...
     def __setitem__(self, name: Any, value: Any, /) -> None: ...
-    def _get_artbox(self, arg0: bool, arg1: bool) -> Object: ...
-    def _get_bleedbox(self, arg0: bool, arg1: bool) -> Object: ...
-    def _get_cropbox(self, arg0: bool, arg1: bool) -> Object: ...
-    def _get_mediabox(self, arg0: bool) -> Object: ...
-    def _get_rotation(self) -> int: ...
-    def _get_trimbox(self, arg0: bool, arg1: bool) -> Object: ...
     def add_content_token_filter(self, tf: TokenFilter) -> None:
         """Attach a :class:`pikepdf.TokenFilter` to a page's content stream.
 

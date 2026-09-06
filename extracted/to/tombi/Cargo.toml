@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "1.5.1"  # We use git tags for versioning. This is just a placeholder.
+version = "1.5.2"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -119,7 +119,7 @@ wasm-streams = "0.4.2"
 web-sys = "0.3.77"
 xshell.version = "0.2.7"
 zed_extension_api = "0.7.0"
-zip = { version = "2.3.0" }
+zip = { version = "2.3.0", default-features = false }
 
 [workspace.lints.clippy]
 collapsible_match = "warn"

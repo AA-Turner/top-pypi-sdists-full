@@ -37,7 +37,11 @@ repos:
     rev: v0.21.0
     hooks:
       - id: yamlfmt
-        exclude: ^(work_tickets/|tests/fixtures/validation/invalid/|\.github/workflows/|archived/)
+        # .kb-doc-gate.yaml is excluded because the KB doc gate reads it with a
+        # deliberately stdlib-only, bootstrap-safe parser that accepts a restricted
+        # YAML subset; this repo's yamlfmt config sets include_document_start, and the
+        # '---' it inserts is not in that subset (OMN-16606).
+        exclude: ^(work_tickets/|tests/fixtures/validation/invalid/|\.github/workflows/|archived/|\.kb-doc-gate\.yaml$)
 
   # Essential file formatting (standard across ecosystem)
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -157,6 +161,21 @@ repos:
         language: system
         pass_filenames: false
         files: ^(src/omnibase_core/.*\.py|scripts/ci/check_import_ratchet\.py|scripts/ci/import_ratchet_baseline\.py|\.importlinter|pyproject\.toml)$
+        stages: [pre-commit]
+
+      # Async-fixture decorator gate (OMN-17319) -- fail-closed, whole-tree, sub-second.
+      # An `async def` fixture with a bare `@pytest.fixture` is NOT executed under
+      # pytest-asyncio STRICT mode (which tests/pytest.ini leaves in force): pytest hands
+      # the test an un-awaited async_generator and the body never runs, while
+      # tests/pytest.ini's --disable-warnings swallows the deprecation. pytest 9.1 turned
+      # that silent no-op into a hard setup error -- 24 tests errored on 9.1.1 that passed
+      # on 9.0.3. The silent-skip failure mode is the reason this is a gate and not a sweep.
+      - id: async-fixture-decorator
+        name: no bare @pytest.fixture on an async def (OMN-17319)
+        entry: uv run python scripts/ci/check_async_fixture_decorators.py
+        language: system
+        pass_filenames: false
+        files: ^((src|tests)/.*\.py|scripts/ci/check_async_fixture_decorators\.py)$
         stages: [pre-commit]
 
       # Canonical handler-shape GROWTH RATCHET (OMN-14355)
@@ -637,7 +656,7 @@ repos:
       # Enforces structured versions: ModelSemVer(1, 0, 0) instead of "1.0.0"
       # Catches: ModelSemVer.parse(), string literals, flat YAML versions
       # Allows: Docstrings, regex patterns (r"..."), test fixtures, log messages
-      # See: docs/ANTI_PATTERNS.md#string-version-literals
+      # See: https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/onex-anti-patterns.md
       #
       # PROTOCOL EXCLUSION: protocols/ is excluded because Protocol types define
       # interfaces (structural typing), not concrete implementations. They may
@@ -756,7 +775,13 @@ repos:
         language: system
         pass_filenames: true
         files: ^src/.*\.py$
-        exclude: ^(tests/|archived/|archive/|examples/prototypes/).*\.py$
+        # src/omnibase_core/validation/todo_marker/ is excluded for the same reason it
+        # is excluded from no-untracked-todos below: that validator's own docstrings
+        # name the TODO/FIXME marker token as their SUBJECT, so a docstring-marker
+        # heuristic reads its documentation as an unfinished stub. The package already
+        # carries this repo's file-level escape hatch (onex-allow-file-todo-marker,
+        # OMN-13480), which this hook does not read (OMN-16606).
+        exclude: ^(tests/|archived/|archive/|examples/prototypes/).*\.py$|^src/omnibase_core/validation/todo_marker/
         stages: [pre-commit]
 
       - id: check-no-fallbacks
@@ -918,7 +943,7 @@ repos:
       # SPDX Header Requirement
       # Ensures all source files have the canonical SPDX MIT license header.
       # To skip SPDX check in rare cases, add: # spdx-skip: <reason>
-      # See: docs/conventions/FILE_HEADERS.md for canonical header format
+      # See: https://github.com/OmniNode-ai/knowledge-base/blob/main/reference/onex-file-headers.md for canonical header format
       - id: validate-spdx-headers
         name: ONEX SPDX Header Requirement
         entry: uv run python scripts/validation/validate_spdx_headers.py
@@ -1092,8 +1117,17 @@ repos:
         entry: uv run python -m omnibase_core.validation.validator_local_paths
         language: system
         types: [text]
+        # OMN-17159: scripts/hooks/prepush_dispatch.sh is a VENDORED, byte-identical
+        # copy of omnibase_infra's pre-push picker. Its integrity is asserted by a
+        # sha256 pin in tests/scripts/test_prepush_host_table.py, which is a
+        # STRONGER control than this scan for that one file: an inline suppression
+        # comment would itself fork the copy and defeat the parity the pin exists
+        # to protect. The flagged literals are prose in comments recording live
+        # measurements and a remote PATH entry -- the same example-bearing class the
+        # tests/ and docs/ excludes already cover.
         exclude: >-
           (?x)^(
+            scripts/hooks/prepush_dispatch\.sh$|
             \.secrets\.baseline$|
             archived/|
             archive/|
@@ -1133,8 +1167,17 @@ repos:
         entry: uv run python -m omnibase_core.validation.local_paths.runtime_local_paths
         language: system
         types: [text]
+        # OMN-17159: scripts/hooks/prepush_dispatch.sh is a VENDORED, byte-identical
+        # copy of omnibase_infra's pre-push picker. Its integrity is asserted by a
+        # sha256 pin in tests/scripts/test_prepush_host_table.py, which is a
+        # STRONGER control than this scan for that one file: an inline suppression
+        # comment would itself fork the copy and defeat the parity the pin exists
+        # to protect. The flagged literals are prose in comments recording live
+        # measurements and a remote PATH entry -- the same example-bearing class the
+        # tests/ and docs/ excludes already cover.
         exclude: >-
           (?x)^(
+            scripts/hooks/prepush_dispatch\.sh$|
             \.secrets\.baseline$|
             archived/|
             archive/|
@@ -1167,8 +1210,17 @@ repos:
         # data; the gate targets src/ (where a hardcoded private IP is a real
         # environment-config leak). Docs are example-bearing too. This mirrors the
         # spec excludes.allowed (^tests/, ^docs/) for hardcoded-private-ip.
+        # OMN-17159: scripts/hooks/prepush_dispatch.sh is a VENDORED, byte-identical
+        # copy of omnibase_infra's pre-push picker. Its integrity is asserted by a
+        # sha256 pin in tests/scripts/test_prepush_host_table.py, which is a
+        # STRONGER control than this scan for that one file: an inline suppression
+        # comment would itself fork the copy and defeat the parity the pin exists
+        # to protect. The flagged literals are prose in comments recording live
+        # measurements and a remote PATH entry -- the same example-bearing class the
+        # tests/ and docs/ excludes already cover.
         exclude: >-
           (?x)^(
+            scripts/hooks/prepush_dispatch\.sh$|
             \.secrets\.baseline$|
             archived/|
             archive/|
@@ -1429,7 +1481,9 @@ repos:
       # Backend Secret-Ref Discipline Gate (OMN-13305, ported from OMN-12971).
       # Rejects literal PEM/SA-JSON/bearer credentials in committed routing-authority
       # YAML. Requires every authenticated cloud backend to declare a logical
-      # secret ref (secret_ref/api_key_ref/api_key_env/credential_ref). ADC and
+      # secret ref (secret_ref/api_key_ref/credential_ref — api_key_env is NOT
+      # one, OMN-17931: only-api_key_env fails, api_key_env beside a real ref is
+      # migration debt). ADC and
       # API-key auth are mutually exclusive per backend. No warn-only mode.
       - id: check-backend-secret-discipline
         name: Backend Secret-Ref Discipline Gate (OMN-13305)
@@ -1569,7 +1623,7 @@ repos:
       # Enforces core-infra dependency boundary: omnibase_core must be pure
       # Detects forbidden imports: aiohttp, httpx, requests, kafka, redis, asyncpg, etc.
       # AST-based validator correctly handles TYPE_CHECKING guards (allowed per ADR-005)
-      # See: docs/decisions/ADR-005-core-infra-dependency-boundary.md
+      # See: https://github.com/OmniNode-ai/knowledge-base/blob/main/architecture/onex-dependency-inversion.md
       - id: validate-no-transport-imports
         name: ONEX Transport Import Prevention
         entry: uv run python scripts/validate_no_transport_imports.py
@@ -1809,13 +1863,37 @@ repos:
         exclude: ^(src/omnibase_core/constants/constants_event_types\.py|src/omnibase_core/models/events/contract_registration/model_contract_deregistered_event\.py|src/omnibase_core/models/events/contract_registration/model_contract_registered_event\.py|src/omnibase_core/models/events/contract_registration/model_node_heartbeat_event\.py|src/omnibase_core/models/events/model_episode_event\.py|src/omnibase_core/models/events/model_git_hook_event\.py|src/omnibase_core/models/events/model_github_pr_status_event\.py|src/omnibase_core/models/events/model_linear_snapshot_event\.py|src/omnibase_core/models/events/validation/model_validation_run_completed_event\.py|src/omnibase_core/models/events/validation/model_validation_run_started_event\.py|src/omnibase_core/models/events/validation/model_validation_violations_batch_event\.py|src/omnibase_core/schemas/cli_contribution\.v1\.example\.yaml|src/omnibase_core/validation/validator_topic_suffix\.py)$
         stages: [pre-commit]
       - id: no-untracked-todos
+        # The todo-marker validator's own source names TODO/FIXME/HACK as its SUBJECT.
+        # Both files already carry this repo's file-level escape hatch comment
+        # (onex-allow-file-todo-marker, OMN-13480), which the validator itself honors;
+        # this hook is owned by onex_change_control and does not read that marker, so the
+        # two files are excluded here rather than having their documentation mangled
+        # (OMN-16606 — first change to touch them since the hook was added).
+        exclude: ^src/omnibase_core/validation/todo_marker/
         stages: [pre-commit]
 
-  # KB doc gate (OMN-16589) — blocks new/regrown non-KB markdown docs.
-  # Pinned to the omniclaude dev commit that merged the exported hook
-  # (OmniNode-ai/omniclaude#2047, merged 2026-08-26).
+  # KB doc gate (OMN-16589) — keeps repo markdown inside the allowed set.
+  #
+  # OMN-16606: advanced 82a3394c (omniclaude#2047, 2026-08-26) -> 3e6d14da so
+  # this pin MATCHES the one the required CI check resolves its validator at:
+  # `.github/workflows/kb-doc-gate.yml` calls
+  # `omniclaude/.github/workflows/kb-doc-gate-reusable.yml@3e6d14da...`, and the
+  # reusable checks the validator out at `github.job_workflow_sha`, i.e. that
+  # same SHA. The two had DRIFTED, and not cosmetically: 82a3394c's parser reads
+  # `exemptions:` and rejects `allowed:` as an unknown key (exit 2), while
+  # 3e6d14da's reads `allowed:` and rejects `exemptions:` — so any per-repo
+  # config entry is a guaranteed disagreement between the local hook and the
+  # required check. Their default sets differ too: 82a3394c allows all of
+  # `**/tests/**`, `**/rules/**`, `**/hooks/**`, `**/CONTRIBUTING.md` and
+  # `**/CODE_OF_CONDUCT.md` anywhere, which 3e6d14da narrows to the three
+  # `tests/**/{fixtures,data,golden}/**` subtrees and root-anchored `.github/`
+  # placement. The strict end-state this PR establishes is defined by the
+  # STRICTER of the two, so the local hook must be the same one — otherwise a
+  # commit passes locally and the required check fails, or worse, the reverse.
+  # Advancing the gate stays a one-line change in each of the two files, made
+  # together in one PR.
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 82a3394c1af183d8aed36fdb7b0fee011d39372a  # pragma: allowlist secret
+    rev: 3e6d14da0d12923c32060252967d0f8759fcbb5e  # pragma: allowlist secret
     hooks:
       - id: kb-doc-gate
 

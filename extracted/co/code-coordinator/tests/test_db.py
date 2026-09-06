@@ -1787,11 +1787,15 @@ class TestMigrateGateOrder:
         )
         conn.commit()
 
-    def _set_board_meta(self, conn: sqlite3.Connection, value: str) -> None:
-        conn.execute(
-            "INSERT OR REPLACE INTO board_meta (key, value) VALUES ('pipeline_default_gates', ?)",
-            (value,),
-        )
+    def _set_board_meta(self, conn: Any, value: str) -> None:
+        # #3101: was a raw `INSERT OR REPLACE` -- invalid syntax on Postgres,
+        # where `isolated_conn`/`coord_db` can be a real psycopg connection
+        # (#2884's backend switch). `sql.upsert` is the portable idiom
+        # `coord.state`'s own writers use for this exact table. `conn` is
+        # typed `Any`, not `sqlite3.Connection`, precisely because it can be
+        # that real psycopg-backed `TranslatingConnection` under the
+        # Postgres lane.
+        sql.upsert(conn, "board_meta", ["key", "value"], ("pipeline_default_gates", value), conflict_columns=["key"])
         conn.commit()
 
     def test_rewrites_old_default_in_assignments(
@@ -2375,7 +2379,9 @@ class TestUatStateAndReasonColumns:
 # `_MIGRATE_ADD_COLUMNS`'s length is unchanged at 80, so only the version
 # moved, to force `_ensure_schema`'s `CREATE TABLE IF NOT EXISTS` to run once
 # more on an existing database).
-_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (10, 80)
+# #3148 bumped this to (11, 82): `issue_context.resolved_at` /
+# `resolved_note`.
+_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (11, 82)
 
 
 class TestMigrateAddColumnsVersionGuard:

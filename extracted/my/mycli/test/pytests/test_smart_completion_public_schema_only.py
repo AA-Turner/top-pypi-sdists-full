@@ -727,15 +727,60 @@ def dummy_list_path(dir_name):
 @pytest.mark.parametrize(
     "text,expected",
     [
-        ('source ', [('--special', 0), ('--show', 0), ('--page', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)]),
+        (
+            'source ',
+            [
+                ('--special', 0),
+                ('--show', 0),
+                ('--page', 0),
+                ('--throttle', 0),
+                ('--help', 0),
+                ('/', 0),
+                ('~', 0),
+                ('.', 0),
+                ('..', 0),
+            ],
+        ),
         ('source --s', [('--show', -3), ('--special', -3)]),
-        ('source --special ', [('--show', 0), ('--page', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)]),
-        ('source --show ', [('--special', 0), ('--page', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)]),
-        ('source --special --show ', [('--page', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)]),
-        ('source --special --show --page ', [('/', 0), ('~', 0), ('.', 0), ('..', 0)]),
+        ('source --h', [('--help', -3)]),
+        ('source --help ', []),
+        (
+            'source --special ',
+            [('--show', 0), ('--page', 0), ('--throttle', 0), ('--help', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)],
+        ),
+        (
+            'source --show ',
+            [('--special', 0), ('--page', 0), ('--throttle', 0), ('--help', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)],
+        ),
+        (
+            'source --special --show ',
+            [('--page', 0), ('--throttle', 0), ('--help', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)],
+        ),
+        (
+            'source --special --show --page ',
+            [('--throttle', 0), ('--help', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)],
+        ),
+        ('source --throttle ', []),
+        (
+            'source --throttle 0.25 ',
+            [('--special', 0), ('--show', 0), ('--page', 0), ('--help', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)],
+        ),
+        (
+            'source --throttle=0.25 ',
+            [('--special', 0), ('--show', 0), ('--page', 0), ('--help', 0), ('/', 0), ('~', 0), ('.', 0), ('..', 0)],
+        ),
         ("source /", [("/dir1", -1), ("/file1.sql", -1), ("/file2.sql", -1)]),
         ('source --special /', [('/dir1', -1), ('/file1.sql', -1), ('/file2.sql', -1)]),
         ('source --show /', [('/dir1', -1), ('/file1.sql', -1), ('/file2.sql', -1)]),
+        (
+            'source file.sql ',
+            [('--special', 0), ('--show', 0), ('--page', 0), ('--throttle', 0), ('--help', 0)],
+        ),
+        (
+            'source file.sql --show ',
+            [('--special', 0), ('--page', 0), ('--throttle', 0), ('--help', 0)],
+        ),
+        ('source -- ', [('/', 0), ('~', 0), ('.', 0), ('..', 0)]),
         (
             "source /dir1/",
             [("/dir1/subdir1", -6), ("/dir1/subfile1.sql", -6), ("/dir1/subfile2.sql", -6)],

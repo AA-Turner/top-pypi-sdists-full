@@ -3,6 +3,7 @@ from enum import Enum
 
 class GetPublicAppByCustomPathResponse200PolicyExecutionMode(str, Enum):
     ANONYMOUS = "anonymous"
+    GUEST = "guest"
     PUBLISHER = "publisher"
     VIEWER = "viewer"
 

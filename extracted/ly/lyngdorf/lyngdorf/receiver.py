@@ -37,6 +37,7 @@ from .controls import (
     NumericControl,
     SteppableControl,
     Trim,
+    VolumeControl,
     build_lipsync,
     build_trims,
     build_volume,
@@ -148,6 +149,8 @@ class LyngdorfReceiver:
         # Flat cached state (design §2.2's non-component members).
         config = model.config
         self._audio_inputs = config.audio_inputs
+        # Indices already complained about - see _name_audio_input.
+        self._unknown_audio_inputs: set[int] = set()
         self._video_inputs = config.video_inputs
         self._stream_types = config.stream_types
         self._sources = CountingNumberDict()
@@ -257,56 +260,31 @@ class LyngdorfReceiver:
 
     @property
     def max_volume(self) -> float | None:
-        """The device's current MAXVOL setting, in dB.
+        """DEPRECATED, removed in 3.0. Use `volume.maximum_volume`, and
+        `isinstance(volume, VolumeControl)` for the capability.
 
-        None means TWO things here, and the type does not distinguish
-        them: the model has no MAXVOL command at all (the whole TDAI
-        family), or it has one and has not reported a value yet. The
-        second flips at runtime, so `max_volume is None` is NOT a
-        capability check - on an MP it is None at construction and
-        non-None once the device answers.
+        Kept one release with a warning rather than removed outright,
+        because that is the window a consumer needs to change a pin and
+        change code in separate commits.
 
-        An earlier version of this docstring said "or None on models that
-        do not report it", which states only the structural half and
-        reads like a capability test. It is the last place in the package
-        where a None on the receiver varies at runtime: every component
-        (`player`, `zone_b`, `remote`), the `trims` keys and `lipsync`
-        are all structural, fixed at construction. Making this one
-        structural too means moving it onto the volume control, where it
-        belongs - it is a property of the volume, not of the receiver -
-        and that is a breaking change, so it is held for 2.1 (issue #54)
-        rather than overlooked.
+        The reason it moved is issue #54: None here means two different
+        things - the model has no MAXVOL command (the whole TDAI family)
+        or it has one and has not answered yet - and nothing in the type
+        tells them apart, so `max_volume is None` reads as a capability
+        check and is wrong on an MP that has simply not replied. It was
+        the last property on the receiver whose None varied at runtime.
 
-        The MP and P families both map
-        Msg.MAX_VOLUME (docs/mp-40.md, docs/mp-50.md, docs/mp-60.md,
-        docs/p-series.md all document `!MAXVOL`) - contrary to issue #40's
-        original premise that this was MP-only. The TDAI family's manuals
-        (docs/tdai-1120.md, docs/tdai-2170.md, docs/tdai-3400.md) document
-        no MAXVOL command at all, so it stays None there.
-
-        The vendor-documented bounds are not reliable enough to validate
-        against: docs/mp-40.md/docs/mp-60.md give -55.0..-20.0 dB while
-        docs/p-series.md gives -55.0..+24.0 dB for the very same command,
-        and a real MP-60 on firmware 5.4.2 answered !MAXVOL(0), i.e.
-        0.0 dB - outside the MP-40/MP-60 documented range. The device's
-        own control websocket (a separate, richer status channel some
-        models expose) independently confirms this: it reports
-        `max_volume: {"min": -55.0, "max": 24.0, ...}`, matching
-        docs/p-series.md and confirming docs/mp-40.md/docs/mp-60.md's
-        `-55.0..-20.0` is simply wrong. `0.0 dB` is a genuine value from
-        that device, not a sentinel meaning "no limit". This value is
-        therefore read and surfaced as-is, never validated against any
-        range, and NOT used to narrow `volume_range` (see that property's
-        docstring for why) - do not add either.
-
-        This is a user-settable safety ceiling, not the hardware's
-        physical volume range - it can be changed at runtime from the
-        front panel or the official app, the same way
-        `homeassistant-projects/hass-lyngdorf`'s get_max()/set_max() work
-        against this same command. Do not treat it as a fixed slider
-        maximum; poll or subscribe to notification callbacks rather than
-        caching it once.
+        On the control that ambiguity is gone: a model without the
+        feature has no VolumeControl, so `maximum_volume` is left meaning
+        only "not reported yet".
         """
+        warnings.warn(
+            "max_volume is deprecated and will be removed in lyngdorf 3.0; "
+            "use volume.maximum_volume (and isinstance(volume, "
+            "VolumeControl) for the capability)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self._max_volume
 
     @property
@@ -460,39 +438,6 @@ class LyngdorfReceiver:
         `50.0` and still renders "50.0". It must be coerced."""
         return self._lipsync
 
-    @property
-    def lipsync_range(self) -> NumericRange | None:
-        """The permitted lipsync range, or None on a model without the
-        feature. Structural: available from construction, before the
-        device has reported anything.
-
-        DEPRECATED, and removed in 2.2. It exists for one reason: a
-        consumer crossing 1.11 -> 2.1 cannot express this question in a
-        form valid on both pins, and the version-bump PR is not allowed
-        to carry code.
-
-        On 2.1 alone it is redundant - `lipsync` is structural here, so
-        `receiver.lipsync.range` answers the same question and is what
-        you should migrate to. On 1.11 it is not: `lipsync` there is a
-        float/control dual that cannot exist before a value arrives, so
-        it reads None during the startup window and keying entity
-        creation off it drops the entity until a reload (issue #55).
-        `lipsync_range` was the only structural accessor on that pin.
-
-        So: a one-release window, deliberately, in the release whose
-        purpose is deleting exactly this kind of thing. Kept because the
-        alternative is forcing a code change into a manifest-only bump,
-        and time-boxed because that is the difference between a bridge
-        and a permanent second way to ask one question.
-        """
-        warnings.warn(
-            "lipsync_range is deprecated and will be removed in lyngdorf "
-            "2.2; use lipsync.range (lipsync is structural from 2.1)",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._lipsync.range if self._lipsync is not None else None
-
     # -- components -------------------------------------------------------------
 
     @property
@@ -576,6 +521,8 @@ class LyngdorfReceiver:
 
     def _max_volume_callback(self, param1: str, ignored: str) -> None:
         self._max_volume = convert_decibel(param1)
+        if isinstance(self._volume, VolumeControl):
+            self._volume._update_maximum_volume(self._max_volume)
         self._notify_notification_callbacks()
 
     def _zone_b_volume_callback(self, param1: str, ignored: str) -> None:
@@ -640,19 +587,50 @@ class LyngdorfReceiver:
                 zb._sources.add(int(param1), param2)
         self._notify_notification_callbacks()
 
+    def _name_audio_input(self, param1: str) -> str:
+        """Map a reported audio-input index to its name, complaining once
+        if we have no entry for it.
+
+        The protocol offers no way to enumerate audio inputs. There is
+        `!SRCS` for sources, but nothing equivalent here - the device
+        answers `!AUDIN(X)` with a bare integer and the vendor manual
+        says "See table of audio inputs for the translation of the number
+        to actual audio input". So the table in ModelConfig is not a
+        convenience, it is the only mapping that exists, and it is
+        maintained by hand from manuals and measurement.
+
+        Which means an index we do not have is a defect in this library's
+        data, not a device fault - and the user sees "audio-13" where a
+        real name belongs. The fallback keeps things working; the warning
+        is how the gap ever gets fixed. Latched per index so a device
+        pushing !AUDIN on every source change produces one line, not one
+        per change.
+        """
+        index = int(param1)
+        known = self._audio_inputs.get(index)
+        if known is not None:
+            return known
+        if index not in self._unknown_audio_inputs:
+            self._unknown_audio_inputs.add(index)
+            _LOGGER.warning(
+                "%s: %s reported audio input %d, which this library has no "
+                "name for - showing 'audio-%d' instead. This is a gap in "
+                "the library's input table for this model, not a device "
+                "fault; please report it with the model and firmware.",
+                self.host,
+                self._model.config.model_name,
+                index,
+                index,
+            )
+        return f"audio-{param1}"
+
     def _audio_input_callback(self, param1: str, param2: str) -> None:
-        if int(param1) in self._audio_inputs:
-            self._audio_input = self._audio_inputs[int(param1)]
-        else:
-            self._audio_input = f"audio-{param1}"
+        self._audio_input = self._name_audio_input(param1)
         self._notify_notification_callbacks()
 
     def _zone_b_audio_input_callback(self, param1: str, param2: str) -> None:
         if (zb := self._zone_b) is not None:
-            if int(param1) in self._audio_inputs:
-                zb._update_audio_input(self._audio_inputs[int(param1)])
-            else:
-                zb._update_audio_input(f"audio-{param1}")
+            zb._update_audio_input(self._name_audio_input(param1))
         self._notify_notification_callbacks()
 
     def _video_input_callback(self, param1: str, param2: str) -> None:

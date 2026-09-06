@@ -1650,6 +1650,28 @@ class Geocif:
             extend_to_month=extend,
         )
 
+    @staticmethod
+    def merge_data_ps_months(init_months, data_ps_months, season_start):
+        """Union of computed init months and the ``PS_<m>`` months actually
+        present in the data, in chronological order relative to season start.
+
+        The CID stage anchors its pre-season window on the MODE of the
+        crop-calendar planting transitions; the ML side anchors on the
+        longest in-season Stage_ID chain. Mixed regional planting (one
+        region planting Oct, most Nov) makes the anchors differ by a month,
+        and data-backed init steps (PS_10 rows written by the CID stage)
+        were silently never iterated. The data is the truth: any PS_<m>
+        present in df_inputs gets a step.
+        """
+        merged = set(init_months) | set(data_ps_months)
+
+        def _key(m):
+            mu = (season_start - m) % 12  # months until season start
+            if 1 <= mu <= 6:
+                return 6 - mu             # pre-season: furthest first
+            return 7 + ((m - season_start) % 12)  # in-season: after PS
+        return sorted(merged, key=_key)
+
     def _execute_pre_season(self, include_in_season: bool = False):
         """Pre-season pipeline — one model per init month, multi-step.
 
@@ -1659,6 +1681,16 @@ class Geocif:
         """
         init_months = self._get_pre_season_init_months(include_in_season=include_in_season)
         season_start = self._get_season_start_month()
+
+        # Add init months whose PS_<m> rows exist in the data but fall
+        # outside the computed window (anchor drift between the CID and ML
+        # stages — see merge_data_ps_months).
+        data_ps = sorted(
+            int(str(s).split("_")[1])
+            for s in self.df_inputs["Stage"].dropna().unique()
+            if re.fullmatch(r"PS_\d+", str(s))
+        )
+        init_months = self.merge_data_ps_months(init_months, data_ps, season_start)
 
         self.logger.info(
             f"Pre-season mode: {len(init_months)} time steps "
@@ -1688,7 +1720,15 @@ class Geocif:
 
             # Determine if this month is pre-season or in-season
             months_until_planting = (season_start - init_month) % 12
-            is_before_planting = months_until_planting > 0 and months_until_planting <= 6
+            has_ps_rows = bool(
+                (df_inputs_orig["Stage"] == f"PS_{init_month}").any()
+            )
+            # Data reality wins: rows tagged PS_<m> were extracted as
+            # pre-season by the CID stage; routing them through the
+            # in-season (numeric Stage_ID) filter would find nothing.
+            is_before_planting = has_ps_rows or (
+                months_until_planting > 0 and months_until_planting <= 6
+            )
 
             if is_before_planting:
                 stage_id = f"PS_{init_month}"

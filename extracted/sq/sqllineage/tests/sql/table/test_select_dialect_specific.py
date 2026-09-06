@@ -35,6 +35,12 @@ def test_select_with_schema_in_bracket(dialect: str):
     )
 
 
+@pytest.mark.parametrize("dialect", ["tsql"])
+def test_select_with_bracket_identifier_containing_quote(dialect: str):
+    # a bracketed identifier that contains a quote char must still be unquoted
+    assert_table_lineage_equal("SELECT * FROM [O'Brien]", {"O'Brien"}, dialect=dialect)
+
+
 @pytest.mark.parametrize("dialect", ["databricks", "hive", "sparksql"])
 def test_select_left_semi_join(dialect: str):
     assert_table_lineage_equal(
@@ -128,3 +134,20 @@ def test_tsql_table_hints(dialect: str):
     """
     sql = "select * from dbname.dto.tablename(NOLOCK)"
     assert_table_lineage_equal(sql, {"dbname.dto.tablename"}, dialect=dialect)
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ("SELECT * FROM `proj.dataset.tbl`", {"proj.dataset.tbl"}),
+        ("SELECT * FROM `proj`.`dataset`.`tbl`", {"proj.dataset.tbl"}),
+        ("SELECT * FROM `my-project`.`dataset`.`tbl`", {"my-project.dataset.tbl"}),
+        ("SELECT * FROM `dataset.tbl`", {"dataset.tbl"}),
+    ],
+)
+def test_select_from_backtick_quoted_multi_part_path(sql: str, expected: set[str]):
+    """
+    BigQuery backtick-quoted table path: dots remain separators.
+    https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#identifiers
+    """
+    assert_table_lineage_equal(sql, expected, dialect="bigquery", test_sqlparse=False)

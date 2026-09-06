@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "pydantic-ai-skills"
 dynamic = ["version"]
-description = "A lightweight agent skill implementation for Pydantic AI"
+description = "Remote skill registries and bundled-file execution for Pydantic AI Agent Skills"
 authors = [
     { name = "Douglas Trajano", email = "douglas.trajano@outlook.com" },
 ]
@@ -13,7 +13,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 readme = "README.md"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Operating System :: OS Independent",
@@ -29,8 +30,21 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "anyio>=4.0.0",
-    "pydantic-ai-slim>=1.105",
-    "pyyaml>=6.0",
+    # The harness owns Agent Skills discovery, SKILL.md validation and instruction
+    # injection; this package layers remote sources and bundled files on top. 0.28 is
+    # the floor because that is the oldest release whose `Skills` public surface matches
+    # what `SkillsCapability` re-emits (pinned by tests/test_harness_compat.py).
+    "pydantic-ai-harness[skills]>=0.28",
+    # Raised from >=1.105 in 2.0. 2.38 is the floor, not 2.37 (pydantic-ai-harness's own
+    # floor at 0.28): `AbstractCapability.visit_and_replace` only exists from 2.38, and
+    # SkillsCapability must override it alongside `apply` or its skill leaves are invisible
+    # to callers rewriting the capability tree. `RunContext.active_capability_ids`, used to
+    # gate the skill-file tools, needs 2.35. Caught by the test-lowest-versions CI job.
+    "pydantic-ai-slim>=2.38",
+    # 6.0.1 is the floor, not 6.0: pyyaml 6.0 ships no wheels for Python 3.12+
+    # and its sdist fails to build against Cython 3 ("build_ext has no attribute
+    # cython_sources"). Caught by the test-lowest-versions CI job.
+    "pyyaml>=6.0.1",
 ]
 
 [project.urls]
@@ -49,7 +63,7 @@ docs = [
     "mkdocs-llmstxt>=0.2.0",
 ]
 git = [
-    "gitpython>=3.1.40",
+    "gitpython>=3.1.0",
 ]
 s3 = [
     "boto3>=1.26.0",
@@ -65,7 +79,10 @@ localsandbox = [
 ]
 test = [
     "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
+    # 0.23.5 is the floor, not 0.23.0: earlier 0.23.x crashes at collection
+    # against pytest 8 ("'Package' object has no attribute 'obj'").
+    # Caught by the test-lowest-versions CI job.
+    "pytest-asyncio>=0.23.5",
     "pytest-cov>=4.1.0",
     "types-PyYAML>=6.0.12",
 ]
@@ -86,13 +103,13 @@ examples = [
     "gitpython>=3.1.0",
     "langchain-community>=0.4.0",
     "ddgs>=9.14.0",
-    "pydantic-ai-slim[mcp,openai,logfire]>=2.0.0",
+    "pydantic-ai-slim[mcp,openai,logfire]>=2.38",
 ]
 
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-include = ["pydantic_ai_skills/**/*.py", "examples/**/*.py"]
+include = ["pydantic_ai_skills/**/*.py", "examples/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
 extend-select = [
@@ -142,3 +159,9 @@ packages = ["pydantic_ai_skills"]
 # which Sonar resolves from the repo root and fails to match -> 0% coverage.
 relative_files = true
 source = ["pydantic_ai_skills"]
+
+[tool.mypy]
+# Kept here rather than in .pre-commit-config.yaml args so a bare `mypy` run
+# behaves the same as the pre-commit hook and CI.
+ignore_missing_imports = true
+strict_optional = false

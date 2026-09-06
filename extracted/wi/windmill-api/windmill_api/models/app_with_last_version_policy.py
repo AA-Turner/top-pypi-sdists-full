@@ -24,10 +24,13 @@ class AppWithLastVersionPolicy:
         triggerables_v2 (Union[Unset, AppWithLastVersionPolicyTriggerablesV2]):
         s3_inputs (Union[Unset, List['AppWithLastVersionPolicyS3InputsItem']]):
         allowed_s3_keys (Union[Unset, List['AppWithLastVersionPolicyAllowedS3KeysItem']]):
-        execution_mode (Union[Unset, AppWithLastVersionPolicyExecutionMode]): Who the app's runnables execute as.
-            Optional, and what omitting it means depends on the operation: creating an app defaults it to `publisher` (runs
-            on behalf of the app's publisher and requires an authenticated viewer), while updating one keeps the mode the
-            app is already deployed under. Either way `anonymous`, which makes the app publicly executable, is never assumed
+        execution_mode (Union[Unset, AppWithLastVersionPolicyExecutionMode]): Who may open the app, and who its
+            runnables execute as. Optional, and what omitting it means depends on the operation: creating an app defaults it
+            to `publisher` (runs on behalf of the app's publisher and requires an authenticated viewer), while updating one
+            keeps the mode the app is already deployed under. Neither `anonymous`, which makes the app publicly executable,
+            nor `guest`, which opens it to anyone the identity provider authenticates, is ever assumed. A guest is only
+            admitted where the workspace also has `guest_access_enabled`, which is checked when the session is minted and
+            again on every guest request
         on_behalf_of (Union[Unset, str]):
         on_behalf_of_email (Union[Unset, str]):
         sandbox (Union[Unset, bool]): Publisher opt-in to app sandbox isolation (alpha). When true the app is isolated

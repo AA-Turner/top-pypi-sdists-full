@@ -28,14 +28,43 @@ because most hosts are workers and are not supposed to run the daemon
 lanes. An *installed* one that the manifest expects and that
 `systemctl --user is-enabled` reports as anything other than enabled is
 exactly the state that hid the propagate timer.
+
+#3128 — a host that never installed the unit at all
+------------------------------------------------------
+The boundary above has a blind spot: it can only judge units a host has
+already chosen to install, so a daemon host that never ran the *install*
+step for `coord-backup.timer`/`coord-dr-verify.timer` — #2098's own failure
+shape, one layer up — was invisible to every check, `coord doctor` included.
+`coord.deploy_manifest.resolve_role` closes it: when a host has *declared*
+its role (`~/.coord/role` or `COORD_ROLE`, resolved exactly once, there —
+this probe never reads either source itself), a manifest unit that role
+requires and that isn't installed is now a `WARN` naming the unit and the
+fix, mirroring `unit_drift`'s fix-line convention. A host that has not
+declared a role stays exactly as silent as before: `resolve_role` defaults
+to `ROLE_WORKER` with `declared=False`, and this probe only applies the
+"must be installed" requirement when `declared` is true — an inferred
+default role must never manufacture a new fault that didn't exist
+yesterday.
 """
 
 from __future__ import annotations
 
 import subprocess
 
-from coord.deploy_manifest import all_manifest_units
-from coord.health.checks.unit_drift import resolve_systemd_user_dir
+from coord.deploy_manifest import (
+    ROLE_UNITS,
+    ROLE_WORKER,
+    all_manifest_units,
+    resolve_role,
+    units_for_role,
+)
+from coord.health.checks.unit_drift import (
+    _KNOWN_PLACEHOLDER_VALUES,
+    _PLACEHOLDER_RE,
+    _is_templated,
+    resolve_reference,
+    resolve_systemd_user_dir,
+)
 from coord.health.models import CheckResult, HealthContext, Severity
 from coord.health.registry import check
 
@@ -61,6 +90,95 @@ from coord.health.registry import check
 _SYSTEMCTL_TIMEOUT = 5.0
 
 _ENABLED_STATES = {"enabled", "enabled-runtime", "alias"}
+
+
+def _missing_templated_unit_remedy(
+    deploy_text: str, deploy_path, installed_path, name: str
+) -> str:
+    """The fix line for a required-but-never-installed *templated* manifest
+    unit — today, only `coord-agent.service` (#1928's `<MACHINE_NAME>`/
+    `<PORT>`) — as part of #3128.
+
+    A sibling of `unit_drift._templated_remedy`, not a call to it: that
+    function's known-placeholder branch ends in `systemctl --user restart
+    {service}` (with the `.timer`/`.service` suffix stripped to the bare
+    service stem), which is correct for *its* caller — a unit that is
+    already installed and enabled, where only the *content* drifted, so a
+    restart is all that is needed to pick up the render. Here the unit was
+    never installed at all: it is not loaded, let alone enabled, so a
+    `restart` is not guaranteed to start it and — even where it does — never
+    enables it, leaving the unit running-but-not-enabled and silently
+    reproducing the exact "disabled unit produces zero evidence" failure
+    shape (#2098) this whole check exists to catch. The command chain here
+    ends in `enable --now {name}` instead — targeting *name* in full,
+    suffix included, the same reasoning as the non-templated branch below
+    (stripping `.timer` would silently enable `coord-backup.service` instead
+    of `coord-backup.timer`).
+
+    The whole point of this fix line is that an operator can copy-paste it
+    verbatim into a shell, so — unlike the previous shape of this remedy —
+    nothing here is appended after a trailing `#` comment: every step that
+    must actually run is part of the `&&` chain.
+    """
+    names = sorted(set(_PLACEHOLDER_RE.findall(deploy_text)))
+    if names and all(n in _KNOWN_PLACEHOLDER_VALUES for n in names):
+        sed_args = " ".join(f'-e "s/<{n}>/{_KNOWN_PLACEHOLDER_VALUES[n]}/"' for n in names)
+        return (
+            f"{deploy_path} is a TEMPLATE — do not cp it verbatim (#1928). Render "
+            f"it for this host first: sed {sed_args} {deploy_path} > {installed_path} "
+            f"&& systemctl --user daemon-reload && systemctl --user enable --now {name}"
+        )
+    return (
+        f"{deploy_path} is a TEMPLATE ({', '.join(names)} placeholder(s)) — copying "
+        "it verbatim installs those as literal text and the unit will not start. "
+        f"See the install instructions at the top of {deploy_path} (sed substitution "
+        f"or install-agent.sh) to render it for this host, then systemctl --user "
+        f"daemon-reload && systemctl --user enable --now {name}."
+    )
+
+
+def _missing_unit_remedy(name: str, installed_path, reference) -> str:
+    """The fix line for a required-but-never-installed manifest unit
+    (#3128), mirroring `unit_drift`'s own remedy convention (source from the
+    verified packaged reference, never a checkout nothing confirmed is
+    current) rather than inventing a second one.
+
+    `enable --now` always targets *name* in full, suffix included — unlike
+    the `restart` target `unit_drift`/`_templated_remedy` strip to the bare
+    service stem, `systemctl enable` has no notion of "the service this
+    timer fires": stripping `.timer` off here would silently enable
+    `coord-backup.service` (systemctl's implicit default suffix) instead of
+    `coord-backup.timer`, re-creating the exact half-enabled state (#2098)
+    this whole check exists to catch.
+    """
+    if reference is None:
+        return (
+            f"no packaged deploy/ reference found on this host — install "
+            f"{name} from a coord release's deploy/ directory, then "
+            f"systemctl --user daemon-reload && systemctl --user enable --now {name}"
+        )
+    deploy_path = reference.path / name
+    try:
+        deploy_text = deploy_path.read_text()
+    except OSError as exc:
+        return (
+            f"{deploy_path} (from {reference.label}) could not be read ({exc}) "
+            f"— install {name} manually, then systemctl --user daemon-reload "
+            f"&& systemctl --user enable --now {name}"
+        )
+    # #1928: coord-agent.service is a template (`<MACHINE_NAME>`/`<PORT>`) —
+    # a bare `cp` installs the placeholders as literal text and the unit
+    # refuses to start. `_missing_templated_unit_remedy` is a sibling of
+    # unit_drift's own templated-unit remedy (see its docstring for why it
+    # is not a call to that function) — only reachable here for
+    # `coord-agent.service`, which has no timer to conflate the `enable
+    # --now` target with.
+    if _is_templated(deploy_text):
+        return _missing_templated_unit_remedy(deploy_text, deploy_path, installed_path, name)
+    return (
+        f"cp {deploy_path} {installed_path} && systemctl --user daemon-reload "
+        f"&& systemctl --user enable --now {name}   # reference: {reference.label}"
+    )
 
 
 def _is_enabled(unit: str, *, runner=None) -> tuple[str | None, str | None]:
@@ -103,12 +221,72 @@ def probe_unit_enablement(ctx: HealthContext) -> list[CheckResult]:
     installed_dir = resolve_systemd_user_dir(ctx)
     results: list[CheckResult] = []
 
+    # #3128: resolve_role is the ONLY place either role source is read —
+    # this probe consumes the RoleDeclaration, it never re-opens
+    # `~/.coord/role` or re-reads `COORD_ROLE` itself.
+    declaration = resolve_role(ctx.coord_dir)
+    if not declaration.valid:
+        results.append(
+            CheckResult(
+                check_id="unit_enablement",
+                scope="machine",
+                subject="role",
+                severity=Severity.WARN,
+                headroom=(
+                    f"declared role {declaration.raw!r} is not recognized "
+                    f"(expected one of {sorted(ROLE_UNITS)}) — falling back "
+                    f"to {ROLE_WORKER!r} (#3128)"
+                ),
+                detail=(
+                    f"fix the role declaration (COORD_ROLE env var, or "
+                    f"{ctx.coord_dir / 'role'}) to one of {sorted(ROLE_UNITS)}"
+                ),
+                threshold="warn when a declared role value isn't a known role",
+                values={"raw_role": declaration.raw, "source": declaration.source},
+            )
+        )
+
+    # An inferred/default role (nothing declared) must never manufacture a
+    # new fault that didn't exist yesterday — only a role this host actually
+    # *declared* (env var or ~/.coord/role, valid or not) turns "manifest
+    # unit not installed" from silent into a WARN. See the module docstring.
+    required: set[str] = set(units_for_role(declaration.role)) if declaration.declared else set()
+    reference = resolve_reference(ctx) if required else None
+
     for name in all_manifest_units():
         installed_path = installed_dir / name
         if not installed_path.exists():
+            if name in required:
+                results.append(
+                    CheckResult(
+                        check_id="unit_enablement",
+                        scope="machine",
+                        subject=name,
+                        severity=Severity.WARN,
+                        headroom=(
+                            f"required by declared role {declaration.role!r} but "
+                            "never installed on this host — an uninstalled unit "
+                            "and a working one both produce zero evidence until "
+                            "something needed it (#3128)"
+                        ),
+                        detail=_missing_unit_remedy(name, installed_path, reference),
+                        threshold=(
+                            f"warn when role {declaration.role!r} requires {name} "
+                            "and it is not installed"
+                        ),
+                        values={
+                            "installed_path": str(installed_path),
+                            "state": None,
+                            "role": declaration.role,
+                            "required": True,
+                        },
+                    )
+                )
+                continue
             # Not this host's topology. `unit_drift` reports the same
             # absence as OK for the same reason (#1831/#1927) — this probe
-            # only judges units a host has already chosen to install.
+            # only judges units a host has already chosen to install, or
+            # (#3128) a role it has explicitly declared requires.
             continue
 
         state, error = _is_enabled(name)

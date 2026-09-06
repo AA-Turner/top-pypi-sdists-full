@@ -1,6 +1,19 @@
 """Cookidoo API types."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import StrEnum
+
+from cookidoo_api.const import OAUTH_CLIENT_ID, OAUTH_REDIRECT_URI
+
+
+class ThermomixMachineType(StrEnum):
+    """Thermomix machine types."""
+
+    TM5 = "TM5"
+    TM6 = "TM6"
+    TM7 = "TM7"
+    TM31 = "TM31"
 
 
 @dataclass
@@ -24,6 +37,15 @@ class CookidooConfig:
         The email to login
     password
         The password to login
+    client_id
+        The OAuth2 client id to run the login flow as
+    redirect_uri
+        The OAuth2 redirect uri registered for ``client_id``
+
+    The login runs as a public client (authorization code + PKCE, no client
+    secret), so both values are public identifiers rather than credentials and
+    they default to the ones of the Cookidoo mobile app. Callers do not need to
+    set them; see ``docs/oauth-client.md``.
 
     """
 
@@ -32,6 +54,8 @@ class CookidooConfig:
     )
     email: str = "your@email"
     password: str = "1234password!"
+    client_id: str = OAUTH_CLIENT_ID
+    redirect_uri: str = OAUTH_REDIRECT_URI
 
 
 @dataclass
@@ -56,6 +80,66 @@ class CookidooSubscription:
     subscription_source: str
     type: str
     extended_type: str
+
+
+@dataclass
+class CookidooDevice:
+    """A paired Thermomix appliance on the account."""
+
+    type: ThermomixMachineType
+
+
+class CookidooCookState(StrEnum):
+    """State of an ongoing remote-monitored cook."""
+
+    RUNNING = "RUNNING"
+    PAUSED = "PAUSED"
+    DONE = "DONE"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    STALE = "STALE"
+
+
+@dataclass
+class CookidooCookingActivity:
+    """Live cook state pushed by an appliance's remote monitoring.
+
+    Values the recipe does not provide are ``None`` (the app renders ``"---"``
+    for an unset current temperature, which is normalised to ``None`` here).
+    """
+
+    device_id: str
+    cooking_activity_id: str | None = None
+    state: CookidooCookState | None = None
+    recipe_id: str | None = None
+    recipe_type: str | None = None
+    recipe_name: str | None = None
+    step: str | None = None
+    remaining_seconds: int | None = None
+    is_time_estimated: bool = False
+    current_temperature: float | None = None
+    target_temperature: float | None = None
+    message_title: str | None = None
+    message_body: str | None = None
+    message_criticality: str | None = None
+    completed_at: datetime | None = None
+    stale_at: datetime | None = None
+
+    @property
+    def is_active(self) -> bool:
+        """Whether a cook is currently running or paused."""
+        return self.state in (CookidooCookState.RUNNING, CookidooCookState.PAUSED)
+
+
+@dataclass
+class CookidooAuthData:
+    """OAuth2 tokens obtained from a login, for persistence and restore.
+
+    ``expires_at`` is a POSIX timestamp (seconds) for the access token.
+    """
+
+    access_token: str
+    refresh_token: str
+    expires_at: float
 
 
 @dataclass
@@ -144,6 +228,49 @@ class CookidooShoppingRecipe:
     thumbnail: str | None
     image: str | None
     url: str
+
+
+@dataclass
+class CookidooSearchRecipeHit:
+    """A single recipe hit from Cookidoo search.
+
+    Attributes
+    ----------
+    id
+        The id of the recipe
+    name
+        The title of the recipe
+    thumbnail
+        The thumbnail image URL (small preview)
+    image
+        The full-size image URL
+    url
+        The URL of the recipe
+
+    """
+
+    id: str
+    name: str
+    thumbnail: str | None
+    image: str | None
+    url: str
+
+
+@dataclass
+class CookidooSearchResult:
+    """Cookidoo search result type.
+
+    Attributes
+    ----------
+    recipes
+        List of recipe hits matching the search
+    total
+        Total number of matching recipes
+
+    """
+
+    recipes: list[CookidooSearchRecipeHit]
+    total: int
 
 
 @dataclass
@@ -244,6 +371,40 @@ class CookidooNutritionGroup:
 
 
 @dataclass
+class CookidooRecipeStep:
+    """Recipe step type.
+
+    Attributes
+    ----------
+    title
+        The title of the step (may be empty)
+    formatted_text
+        The instruction text for the step, as HTML markup
+
+    """
+
+    title: str
+    formatted_text: str
+
+
+@dataclass
+class CookidooRecipeStepGroup:
+    """Recipe step group type.
+
+    Attributes
+    ----------
+    title
+        The title of the step group (may be empty)
+    recipe_steps
+        List of recipe steps in this group
+
+    """
+
+    title: str
+    recipe_steps: list[CookidooRecipeStep]
+
+
+@dataclass
 class CookidooShoppingRecipeDetails(CookidooShoppingRecipe):
     """Cookidoo recipe details type.
 
@@ -267,6 +428,10 @@ class CookidooShoppingRecipeDetails(CookidooShoppingRecipe):
         The time needed until the recipe is ready [in seconds]
     nutrition_groups
         The nutrition groups of the recipe (from API, may be empty)
+    step_groups
+        The grouped cooking instructions for the recipe (from API, may be
+        empty). Instruction text is returned as HTML markup, as sent by the
+        API.
 
     """
 
@@ -279,6 +444,7 @@ class CookidooShoppingRecipeDetails(CookidooShoppingRecipe):
     active_time: int
     total_time: int
     nutrition_groups: list[CookidooNutritionGroup]
+    step_groups: list[CookidooRecipeStepGroup]
 
 
 @dataclass

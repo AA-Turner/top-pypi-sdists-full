@@ -499,6 +499,7 @@ class image_paint(bpy.ops._BPyOpsSubModOp):
         mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
         brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
         pen_flip: bool | None = False,
+        override_location: bool | None = False,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Paint a stroke into the image
 
@@ -526,6 +527,7 @@ class image_paint(bpy.ops._BPyOpsSubModOp):
         MASK
         Mask -- Switch to mask brush for duration of stroke.
                 :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used (optional)
+                :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions (optional)
                 :return: Result of the operator call.
         """
 

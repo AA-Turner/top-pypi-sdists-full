@@ -2,6 +2,7 @@
 
 from enum import IntEnum
 
+from midealocal.base_classes.climate import MideaFanMode
 from midealocal.const import DeviceType
 from midealocal.crc8 import calculate
 from midealocal.message import (
@@ -25,6 +26,41 @@ class CCHeatStatus(IntEnum):
 
     X10 = 1
     X20 = 2
+
+
+class CCFanSpeed7Level(MideaFanMode):
+    """CC legacy 7-level fan speed bitmask."""
+
+    LEVEL_1 = 0x01
+    LEVEL_2 = 0x02
+    LEVEL_3 = 0x04
+    LEVEL_4 = 0x08
+    LEVEL_5 = 0x10
+    LEVEL_6 = 0x20
+    LEVEL_7 = 0x40
+    AUTO = 0x80
+
+
+class CCFanSpeed3Level(MideaFanMode):
+    """CC legacy 3-level fan speed bitmask."""
+
+    LOW = 0x01
+    MEDIUM = 0x08
+    HIGH = 0x40
+    AUTO = 0x80
+
+
+class CCFanSpeedFE(MideaFanMode):
+    """CC 0xFE VRF panel fan speed (1-7, not a bitmask)."""
+
+    LEVEL_1 = 0x01
+    LEVEL_2 = 0x02
+    LEVEL_3 = 0x03
+    LEVEL_4 = 0x04
+    LEVEL_5 = 0x05
+    LEVEL_6 = 0x06
+    LEVEL_7 = 0x07
+    AUTO = 0x08
 
 
 class MessageCCBase(MessageRequest):

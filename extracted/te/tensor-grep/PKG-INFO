@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensor-grep
-Version: 1.114.3
+Version: 1.116.0
 Requires-Dist: typer>=0.12,<0.26
 Requires-Dist: rich>=13.0
 Requires-Dist: mcp>=1.29.0,<2

@@ -15,10 +15,15 @@ from numpy.testing import assert_almost_equal, assert_array_equal
 import pyproj
 from pyproj import CRS, Proj, Transformer, itransform, transform
 from pyproj.datadir import append_data_dir
-from pyproj.enums import TransformDirection
+from pyproj.enums import CRSExtentUse, IntermediateCRSUse, TransformDirection
 from pyproj.exceptions import ProjError
 from pyproj.transformer import AreaOfInterest, TransformerGroup
-from test.conftest import grids_available, proj_env, proj_network_env
+from test.conftest import (
+    PROJ_GTE_990,
+    grids_available,
+    proj_env,
+    proj_network_env,
+)
 
 
 def test_tranform_wgs84_to_custom():
@@ -234,7 +239,7 @@ def test_2d_with_time_itransform_original_crs_obs2():
 def test_itransform_time_3rd_invalid():
     with (
         pytest.warns(FutureWarning),
-        pytest.raises(ValueError, match="'time_3rd' is only valid for 3 coordinates."),
+        pytest.raises(ValueError, match=r"'time_3rd' is only valid for 3 coordinates."),
     ):
         list(
             itransform(
@@ -246,7 +251,7 @@ def test_itransform_time_3rd_invalid():
         )
     with (
         pytest.warns(FutureWarning),
-        pytest.raises(ValueError, match="'time_3rd' is only valid for 3 coordinates."),
+        pytest.raises(ValueError, match=r"'time_3rd' is only valid for 3 coordinates."),
     ):
         list(itransform(7789, 8401, [(3496737.2679, 743254.4507)], time_3rd=True))
 
@@ -405,6 +410,251 @@ def test_always_xy__itransform():
             list(itransform(2193, 4326, [(1625350, 5504853)], always_xy=True)),
             [(173.29964730317386, -40.60674802693758)],
         )
+
+
+def test_always_xy__from_pipeline(scalar_and_array):
+    # Test that always_xy works with from_pipeline
+    # EPSG:1311 is "ED50 to WGS 84 (18)" - a transformation from ED50 to WGS84
+    # Without always_xy, input/output order depends on CRS axis order (lat/lon)
+    # With always_xy=True, input/output is always lon/lat (x/y)
+    transformer_xy = Transformer.from_pipeline("EPSG:1311", always_xy=True)
+    transformer_default = Transformer.from_pipeline("EPSG:1311", always_xy=False)
+
+    # Coordinates in Spain (within ED50 to WGS84 (18) area of use)
+    lon, lat = -3.7, 40.4  # Madrid area
+
+    # With always_xy=True, input should be (lon, lat) and output is (lon, lat)
+    result_xy = transformer_xy.transform(scalar_and_array(lon), scalar_and_array(lat))
+
+    # With always_xy=False, input should be (lat, lon) and output is (lat, lon)
+    result_default = transformer_default.transform(
+        scalar_and_array(lat), scalar_and_array(lon)
+    )
+
+    # Both should produce equivalent results (just in different order)
+    # result_xy is (lon_out, lat_out), result_default is (lat_out, lon_out)
+    assert_almost_equal(result_xy[0], result_default[1], decimal=6)
+    assert_almost_equal(result_xy[1], result_default[0], decimal=6)
+
+
+def test_always_xy__from_pipeline_vs_transformer_group():
+    """
+    Test that from_pipeline with always_xy produces the same results
+    as TransformerGroup with always_xy for the same coordinate operation.
+    """
+    # Get transformers from TransformerGroup for ED50 to WGS84
+    trans_group = TransformerGroup(
+        "EPSG:4230",  # ED50
+        "EPSG:4326",  # WGS84
+        always_xy=True,
+        allow_superseded=True,
+    )
+
+    # Find the transformer with "ED50 to WGS 84 (1)" in its description
+    # This corresponds to EPSG:1133
+    target_description = "ED50 to WGS 84 (1)"
+    group_transformer = None
+    for transformer in trans_group.transformers:
+        if target_description in transformer.description:
+            group_transformer = transformer
+            break
+
+    assert group_transformer is not None, (
+        f"Could not find transformer with '{target_description}' in TransformerGroup"
+    )
+
+    # Create the same transformation using from_pipeline with always_xy
+    pipeline_transformer = Transformer.from_pipeline("EPSG:1133", always_xy=True)
+
+    # Test coordinates
+    test_coords = [
+        (-3.7, 40.4),
+        (-9.1, 38.7),
+        (2.2, 41.4),
+    ]
+
+    for lon, lat in test_coords:
+        result_group = group_transformer.transform(lon, lat)
+        result_pipeline = pipeline_transformer.transform(lon, lat)
+
+        assert_almost_equal(
+            result_group,
+            result_pipeline,
+            decimal=9,
+            err_msg=f"Results differ for coordinates ({lon}, {lat})",
+        )
+
+
+def test_always_xy__from_pipeline_axis_order():
+    """
+    Test that always_xy properly normalizes axis order for from_pipeline.
+    Verifies that with always_xy=True, input/output is (lon, lat) order,
+    and with always_xy=False, it follows the CRS native axis order.
+    """
+    # EPSG:1133 is "ED50 to WGS 84 (1)" - transforms from ED50 to WGS84
+    # Both CRS have native axis order of (lat, lon)
+
+    transformer_xy = Transformer.from_pipeline("EPSG:1133", always_xy=True)
+    transformer_native = Transformer.from_pipeline("EPSG:1133", always_xy=False)
+
+    # Test point in Denmark (within EPSG:1133 area of use)
+    lon, lat = 10.0, 55.0
+
+    # With always_xy=True: input (lon, lat) -> output (lon, lat)
+    result_xy = transformer_xy.transform(lon, lat)
+
+    # With always_xy=False: input (lat, lon) -> output (lat, lon)
+    result_native = transformer_native.transform(lat, lon)
+
+    # Results should be equivalent but in different order
+    # result_xy = (lon_out, lat_out)
+    # result_native = (lat_out, lon_out)
+    assert_almost_equal(result_xy[0], result_native[1], decimal=9)
+    assert_almost_equal(result_xy[1], result_native[0], decimal=9)
+
+    # Also verify the transformation actually changes the coordinates
+    # (i.e., it's not a null transformation)
+    assert result_xy[0] != lon or result_xy[1] != lat
+
+
+def test_always_xy__from_pipeline_projected_crs():
+    """
+    Test that always_xy works with from_pipeline for projected CRS transformations.
+    Uses TransformerGroup to find a transformation between projected CRS and
+    compares with from_pipeline using the same operation code.
+    """
+    # Get transformers from TransformerGroup for ED50 / UTM zone 31N to WGS84
+    # EPSG:23031 (ED50 / UTM zone 31N) -> EPSG:4326 (WGS 84)
+    trans_group = TransformerGroup(
+        "EPSG:23031",  # ED50 / UTM zone 31N
+        "EPSG:4326",  # WGS 84
+        always_xy=True,
+        allow_superseded=True,
+    )
+
+    # Find a transformer with "ED50 to WGS 84 (1)" in its description
+    target_description = "ED50 to WGS 84 (1)"
+    group_transformer = None
+    for transformer in trans_group.transformers:
+        if target_description in transformer.description:
+            group_transformer = transformer
+            break
+
+    assert group_transformer is not None, (
+        f"Could not find transformer with '{target_description}' in TransformerGroup. "
+        f"Available: {[t.description for t in trans_group.transformers[:5]]}"
+    )
+
+    # Test UTM coordinates (ED50 / UTM zone 31N)
+    # With always_xy=True, input is (easting, northing), output is (lon, lat)
+    test_coords = [
+        (430000, 4580000),
+        (450000, 4600000),
+        (400000, 4550000),
+    ]
+
+    for easting, northing in test_coords:
+        result = group_transformer.transform(easting, northing)
+        lon_out, lat_out = result
+
+        # Verify the result is in geographic coordinates (reasonable lon/lat range)
+        assert -180 <= lon_out <= 180, f"Longitude {lon_out} out of range"
+        assert -90 <= lat_out <= 90, f"Latitude {lat_out} out of range"
+
+        # Should be roughly in Catalonia/Barcelona area
+        assert 0 < lon_out < 4, f"Longitude {lon_out} not in expected range"
+        assert 40 < lat_out < 43, f"Latitude {lat_out} not in expected range"
+
+
+def test_always_xy__from_pipeline_projected_to_geographic():
+    """
+    Test from_pipeline with always_xy for transformation
+    from projected to geographic CRS. Uses TransformerGroup
+    to compare results.
+    """
+    # Get transformer from TransformerGroup for projected -> geographic
+    # EPSG:23031 (ED50 / UTM zone 31N) -> EPSG:4326 (WGS 84)
+    trans_group_xy = TransformerGroup("EPSG:23031", "EPSG:4326", always_xy=True)
+    trans_group_native = TransformerGroup("EPSG:23031", "EPSG:4326", always_xy=False)
+
+    transformer_xy = trans_group_xy.transformers[0]
+    transformer_native = trans_group_native.transformers[0]
+
+    # Test UTM coordinates (Barcelona area in ED50 / UTM zone 31N)
+    easting, northing = 430000, 4580000
+
+    # With always_xy=True: input (easting, northing) -> output (lon, lat)
+    result_xy = transformer_xy.transform(easting, northing)
+
+    # With always_xy=False: input (easting, northing), output (lat, lon)
+    result_native = transformer_native.transform(easting, northing)
+
+    # result_xy is (lon, lat), result_native is (lat, lon)
+    lon_out, lat_out = result_xy
+    lat_native, lon_native = result_native
+
+    # Verify results match (just different output order)
+    assert_almost_equal(lon_out, lon_native, decimal=9)
+    assert_almost_equal(lat_out, lat_native, decimal=9)
+
+    # Verify the result is in geographic coordinates (reasonable lon/lat range)
+    assert -180 <= lon_out <= 180, f"Longitude {lon_out} out of range"
+    assert -90 <= lat_out <= 90, f"Latitude {lat_out} out of range"
+
+    # Should be roughly in Catalonia/Barcelona area
+    assert 0 < lon_out < 4, f"Longitude {lon_out} not in expected range for Barcelona"
+    assert 40 < lat_out < 43, f"Latitude {lat_out} not in expected range for Barcelona"
+
+
+def test_always_xy__from_pipeline_geographic_to_projected():
+    """
+    Test from_pipeline with always_xy for transformation
+    from geographic to projected CRS. Uses TransformerGroup
+    to compare results.
+
+    WGS84 (EPSG:4326) has native axis order (lat, lon)
+    UTM zone 31N (EPSG:32631) has native axis order (E, N) which is already x, y
+
+    With always_xy=True: input (lon, lat) -> output (easting, northing)
+    With always_xy=False: input (lat, lon) -> output (easting, northing)
+    """
+    # Get transformer from TransformerGroup for geographic -> projected
+    # EPSG:4326 (WGS 84) -> EPSG:32631 (WGS 84 / UTM zone 31N)
+    trans_group_xy = TransformerGroup(
+        "EPSG:4326",
+        "EPSG:32631",
+        always_xy=True,
+    )
+    trans_group_native = TransformerGroup(
+        "EPSG:4326",
+        "EPSG:32631",
+        always_xy=False,
+    )
+
+    transformer_xy = trans_group_xy.transformers[0]
+    transformer_native = trans_group_native.transformers[0]
+
+    # Test geographic coordinates (Barcelona area)
+    lon, lat = 2.17, 41.39  # Barcelona
+
+    # With always_xy=True: input (lon, lat) -> output (easting, northing)
+    result_xy = transformer_xy.transform(lon, lat)
+
+    # With always_xy=False: input (lat, lon) -> output (easting, northing)
+    # Note: UTM already has (E, N) order which is x, y, so output order is same
+    result_native = transformer_native.transform(lat, lon)
+
+    # Both should produce (easting, northing)
+    easting_xy, northing_xy = result_xy
+    easting_native, northing_native = result_native
+
+    # Verify results match
+    assert_almost_equal(easting_xy, easting_native, decimal=6)
+    assert_almost_equal(northing_xy, northing_native, decimal=6)
+
+    # Verify the result is in UTM range (reasonable easting/northing)
+    assert 100000 < easting_xy < 900000, f"Easting {easting_xy} out of UTM range"
+    assert 0 < northing_xy < 10000000, f"Northing {northing_xy} out of UTM range"
 
 
 @pytest.mark.parametrize("empty_array", [(), [], numpy.array([])])
@@ -608,7 +858,7 @@ def test_transformer__only_best():
     if not grids_available("ca_nrc_ntv2_0.tif"):
         with pytest.raises(
             ProjError,
-            match="Grid ca_nrc_ntv2_0.tif is not available.",
+            match=r"Grid ca_nrc_ntv2_0.tif is not available.",
         ):
             transformer.transform(60, -100, errcheck=True)
 
@@ -1119,29 +1369,52 @@ def test_transformer_accuracy_filter():
 
 
 def test_transformer_allow_ballpark_filter():
-    with pytest.raises(ProjError):
-        Transformer.from_crs(
+    if PROJ_GTE_990:
+        transformer = Transformer.from_crs(
             "EPSG:4326", "EPSG:4258", authority="PROJ", allow_ballpark=False
         )
+        assert "Ballpark" not in transformer.description
+    else:
+        with pytest.raises(ProjError):
+            Transformer.from_crs(
+                "EPSG:4326", "EPSG:4258", authority="PROJ", allow_ballpark=False
+            )
 
 
 def test_transformer_authority_filter():
     transformer = Transformer.from_crs("EPSG:4326", "EPSG:4258", authority="PROJ")
-    assert transformer.description == "Ballpark geographic offset from WGS 84 to ETRS89"
+    if PROJ_GTE_990:
+        assert transformer.description in {
+            "unavailable until proj_trans is called",
+            "Ballpark geographic offset from WGS 84 to ETRS89",
+        }
+    else:
+        assert (
+            transformer.description
+            == "Ballpark geographic offset from WGS 84 to ETRS89"
+        )
 
 
 @pytest.mark.parametrize(
     "input_string",
     [
         "EPSG:1671",
-        "RGF93 v1 to WGS 84 (1)",
         "urn:ogc:def:coordinateOperation:EPSG::1671",
     ],
 )
 def test_transformer_from_pipeline__input_types(input_string):
-    assert (
-        Transformer.from_pipeline(input_string).description == "RGF93 v1 to WGS 84 (1)"
-    )
+    # PROJ 9.7.1+ renamed this operation from "RGF93 v1 to WGS 84 (1)"
+    # to "ETRS89-FRA [RGF93 v1] to WGS 84 (1)"
+    if PROJ_GTE_990:
+        assert (
+            Transformer.from_pipeline(input_string).description
+            == "ETRS89-FRA [RGF93 v1] to WGS 84 (1)"
+        )
+    else:
+        assert (
+            Transformer.from_pipeline(input_string).description
+            == "RGF93 v1 to WGS 84 (1)"
+        )
 
 
 @pytest.mark.parametrize(
@@ -1152,15 +1425,18 @@ def test_transformer_from_pipeline__input_types(input_string):
     ],
 )
 def test_transformer_from_pipeline__wkt_json(method_name):
-    assert (
-        Transformer.from_pipeline(
-            getattr(
-                Transformer.from_pipeline("urn:ogc:def:coordinateOperation:EPSG::1671"),
-                method_name,
-            )()
-        ).description
-        == "RGF93 v1 to WGS 84 (1)"
-    )
+    # PROJ 9.7.1+ renamed this operation from "RGF93 v1 to WGS 84 (1)"
+    # to "ETRS89-FRA [RGF93 v1] to WGS 84 (1)"
+    description = Transformer.from_pipeline(
+        getattr(
+            Transformer.from_pipeline("urn:ogc:def:coordinateOperation:EPSG::1671"),
+            method_name,
+        )()
+    ).description
+    if PROJ_GTE_990:
+        assert description == "ETRS89-FRA [RGF93 v1] to WGS 84 (1)"
+    else:
+        assert description == "RGF93 v1 to WGS 84 (1)"
 
 
 @pytest.mark.parametrize(
@@ -1574,7 +1850,14 @@ def test_transformer_group_allow_ballpark_filter():
     group = TransformerGroup(
         "EPSG:4326", "EPSG:4258", authority="PROJ", allow_ballpark=False
     )
-    assert not group.transformers
+    if PROJ_GTE_990:
+        assert len(group.transformers) == 1
+        assert all(
+            "Ballpark" not in transformer.description
+            for transformer in group.transformers
+        )
+    else:
+        assert not group.transformers
     assert not group.unavailable_operations
 
 
@@ -1584,13 +1867,113 @@ def test_transformer_group_allow_superseded_filter():
     assert len(superseded_group.transformers) > len(default_group.transformers)
 
 
+def test_transformer_group_allow_superseded_always_xy():
+    """Test that TransformerGroup works with both allow_superseded and always_xy."""
+    # This combination used to fail with "Input is not a transformation" error
+    # because proj_normalize_for_visualization() returns NULL for certain
+    # concatenated operations (e.g., EPSG:8047).
+    group = TransformerGroup(4230, 4326, allow_superseded=True, always_xy=True)
+    assert len(group.transformers) >= 1
+    # Operations that cannot be normalized for visualization should be in
+    # unavailable_operations, not silently dropped
+    total_ops = len(group.transformers) + len(group.unavailable_operations)
+    assert total_ops >= 1
+
+
+def test_transformer_group_crs_extent_use_none():
+    group_default = TransformerGroup(4230, 32632)
+    group_no_extent = TransformerGroup(4230, 32632, crs_extent_use=CRSExtentUse.NONE)
+    # lengths may differ depending on PROJ heuristic, but group_no_extent should
+    # be longer than group_default
+    assert len(group_default.transformers) >= 1
+    assert len(group_no_extent.transformers) >= 1
+    assert len(group_no_extent.transformers) >= len(group_default.transformers)
+
+
+def test_transformer_group_crs_extent_use_invalid():
+    # invalid crs_extent_use should raise a ValueError via BaseEnum.create
+    with pytest.raises(ValueError):
+        TransformerGroup(4326, 3857, crs_extent_use="invalid-option")
+
+
+def test_transformer_group_crs_extent_use_intersection_enum():
+    group_intersection = TransformerGroup(
+        4230, 32632, crs_extent_use=CRSExtentUse.INTERSECTION
+    )
+    assert len(group_intersection.transformers) >= 1
+
+
+def test_transformer_group_crs_extent_use_smallest_enum():
+    group_smallest = TransformerGroup(4230, 32632, crs_extent_use=CRSExtentUse.SMALLEST)
+    assert len(group_smallest.transformers) >= 1
+
+
+def test_transformer_group_crs_extent_use_both_enum():
+    group_both = TransformerGroup(4230, 32632, crs_extent_use=CRSExtentUse.BOTH)
+    assert len(group_both.transformers) >= 1
+
+
+def test_transformer_group_pivot_crs_mode_never():
+    group = TransformerGroup(4326, 3857, pivot_crs=IntermediateCRSUse.NEVER)
+    assert len(group.transformers) >= 1
+
+
+def test_transformer_group_pivot_crs_string_list():
+    group = TransformerGroup(4230, 4326, pivot_crs="EPSG:4326,EPSG:4979")
+    assert len(group.transformers) >= 1
+
+
+def test_transformer_group_pivot_crs_iterable_codes():
+    group = TransformerGroup(4326, 4979, pivot_crs=["EPSG:4978", 4326])
+    assert len(group.transformers) >= 1
+
+
+def test_transformer_group_pivot_crs_invalid_empty_string():
+    with pytest.raises(ProjError):
+        TransformerGroup(4326, 3857, pivot_crs="  ")
+
+
+def test_transformer_group_pivot_crs_unidentifiable_crs():
+    custom_crs = CRS.from_proj4("+proj=longlat +a=1 +b=1")
+    with pytest.raises(ProjError):
+        TransformerGroup(4326, 3857, pivot_crs=custom_crs)
+
+
+def test_transformer_group_pivot_crs_single_crs_object():
+    """Test pivot_crs with a single CRS object (not in a list)."""
+    crs = CRS.from_epsg(4326)
+    group = TransformerGroup(4230, 4326, pivot_crs=crs)
+    assert len(group.transformers) >= 1
+
+
+def test_transformer_group_pivot_crs_empty_iterable():
+    """Test pivot_crs with an empty iterable raises error."""
+    with pytest.raises(ProjError, match="at least one CRS"):
+        TransformerGroup(4326, 3857, pivot_crs=[])
+
+
+def test_transformer_group_pivot_crs_string_only_commas():
+    """Test pivot_crs string with only commas/whitespace raises error."""
+    with pytest.raises(ProjError):
+        TransformerGroup(4326, 3857, pivot_crs=",  , ,")
+
+
+def test_transformer_group_pivot_crs_integer_code():
+    """Test pivot_crs with an integer EPSG code."""
+    group = TransformerGroup(4230, 4326, pivot_crs=4326)
+    assert len(group.transformers) >= 1
+
+
 def test_transformer_group_authority_filter():
     group = TransformerGroup("EPSG:4326", "EPSG:4258", authority="PROJ")
-    assert len(group.transformers) == 1
+    if PROJ_GTE_990:
+        assert len(group.transformers) == 2
+    else:
+        assert len(group.transformers) == 1
     assert not group.unavailable_operations
-    assert (
-        group.transformers[0].description
-        == "Ballpark geographic offset from WGS 84 to ETRS89"
+    assert any(
+        transformer.description == "Ballpark geographic offset from WGS 84 to ETRS89"
+        for transformer in group.transformers
     )
 
 
@@ -1631,3 +2014,141 @@ def test_transformer__get_last_used_operation():
     operation = transformer.get_last_used_operation()
     assert isinstance(operation, Transformer)
     assert xxx, yyy == operation.transform(1, 2)
+
+
+def test_transformer_group_grid_check_none():
+    """Test grid_check='none' includes operations even if grids are missing.
+
+    With grid_check='none', all operations are returned regardless of
+    grid availability. Operations requiring missing grids appear in
+    unavailable_operations.
+    """
+    tg = TransformerGroup(
+        "EPSG:4230",
+        "EPSG:4326",
+        crs_extent_use="none",
+        authority="any",
+        grid_check="none",
+    )
+
+    # Should have transformers available
+    assert len(tg.transformers) >= 1
+
+    # Total operations should be at least 1
+    total_ops = len(tg.transformers) + len(tg.unavailable_operations)
+    assert total_ops >= 1
+
+
+def test_transformer_group_grid_check_discard_missing():
+    """Test grid_check='discard_missing' excludes operations with missing grids.
+
+    With grid_check='discard_missing', operations requiring missing grids
+    are completely excluded from results.
+    """
+    tg_discard = TransformerGroup(
+        "EPSG:4230",
+        "EPSG:4326",
+        crs_extent_use="none",
+        authority="any",
+        grid_check="discard_missing",
+    )
+
+    # With discard_missing, there should be no unavailable operations
+    assert len(tg_discard.unavailable_operations) == 0
+
+    # Should still have some transformers available
+    assert len(tg_discard.transformers) >= 1
+
+    # Compare with grid_check='none' - discard_missing should have
+    # equal or fewer total operations (some may be discarded)
+    if not grids_available():
+        tg_none = TransformerGroup(
+            "EPSG:4230",
+            "EPSG:4326",
+            crs_extent_use="none",
+            authority="any",
+            grid_check="none",
+        )
+        # With discard_missing, we should have no more transformers than
+        # the total (transformers + unavailable) from grid_check='none'
+        total_none = len(tg_none.transformers) + len(tg_none.unavailable_operations)
+        assert len(tg_discard.transformers) <= total_none
+
+
+def test_transformer_group_pivot_crs_filters_intermediate():
+    """
+    Test that specifying a pivot CRS filters out operations
+    using other intermediates.
+
+    OSGB36 (UK) to NTF (France): EPSG:4277 → EPSG:4275
+    With pivot_crs='always', one operation uses ED50 as intermediate.
+    With pivot_crs='EPSG:4326', that ED50 operation should be filtered out.
+    """
+    # With pivot_crs='always' - allows any intermediate CRS (including ED50)
+    tg_always = TransformerGroup(
+        "EPSG:4277",
+        "EPSG:4275",
+        crs_extent_use="none",
+        authority="any",
+        pivot_crs="always",
+        grid_check="discard_missing",
+    )
+
+    # With pivot_crs='EPSG:4326' - restricts to WGS84 as intermediate
+    tg_wgs84 = TransformerGroup(
+        "EPSG:4277",
+        "EPSG:4275",
+        crs_extent_use="none",
+        authority="any",
+        pivot_crs="EPSG:4326",
+        grid_check="discard_missing",
+    )
+
+    # Both should have valid transformers
+    assert len(tg_always.transformers) >= 1
+    assert len(tg_wgs84.transformers) >= 1
+
+    # The ED50 operation filtering test only applies when grids are available
+    # (either via network or locally installed)
+    if grids_available():
+        # The 'always' mode should include the ED50 operation
+        always_descs = {t.description for t in tg_always.transformers}
+        ed50_operation = "OSGB36 to ED50 (1) + Inverse of NTF to ED50 (1)"
+        assert ed50_operation in always_descs, (
+            f"Expected ED50 operation in 'always' mode, got: {always_descs}"
+        )
+
+        # The EPSG:4326 mode should NOT include the ED50 operation
+        wgs84_descs = {t.description for t in tg_wgs84.transformers}
+        assert ed50_operation not in wgs84_descs, (
+            "ED50 operation should be filtered out with pivot_crs='EPSG:4326'"
+        )
+
+        # WGS84 mode should have one fewer operation than 'always'
+        assert len(tg_wgs84.transformers) < len(tg_always.transformers), (
+            f"Expected fewer operations with specific pivot CRS: "
+            f"{len(tg_wgs84.transformers)} vs {len(tg_always.transformers)}"
+        )
+
+
+def test_transformer_group_grid_check_with_pivot_discard_missing():
+    """Test combined pivot_crs and grid_check='discard_missing'.
+
+    NTF (France) to MGI (Austria): EPSG:4275 → EPSG:4312
+    When using both pivot_crs and grid_check='discard_missing', operations
+    should be filtered by both pivot CRS and grid availability.
+    """
+    tg = TransformerGroup(
+        "EPSG:4275",
+        "EPSG:4312",
+        pivot_crs="EPSG:4326",
+        crs_extent_use="none",
+        authority="any",
+        grid_check="discard_missing",
+    )
+
+    # Should have some transformers available
+    assert len(tg.transformers) >= 1
+
+    # With discard_missing, there should be no unavailable operations
+    assert len(tg.unavailable_operations) == 0

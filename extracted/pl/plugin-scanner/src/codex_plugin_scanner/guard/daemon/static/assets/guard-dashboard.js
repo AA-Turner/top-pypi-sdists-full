@@ -1,4 +1,4 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/home-dashboard.js","assets/chunks/home-protection-module.js","assets/chunks/harness-setup-target.js","assets/chunks/fleet-workspace.js","assets/chunks/app-catalog.js","assets/chunks/harness-detection.js","assets/chunks/settings-workspace.js","assets/chunks/extensions-workspace.js","assets/chunks/approval-proof-modal.js","assets/chunks/app-detail-workspace.js","assets/chunks/supply-chain-hub-workspace.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/home-dashboard.js","assets/chunks/home-protection-module.js","assets/chunks/harness-setup-target.js","assets/chunks/fleet-workspace.js","assets/chunks/app-catalog.js","assets/chunks/harness-detection.js","assets/chunks/connect-guard-cloud-button.js","assets/chunks/settings-workspace.js","assets/chunks/extensions-workspace.js","assets/chunks/approval-proof-modal.js","assets/chunks/app-detail-workspace.js","assets/chunks/supply-chain-hub-workspace.js","assets/chunks/policy-workspace-page.js"])))=>i.map(i=>d[i]);
 (function polyfill() {
   const relList = document.createElement("link").relList;
   if (relList && relList.supports && relList.supports("modulepreload")) return;
@@ -19901,6 +19901,96 @@ function AlphaChannelDialog({
     ] })
   ] });
 }
+let embeddedLatch = false;
+let memoForHref = null;
+let memoResult = false;
+function dashboardEmbedsInDesktop() {
+  if (embeddedLatch) {
+    return true;
+  }
+  let href;
+  try {
+    href = window.location.href;
+  } catch {
+    return false;
+  }
+  if (memoForHref === href) {
+    return memoResult;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const fragment = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+  for (const [key, value] of new URLSearchParams(fragment)) {
+    params.set(key, value);
+  }
+  memoForHref = href;
+  memoResult = params.get("desktop_embed") === "1";
+  embeddedLatch = memoResult;
+  return memoResult;
+}
+function updateStatusLabel(status) {
+  if (!status) {
+    return "Checking version…";
+  }
+  if (status.update_available && status.latest_version) {
+    return `Version ${status.latest_version} is ready`;
+  }
+  return `Version ${status.current_version}`;
+}
+function shouldPromptRecoveryReinstall(status) {
+  return status?.recovery_reinstall_available === true && status?.auto_updatable !== true && status?.version_check?.update_available === true;
+}
+function recoveryReinstallHelpCopy(status) {
+  if (!shouldPromptRecoveryReinstall(status)) {
+    return null;
+  }
+  const blockedReason = status?.blocked_reason ?? "";
+  if (blockedReason.includes("local wheel whose source file is no longer available")) {
+    return "This install came from a local wheel whose source file is no longer available, so automatic updates are off. Reinstall from PyPI to switch it back to a normal package; Guard restarts briefly and saved approvals stay.";
+  }
+  if (blockedReason.includes("local wheel")) {
+    return "This install came from a local wheel, so automatic updates are off. Reinstall from PyPI to switch it back to a normal package; Guard restarts briefly and saved approvals stay.";
+  }
+  return "This install came from a local folder, so automatic updates are off. Reinstall from PyPI to switch it back to a normal package; Guard restarts briefly and saved approvals stay.";
+}
+function updateHelpCopy(status, phase, errorMessage, embeddedInDesktop = false) {
+  if (phase === "updating") {
+    return "Guard is installing the update. The dashboard will pause briefly and reopen when ready.";
+  }
+  if (phase === "reconnecting") {
+    return "Reconnecting to Guard after the update…";
+  }
+  if (phase === "error") {
+    if (embeddedInDesktop) {
+      return errorMessage?.trim() || "The update did not finish. Use Check for Updates in the HOL Guard menu bar and watch its progress there.";
+    }
+    return errorMessage?.trim() || "The update did not finish. The installed version stays in place. Try again, or run hol-guard update from your terminal.";
+  }
+  if (status?.update_suppressed) {
+    if (status.retry_command) {
+      return `Automatic update already ran but this install is still behind. Run ${status.retry_command} in your terminal.`;
+    }
+    if (status.update_attempt_message) {
+      return status.update_attempt_message;
+    }
+    return "Automatic update already ran but this install is still behind the latest release.";
+  }
+  if (status?.update_available) {
+    if (embeddedInDesktop) {
+      return "Updates run through the HOL Guard app. Use Check for Updates in the HOL Guard menu-bar icon, and the app installs this version with its own progress screen.";
+    }
+    return "This restarts Guard for a moment. Open approvals will stay saved.";
+  }
+  if (status && !status.auto_updatable && status.recovery_reinstall_available) {
+    if (embeddedInDesktop) {
+      return "This install needs a recovery repair. Try Check for Updates in the HOL Guard menu bar first; if the app cannot repair it, run the recovery reinstall from your terminal.";
+    }
+    return recoveryReinstallHelpCopy(status);
+  }
+  if (status && !status.auto_updatable && status.blocked_reason) {
+    return status.blocked_reason;
+  }
+  return null;
+}
 var reactDomExports = requireReactDom();
 const GUARD_OVERLAY_ROOT_ID = "guard-overlay-root";
 function ensureGuardOverlayRoot() {
@@ -20112,67 +20202,13 @@ function GuardUpdateChannelSummary(props) {
 const UPDATE_STATUS_POLL_MS = 6e4;
 const RECONNECT_POLL_MS = 1500;
 const RECONNECT_TIMEOUT_MS = 18e4;
-function updateStatusLabel(status) {
-  if (!status) {
-    return "Checking version…";
-  }
-  if (status.update_available && status.latest_version) {
-    return `Version ${status.latest_version} is ready`;
-  }
-  return `Version ${status.current_version}`;
-}
-function shouldPromptRecoveryReinstall(status) {
-  return status?.recovery_reinstall_available === true && status?.auto_updatable !== true && status?.version_check?.update_available === true;
-}
-function recoveryReinstallHelpCopy(status) {
-  if (!shouldPromptRecoveryReinstall(status)) {
-    return null;
-  }
-  const blockedReason = status?.blocked_reason ?? "";
-  if (blockedReason.includes("local wheel whose source file is no longer available")) {
-    return "This install came from a local wheel whose source file is no longer available, so automatic updates are off. Reinstall from PyPI to switch it back to a normal package; Guard restarts briefly and saved approvals stay.";
-  }
-  if (blockedReason.includes("local wheel")) {
-    return "This install came from a local wheel, so automatic updates are off. Reinstall from PyPI to switch it back to a normal package; Guard restarts briefly and saved approvals stay.";
-  }
-  return "This install came from a local folder, so automatic updates are off. Reinstall from PyPI to switch it back to a normal package; Guard restarts briefly and saved approvals stay.";
-}
-function updateHelpCopy(status, phase, errorMessage) {
-  if (phase === "updating") {
-    return "Guard is installing the update. The dashboard will pause briefly and reopen when ready.";
-  }
-  if (phase === "reconnecting") {
-    return "Reconnecting to Guard after the update…";
-  }
-  if (phase === "error") {
-    return errorMessage?.trim() || "The update did not finish. The installed version stays in place. Try again, or run hol-guard update from your terminal.";
-  }
-  if (status?.update_suppressed) {
-    if (status.retry_command) {
-      return `Automatic update already ran but this install is still behind. Run ${status.retry_command} in your terminal.`;
-    }
-    if (status.update_attempt_message) {
-      return status.update_attempt_message;
-    }
-    return "Automatic update already ran but this install is still behind the latest release.";
-  }
-  if (status?.update_available) {
-    return "This restarts Guard for a moment. Open approvals will stay saved.";
-  }
-  if (status && !status.auto_updatable && status.recovery_reinstall_available) {
-    return recoveryReinstallHelpCopy(status);
-  }
-  if (status && !status.auto_updatable && status.blocked_reason) {
-    return status.blocked_reason;
-  }
-  return null;
-}
 function GuardUpdatePanel(props) {
   const version = props.guardVersion ?? props.updateStatus?.current_version ?? null;
   const phase = props.updatePhase ?? "idle";
-  const helpCopy = updateHelpCopy(props.updateStatus, phase, props.updateError);
-  const showUpdateButton = props.updateStatus?.update_available === true && props.updateStatus.auto_updatable && props.updateStatus.update_suppressed !== true && phase !== "updating" && phase !== "reconnecting";
-  const showReinstallButton = shouldPromptRecoveryReinstall(props.updateStatus) && phase !== "updating" && phase !== "reconnecting";
+  const embeddedInDesktop = dashboardEmbedsInDesktop();
+  const helpCopy = updateHelpCopy(props.updateStatus, phase, props.updateError, embeddedInDesktop);
+  const showUpdateButton = !embeddedInDesktop && props.updateStatus?.update_available === true && props.updateStatus.auto_updatable && props.updateStatus.update_suppressed !== true && phase !== "updating" && phase !== "reconnecting";
+  const showReinstallButton = !embeddedInDesktop && shouldPromptRecoveryReinstall(props.updateStatus) && phase !== "updating" && phase !== "reconnecting";
   const busy = phase === "updating" || phase === "reconnecting";
   const useAlpha = props.updateStatus?.release_channel === "alpha" || props.updateStatus == null && readRememberedGuardUpdateChannel() === "alpha";
   const [alphaModalOpen, setAlphaModalOpen] = reactExports.useState(false);
@@ -31203,21 +31239,21 @@ function useRouteFocus(view, mainSelector = "main#main-content") {
   }, [view, mainSelector]);
 }
 const HomeWorkspace = lazyWorkspace("home-dashboard", () => __vitePreload(() => import("./chunks/home-dashboard.js"), true ? __vite__mapDeps([0,1,2]) : void 0).then((m) => ({ default: m.HomeWorkspace })));
-const FleetWorkspace = lazyWorkspace("fleet-workspace", () => __vitePreload(() => import("./chunks/fleet-workspace.js"), true ? __vite__mapDeps([3,4,2,5]) : void 0).then((m) => ({ default: m.FleetWorkspace })));
-const SettingsWorkspace = lazyWorkspace("settings-workspace", () => __vitePreload(() => import("./chunks/settings-workspace.js"), true ? __vite__mapDeps([6,4]) : void 0).then((m) => ({ default: m.SettingsWorkspace })));
+const FleetWorkspace = lazyWorkspace("fleet-workspace", () => __vitePreload(() => import("./chunks/fleet-workspace.js"), true ? __vite__mapDeps([3,4,2,5,6]) : void 0).then((m) => ({ default: m.FleetWorkspace })));
+const SettingsWorkspace = lazyWorkspace("settings-workspace", () => __vitePreload(() => import("./chunks/settings-workspace.js"), true ? __vite__mapDeps([7,4]) : void 0).then((m) => ({ default: m.SettingsWorkspace })));
 const ExtensionsWorkspace = lazyWorkspace(
   "extensions-workspace",
-  () => __vitePreload(() => import("./chunks/extensions-workspace.js"), true ? __vite__mapDeps([7,8]) : void 0).then((module) => ({ default: module.ExtensionsWorkspace }))
+  () => __vitePreload(() => import("./chunks/extensions-workspace.js"), true ? __vite__mapDeps([8,9]) : void 0).then((module) => ({ default: module.ExtensionsWorkspace }))
 );
-const AppDetailWorkspace = lazyWorkspace("app-detail-workspace", () => __vitePreload(() => import("./chunks/app-detail-workspace.js"), true ? __vite__mapDeps([9,8,2,5]) : void 0).then((m) => ({ default: m.AppDetailWorkspace })));
+const AppDetailWorkspace = lazyWorkspace("app-detail-workspace", () => __vitePreload(() => import("./chunks/app-detail-workspace.js"), true ? __vite__mapDeps([10,9,2,5]) : void 0).then((m) => ({ default: m.AppDetailWorkspace })));
 const HelpModal = lazyWorkspace("help-modal", () => __vitePreload(() => import("./chunks/help-modal.js"), true ? [] : void 0).then((m) => ({ default: m.HelpModal })));
 const SupplyChainHubWorkspace = lazyWorkspace(
   "supply-chain-hub-workspace",
-  () => __vitePreload(() => import("./chunks/supply-chain-hub-workspace.js").then((n) => n.d), true ? __vite__mapDeps([10,8]) : void 0).then((m) => ({ default: m.SupplyChainHubWorkspace }))
+  () => __vitePreload(() => import("./chunks/supply-chain-hub-workspace.js").then((n) => n.d), true ? __vite__mapDeps([11,9]) : void 0).then((m) => ({ default: m.SupplyChainHubWorkspace }))
 );
 const PolicyWorkspacePage = lazyWorkspace(
   "policy-workspace-page",
-  () => __vitePreload(() => import("./chunks/policy-workspace-page.js"), true ? [] : void 0).then((m) => ({ default: m.PolicyWorkspacePage }))
+  () => __vitePreload(() => import("./chunks/policy-workspace-page.js"), true ? __vite__mapDeps([12,6]) : void 0).then((m) => ({ default: m.PolicyWorkspacePage }))
 );
 const AboutWorkspace = lazyWorkspace(
   "about-workspace",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fasta2a
-Version: 0.6.1
+Version: 2.0.0
 Summary: Convert an AI Agent into a A2A server! ✨
 Project-URL: Homepage, https://pydantic.github.io/fasta2a
 Project-URL: Source, https://github.com/pydantic/fasta2a
@@ -9,7 +9,7 @@ Project-URL: Changelog, https://github.com/pydantic/fasta2a/releases
 Author-email: Marcelo Trylesinski <marcelotryle@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: MacOS X
 Classifier: Intended Audience :: Developers
@@ -36,7 +36,7 @@ Requires-Dist: starlette>0.29.0
 Provides-Extra: logfire
 Requires-Dist: logfire>=2.3; extra == 'logfire'
 Provides-Extra: pydantic-ai
-Requires-Dist: pydantic-ai-slim>=1.92; (python_version >= '3.10') and extra == 'pydantic-ai'
+Requires-Dist: pydantic-ai-slim>=2.40.0; (python_version >= '3.10') and extra == 'pydantic-ai'
 Description-Content-Type: text/markdown
 
 # FastA2A
@@ -169,8 +169,59 @@ _You can run this example as is with `uvicorn main:app --reload`._
 As you see, it's pretty easy from the point of view of the developer using your agentic framework.
 
 > [!NOTE]
-> In Pydantic AI 1.x, `Agent.to_a2a()` continues to work but emits a deprecation
-> warning pointing here. It will be removed in Pydantic AI v2.
+> The bridge requires Pydantic AI 2. `Agent.to_a2a()` was removed there; `agent_to_a2a` is its replacement.
+
+#### Streaming
+
+`message/stream` answers with server-sent events: the task first, then whatever the `Worker`
+publishes while it runs — `publish_status` for a change of state, `publish_artifact` for a result,
+whole or chunk by chunk with `append=True` — and the stream ends when the task reaches a final
+state. The worker does not have to publish that end: once `run_task` or `cancel_task` returns, the
+task's state is read back from storage and, if the task is over (`completed`, `canceled`, `failed`,
+`rejected`) or waiting on the client (`input-required`, `auth-required`), published and the stream
+closed — `failed` when the run raised — so a worker that only writes storage still ends its stream.
+`tasks/resubscribe` on a task in one of those states returns the task and ends at once.
+
+The Pydantic AI bridge publishes `working` when it starts, the model's text as chunks of the
+answer's artifact while it is written, and the whole artifact as the last chunk.
+
+## Extensions
+
+An [extension](https://a2a-protocol.org/latest/topics/extensions/) is a capability negotiated by URI on top of the
+core protocol. The agent declares the ones it supports in its card, a client asks for some of them in the
+`A2A-Extensions` request header, and the agent answers on the same header with the ones it activated.
+
+Declare them on the application (or pass `extensions=` to `agent_to_a2a`):
+
+```python
+from fasta2a import AgentExtension, FastA2A
+
+app = FastA2A(
+    storage=storage,
+    broker=broker,
+    extensions=[
+        AgentExtension(uri='https://example.com/ext/citations/v1', description='Cites its sources'),
+        AgentExtension(uri='https://example.com/ext/trace/v1', required=True),
+    ],
+)
+```
+
+For every request, **FastA2A** activates the requested extensions it supports — a URI it never declared is
+ignored and not echoed back, which is how the client learns that — and puts the activated list in the message
+`metadata`, so a `Worker` can read what was agreed for the task it is running:
+
+```python
+from fasta2a import activated_extensions
+
+
+class MyWorker(Worker[Context]):
+    async def run_task(self, params: TaskSendParams) -> None:
+        if 'https://example.com/ext/citations/v1' in activated_extensions(params):
+            ...  # add citation parts to the artifacts
+```
+
+A `message/send` or `message/stream` that leaves a `required` extension inactive is refused with a
+`-32600` error whose `data.missing_required_extensions` names it, before any task is created.
 
 ## Design
 

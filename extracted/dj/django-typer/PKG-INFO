@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-typer
-Version: 3.9.0
+Version: 4.1.0
 Summary: Use Typer to define the CLI for your Django management commands.
 Project-URL: Homepage, https://django-typer.readthedocs.io
 Project-URL: Documentation, https://django-typer.readthedocs.io
@@ -23,7 +23,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -34,10 +33,9 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Site Management
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: <4.0,>=3.10
-Requires-Dist: click<8.6,>=8.1.8
+Requires-Python: <4.0,>=3.11
 Requires-Dist: django<6.2,>=5.2
-Requires-Dist: typer<0.26.0,>=0.23.1
+Requires-Dist: typer<0.28.0,>=0.27.0
 Description-Content-Type: text/markdown
 
 # django-typer
@@ -79,7 +77,7 @@ Please refer to the [full documentation](https://django-typer.readthedocs.io/) f
 
 ## 🚨 Upgrade Notice
 
-**There are breaking changes between 2.x and 3.x, mostly involving shell tab completion. [See the changelog for migration steps](https://django-typer.readthedocs.io/en/latest/changelog.html#migrating-from-2-x-to-3-x)**.
+**There are breaking changes between 3.x and 4.x. Typer now vendors Click, so django-typer no longer depends on the external `click` package. Any `click` imports will need to change. [See the changelog for migration steps](https://django-typer.readthedocs.io/en/latest/changelog.html#migrating-from-3-x-to-4-x)**.
 
 ## Installation
 
@@ -225,6 +223,9 @@ from django_typer.management import TyperCommand, group
 
 
 class Command(TyperCommand):
+    # values returned from the commands are written to stdout
+    print_result = True
+
     help = _("A more complex command that defines a hierarchy of subcommands.")
 
     precision = 2
@@ -279,6 +280,9 @@ from django_typer.management import Typer
 
 app = Typer(help=_("A more complex command that defines a hierarchy of subcommands."))
 
+
+# values returned from the commands are written to stdout
+app.django_command.print_result = True
 
 math_grp = Typer(help=_("Do some math at the given precision."))
 

@@ -34,7 +34,7 @@ class ColQwen2Wrapper(ColPaliEngineWrapper):
         revision: str | None = None,
         device: str | None = None,
         query_prefix: str = "Query: ",
-        **kwargs,
+        **kwargs: Any,
     ):
         from colpali_engine.models import ColQwen2, ColQwen2Processor
 
@@ -59,7 +59,7 @@ class ColQwen2_5Wrapper(ColPaliEngineWrapper):  # noqa: N801
         device: str | None = None,
         attn_implementation: str | None = None,
         query_prefix: str = "Query: ",
-        **kwargs,
+        **kwargs: Any,
     ):
         from colpali_engine.models import ColQwen2_5, ColQwen2_5_Processor
         from transformers.utils.import_utils import is_flash_attn_2_available
@@ -88,7 +88,7 @@ class ColQwen3_5Wrapper(AbsEncoder):  # noqa: N801
         model_name: str = "athrael-soju/colqwen3.5-4.5B-v3",
         revision: str | None = None,
         device: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         from colpali_engine.models import ColQwen3_5, ColQwen3_5Processor
 
@@ -96,13 +96,15 @@ class ColQwen3_5Wrapper(AbsEncoder):  # noqa: N801
 
         self.model = ColQwen3_5.from_pretrained(
             model_name,
+            revision=revision,
             device_map=self.device,
-            adapter_kwargs={"revision": revision},
             **kwargs,
         )
         self.model.eval()
 
-        self.processor = ColQwen3_5Processor.from_pretrained(model_name)
+        self.processor = ColQwen3_5Processor.from_pretrained(
+            model_name, revision=revision
+        )
 
     def encode(
         self,
@@ -332,7 +334,7 @@ class ColQwen2_5OmniWrapper(ColPaliEngineWrapper):  # noqa: N801
         max_frames: int | None = 64,
         num_frames: int | None = None,
         max_audio_length: int | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         from colpali_engine.models import ColQwen2_5Omni, ColQwen2_5OmniProcessor
 
@@ -411,7 +413,7 @@ class ColQwen2_5OmniWrapper(ColPaliEngineWrapper):  # noqa: N801
             all_embeds, batch_first=True, padding_value=0
         )
 
-    def get_audio_embeddings(self, audios, batch_size: int = 32, **kwargs):
+    def get_audio_embeddings(self, audios, batch_size: int = 32, **kwargs: Any):
         def _process(audio):
             arr = audio["array"] if isinstance(audio, dict) else audio
             if isinstance(arr, torch.Tensor):
@@ -420,7 +422,7 @@ class ColQwen2_5OmniWrapper(ColPaliEngineWrapper):  # noqa: N801
 
         return self._encode_batches(audios, "audio", _process, "Encoding audio")
 
-    def get_video_embeddings(self, videos, batch_size: int = 32, **kwargs):
+    def get_video_embeddings(self, videos, batch_size: int = 32, **kwargs: Any):
         def _process(clip):
             return self.processor.process_videos([clip])
 
@@ -754,7 +756,7 @@ class ColQwen3EngineWrapper(ColPaliEngineWrapper):
         model_name: str = "Verm1ion/ColTurk-VDR-Qwen3VL-4B-v1.0",
         revision: str | None = None,
         device: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ):
         from colpali_engine.models import ColQwen3, ColQwen3Processor
 
@@ -835,7 +837,7 @@ vultron_prime_qwen35_8b = ModelMeta(
     name="vultr/VultronRetrieverPrime-Qwen3.5-8B",
     model_type=["late-interaction"],
     languages=["eng-Latn", "fra-Latn", "deu-Latn", "spa-Latn", "ita-Latn", "por-Latn"],
-    revision="e8f3104b743a04b0d5f715b67117d687ae99ce51",
+    revision="209b8d883c53b1e1d0ef7a8582885d4e5a1e05ba",
     release_date="2026-06-18",
     modalities=["image", "text"],
     n_parameters=8_394_006_064,
@@ -863,7 +865,7 @@ vultron_flash_qwen35_0_8b = ModelMeta(
     name="vultr/VultronRetrieverFlash-Qwen3.5-0.8B",
     model_type=["late-interaction"],
     languages=["eng-Latn", "fra-Latn", "deu-Latn", "spa-Latn", "ita-Latn", "por-Latn"],
-    revision="5d1a696e8e62f12508045a93543dfd0488ea3b77",
+    revision="a2bcbcda0472dff9863380621bcff09b3d0261ac",
     release_date="2026-06-21",
     modalities=["image", "text"],
     n_parameters=853_341_916,
@@ -891,7 +893,7 @@ vultron_core_qwen35_4b = ModelMeta(
     name="vultr/VultronRetrieverCore-Qwen3.5-4.5B",
     model_type=["late-interaction"],
     languages=["eng-Latn", "fra-Latn", "deu-Latn", "spa-Latn", "ita-Latn", "por-Latn"],
-    revision="5b63301ce5a49993f9ec1cf36645840b8cbd8120",
+    revision="461c7bc02d596932c76c12164596732dad9cf4f2",
     release_date="2026-06-22",
     modalities=["image", "text"],
     n_parameters=4_540_085_056,

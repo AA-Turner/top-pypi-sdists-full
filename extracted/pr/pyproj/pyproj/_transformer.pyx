@@ -1,14 +1,14 @@
 include "base.pxi"
 
 cimport cython
-from cpython.mem cimport PyMem_Free, PyMem_Malloc
+from libc.stdlib cimport free, malloc
 
 import copy
 import re
 import warnings
 from collections import namedtuple
 
-from pyproj._compat cimport cstrencode
+from pyproj._compat cimport _is_scalar, cstrencode
 from pyproj._context cimport _clear_proj_error, _get_proj_error, pyproj_context_create
 from pyproj._crs cimport (
     _CRS,
@@ -22,7 +22,14 @@ from pyproj._crs cimport (
 
 from pyproj._context import _LOGGER, get_context_manager
 from pyproj.aoi import AreaOfInterest
-from pyproj.enums import ProjVersion, TransformDirection, WktVersion
+from pyproj.enums import (
+    ProjVersion,
+    TransformDirection,
+    WktVersion,
+    CRSExtentUse,
+    IntermediateCRSUse,
+    GridAvailabilityUse,
+)
 from pyproj.exceptions import ProjError
 
 _AUTH_CODE_RE = re.compile(r"(?P<authority>\w+)\:(?P<code>\w+)")
@@ -126,6 +133,10 @@ cdef class _TransformerGroup:
         str authority,
         double accuracy,
         bint allow_superseded,
+        crs_extent_use=None,
+        pivot_crs_use=None,
+        pivot_crs_list=None,
+        grid_check=None,
     ):
         """
         From PROJ docs:
@@ -142,7 +153,14 @@ cdef class _TransformerGroup:
             PJ_OPERATION_FACTORY_CONTEXT* operation_factory_context = NULL
             PJ_OBJ_LIST * pj_operations = NULL
             PJ* pj_transform = NULL
+            PJ* pj_transform_normalized = NULL
+            PROJ_CRS_EXTENT_USE pj_crs_extent_use
+            PROJ_GRID_AVAILABILITY_USE pj_grid_availability = PROJ_GRID_AVAILABILITY_IGNORED
             const char* c_authority = NULL
+            PROJ_INTERMEDIATE_CRS_USE pj_pivot_use
+            Py_ssize_t pivot_len = 0
+            const char** c_pivot_list = NULL
+            Py_ssize_t pivot_idx
             int num_operations = 0
             int is_instantiable = 0
             double west_lon_degree
@@ -193,16 +211,89 @@ cdef class _TransformerGroup:
                 operation_factory_context,
                 not allow_superseded,
             )
+            # Set grid availability if specified
+            if grid_check is not None:
+                if not isinstance(grid_check, GridAvailabilityUse):
+                    grid_check = GridAvailabilityUse.create(grid_check)
+                if grid_check is GridAvailabilityUse.SORT:
+                    pj_grid_availability = PROJ_GRID_AVAILABILITY_USED_FOR_SORTING
+                elif grid_check is GridAvailabilityUse.DISCARD_MISSING:
+                    pj_grid_availability = PROJ_GRID_AVAILABILITY_DISCARD_OPERATION_IF_MISSING_GRID
+                elif grid_check is GridAvailabilityUse.NONE:
+                    pj_grid_availability = PROJ_GRID_AVAILABILITY_IGNORED
+                elif grid_check is GridAvailabilityUse.KNOWN_AVAILABLE:
+                    pj_grid_availability = PROJ_GRID_AVAILABILITY_KNOWN_AVAILABLE
             proj_operation_factory_context_set_grid_availability_use(
                 self.context,
                 operation_factory_context,
-                PROJ_GRID_AVAILABILITY_IGNORED,
+                pj_grid_availability,
             )
             proj_operation_factory_context_set_spatial_criterion(
                 self.context,
                 operation_factory_context,
                 PROJ_SPATIAL_CRITERION_PARTIAL_INTERSECTION
             )
+            if pivot_crs_use is not None:
+                if not isinstance(pivot_crs_use, IntermediateCRSUse):
+                    pivot_crs_use = IntermediateCRSUse.create(pivot_crs_use)
+                if pivot_crs_use is IntermediateCRSUse.ALWAYS:
+                    pj_pivot_use = PROJ_INTERMEDIATE_CRS_USE_ALWAYS
+                elif pivot_crs_use is IntermediateCRSUse.IF_NO_DIRECT_TRANSFORMATION:
+                    pj_pivot_use = PROJ_INTERMEDIATE_CRS_USE_IF_NO_DIRECT_TRANSFORMATION
+                else:
+                    pj_pivot_use = PROJ_INTERMEDIATE_CRS_USE_NEVER
+                proj_operation_factory_context_set_allow_use_intermediate_crs(
+                    self.context,
+                    operation_factory_context,
+                    pj_pivot_use,
+                )
+            if pivot_crs_list:
+                # The C API expects alternating authority and code pairs:
+                # ["EPSG", "4326", "EPSG", "4258", NULL]
+                pivot_crs_bytes = []
+                for pivot_item in pivot_crs_list:
+                    # Split "EPSG:4326" into ("EPSG", "4326")
+                    if ":" in pivot_item:
+                        auth, code = pivot_item.split(":", 1)
+                        pivot_crs_bytes.append(cstrencode(auth))
+                        pivot_crs_bytes.append(cstrencode(code))
+                    else:
+                        # If no authority, assume EPSG
+                        pivot_crs_bytes.append(cstrencode("EPSG"))
+                        pivot_crs_bytes.append(cstrencode(pivot_item))
+                pivot_len = len(pivot_crs_bytes)
+                c_pivot_list = <const char**>malloc(
+                    (pivot_len + 1) * sizeof(const char*)
+                )
+                if c_pivot_list == NULL:
+                    raise MemoryError()
+                try:
+                    for pivot_idx in range(pivot_len):
+                        c_pivot_list[pivot_idx] = pivot_crs_bytes[pivot_idx]
+                    c_pivot_list[pivot_len] = NULL
+                    proj_operation_factory_context_set_allowed_intermediate_crs(
+                        self.context,
+                        operation_factory_context,
+                        c_pivot_list,
+                    )
+                finally:
+                    free(c_pivot_list)
+            if crs_extent_use is not None:
+                if not isinstance(crs_extent_use, CRSExtentUse):
+                    crs_extent_use = CRSExtentUse.create(crs_extent_use)
+                if crs_extent_use is CRSExtentUse.NONE:
+                    pj_crs_extent_use = PJ_CRS_EXTENT_NONE
+                elif crs_extent_use is CRSExtentUse.BOTH:
+                    pj_crs_extent_use = PJ_CRS_EXTENT_BOTH
+                elif crs_extent_use is CRSExtentUse.INTERSECTION:
+                    pj_crs_extent_use = PJ_CRS_EXTENT_INTERSECTION
+                elif crs_extent_use is CRSExtentUse.SMALLEST:
+                    pj_crs_extent_use = PJ_CRS_EXTENT_SMALLEST
+                proj_operation_factory_context_set_crs_extent_use(
+                    self.context,
+                    operation_factory_context,
+                    pj_crs_extent_use,
+                )
             pj_operations = proj_create_operations(
                 self.context,
                 crs_from.projobj,
@@ -221,11 +312,36 @@ cdef class _TransformerGroup:
                     pj_transform,
                 )
                 if is_instantiable:
+                    # Check if normalization for visualization is possible
+                    # before passing to _Transformer
+                    if always_xy:
+                        pj_transform_normalized = proj_normalize_for_visualization(
+                            self.context,
+                            pj_transform,
+                        )
+                        if pj_transform_normalized == NULL:
+                            # Cannot normalize for visualization, add to unavailable
+                            coordinate_operation = CoordinateOperation.create(
+                                self.context,
+                                pj_transform,
+                            )
+                            self._unavailable_operations.append(coordinate_operation)
+                            if iii == 0:
+                                self._best_available = False
+                                warnings.warn(
+                                    "Best transformation is not available due to it "
+                                    "not being possible to normalize for visualization."
+                                )
+                            continue
+                        # Destroy original and use normalized version
+                        proj_destroy(pj_transform)
+                        pj_transform = pj_transform_normalized
+
                     self._transformers.append(
                         _Transformer._from_pj(
                             self.context,
                             pj_transform,
-                            always_xy,
+                            False,  # already normalized above if needed
                         )
                     )
                 else:
@@ -584,7 +700,7 @@ cdef class _Transformer(Base):
         return transformer
 
     @staticmethod
-    def from_pipeline(const char *proj_pipeline):
+    def from_pipeline(const char *proj_pipeline, bint always_xy=False):
         """
         Create Transformer from a PROJ pipeline string.
         """
@@ -612,6 +728,8 @@ cdef class _Transformer(Base):
             )
         if transformer.projobj is NULL:
             raise ProjError(f"Invalid projection {proj_pipeline}.")
+        if always_xy:
+            transformer._set_always_xy()
         transformer._initialize_from_projobj()
         return transformer
 
@@ -623,6 +741,11 @@ cdef class _Transformer(Base):
             self.context,
             self.projobj,
         )
+        if always_xy_pj == NULL:
+            raise ProjError(
+                "Could not normalize transformation for visualization. "
+                "The transformation may not support the always_xy option."
+            )
         proj_destroy(self.projobj)
         self.projobj = always_xy_pj
 
@@ -739,37 +862,31 @@ cdef class _Transformer(Base):
     ):
         """
         Optimized to transform a single point between two coordinate systems.
+
+        Returns None if the inputs are not scalars, so that the caller can
+        fall back to the buffer-based array path.
         """
+        # The type checks must come before the conversions below
+        if not _is_scalar(inx) or not _is_scalar(iny):
+            return None
+        if inz is not None and not _is_scalar(inz):
+            return None
+        if intime is not None and not _is_scalar(intime):
+            return None
+
         cdef:
             double coord_x = inx
             double coord_y = iny
-            double coord_z = 0
-            double coord_t = HUGE_VAL
-            tuple expected_numeric_types = (int, float)
-
-        # We do the type-checking internally here due to automatically
-        # casting length-1 arrays to float that we don't want to return scalar for.
-        # Ex: float(np.array([0])) works and we don't want to accept numpy arrays
-        if not isinstance(inx, expected_numeric_types):
-            raise TypeError("Scalar input expected for x")
-        if not isinstance(iny, expected_numeric_types):
-            raise TypeError("Scalar input expected for y")
-        if inz is not None:
-            if not isinstance(inz, expected_numeric_types):
-                raise TypeError("Scalar input expected for z")
-            coord_z = inz
-        if intime is not None:
-            if not isinstance(intime, expected_numeric_types):
-                raise TypeError("Scalar input expected for t")
-            coord_t = intime
+            double coord_z = 0 if inz is None else inz
+            double coord_t = HUGE_VAL if intime is None else intime
 
         cdef tuple return_data
         if self.id == "noop":
-            return_data = (inx, iny)
+            return_data = (coord_x, coord_y)
             if inz is not None:
-                return_data += (inz,)
+                return_data += (coord_z,)
             if intime is not None:
-                return_data += (intime,)
+                return_data += (coord_t,)
             return return_data
 
         cdef:

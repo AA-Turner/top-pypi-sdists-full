@@ -1,0 +1,110 @@
+# Copyright (c) 2024- Datalayer, Inc.
+#
+# BSD 3-Clause License
+
+"""Read cell tool implementation."""
+
+from pathlib import Path
+from typing import Any
+
+from jupyter_core.utils import ensure_async
+from jupyter_server_client import JupyterServerClient
+from mcp.types import ImageContent
+
+from jupyter_mcp_server.models import Notebook
+from jupyter_mcp_server.notebook_manager import NotebookManager
+from jupyter_mcp_server.tools._base import BaseTool, ServerMode
+from jupyter_mcp_server.utils import (
+    get_notebook_model,
+    resolve_notebook_connection,
+    resolve_notebook_path,
+)
+
+
+class ReadCellTool(BaseTool):
+    """Tool to read a specific cell from a notebook."""
+
+    async def execute(
+        self,
+        mode: ServerMode,
+        sandbox_server_client: JupyterServerClient | None = None,
+        contents_manager: Any | None = None,
+        kernel_manager: Any | None = None,
+        kernel_spec_manager: Any | None = None,
+        notebook_manager: NotebookManager | None = None,
+        # Tool-specific parameters
+        cell_index: int = None,
+        include_outputs: bool = True,
+        notebook_name: str | None = None,
+        **kwargs,
+    ) -> list[str | ImageContent]:
+        """Execute the read_cell tool.
+
+        Args:
+            mode: Server mode (MCP_SERVER or JUPYTER_SERVER)
+            contents_manager: Direct API access for JUPYTER_SERVER mode
+            notebook_manager: Notebook manager instance
+            cell_index: Index of the cell to read (0-based)
+            include_outputs: Include outputs in the response (only for code cells)
+            notebook_name: Notebook to target explicitly; the currently activated one if omitted
+            **kwargs: Additional parameters
+
+        Returns:
+            Cell information dictionary
+        """
+        if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
+            # Local mode: try the live YDoc first (collaborative session), same
+            # as every cell-mutation tool, so a read right after our own write
+            # sees it instead of the on-disk copy the autosave hasn't flushed yet.
+            # Guard against no active notebook — without this, a None path causes
+            # 'quote_from_bytes() expected bytes' deep in the contents manager.
+            notebook_path, _ = resolve_notebook_path(notebook_manager, notebook_name)
+
+            if not notebook_path:
+                return [
+                    "No active notebook. Use the use_notebook tool to activate a notebook first."
+                ]
+
+            from jupyter_mcp_server.jupyter_extension.context import get_server_context
+
+            context = get_server_context()
+            serverapp = context.serverapp
+            ydoc_path = notebook_path
+            if serverapp and not Path(ydoc_path).is_absolute():
+                ydoc_path = str(Path(serverapp.root_dir) / ydoc_path)
+
+            nb_model = await get_notebook_model(serverapp, ydoc_path) if serverapp else None
+            if nb_model:
+                notebook = Notebook(**nb_model.as_dict())
+            else:
+                model = await ensure_async(
+                    contents_manager.get(notebook_path, content=True, type="notebook")
+                )
+                if "content" not in model:
+                    raise ValueError(f"Could not read notebook content from {notebook_path}")
+                notebook = Notebook(**model["content"])
+        elif mode == ServerMode.MCP_SERVER and notebook_manager is not None:
+            # Remote mode: use WebSocket connection to Y.js document.
+            # resolve_notebook_connection() falls back to the default
+            # pre-configured notebook (--document-id) when notebook_name is
+            # None, so no explicit guard is needed here.
+            async with resolve_notebook_connection(notebook_manager, notebook_name) as notebook_content:
+                notebook = Notebook(**notebook_content.as_dict())
+        else:
+            raise ValueError(f"Invalid mode or missing required clients: mode={mode}")
+
+        if cell_index >= len(notebook):
+            return f"Cell index {cell_index} is out of range. Notebook has {len(notebook)} cells."
+        cell = notebook[cell_index]
+        info_list = []
+        # add cell metadata
+        info_list.append(
+            f"=====Cell {cell_index} | type: {cell.cell_type} | execution count: {cell.execution_count if cell.execution_count else 'N/A'}====="
+        )
+        # add cell source
+        info_list.append(cell.get_source("readable"))
+        # add cell outputs for code cells
+        if cell.cell_type == "code" and include_outputs:
+            info_list.extend(cell.get_outputs("readable"))
+
+        return info_list

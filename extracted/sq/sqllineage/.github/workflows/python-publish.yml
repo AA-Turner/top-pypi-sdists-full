@@ -11,8 +11,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.x'
     - name: Install dependencies and build distribution
@@ -20,9 +20,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install build
         python -m build
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
-        path: ./dist
+        name: python-package-distributions
+        path: dist/
   pypi-publish:
     needs: ['build']
     runs-on: ubuntu-latest
@@ -30,8 +31,11 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
+        with:
+          name: python-package-distributions
+          path: dist/
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: artifact/
+          packages-dir: dist/

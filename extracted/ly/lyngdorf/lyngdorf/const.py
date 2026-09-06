@@ -11,8 +11,9 @@ not repeated here):
 - TDAI Family: TDAI-1120/TDAI-2210/TDAI-3400 share one protocol; TDAI-2170
   is the odd one out, with an older, more limited protocol - see
   models/tdai_series.py
-- P Family: MP-like protocol, no channel trims, no streaming source - see
-  models/p_series.py
+- P Family: MP-like protocol, no channel trims. Streaming is NOT uniform:
+  the P200 has the module and uses the MP stream-type numbering, the
+  P100/P300 are unmeasured - see models/p_series.py
 
 :license: MIT, see LICENSE for more details.
 """
@@ -159,8 +160,33 @@ Msg = Enum(
         "TRIM_TREBLE",
         "TRIM_TREBLE_SET",
         "BALANCE",  # Audio balance control
-        # Max volume query (MP only)
+        # Max volume query. MP and P families (docs/p-series.md documents
+        # !MAXVOL too, and a real P200 answers it - see #57); query only,
+        # never written, see VolumeControl.maximum_volume.
         "MAX_VOLUME",
+        # !DEFVOL - the power-on default volume - is deliberately NOT
+        # modelled, and this is a decision rather than an omission.
+        #
+        # It is a speaker-safety setting, and the hazard is specific to
+        # what it does: it takes effect at power-on, when nobody is at
+        # the controls. A bad write to !VOL is audible immediately and
+        # someone turns it down. A bad write to !DEFVOL is silent now and
+        # arrives at whatever volume it was left at the next time the
+        # device comes out of standby - into a room that may be empty, or
+        # not. A library bug, a mistaken automation or a misread scale
+        # would all express themselves that way, and the library cannot
+        # tell any of them from a deliberate change.
+        #
+        # So this is left to the front panel and the official app, where
+        # a human is present for the decision. Consistent with !MAXVOL
+        # above, which is likewise read and never written: the two safety
+        # ceilings are things this library reports, not things it sets.
+        # Reading !DEFVOL alone would be harmless, but it earns nothing
+        # on its own and having the message present is an invitation to
+        # add the setter later, so it stays out entirely.
+        #
+        # Documented for both families and measured on a P200
+        # (!DEFVOL(-450), #57). Do not add it because the manual has it.
         # Loudness toggle (MP only)
         "LOUDNESS",
         # DTS Dialog Control (MP only, surround content)

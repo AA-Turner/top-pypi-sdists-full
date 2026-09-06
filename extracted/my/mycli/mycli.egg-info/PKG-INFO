@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.19.0
+Version: 2.20.0
 Summary: Rich MySQL terminal client with autocompletion, syntax highlighting, and dataframes
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -30,7 +30,7 @@ License-File: LICENSE.txt
 License-File: AUTHORS.rst
 Requires-Dist: click~=8.5.0
 Requires-Dist: clickdc~=0.1.1
-Requires-Dist: cryptography~=50.0.0
+Requires-Dist: cryptography~=50.0.1
 Requires-Dist: Pygments~=2.21.0
 Requires-Dist: prompt_toolkit<4.0.0,>=3.0.41
 Requires-Dist: PyMySQL~=1.1.2
@@ -39,11 +39,11 @@ Requires-Dist: sqlglot~=30.17.0
 Requires-Dist: sqlglotc~=30.17.0
 Requires-Dist: configobj~=5.0.9
 Requires-Dist: cli_helpers[styles]~=2.15.1
-Requires-Dist: wcwidth~=0.8.2
+Requires-Dist: wcwidth~=0.8.3
 Requires-Dist: pyperclip~=1.11.0
 Requires-Dist: pycryptodomex~=3.23.0
 Requires-Dist: pyfzf~=0.3.1
-Requires-Dist: rapidfuzz~=3.14.3
+Requires-Dist: rapidfuzz~=3.14.5
 Requires-Dist: keyring~=25.7.0
 Requires-Dist: jinja2~=3.1.6
 Requires-Dist: yaspin~=3.4.0
@@ -59,21 +59,21 @@ Provides-Extra: all
 Requires-Dist: mycli[dataframe,llm]; extra == "all"
 Provides-Extra: dev
 Requires-Dist: behave~=1.3.3; extra == "dev"
-Requires-Dist: coverage~=7.13.4; extra == "dev"
+Requires-Dist: coverage~=7.15.4; extra == "dev"
 Requires-Dist: mypy~=2.3.1; extra == "dev"
 Requires-Dist: pexpect~=4.9.0; extra == "dev"
 Requires-Dist: pytest~=9.1.1; extra == "dev"
-Requires-Dist: pytest-cov~=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov~=7.1.0; extra == "dev"
 Requires-Dist: pytest-random-order~=1.2.0; extra == "dev"
 Requires-Dist: tox~=4.35.0; extra == "dev"
 Requires-Dist: pdbpp~=0.11.7; extra == "dev"
-Requires-Dist: ruff~=0.16.3; extra == "dev"
+Requires-Dist: ruff~=0.16.5; extra == "dev"
 Dynamic: license-file
 
 # mycli
 
 [![Build Status](https://github.com/dbcli/mycli/workflows/mycli/badge.svg)](https://github.com/dbcli/mycli/actions?query=workflow%3Amycli)
-[![License](https://img.shields.io/github/license/dbcli/mycli.svg)](https://github.com/dbcli/mycli/blob/main/LICENSE.txt)
+[![License](https://img.shields.io/github/license/dbcli/mycli.svg?color=2FC745)](https://github.com/dbcli/mycli/blob/main/LICENSE.txt)
 
 Rich MySQL terminal client with auto-completion, syntax highlighting, and dataframes.
 

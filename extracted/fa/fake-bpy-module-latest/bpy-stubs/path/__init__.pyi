@@ -81,6 +81,15 @@ def ensure_ext(filepath: str, ext: str, *, case_sensitive: bool = False) -> str:
         :return: The file path with the given extension.
     """
 
+def is_autoexec(dirpath: bytes | str) -> bool:
+    """Check if blend-files in a directory are trusted to run scripts automatically,
+    based on the excluded paths in the preferences.
+    The preference to enable automatic script execution isnt taken into account.
+
+        :param dirpath: The directory to check, expected to end with a path separator.
+        :return: False when the directory matches an excluded path, otherwise True.
+    """
+
 def is_subdir(path: bytes | str, directory: bytes | str) -> bool:
     """Returns true if path is in a subdirectory of directory.
     Both paths must be absolute.

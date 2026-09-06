@@ -18,6 +18,7 @@ from playhouse.sqlite_ext import (
     JSONField,
     JSONBField,
     SearchField,
+    TDecimalField,
     VirtualModel,
     FTSModel,
     FTS5Model)
@@ -52,16 +53,6 @@ def __dbstatus__(flag, return_highwater=False, return_current=False):
             return result[0]
         return result[1] if return_highwater else result
     return property(getter)
-
-
-class TDecimalField(DecimalField):
-    field_type = 'TEXT'
-
-    def get_modifiers(self): pass
-
-    def db_value(self, value):
-        if value is not None:
-            return str(super(DecimalField, self).db_value(value))
 
 
 class CySqliteDatabase(SqliteDatabase):
@@ -222,9 +213,12 @@ class CySqliteDatabase(SqliteDatabase):
             self.connection().progress(*args)
         return fn
 
-    def begin(self, lock_type='deferred'):
+    def begin(self, lock_type=None):
+        if self.is_closed() and not self.autoconnect:
+            raise InterfaceError('Error, database connection not opened.')
+
         with __exception_wrapper__:
-            self.connection().begin(lock_type)
+            self.connection().begin(lock_type or self._lock_type or 'deferred')
 
     def commit(self):
         if self.is_closed():

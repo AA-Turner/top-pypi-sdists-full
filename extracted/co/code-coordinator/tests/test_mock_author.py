@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from coord.agent import (
     MOCK_AUTHOR_DENY_COMMANDS,
+    MOCK_AUTHOR_INTERACTIVE_CARVEOUT,
     MOCK_AUTHOR_SYSTEM_PROMPT,
     WRITE_CAPABLE_SPEC_TYPES,
     AssignmentSpec,
@@ -153,6 +154,95 @@ def test_briefing_omits_index_script_for_non_html_driver():
     assert "gen_mock_index.py" not in out
 
 
+# ── #3131: CSS-only `:target` interactive walkthroughs ──────────────────────
+#
+# Hard-gated off by default (blocked on coord-portal#314's CSP fix — see
+# `INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED`'s docstring), so these tests
+# monkeypatch the flag on to exercise the instruction text itself: a flag
+# that is never observed in both states is a gate that can never fail.
+
+
+def test_interactive_instruction_omitted_by_default():
+    """The flag defaults off (blocked on coord-portal#314) — a fresh-render
+    briefing must not teach the `:target` technique until that ships."""
+    out = mock_author.build_mock_author_briefing(
+        repo_slug="acme/webapp",
+        milestone_title="M",
+        milestone_number=2,
+        tracking_issue_number=100,
+        tracking_issue_body="",
+        issues=[],
+        driver_kind="web-playwright",
+        driver_mock_glob="*.html",
+    )
+    assert ":target" not in out
+    assert not mock_author.INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED
+
+
+def test_interactive_instruction_included_when_enabled(monkeypatch):
+    monkeypatch.setattr(mock_author, "INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED", True)
+    out = mock_author.build_mock_author_briefing(
+        repo_slug="acme/webapp",
+        milestone_title="M",
+        milestone_number=2,
+        tracking_issue_number=100,
+        tracking_issue_body="",
+        issues=[],
+        driver_kind="web-playwright",
+        driver_mock_glob="*.html",
+    )
+    assert ":target" in out
+    assert "NO JavaScript" in out
+    assert "ONE self-contained" in out
+    assert "tests/acceptance/ms-2/contract.md" in out
+
+
+def test_interactive_instruction_still_omitted_for_non_html_driver_when_enabled(
+    monkeypatch,
+):
+    """The `:target` technique only applies to HTML mocks — gated on the
+    same `_wants_mock_index` glob check as the navigation-index step, not a
+    separate condition that could drift from it."""
+    monkeypatch.setattr(mock_author, "INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED", True)
+    out = mock_author.build_mock_author_briefing(
+        repo_slug="acme/tui",
+        milestone_title="M",
+        milestone_number=2,
+        tracking_issue_number=100,
+        tracking_issue_body="",
+        issues=[],
+        driver_kind="tui-tuidriver",
+        driver_mock_glob="*.screen",
+    )
+    assert ":target" not in out
+
+
+def test_amend_interactive_instruction_omitted_by_default():
+    out = mock_author.build_mock_author_amend_briefing(
+        repo_slug="acme/webapp",
+        milestone_title="M",
+        milestone_number=2,
+        tracking_issue_number=100,
+        amend_text="fix a typo",
+        driver_mock_glob="*.html",
+    )
+    assert ":target" not in out
+
+
+def test_amend_interactive_instruction_included_when_enabled(monkeypatch):
+    monkeypatch.setattr(mock_author, "INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED", True)
+    out = mock_author.build_mock_author_amend_briefing(
+        repo_slug="acme/webapp",
+        milestone_title="M",
+        milestone_number=2,
+        tracking_issue_number=100,
+        amend_text="fix a typo",
+        driver_mock_glob="*.html",
+    )
+    assert ":target" in out
+    assert "coord-portal#307" in out
+
+
 def test_mock_author_system_prompt_pins_the_locked_html_mock_shape():
     """docs/ORACLE_LOOP.md's locked (2026-07-28) decision: a `.html` mock
     must be self-contained, open in a browser, and LOOK like the screen —
@@ -162,6 +252,28 @@ def test_mock_author_system_prompt_pins_the_locked_html_mock_shape():
     assert "OPEN IN A BROWSER AND LOOK LIKE THE SCREEN" in MOCK_AUTHOR_SYSTEM_PROMPT
     assert "inline" in MOCK_AUTHOR_SYSTEM_PROMPT.lower()
     assert "data-testid" in MOCK_AUTHOR_SYSTEM_PROMPT
+
+
+def test_mock_author_system_prompt_carves_out_target_walkthroughs():
+    """#3131: the "one file per screen state" rule above would directly
+    contradict a CSS-only `:target` walkthrough, which needs every screen
+    it covers sharing ONE document/stylesheet to toggle visibility — so the
+    carve-out text names the exception rather than silently fighting the
+    seed briefing's own instruction once #3131's flag is enabled.
+
+    #3131 review: the raw MOCK_AUTHOR_SYSTEM_PROMPT constant itself no
+    longer names the exception unconditionally — it holds a
+    ‹INTERACTIVE_CARVEOUT› sentinel that `default_worker_command`
+    (coord/agent.py) only fills with real text when
+    `mock_author.INTERACTIVE_MOCK_WALKTHROUGHS_ENABLED` is true (see
+    test_agent.py's `test_mock_author_system_prompt_*_interactive_carveout*`
+    for that gating). This test now checks the two pieces that make up the
+    old assertion: the sentinel is present in the constant, and the text
+    that gets spliced in for it does name the exception.
+    """
+    assert "‹INTERACTIVE_CARVEOUT›" in MOCK_AUTHOR_SYSTEM_PROMPT
+    assert "#3131" in MOCK_AUTHOR_INTERACTIVE_CARVEOUT
+    assert ":target" in MOCK_AUTHOR_INTERACTIVE_CARVEOUT
 
 
 # ── dispatch_acceptance_mock ─────────────────────────────────────────────────
@@ -609,9 +721,20 @@ def test_default_worker_command_mock_author_uses_full_tools():
 
 
 def test_default_worker_command_mock_author_uses_mock_author_prompt():
+    """#3131 review: the built prompt is MOCK_AUTHOR_SYSTEM_PROMPT with its
+    ‹INTERACTIVE_CARVEOUT› sentinel resolved (see
+    test_agent.py's interactive-carveout-gating tests), so it can no longer
+    contain the raw constant verbatim as a substring — compare with the
+    sentinel resolved the same way `default_worker_command` resolves it
+    while the flag is off."""
     argv = default_worker_command(_spec())
     idx = argv.index("--system-prompt")
-    assert MOCK_AUTHOR_SYSTEM_PROMPT in argv[idx + 1]
+    from coord.agent import MOCK_AUTHOR_INTERACTIVE_CARVEOUT_DISABLED
+
+    expected_base = MOCK_AUTHOR_SYSTEM_PROMPT.replace(
+        "‹INTERACTIVE_CARVEOUT›", MOCK_AUTHOR_INTERACTIVE_CARVEOUT_DISABLED
+    )
+    assert expected_base in argv[idx + 1]
 
 
 def test_default_worker_command_mock_author_has_deny_list():

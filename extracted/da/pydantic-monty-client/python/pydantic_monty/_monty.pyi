@@ -19,8 +19,7 @@ from .os_access import AbstractOS, OsFunction
 
 __all__ = [
     '__version__',
-    '_flush_telemetry',
-    '_install_telemetry_adapter',
+    '_install_telemetry',
     'NOT_HANDLED',
     'AsyncMonty',
     'AsyncMontySession',
@@ -52,9 +51,8 @@ __all__ = [
 ]
 __version__: str
 
-# Private hooks used by the Python Logfire integration.
-def _flush_telemetry() -> None: ...
-def _install_telemetry_adapter(version: int, adapter: Any) -> None: ...
+# Private native hook behind pydantic_monty.instrument_telemetry.
+def _install_telemetry(tracer: Any | None, meter: Any | None, logger: Any | None) -> None: ...
 
 NOT_HANDLED = object()
 
@@ -538,6 +536,7 @@ class Monty:
         type_check_format: TypeCheckFormat | None = None,
         type_check_color: bool = False,
         assert_message_annotations: bool | int = ...,
+        print_flush_interval: float | None = None,
     ) -> MontySession:
         """
         Prepare a REPL session served by a dedicated worker.
@@ -565,6 +564,14 @@ class Monty:
                 CPython's empty `AssertionError`. On by default; set to `False`
                 to restore CPython's behavior, or to an int >= 1 to customize
                 the per-operand repr truncation length (default 120 bytes).
+            print_flush_interval: How long, in seconds, the worker may hold
+                buffered `print()` output before sending it, so that a burst
+                of prints costs one callback rather than one each. `None` (the
+                default) means 0.005; `0` restores line buffering, delivering
+                each completed line on its own. Output is always flushed
+                before a host call and before a run ends, so this only sets
+                how far live output may lag — never what arrives, or in what
+                order.
         """
 
 @final
@@ -816,6 +823,7 @@ class AsyncMonty:
         type_check_format: TypeCheckFormat | None = None,
         type_check_color: bool = False,
         assert_message_annotations: bool | int = ...,
+        print_flush_interval: float | None = None,
     ) -> AsyncMontySession:
         """
         Prepare a REPL session served by a dedicated worker.
@@ -908,6 +916,7 @@ class AsyncMontyWebsocket:
         type_check_format: TypeCheckFormat | None = None,
         type_check_color: bool = False,
         assert_message_annotations: bool | int = ...,
+        print_flush_interval: float | None = None,
     ) -> AsyncMontySession:
         """
         Prepare a REPL session served by a dedicated remote connection.

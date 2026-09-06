@@ -1,3 +1,10 @@
+/*
+ * BLAS/LAPACK function name mangling macros.
+ * Handles single/double precision prefixes (s/d) and platform-specific
+ * suffixes (underscore, no suffix, etc.) for linking against various
+ * BLAS libraries. Only active when USE_LAPACK is defined.
+ */
+
 #ifndef SCS_BLAS_H_GUARD
 #define SCS_BLAS_H_GUARD
 
@@ -42,6 +49,7 @@ extern "C" {
 #endif
 
 #ifdef MATLAB_MEX_FILE
+#include <stddef.h> /* ptrdiff_t */
 typedef ptrdiff_t blas_int;
 #elif defined BLAS64
 #include <stdint.h>

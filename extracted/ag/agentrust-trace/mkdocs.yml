@@ -1,11 +1,11 @@
 site_name: TRACE
-site_description: Trust Runtime Attestation and Compliance Evidence — open attestation standard for agentic AI governance
+site_description: "Trust Runtime Attestation and Compliance Evidence: open attestation standard for agentic AI governance"
 site_url: https://trace.agentrust-io.com
 repo_url: https://github.com/agentrust-io/trace-spec
 repo_name: agentrust-io/trace-spec
 edit_uri: edit/main/
 docs_dir: .
-copyright: "© 2026 OPAQUE Systems — CC BY 4.0"
+copyright: "© 2026 TRACE Specification contributors: CC BY 4.0"
 
 exclude_docs: |
   .github/
@@ -13,15 +13,18 @@ exclude_docs: |
   node_modules/
   src/
   tests/
-  schema/
+  # schema/ is published, not excluded, but only the file whose $id points at
+  # this host. The others declare an agentrust-io.com $id and are served there;
+  # serving a second copy here would give the same document two URLs.
+  schema/trace-claim.json
+  schema/trace-revocation.json
+  schema/trace-revocation-bundle.json
   LICENSE
   NOTICE
+  README.md
   ANTITRUST.md
   ADOPTERS.md
-  MAINTAINERS.md
   SECURITY.md
-  CHARTER.md
-  CODE_OF_CONDUCT.md
   pyproject.toml
 
 theme:
@@ -31,18 +34,18 @@ theme:
   logo: docs/assets/icon.svg
   favicon: docs/assets/icon.svg
   palette:
-    - scheme: slate
-      primary: custom
-      accent: custom
-      toggle:
-        icon: material/brightness-7
-        name: Switch to light mode
     - scheme: default
       primary: custom
       accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
   features:
     - navigation.instant
     - navigation.instant.progress
@@ -73,17 +76,17 @@ plugins:
       full_output: llms-full.txt
       markdown_description: >-
         TRACE (Trust Runtime Attestation and Compliance Evidence) is an open
-        specification for hardware-attested AI agent governance records. A TRACE
-        Trust Record binds what model ran, in which verified hardware
-        environment, under which policy, on what data class, and which tools were
-        invoked into a single signed artifact rooted in silicon attestation, then
-        anchors it to a SCITT transparency ledger so a third party can verify it
-        without trusting the operator. It builds on RFC 9711 (CWT/EAT), RFC 9334
+        specification for signed AI agent runtime evidence. A TRACE Trust Record
+        connects workload identity, policy, data classification, and transcript
+        commitments. Software signing, hardware attestation, and transparency
+        inclusion establish different properties and require separate checks.
+        Start with a local signed record and tamper detection, then choose the
+        evidence required by your verifier. It builds on RFC 9711 (CWT/EAT), RFC 9334
         (RATS), and SCITT, and ships a Python library, agentrust-trace, with a
         conformance suite.
       sections:
         Getting started:
-          - docs/index.md
+          - index.md
           - docs/quickstart.md
           - docs/trust-levels.md
           - docs/verification.md
@@ -93,6 +96,7 @@ plugins:
           - docs/schema.md
         Integration:
           - docs/integration/agt.md
+          - docs/integration/openshell.md
           - docs/integration/cmcp.md
           - docs/integration/sandbox-runtime.md
         Platforms:
@@ -169,17 +173,22 @@ extra:
         - icon: material/emoticon-sad-outline
           name: This page could be improved
           data: 0
-          note: Thanks for your feedback — open an issue to let us know.
+          note: "Thanks for your feedback: open an issue to let us know."
 
 extra_css:
-  - docs/stylesheets/extra.css
+  # Shared AgenTrust editorial design system. Deliberately the only stylesheet:
+  # a local override here is how this site drifted to the Material default
+  # violet last time. Change the shared file instead.
+  - https://agentrust-io.com/design-system.css
 
 nav:
-  - Home: docs/index.md
+  - Home: index.md
   - Getting Started:
       - Quickstart: docs/quickstart.md
       - Trust Levels: docs/trust-levels.md
       - Verification: docs/verification.md
+      - Build Provenance Depth: docs/build-provenance-depth.md
+      - Verification Outcome Statements: docs/verification-outcome-statements.md
       - Schema Reference: docs/schema.md
       - Glossary: docs/glossary.md
   - Tutorials:
@@ -189,15 +198,19 @@ nav:
       - Integration with cMCP: docs/tutorials/integrating-with-cmcp.md
       - Anchor to the registry: docs/tutorials/anchoring-to-the-registry.md
       - Verify the tool transcript: docs/tutorials/verifying-the-audit-chain.md
+      - AGT adapter: docs/tutorials/agt-adapter.md
   - Specification:
       - TRACE v0.2: spec/trace-v0.2.md
       - Registry Anchor Format v1: spec/registry-anchor-v1.md
       - MCP Server Provenance v1: spec/server-provenance-v1.md
       - Content Marking v1: spec/content-marking-v1.md
+      - TRACE v0.1 (superseded): spec/trace-v0.1.md
   - Integration:
       - AGT: docs/integration/agt.md
+      - NVIDIA OpenShell: docs/integration/openshell.md
       - cMCP: docs/integration/cmcp.md
       - Sandboxed agent runtimes: docs/integration/sandbox-runtime.md
+      - PIC/TRACE authorization bridge: docs/integration/pic-trace-bridge-v1.md
   - Platforms:
       - Overview: docs/platforms/index.md
       - AMD SEV-SNP: docs/platforms/amd-sev-snp.md
@@ -207,12 +220,27 @@ nav:
       - OWASP Agentic Top 10: docs/crosswalks/owasp-agentic-top-10.md
       - Acta Decision Receipts: docs/crosswalks/acta-decision-receipts.md
   - Test Suite: https://tests.agentrust-io.com
+  - Method:
+      - How the conformance vectors are built: docs/conformance-method.md
+  - RFCs:
+      - Composable zero-knowledge proofs: docs/rfcs/composable-zk-assurance.md
+      - A2A delegation-link verification profile: docs/rfcs/a2a-delegation-profile.md
   - Project:
       - Limitations: LIMITATIONS.md
       - Changelog: CHANGELOG.md
       - Contributing: CONTRIBUTING.md
       - Governance: GOVERNANCE.md
+      - Technical Charter: CHARTER.md
+      - Code of Conduct: CODE_OF_CONDUCT.md
+      - Maintainers: MAINTAINERS.md
+      - Sponsors: SPONSORS.md
       - Roadmap: ROADMAP.md
+      - Privacy: PRIVACY.md
+      - Scope: Governance/Scope.md
+      - Contributor License Agreement: Governance/CLA.md
+      - Licenses: Governance/License.md
+      - Community Specification License: Governance/COMMUNITY-SPECIFICATION-LICENSE.md
+      - Notices: Governance/Notices.md
 
 extra_javascript:
   # Shared cross-project top navigation (TRACE / Manifest / cMCP / cA2A / ...)

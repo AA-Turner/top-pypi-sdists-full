@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ConfigArgParse
-Version: 1.7.5
+Version: 1.7.6
 Summary: A drop-in replacement for argparse that allows options to also be set via config files and/or environment variables.
 Home-page: https://github.com/bw2/ConfigArgParse
 License: MIT

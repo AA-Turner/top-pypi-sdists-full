@@ -2,9 +2,10 @@
 
 import logging
 from collections.abc import Callable, Mapping
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 from types import MappingProxyType
 
+from midealocal.base_classes.climate import MideaFanMode, MideaSwingMode
 from midealocal.const import MAX_BYTE_VALUE, DeviceType
 from midealocal.crc8 import calculate
 from midealocal.message import (
@@ -51,9 +52,11 @@ SUB_PROTOCOL_BODY_TEMP_CHECK = 0x80
 TEMP_DECIMAL_MIN_BODY_LENGTH = 20
 TIMER_MIN_SUBPROTOCOL_LENGTH = 27
 XBB_SN8_BYTE_FLAG = 0x31
+XC1_SUBBODY_TYPE_03 = 0x03
 XC1_SUBBODY_TYPE_40 = 0x40
 XC1_SUBBODY_TYPE_41 = 0x41
 XC1_SUBBODY_TYPE_42 = 0x42
+XC1_SUBBODY_TYPE_43 = 0x43
 XC1_SUBBODY_TYPE_44 = 0x44
 XC1_SUBBODY_TYPE_45 = 0x45
 XC1_SUBBODY_TYPE_47 = 0x47
@@ -64,6 +67,7 @@ XC1_OPERATING_TIME_MIN_LENGTH = 19
 
 # Group data query: the third payload byte selects the group, 0x40 | group number.
 XC1_GROUP_QUERY_BASE = 0x40
+XC1_GROUP_THREE_SPEED_OFFSET = 10
 # Minimum body length required to parse each group data response.
 XC1_GROUP_ONE_MIN_LENGTH = 15
 XC1_GROUP_TWO_MIN_LENGTH = 9
@@ -117,6 +121,118 @@ B5_ANION_ON_VALUE = 1
 B5_TURBO_HEAT_VALUES = frozenset({1, 3})
 B5_DISPLAY_VALUES = frozenset({1, 2, 100})
 B5_ELECTRICITY_UNSUPPORTED_VALUE = 0  # 0 = unsupported; nonzero = rate level count
+B5_ENERGY_STATS_VALUES = frozenset({2, 3, 4, 5})
+B5_ENERGY_SETTING_VALUES = frozenset({3, 5})
+B5_ENERGY_BCD_VALUES = frozenset({2, 3})
+RATE_SELECT_2_LEVEL_BIT = 0x1
+RATE_SELECT_5_LEVEL_BIT = 0x2
+B5_HUMIDITY_SUPPORTED_MASK = 0x3
+
+
+class DeviceAttributes(StrEnum):
+    """Midea AC device attributes."""
+
+    prompt_tone = "prompt_tone"
+    power = "power"
+    mode = "mode"
+    target_temperature = "target_temperature"
+    min_temperature = "min_temperature"
+    max_temperature = "max_temperature"
+    fan_speed = "fan_speed"
+    swing_vertical = "swing_vertical"
+    swing_horizontal = "swing_horizontal"
+    boost_mode = "boost_mode"
+    power_saving = "power_saving"
+    smart_eye = "smart_eye"
+    dry = "dry"
+    eco_mode = "eco_mode"
+    aux_heating = "aux_heating"
+    sleep_mode = "sleep_mode"
+    natural_wind = "natural_wind"
+    temp_fahrenheit = "temp_fahrenheit"
+    screen_display = "screen_display"
+    screen_display_alternate = "screen_display_alternate"
+    full_dust = "full_dust"
+    frost_protect = "frost_protect"
+    comfort_mode = "comfort_mode"
+    indoor_temperature = "indoor_temperature"
+    outdoor_temperature = "outdoor_temperature"
+    indirect_wind = "indirect_wind"
+    indoor_humidity = "indoor_humidity"
+    breezeless = "breezeless"
+    fresh_air_power = "fresh_air_power"
+    fresh_air_fan_speed = "fresh_air_fan_speed"
+    fresh_air_mode = "fresh_air_mode"
+    fresh_air_1 = "fresh_air_1"
+    fresh_air_2 = "fresh_air_2"
+    fresh_air_exhaust_power = "fresh_air_exhaust_power"
+    fresh_air_exhaust_speed = "fresh_air_exhaust_speed"
+    fresh_air_exhaust_mode = "fresh_air_exhaust_mode"
+    total_energy_consumption = "total_energy_consumption"
+    total_operating_consumption = "total_operating_consumption"
+    current_energy_consumption = "current_energy_consumption"
+    realtime_power = "realtime_power"
+    electrify_time = "electrify_time"
+    total_operating_time = "total_operating_time"
+    current_operating_time = "current_operating_time"
+    wind_lr_angle = "wind_lr_angle"
+    wind_ud_angle = "wind_ud_angle"
+    rate_select = "rate_select"
+    out_silent = "out_silent"
+    anion = "anion"
+    sound = "sound"
+    self_clean = "self_clean"
+    pmv = "pmv"
+    error_code = "error_code"
+    # group 1: compressor and refrigerant circuit
+    compressor_frequency = "compressor_frequency"
+    target_compressor_frequency = "target_compressor_frequency"
+    compressor_current = "compressor_current"
+    compressor_voltage = "compressor_voltage"
+    indoor_ambient_temperature = "indoor_ambient_temperature"  # T1
+    indoor_coil_temperature = "indoor_coil_temperature"  # T2
+    outdoor_coil_temperature = "outdoor_coil_temperature"  # T3
+    outdoor_ambient_temperature = "outdoor_ambient_temperature"  # T4
+    discharge_pipe_temperature = "discharge_pipe_temperature"  # TP
+    # group 2: indoor fan and condensate pump
+    indoor_fan_speed = "indoor_fan_speed"
+    target_indoor_fan_speed = "target_indoor_fan_speed"
+    water_pump_running = "water_pump_running"
+    # group 3: outdoor fan
+    outdoor_fan_speed = "outdoor_fan_speed"
+    # group 7: real time compressor power
+    compressor_power = "compressor_power"
+
+
+class ACFanSpeed(MideaFanMode):
+    """AC fan speed set-points.
+
+    fan_speed is reported as a 0-127 percentage-like value; a device only
+    ever commands one of these six set-points, but reported values are
+    bucketed by threshold (against the next-lower set-point) to tolerate
+    slightly-off readings from hardware.
+    """
+
+    SILENT = 20
+    LOW = 40
+    MEDIUM = 60
+    HIGH = 80
+    FULL = 100
+    AUTO = 102
+
+
+class ACSwingMode(MideaSwingMode):
+    """AC swing mode names.
+
+    A StrEnum (not IntEnum, unlike ACFanSpeed): its members compare equal to
+    plain strings, which is required since Home Assistant's climate contract
+    checks membership with bare strings (e.g. "off" in device.swing_modes).
+    """
+
+    OFF = "off"
+    VERTICAL = "vertical"
+    HORIZONTAL = "horizontal"
+    BOTH = "both"
 
 
 class PowerFormats(IntEnum):
@@ -380,6 +496,12 @@ class MessageGroupTwoQuery(MessageGroupDataQuery):
     """AC message indoor fan query(queryType == "group_data_two")."""
 
     _group = 2
+
+
+class MessageGroupThreeQuery(MessageGroupDataQuery):
+    """AC message outdoor fan query(queryType == "group_data_three")."""
+
+    _group = 3
 
 
 class MessagePowerQuery(MessageGroupDataQuery):
@@ -1230,6 +1352,10 @@ class XB5MessageBody(NewProtocolMessageBody):
         project). Only capabilities actually reported are added.
         """
         caps: dict[str, bool] = {}
+        caps["fan_low"] = True
+        caps["fan_medium"] = True
+        caps["fan_high"] = True
+        caps["fan_auto"] = True
         if NewProtocolTags.b5_mode in params:
             value = params[NewProtocolTags.b5_mode][0]
             caps["heat_mode"] = value in B5_HEAT_MODE_VALUES
@@ -1240,6 +1366,12 @@ class XB5MessageBody(NewProtocolMessageBody):
             value = params[NewProtocolTags.b5_wind_swing][0]
             caps["swing_horizontal"] = value in B5_SWING_HORIZONTAL_VALUES
             caps["swing_vertical"] = value < B5_LOW_VALUE_MAX
+        if NewProtocolTags.wind_lr_angle in params:
+            value = params[NewProtocolTags.wind_lr_angle][0]
+            caps["swing_horizontal_angle"] = value == 1
+        if NewProtocolTags.wind_ud_angle in params:
+            value = params[NewProtocolTags.wind_ud_angle][0]
+            caps["swing_vertical_angle"] = value == 1
         if NewProtocolTags.b5_wind_speed in params:
             value = params[NewProtocolTags.b5_wind_speed][0]
             fan_custom = value == B5_FAN_CUSTOM_VALUE
@@ -1262,7 +1394,20 @@ class XB5MessageBody(NewProtocolMessageBody):
             caps["display_control"] = value in B5_DISPLAY_VALUES
         if NewProtocolTags.b5_electricity in params:
             value = params[NewProtocolTags.b5_electricity][0]
-            caps["rate_select"] = value > B5_ELECTRICITY_UNSUPPORTED_VALUE
+            caps["energy_stats"] = value in B5_ENERGY_STATS_VALUES
+            caps["energy_setting"] = value in B5_ENERGY_SETTING_VALUES
+            caps["energy_bcd"] = value in B5_ENERGY_BCD_VALUES
+        if NewProtocolTags.rate_select in params:
+            value = params[NewProtocolTags.rate_select][0]
+            caps["rate_select"] = value > 0
+            caps["rate_select_2_level"] = value & RATE_SELECT_2_LEVEL_BIT > 0
+            caps["rate_select_5_level"] = value & RATE_SELECT_5_LEVEL_BIT > 0
+        if NewProtocolTags.b5_sound in params:
+            value = params[NewProtocolTags.buzzer_all][0]
+            caps["sound"] = value == 1
+        if NewProtocolTags.b5_humidity in params:
+            value = params[NewProtocolTags.b5_humidity][0]
+            caps["humidity"] = value & B5_HUMIDITY_SUPPORTED_MASK > 0
         self.capabilities = caps
 
 
@@ -1357,6 +1502,10 @@ class XC1MessageBody(MessageBody):
             self._parse_group_one(body)
         elif group_type == XC1_SUBBODY_TYPE_42:
             self._parse_group_two(body)
+        elif group_type in (XC1_SUBBODY_TYPE_03, XC1_SUBBODY_TYPE_43):
+            # Midea references select group 3 by the low nibble; the tested
+            # device answered a 0x43 query with 0x03 here.
+            self._parse_group_three(body)
         elif group_type == XC1_SUBBODY_TYPE_47:
             self._parse_group_seven(body)
         elif group_type == XC1_SUBBODY_TYPE_40:
@@ -1439,6 +1588,15 @@ class XC1MessageBody(MessageBody):
         self.indoor_fan_speed = body[5] * XC1_FAN_SPEED_FACTOR
         # Could also be the float switch (tank full) that triggers the pump.
         self.water_pump_running = bool(body[8] & XC1_WATER_PUMP_MASK)
+
+    def _parse_group_three(self, body: bytearray) -> None:
+        """Parse group 3 data: outdoor fan speed."""
+        # Midea plugin references decode this byte as current outdoor fan speed
+        # in units of 8 RPM. The engineer display labels the matching raw byte
+        # as set speed, but group 5 exposes that target separately.
+        self.outdoor_fan_speed = (
+            self.read_byte(body, XC1_GROUP_THREE_SPEED_OFFSET) * XC1_FAN_SPEED_FACTOR
+        )
 
     def _parse_group_seven(self, body: bytearray) -> None:
         """Parse group 7 data: real time compressor power."""

@@ -22,12 +22,6 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Tracks fire-and-forget store writes submitted from a running event loop so a
-# shutting-down worker can flush in-flight persistence before exit. A WeakSet
-# lets completed futures be garbage-collected without manual bookkeeping.
-_BG_WRITES: "weakref.WeakSet[concurrent.futures.Future]" = weakref.WeakSet()
-_BG_WRITES_LOCK = threading.Lock()
-
 
 class PraisonAIDB:
     """
@@ -100,6 +94,12 @@ class PraisonAIDB:
         self._init_failed_at: float = 0.0
         # Seconds to suppress retries after an init failure before re-attempting.
         self._init_retry_cooldown: float = float(init_retry_cooldown)
+        # Per-instance fire-and-forget write tracking so a tenant's close()
+        # flushes only ITS OWN in-flight writes: a process-global set would make
+        # one tenant's close() wait on (and spend its flush budget on) another
+        # tenant's stuck writes. A WeakSet lets completed futures be GC'd.
+        self._bg_writes: "weakref.WeakSet[concurrent.futures.Future]" = weakref.WeakSet()
+        self._bg_writes_lock = threading.Lock()
 
     @classmethod
     def _from_stores(
@@ -129,6 +129,8 @@ class PraisonAIDB:
         self._init_failed = None
         self._init_failed_at = 0.0
         self._init_retry_cooldown = 30.0
+        self._bg_writes = weakref.WeakSet()
+        self._bg_writes_lock = threading.Lock()
         return self
 
     def _build_stores(self):
@@ -839,9 +841,18 @@ class PraisonAIDB:
             async_fn = getattr(store, async_name, None)
         return async_fn or getattr(store, sync_name, None)
 
-    @staticmethod
-    def _call_store(store, sync_name, async_name, *args, **kwargs):
-        """Call a store from a sync hook without ever blocking or losing a write.
+    #: Store ops whose result the caller *reads back* before writing again.
+    #: These MUST return their real value — fire-and-forget would silently drop
+    #: the read: a resumed session would look empty (``get_session`` /
+    #: ``get_messages`` / ``list_sessions``), and the run/trace/span completion
+    #: hooks — which read-modify-write state via ``get`` then ``set`` — would
+    #: merge into an empty ``{}`` and overwrite the persisted record, losing
+    #: identifiers, start timestamps, input, spans, and events. Everything else
+    #: is a write, which is uuid-keyed and idempotent and safe to defer.
+    _READ_OPS = frozenset({"get", "get_session", "get_messages", "list_sessions"})
+
+    def _call_store(self, store, sync_name, async_name, *args, **kwargs):
+        """Call a store from a sync hook without ever blocking or losing data.
 
         A sync hook can be reached from a plain sync caller *or* from inside a
         running event loop (several async chat paths still route through the
@@ -849,13 +860,23 @@ class PraisonAIDB:
         coroutine we must handle both:
 
         - No running loop: block on the shared bridge via ``run_sync``.
-        - Running loop: submitting-then-blocking would park the loop (the
-          pathology ``run_sync_or_offload`` forbids), and the old behaviour
-          discarded the coroutine entirely — silently dropping every message,
-          reply and tool result. Instead we submit the write to the shared
-          bridge as tracked fire-and-forget. Store writes are uuid-keyed and
-          idempotent per message, so completing them slightly later is safe by
-          construction and strictly better than losing them.
+        - Running loop:
+
+          * **Writes** (default): submitting-then-blocking would park the loop
+            (the pathology ``run_sync_or_offload`` forbids), so we submit to the
+            shared bridge as tracked fire-and-forget. Store writes are uuid-keyed
+            and idempotent per message, so completing them slightly later is safe
+            by construction and strictly better than losing them.
+          * **Reads** (``get``/``get_session``/``get_messages``/…): the caller
+            consumes the return value — either directly (session/message loads)
+            or as the base of a read-modify-write (the run/trace/span completion
+            hooks ``get`` then ``set``). Fire-and-forget would silently drop the
+            read: a resumed session would look empty, and a completion hook would
+            merge into ``{}`` and overwrite the persisted record. We route these
+            through ``run_sync_or_offload``, which returns the value on a sync
+            path and, inside a running loop, fails loudly (steering callers to
+            the ``aon_*`` hooks) instead of corrupting state with a silent
+            ``None``.
         """
         fn = PraisonAIDB._store_callable(store, sync_name, async_name)
         if fn is None:
@@ -871,10 +892,18 @@ class PraisonAIDB:
         except RuntimeError:
             return run_sync(result)
 
+        if sync_name in PraisonAIDB._READ_OPS:
+            # Reads must return a real value; never fire-and-forget them.
+            from .._async_bridge import run_sync_or_offload
+
+            return run_sync_or_offload(
+                result, thread_name=f"praisonai-db-read-{sync_name}"
+            )
+
         bridge = current_bridge()
         fut = bridge.submit(result)
-        with _BG_WRITES_LOCK:
-            _BG_WRITES.add(fut)
+        with self._bg_writes_lock:
+            self._bg_writes.add(fut)
 
         def _on_done(f, name=sync_name):
             try:
@@ -885,15 +914,17 @@ class PraisonAIDB:
         fut.add_done_callback(_on_done)
         return None
 
-    @staticmethod
-    def flush_pending_writes(timeout: Optional[float] = 5.0) -> None:
-        """Give in-flight fire-and-forget store writes a chance to complete.
+    def flush_pending_writes(self, timeout: Optional[float] = 5.0) -> None:
+        """Give this adapter's in-flight fire-and-forget writes a chance to complete.
 
         Called from :meth:`close`/:meth:`aclose` so a shutting-down worker does
-        not exit mid-write. Best-effort: never raises on a slow/failed write.
+        not exit mid-write. Tracking is per-instance, so one tenant's close()
+        waits only on ITS OWN writes and never spends its flush budget on
+        another tenant's stuck future. Best-effort: never raises on a
+        slow/failed write.
         """
-        with _BG_WRITES_LOCK:
-            pending = [f for f in _BG_WRITES if not f.done()]
+        with self._bg_writes_lock:
+            pending = [f for f in self._bg_writes if not f.done()]
         if not pending:
             return
         try:

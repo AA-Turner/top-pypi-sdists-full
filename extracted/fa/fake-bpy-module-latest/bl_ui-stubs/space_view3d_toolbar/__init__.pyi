@@ -1246,6 +1246,26 @@ class VIEW3D_PT_tools_imagepaint_options_cavity(_bpy_types.Panel):
         :param context:
         """
 
+class VIEW3D_PT_tools_imagepaint_symmetry_for_topbar(_bpy_types.Panel):
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    bl_ui_units_x: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
 class VIEW3D_PT_tools_mask_texture(
     View3DPaintPanel, _bpy_types.Panel, bl_ui.properties_paint_common.TextureMaskPanel
 ):

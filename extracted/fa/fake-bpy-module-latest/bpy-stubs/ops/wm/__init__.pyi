@@ -463,6 +463,7 @@ class call_panel(bpy.ops._BPyOpsSubModOp):
         *,
         name: str = "",
         keep_open: bool | None = True,
+        auto_keymap: bool | None = False,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Open a predefined panel
 
@@ -470,6 +471,7 @@ class call_panel(bpy.ops._BPyOpsSubModOp):
         :param undo:
         :param name: Name, Name of the menu (optional, never None)
         :param keep_open: Keep Open, (optional)
+        :param auto_keymap: Auto Keymap, Assign accelerator keys to buttons, shown as underlined characters (optional)
         :return: Result of the operator call.
         """
 

@@ -479,6 +479,12 @@ async fn cosign(State(st): State<DutyState>, body: axum::body::Bytes) -> Respons
         scrub_key_id: scrub_key_id.clone(),
         scrub_signature_classical: ed,
         scrub_signature_pqc: Some(pqc),
+        // v39.0.0 adds CC 2.6.7 `cosigned_at`, stamped by
+        // `crossing::plan_enter_mesh` on a NODE co-scrub at the tier crossing.
+        // This is an accord-quorum scrub on a key record, not a crossing, so
+        // there is no such instant to state — and inventing one here would ship
+        // a semantic change disguised as a repin.
+        cosigned_at: None,
     });
 
     let needed = quorum_needed(&st.engine).await;
@@ -519,10 +525,12 @@ async fn cosign(State(st): State<DutyState>, body: axum::body::Bytes) -> Respons
         Some(serde_json::Value::String(s)) => s.clone(),
         _ => "?".to_string(),
     };
+    // AUTHORED door (persist v41): this node assembled and signed the partial;
+    // it is not a peer's row and must not be metered as one.
     if let Err(e) = st
         .engine
         .federation_directory()
-        .put_attestation(SignedAttestation {
+        .put_attestation_authored(SignedAttestation {
             attestation: partial.clone(),
         })
         .await
@@ -628,6 +636,8 @@ pub async fn test_support_build_partial(
             scrub_key_id: k,
             scrub_signature_classical: ed,
             scrub_signature_pqc: Some(pqc),
+            // Accord-quorum scrub, not a tier crossing — see the sibling site.
+            cosigned_at: None,
         })
         .collect();
     row
