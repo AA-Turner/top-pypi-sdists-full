@@ -140,6 +140,7 @@ pymobiledevice3 = "pymobiledevice3.__main__:main"
 package-data = { "pymobiledevice3" = [
     "py.typed",
     "resources/webinspector/*.js",
+    "resources/webinspector/logo.png",
     "resources/dsc_uuid_map.json",
     "resources/notifications.txt",
     "resources/serve_web/viewer.html",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-sirocco
-Version: 10.8.10
+Version: 10.8.11
 Summary: passagemath: Certified root continuation with sirocco
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -31,14 +31,14 @@ Description-Content-Type: text/x-rst
 Requires-Dist: cysignals!=1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals>=1.12.6; python_version >= "3.14"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
-Requires-Dist: passagemath-modules~=10.8.10.0
+Requires-Dist: passagemath-modules~=10.8.11.0
 Provides-Extra: test
-Requires-Dist: passagemath-combinat~=10.8.10.0; extra == "test"
-Requires-Dist: passagemath-graphs~=10.8.10.0; extra == "test"
-Requires-Dist: passagemath-groups~=10.8.10.0; extra == "test"
-Requires-Dist: passagemath-polyhedra~=10.8.10.0; extra == "test"
-Requires-Dist: passagemath-repl~=10.8.10.0; extra == "test"
-Requires-Dist: passagemath-schemes~=10.8.10.0; extra == "test"
+Requires-Dist: passagemath-combinat~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-graphs~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-groups~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-polyhedra~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-repl~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-schemes~=10.8.11.0; extra == "test"
 
 ==================================================================================
  passagemath: Certified root continuation with sirocco

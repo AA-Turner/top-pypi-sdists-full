@@ -1958,10 +1958,10 @@ class TestDesignRoundPushOnMerge:
         )
         seen_upload = {}
 
-        def _post(url, json=None, headers=None, timeout=None):
+        def _post(url, files=None, headers=None, timeout=None):
             seen_upload["url"] = url
-            seen_upload["json"] = json
-            return _StubResponse(200, {"bundle_key": "bundles/sub_1/r1.tar"})
+            seen_upload["files"] = files
+            return _StubResponse(200, {"key": "rounds/sub_1/1"})
 
         monkeypatch.setattr("httpx.post", _post)
 
@@ -1975,15 +1975,16 @@ class TestDesignRoundPushOnMerge:
         assert events[-1].kind == "design_round_drafted"
         assert "awaiting operator approval" in events[-1].message
         assert "sub_1" in events[-1].message
-        assert seen_upload["url"] == "https://intake.example.com/api/bridge/upload"
-        assert seen_upload["json"]["submission_id"] == "sub_1"
-        assert seen_upload["json"]["files"] == {"contract.md": "# contract"}
+        # #3166: the real route addresses (submission, round) in the URL and
+        # takes a multipart body, one part per file.
+        assert seen_upload["url"] == "https://intake.example.com/api/bridge/mocks/sub_1/1"
+        assert set(seen_upload["files"]) == {"contract.md"}
 
         from coord import portal_store
         rows = portal_store.outbox_for_submission("sub_1")
         assert len(rows) == 1
         assert rows[0].kind == "design_round"
-        assert rows[0].fields["design_round"]["bundle_key"] == "bundles/sub_1/r1.tar"
+        assert rows[0].fields["design_round"]["bundle_key"] == "rounds/sub_1/1"
         assert "Ship the thing." in rows[0].fields["design_round"]["outcome_definition"]
         assert rows[0].state == portal_store.STATE_DRAFT
         assert portal_store.pending_outbox() == []
@@ -2000,8 +2001,8 @@ class TestDesignRoundPushOnMerge:
         )
         monkeypatch.setattr(
             "httpx.post",
-            lambda url, json=None, headers=None, timeout=None: _StubResponse(
-                200, {"bundle_key": "bundles/sub_1/r1.tar"}
+            lambda url, files=None, headers=None, timeout=None: _StubResponse(
+                200, {"key": "rounds/sub_1/1"}
             ),
         )
 
@@ -2103,7 +2104,7 @@ class TestDesignRoundPushOnMerge:
         )
         monkeypatch.setattr(
             "httpx.post",
-            lambda *a, **k: _StubResponse(200, {"bundle_key": "bundles/sub_1/r1.tar"}),
+            lambda *a, **k: _StubResponse(200, {"key": "rounds/sub_1/1"}),
         )
 
         events = process(
@@ -3602,6 +3603,125 @@ class TestScopedReviewCandidate:
         board = self._board(completed=[work, earlier_fix, review, cf])
         entry = self._voided_entry()
         assert mq.only_conflict_fix_since_review(entry, board, review) is True
+
+    # ── only_bounded_fix_since_review (#3161) ───────────────────────────────
+    # Widens only_conflict_fix_since_review to also tolerate a DONE,
+    # chain-linked ci-fix or ordinary fix-round leg — only_conflict_fix_
+    # since_review itself stays byte-for-byte unwidened (see the tests
+    # above and `coord review-reaffirm`'s stricter gate).
+
+    def test_bounded_true_for_conflict_fix_only(self) -> None:
+        """Regression guard: unchanged from only_conflict_fix_since_review
+        for the original #1476 conflict-fix-only shape."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        cf = self._conflict_fix("w1", dispatched_at=200.0)
+        board = self._board(completed=[work, review, cf])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is True
+
+    def test_bounded_true_for_done_ci_fix_leg(self) -> None:
+        """Acceptance #1: a completed ci-fix leg alone is bounded."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        ci_fix = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1,
+            issue_title="[ci-fix] t", assignment_id="cifix1", type="work",
+            status="done", branch="worker/w1",
+            review_of_assignment_id="w1", dispatched_at=200.0,
+        )
+        board = self._board(completed=[work, review, ci_fix])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is True
+
+    def test_bounded_true_for_done_fix_round_leg(self) -> None:
+        """Acceptance #2: a completed ordinary fix-round leg alone is
+        bounded — the exact scenario only_conflict_fix_since_review refuses
+        (see test_false_when_a_fix_round_also_ran_after_the_review above)."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        fix_round = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1,
+            issue_title="[fix-1] t", assignment_id="fix1", type="work",
+            status="done", branch="worker/w1",
+            review_of_assignment_id="w1", dispatched_at=200.0,
+        )
+        board = self._board(completed=[work, review, fix_round])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is True
+
+    def test_bounded_true_for_conflict_fix_plus_fix_round(self) -> None:
+        """A conflict-fix AND a fix-round both intervening is still bounded
+        — this is a superset of only_conflict_fix_since_review, not a
+        replacement path alongside it."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        cf = self._conflict_fix("w1", dispatched_at=150.0)
+        fix_round = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1,
+            issue_title="[fix-1] t", assignment_id="fix1", type="work",
+            status="done", branch="worker/w1",
+            review_of_assignment_id="w1", dispatched_at=200.0,
+        )
+        board = self._board(completed=[work, review, cf, fix_round])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is True
+
+    def test_bounded_false_when_nothing_attributable(self) -> None:
+        """Regression guard: no conflict-fix, no fix leg — unattributable,
+        fail closed exactly like only_conflict_fix_since_review."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        board = self._board(completed=[work, review])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is False
+
+    def test_bounded_false_when_fix_leg_still_running(self) -> None:
+        """Guardrail: the gate can still say no — a fix leg dispatched after
+        the review that hasn't finished (status='running') is an unknown
+        outcome, not a bounded one."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        fix_running = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1,
+            issue_title="[fix-1] t", assignment_id="fix1", type="work",
+            status="running", branch="worker/w1",
+            review_of_assignment_id="w1", dispatched_at=200.0,
+        )
+        board = self._board(active=[fix_running], completed=[work, review])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is False
+
+    def test_bounded_false_when_fix_leg_failed(self) -> None:
+        """Guardrail: a fix leg that finished but FAILED is not a bounded,
+        successful change — fail closed."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        fix_failed = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1,
+            issue_title="[fix-1] t", assignment_id="fix1", type="work",
+            status="failed", branch="worker/w1",
+            review_of_assignment_id="w1", dispatched_at=200.0,
+        )
+        board = self._board(completed=[work, review, fix_failed])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is False
+
+    def test_bounded_false_when_intervening_work_has_no_review_link(self) -> None:
+        """Guardrail: a WORK_LIKE_TYPES row reached only via branch equality
+        (no `review_of_assignment_id` linking it back into this chain) does
+        not look like a `_dispatch_fix`-produced fix leg — fail closed
+        rather than guessing it's bounded."""
+        work = self._work("w1")
+        review = self._review("w1", dispatched_at=100.0)
+        unlinked = Assignment(
+            machine_name="m1", repo_name="api", issue_number=1,
+            issue_title="unrelated work", assignment_id="fresh1", type="work",
+            status="done", branch="worker/w1", dispatched_at=200.0,
+        )
+        board = self._board(completed=[work, review, unlinked])
+        entry = self._voided_entry()
+        assert mq.only_bounded_fix_since_review(entry, board, review) is False
 
     # ── intervening_work_since_review ───────────────────────────────────────
     # #1488: `coord review-reaffirm` needs to tell only_conflict_fix_since_

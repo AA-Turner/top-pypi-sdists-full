@@ -51,7 +51,9 @@ document = [
   "matplotlib!=3.6.0",
   "pandas",
   "pillow",
-  "plotly>=4.9.0",  # optuna/visualization.
+  # plotly>=7 dropped support for kaleido<1, which the `sphinx_gallery_png` renderer relies on.
+  # The upper bound can be dropped together with the kaleido constraint above.
+  "plotly>=4.9.0,<7",  # optuna/visualization.
   "scikit-learn",
   "sphinx",
   "sphinx-copybutton",
@@ -93,6 +95,9 @@ test = [
   "fakeredis[lua]",
   "kaleido<0.4,!=0.2.1.post1",  # TODO(nzw0301): Remove the version constraint by installing browser separately.
   "moto",
+  # plotly>=7 dropped support for kaleido<1, which `Figure.write_image` in the tests relies on.
+  # The upper bound can be dropped together with the kaleido constraint above.
+  "plotly<7",
   "pytest",
   "pytest-xdist",
   "scipy>=1.9.2",
@@ -106,6 +111,12 @@ test = [
 default-groups = []
 exclude-newer = "5 days"
 exclude-newer-package = { torch = false, optuna = false, optuna-integration = false }
+# Workaround for https://github.com/pytorch/vision/issues/9519: a stray
+# torchvision 0.27.1+df56172 wheel (cp311 win_arm64 only) was misplaced on the PyTorch CPU index.
+# Since `+df56172` sorts higher than `+cpu` under PEP 440, the resolver picks it and then fails to
+# install on Linux + Python 3.12. Exclude it so the resolver falls back to the proper +cpu build.
+# TODO(y0z): Remove this constraint once the stray wheel is yanked from the index.
+constraint-dependencies = ["torchvision!=0.27.1+df56172"]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

@@ -937,18 +937,96 @@ def test_cross_doc_table_assign_dotted_kv_only_source() -> None:
     assert _reparses(out) == {"x": {"c": 1, "d": 2}}
 
 
+def test_clone_keeps_the_spelling_of_the_key_it_did_not_move() -> None:
+    """A rebase renames a prefix; the rest of the key is not its business.
+
+    Only the components that move are respelled. Below them the source's
+    own quoting, and the spacing around its dots, is as much a part of
+    the line as the comment at the end of it.
+    """
+    src = tomlrt.loads(
+        td("""
+        [a]
+        p = 1
+
+        [ a . 'b' . "c" ]   # nested
+        q = 2
+        """)
+    )
+    dst = tomlrt.loads("[dest]\n")
+    dst["dest"]["k"] = src["a"]
+    out = tomlrt.dumps(dst)
+    assert out == td("""
+        [dest]
+
+        [dest.k]
+        p = 1
+
+        [ dest.k.'b' . "c" ]   # nested
+        q = 2
+        """)
+    assert _reparses(out) == dst.to_dict()
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_implicit_graft_keeps_unchanged_key_suffix(newline: str) -> None:
+    src = td("""
+        a.'quoted'  .  "leaf" = 0x01 # keep
+        """).replace("\n", newline)
+    source = tomlrt.loads(src)
+    target = tomlrt.loads("[dest]\n".replace("\n", newline))
+    target.table("dest")["copy"] = source.table("a")
+    out = tomlrt.dumps(target)
+    assert out == td("""
+        [dest]
+        copy.'quoted'  .  "leaf" = 0x01 # keep
+        """).replace("\n", newline)
+    assert tomlrt.dumps(source) == src
+    assert _reparses(out) == target.to_dict()
+
+
+def test_aot_reinsert_at_same_path_keeps_key_spelling() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[ 'items' ]] # first
+        x = 0x01 # one
+
+        [ 'items' . "child" ] # child
+        y = 0x02 # two
+
+        [[ 'items' ]] # second
+        x = 0x03 # three
+        """)
+    )
+    items = doc.aot("items")
+    items.append(items.pop(0))
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[ 'items' ]] # second
+        x = 0x03 # three
+
+        [[ 'items' ]] # first
+        x = 0x01 # one
+
+        [ 'items' . "child" ] # child
+        y = 0x02 # two
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
 def test_cross_doc_implicit_table_graft_preserves_trivia() -> None:
     """Grafting an implicit (dotted) table keeps its body trivia and style.
 
     An implicit table's leaf content lives in dotted keys hosted above
-    it; cloning each source slot's value + leading keeps standalone
-    comments, string style, number format, and inline-array pad that
-    re-synthesising from the logical value would drop. Sub-sections clone
-    too, and the source's header-less (dotted) shape is preserved.
+    it; cloning each source slot's value and whole-line trivia keeps
+    standalone and end-of-line comments, string style, number format,
+    and inline-array pad that re-synthesising from the logical value
+    would drop. Sub-sections clone too, and the source's header-less
+    (dotted) shape is preserved.
     """
     d1 = tomlrt.loads(
         td("""
-        a.x = 1
+        a.x = 1 # why x
         # why lit
         a.lit = 'literal'
         a.hex = 0xFF
@@ -962,7 +1040,7 @@ def test_cross_doc_implicit_table_graft_preserves_trivia() -> None:
     out = tomlrt.dumps(d2)
     assert out == td("""
         [tool]
-        z.x = 1
+        z.x = 1 # why x
         # why lit
         z.lit = 'literal'
         z.hex = 0xFF
@@ -1213,7 +1291,8 @@ def test_new_key_assign_of_ancestor_into_its_own_descendant() -> None:
     ``_install_attached_subtree`` reads it incrementally; since ``t`` is
     nested inside ``ancestor``, installing into ``t`` is also live growth
     of the very structure being walked, which must be snapshotted up
-    front rather than read incrementally.
+    front rather than read incrementally. The snapshot is the same
+    document, so the copy keeps the source's header-less shape.
     """
     doc = tomlrt.loads("x.a = 1\nx.b.c = 2\n")
     x = doc["x"]
@@ -1223,9 +1302,7 @@ def test_new_key_assign_of_ancestor_into_its_own_descendant() -> None:
         x.a = 1
         x.b.c = 2
         x.b.new.a = 1
-
-        [x.b.new.b]
-        c = 2
+        x.b.new.b.c = 2
         """)
     assert doc.to_dict() == {
         "x": {"a": 1, "b": {"c": 2, "new": {"a": 1, "b": {"c": 2}}}}

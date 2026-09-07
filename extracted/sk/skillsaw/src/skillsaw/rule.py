@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Callable, List, Optional, Dict, Any, Type, TypeVar, TYPE_CHECKING
+from typing import Callable, List, Optional, Dict, Any, Tuple, Type, TypeVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .context import RepositoryContext
@@ -23,6 +23,24 @@ class Severity(Enum):
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
+
+
+# The one severity ladder: every "at or above this level" set — the fix
+# scope, the fixable markers, and the summary counts — derives from here,
+# so the engine and the formatters cannot drift apart.
+_AT_OR_ABOVE = {
+    "error": frozenset({Severity.ERROR}),
+    "warning": frozenset({Severity.ERROR, Severity.WARNING}),
+    "info": frozenset(Severity),
+}
+
+
+def severities_at_or_above(level: str) -> frozenset:
+    """The set of severities at or above *level* ("error" < "warning" < "info")."""
+    try:
+        return _AT_OR_ABOVE[level]
+    except KeyError:
+        raise ValueError(f"Unknown severity threshold: {level}") from None
 
 
 class AutofixConfidence(Enum):
@@ -51,13 +69,28 @@ class RuleViolation:
     # unknown — e.g. synthetic violations constructed outside
     # ``Rule.violation()``.
     fixable: Optional[bool] = None
-    # Confidence of the fix when ``fixable``: SAFE fixes apply with plain
-    # ``skillsaw fix``, SUGGEST fixes require ``--suggest``.
+    # Confidence of the fix when ``fixable``: SAFE fixes need no confidence
+    # opt-in; SUGGEST fixes require ``--suggest``. Severity scope is separate
+    # and follows the effective severity threshold.
     fix_confidence: Optional["AutofixConfidence"] = None
     # Stable suffix for external and baseline identities when a rule emits
     # sibling findings at the same path and line. Rules should set this from
     # their first release so existing external fingerprints never churn.
     fingerprint_discriminator: Optional[str] = None
+    # The findings this one stands in for when a rule reports a pile of
+    # them as one (a directory of dead files, say). A baseline written before
+    # the rule consolidated lists the parts; the whole stays baselined while
+    # every part still is.
+    constituents: Tuple["RuleViolation", ...] = field(default=(), repr=False, compare=False)
+    # The whole this finding would fold into when the rule consolidates:
+    # the dual of ``constituents``. A pile baselined as one finding may
+    # shrink until the rule reports its files one by one; those stay
+    # baselined under the whole's ceiling.
+    consolidated_into: Optional["RuleViolation"] = field(default=None, repr=False, compare=False)
+
+    # Rule-owned strings needed to propose a fix. These are internal
+    # evidence, not diagnostic identity or report fields.
+    fix_data: Optional[Dict[str, str]] = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         if self.block is None and self.file_path is not None:
@@ -111,8 +144,10 @@ class AutofixResult:
 class Rule(ABC):
     """Base class for linting rules"""
 
+    # Repository types this rule applies to under ``enabled: auto``; None
+    # means every repository. Members of ``RepositoryType`` (a plugin rule
+    # may also name a plugin-contributed type by string).
     repo_types = None
-    formats = None
     config_schema = {}
     # Third-party rules with a partially migrated config_schema can set this
     # to False: declared options are still type-checked, while undeclared
@@ -124,6 +159,13 @@ class Rule(ABC):
     # --rule / --skip-rule, inline suppression directives, baseline
     # matching, and ``skillsaw explain``.
     aliases: tuple = ()
+    # Former rule IDs whose baseline fingerprints this rule's findings also
+    # match — for a rule split out of another. Unlike ``aliases``, this
+    # never resolves config, CLI, or suppression names: the new rule is
+    # configured, selected, and suppressed by its own ID. It exists so an
+    # upgrade does not resurface a finding a baseline recorded under the ID
+    # the check used to be reported by.
+    baseline_aliases: tuple = ()
     # Version in which the rule was deprecated (e.g. "0.18.0"); None means
     # active. A deprecated rule no longer runs under ``enabled: auto`` —
     # it only runs when a config sets ``enabled: true`` or a --rule flag
@@ -135,9 +177,24 @@ class Rule(ABC):
     # One-sentence rationale rendered on the documentation site's
     # Deprecated page and each deprecated rule's own page.
     deprecated_reason: Optional[str] = None
+    # Builtin rule IDs that must accompany this rule when an operator names
+    # it explicitly with ``--rule``. This is for validation prerequisites
+    # whose diagnostics are deliberately owned by another rule; ordinary
+    # config-driven enablement remains independent.
+    target_dependencies: tuple[str, ...] = ()
+    # Target types each validation dependency may inspect when it was loaded
+    # only because another rule named it. Every target dependency declares a
+    # scope; use ``LintTarget`` explicitly when repo-wide behavior is intended.
+    # Directly selecting the dependency with ``--rule`` leaves it unrestricted.
+    target_dependency_scopes: Dict[str, tuple[Type["LintTarget"], ...]] = {}
+    # Format-owner rule IDs whose syntax this rule consumes indirectly. The
+    # linter evaluates these independently of ``--rule`` selection so a
+    # targeted shared security rule still sees current-format surfaces while
+    # version/config/skip gates preserve older result sets.
+    surface_dependencies: tuple[str, ...] = ()
     # Default activation when the user config doesn't mention the rule:
-    # True (always on), False (opt-in), or "auto" (on when repo_types /
-    # formats match the repository). ``LinterConfig.default()`` is generated
+    # True (always on), False (opt-in), or "auto" (on when repo_types
+    # match the repository). ``LinterConfig.default()`` is generated
     # from this, so the class is the single source of truth. Per project
     # policy new rules must use "auto" or False — never True.
     default_enabled: Any = "auto"
@@ -147,14 +204,22 @@ class Rule(ABC):
     # nodes whose provenance_dir() is claimed exclusively by other
     # ecosystems, so a Codex-only plugin is exempt from Claude manifest,
     # frontmatter, and naming requirements. Dual-manifest and unclaimed
-    # directories stay in scope. Conditional-strictness rules (the
-    # ecosystem-tightened hooks/MCP shape checks) stay None and consult
-    # RepositoryContext.in_codex_only_plugin() instead — tightening is
-    # their semantic, not a skip.
+    # directories stay in scope. Conditional-strictness rules — the
+    # ecosystem-tightened MCP shape checks — stay None and consult
+    # RepositoryContext.in_codex_only_plugin() instead: tightening is
+    # their semantic, not a skip. Hooks need neither mechanism; the tree
+    # builder types each hooks file by the host that reads it, and each
+    # host's shape rule iterates its own block class.
     provenance_scope: Optional[str] = None
     autofix_confidence: Optional["AutofixConfidence"] = None
     _source: str = "builtin"
     baseline_mode: Optional[str] = None  # "ceiling" or "floor"
+    # Populated on each loaded rule instance by Linter. This is deliberately
+    # rule-local rather than RepositoryContext state: one context may back
+    # several independently configured linters. ``None`` keeps focused unit
+    # calls to ``Rule.check(context)`` self-contained.
+    _enabled_surface_rule_ids: Optional[frozenset] = None
+    _dependency_target_types: Optional[tuple[Type["LintTarget"], ...]] = None
 
     def __init__(self, config: Dict[str, Any] = None):
         """
@@ -165,6 +230,7 @@ class Rule(ABC):
         """
         self.config = config or {}
         self._enabled = self.config.get("enabled", True)
+        self._explicit_severity = self.config.get("severity") is not None
 
         # Get severity from config or use default
         severity_str = self.config.get("severity", self.default_severity().value)
@@ -179,6 +245,10 @@ class Rule(ABC):
                     f"Invalid severity '{severity_str}' for rule '{self.rule_id}'. "
                     f"Valid values: {valid}"
                 ) from err
+
+    def surface_rule_enabled(self, rule_id: str) -> bool:
+        """Whether the format surface introduced by *rule_id* is active."""
+        return self._enabled_surface_rule_ids is None or rule_id in self._enabled_surface_rule_ids
 
     def setting(self, name: str) -> Any:
         """Resolve a config option: the user's override, else the schema default.
@@ -295,6 +365,23 @@ class Rule(ABC):
             lambda node: context.in_format_scope(node, ecosystem),
         )
 
+    def dependency_scoped_find(
+        self,
+        context: "RepositoryContext",
+        node_type: Type[TargetT],
+    ) -> List[TargetT]:
+        """Find targets allowed by this dependency-only ``--rule`` run.
+
+        Direct rule checks and explicitly selected rules remain unrestricted.
+        When the linter loaded this rule as another validator's prerequisite,
+        it supplies the declaring validator's target types and this helper
+        intersects them with the rule's ordinary provenance scope.
+        """
+        found = self.scoped_find(context, node_type)
+        if self._dependency_target_types is None:
+            return found
+        return [node for node in found if isinstance(node, self._dependency_target_types)]
+
     def fix(
         self,
         context: "RepositoryContext",
@@ -306,6 +393,16 @@ class Rule(ABC):
     @property
     def supports_autofix(self) -> bool:
         return type(self).fix is not Rule.fix
+
+    def scope_severity(self, default: Severity) -> Severity:
+        """Use a failure scope's default unless severity was explicitly configured.
+
+        Some format rules report whole-file failures as ERROR and dropped
+        entries as WARNING. Their primary findings still honor a user's
+        severity override. Linter supplies override provenance after merging
+        registry defaults; direct rule constructors are already explicit.
+        """
+        return self.severity if self._explicit_severity else default
 
     def violation(
         self,
@@ -319,6 +416,9 @@ class Rule(ABC):
         fixable: Optional[bool] = None,
         fix_confidence: Optional[AutofixConfidence] = None,
         fingerprint_discriminator: Optional[str] = None,
+        constituents: Tuple[RuleViolation, ...] = (),
+        consolidated_into: Optional[RuleViolation] = None,
+        fix_data: Optional[Dict[str, str]] = None,
     ) -> RuleViolation:
         """Create a violation for this rule.
 
@@ -327,6 +427,10 @@ class Rule(ABC):
         ``metric`` disambiguates multiple ratchet violations per file.
         ``fingerprint_discriminator`` disambiguates sibling findings at the
         same path and line without changing identities for other rules.
+        ``constituents`` are the findings a consolidated one stands in for,
+        so a baseline that lists them keeps suppressing the whole;
+        ``consolidated_into`` is the whole a part would fold into, so a
+        baseline that lists the whole keeps suppressing the parts.
 
         ``fixable`` defaults from the rule: True when the rule overrides
         ``fix()`` and declares a class-level ``autofix_confidence``.  Rules
@@ -353,4 +457,7 @@ class Rule(ABC):
             fixable=fixable,
             fix_confidence=fix_confidence,
             fingerprint_discriminator=fingerprint_discriminator,
+            constituents=constituents,
+            consolidated_into=consolidated_into,
+            fix_data=dict(fix_data) if fix_data is not None else None,
         )

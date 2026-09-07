@@ -67,6 +67,7 @@ async def search(
 
 
 class CachedSearch(AsyncGeneratorProvider, AuthFileMixin):
+    url = "https://g4f.dev"
     working = True
 
     @classmethod

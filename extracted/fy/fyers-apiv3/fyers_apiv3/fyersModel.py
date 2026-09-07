@@ -64,6 +64,10 @@ class Config:
     screeners_query = "/screeners/query"
     screeners_candlestick = "/screeners/candlestick"
     screeners_technical = "/screeners/technical"
+    futures_chain = "/futures-chain"
+    expiry_dates = "/history/fno/expired/expiry-dates"
+    history_underlying_symbols = "/history/fno/expired/underlying-symbols"
+    fno_historical_data = "/history/fno/expired/historical-data"
 
 
 class FyersServiceSync:
@@ -2066,4 +2070,97 @@ class FyersModel:
             response = self.service.get_async_call(Config.screeners_technical, self.header, data)
         else:
             response = self.service.get_call(Config.screeners_technical, self.header, data)
+        return response
+
+    def futures_chain(self, data=None) -> dict:
+        """
+        Fetches futures chain data for a given symbol.
+
+        Args:
+            data (dict): Query parameters for the request.
+                - symbol (str): Underlying/index symbol. Eg: 'NSE:NIFTY50-INDEX'.
+
+        Returns:
+            dict: The response JSON containing the futures chain data.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(
+                Config.futures_chain, self.header, data, data_flag=True
+            )
+        else:
+            response = self.service.get_call(
+                Config.futures_chain, self.header, data, data_flag=True
+            )
+        return response
+
+    def expiry_dates(self, data) -> dict:
+        """
+        Retrieves the available futures and options expiry dates for an underlying symbol.
+
+        Args:
+            data (dict): Query parameters for the request.
+                - symbol (str): Underlying symbol to fetch expiry dates for.
+                - range_from (str): Start date or epoch value.
+                - range_to (str): End date or epoch value.
+                - date_format (int): 0 for epoch, 1 for 'yyyy-mm-dd'.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(
+                Config.expiry_dates, self.header, data, data_flag=True
+            )
+        else:
+            response = self.service.get_call(
+                Config.expiry_dates, self.header, data, data_flag=True
+            )
+        return response
+    
+    def history_underlying_symbols(self, data) -> dict:
+        """
+        Retrieves historical underlying symbols for a specific underlying symbol and expiry date.
+
+        Args:
+            data (dict): Query parameters for the request.
+                - symbol (str): Underlying symbol to fetch expired contracts for.
+                - expiry_date (str): Expiry date in YYYY-MM-DD format.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(
+                Config.history_underlying_symbols, self.header, data, data_flag=True
+            )
+        else:
+            response = self.service.get_call(
+                Config.history_underlying_symbols, self.header, data, data_flag=True
+            )
+        return response
+
+    def fno_historical_data(self, data) -> dict:
+        """
+        Fetches FNO historical candle data with optional Greeks for expired symbols.
+
+        Args:
+            data (dict): Query parameters for the request.
+                - symbol (str): FNO symbol. Eg: 'NSE:ADANIPORTS26MAR1520CE'.
+                - resolution (str): Candle resolution. Eg: '60'.
+                - date_format (int): 0 for epoch, 1 for 'yyyy-mm-dd'.
+                - range_from (str): Start date or epoch value.
+                - range_to (str): End date or epoch value.
+                - greeks (int): Set to 1 to include Greeks in the response.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(
+                Config.fno_historical_data, self.header, data, data_flag=True
+            )
+        else:
+            response = self.service.get_call(
+                Config.fno_historical_data, self.header, data, data_flag=True
+            )
         return response

@@ -90,7 +90,7 @@ pub async fn dispatch_rmcp_tool_call(
         )),
         "search_tools" => Ok(handle_search_tools(state, &arguments_value)),
         "jobs_get_status" => Ok(handle_jobs_get_status(state, &arguments_value)),
-        "jobs_cleanup" => Ok(handle_jobs_cleanup(state, &arguments_value)),
+        "jobs_cleanup" => Ok(handle_jobs_cleanup(state, &arguments_value).await),
         "register_tool" => Ok(handle_register_tool_dynamic(
             state,
             session_id,
@@ -1317,6 +1317,17 @@ mod tests {
             ToolContent::Image { data, mime_type }
                 if data == encoded && mime_type == "image/png"
         ));
+    }
+
+    #[test]
+    fn split_phase_errors_use_structured_instance_envelope() {
+        let result =
+            dispatch_err_result("split_tool", "SPLIT_PHASE_TIMEOUT: continuation timed out");
+        assert!(result.is_error);
+        let structured = result.structured_content.expect("structured error");
+        assert_eq!(structured["layer"], "instance");
+        assert_eq!(structured["code"], "SPLIT_PHASE_TIMEOUT");
+        assert_eq!(structured["message"], "continuation timed out");
     }
 
     #[tokio::test]

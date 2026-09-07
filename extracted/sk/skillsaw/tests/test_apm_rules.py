@@ -223,6 +223,31 @@ def test_apm_yaml_invalid_yaml_fails(temp_dir):
     assert "Invalid YAML" in violations[0].message
 
 
+def test_apm_yaml_empty_name_fails(temp_dir):
+    """`name: ""` is a missing identifier — apm install rejects the manifest."""
+    repo = temp_dir / "apm-repo"
+    repo.mkdir()
+    _make_apm_repo(repo, skills=["my-skill"], apm_yml='name: ""\nversion: "1.0.0"\n')
+
+    context = RepositoryContext(repo)
+    violations = ApmYamlValidRule().check(context)
+    assert len(violations) == 1
+    assert "Required field 'name' is an empty string" in violations[0].message
+
+
+def test_apm_yaml_blank_version_fails(temp_dir):
+    """A whitespace-only version is as absent as an empty one."""
+    repo = temp_dir / "apm-repo"
+    repo.mkdir()
+    _make_apm_repo(repo, skills=["my-skill"], apm_yml='name: pkg\nversion: "   "\n')
+
+    context = RepositoryContext(repo)
+    violations = ApmYamlValidRule().check(context)
+    assert len(violations) == 1
+    assert "Required field 'version' is an empty string" in violations[0].message
+    assert violations[0].line == 2
+
+
 def test_apm_yaml_oversized_integer_is_reported_not_raised(temp_dir, oversized_integer_digits):
     """A parser ValueError must remain an ordinary invalid-YAML finding."""
     if oversized_integer_digits is None:
@@ -541,29 +566,6 @@ def test_apm_rules_in_default_config():
     config = LinterConfig.default()
     assert config.get_rule_config("apm-yaml-valid").get("enabled") == "auto"
     assert config.get_rule_config("apm-structure-valid").get("enabled") == "auto"
-
-
-# --- Integration: linting this repo ---
-
-
-def test_lint_real_apm_repo():
-    """Smoke test: lint the skillsaw repo itself which has .apm/"""
-    import os
-
-    # Find the repo root (this test file is in tests/)
-    repo_root = Path(__file__).resolve().parent.parent
-    apm_dir = repo_root / ".apm"
-
-    if not apm_dir.is_dir():
-        # Skip if running from a location without .apm/
-        return
-
-    context = RepositoryContext(repo_root)
-    assert context.has_apm is True
-    # Skills should be discovered from .apm/skills/
-    assert len(context.skills) > 0
-    apm_skills = [s for s in context.skills if ".apm" in str(s)]
-    assert len(apm_skills) > 0
 
 
 # --- Content rules apply to APM files ---

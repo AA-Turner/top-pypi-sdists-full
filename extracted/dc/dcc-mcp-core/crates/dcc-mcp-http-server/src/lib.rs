@@ -27,6 +27,7 @@ pub mod job_aware_invoker;
 pub mod notifications;
 pub mod server_state;
 pub mod session;
+pub mod split_phase;
 pub mod workspace;
 
 pub mod mcp_tool_catalog;
@@ -41,6 +42,12 @@ pub mod rmcp_registry_context;
 pub mod rmcp_tool_call_async;
 pub mod rmcp_tool_call_dispatch;
 pub mod thread_routed_invoker;
+
+/// Stateless MCP service path for protocol version 2026-07-28 (ADR-010 Phase 1).
+///
+/// Enabled by the `mcp-2026-07-28` Cargo feature flag.
+#[cfg(feature = "mcp-2026-07-28")]
+pub mod stateless;
 
 pub use dynamic_tools::{
     DYNAMIC_TOOL_PREFIX, DynamicToolEntry, DynamicToolError, SessionDynamicTools, ToolSpec,

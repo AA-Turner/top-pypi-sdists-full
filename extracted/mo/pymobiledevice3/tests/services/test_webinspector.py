@@ -89,8 +89,7 @@ def _web_page_listing(app_id: str, pages: dict[str, str]) -> dict[str, Any]:
 async def test_listing_drops_pages_that_closed() -> None:
     """A listing is the application's complete set of pages: one missing from it has closed.
     Merging without dropping those kept every tab ever opened in the listing forever."""
-    inspector = WebinspectorService.__new__(WebinspectorService)
-    inspector.application_pages = {}
+    inspector = WebinspectorService(lockdown=cast(Any, object()))
     await inspector._handle_application_sent_listing(_web_page_listing("PID:1", {"1": "kept", "2": "closed"}))
     kept = inspector.application_pages["PID:1"]["1"]
 

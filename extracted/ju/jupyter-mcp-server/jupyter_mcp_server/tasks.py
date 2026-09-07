@@ -51,6 +51,8 @@ import time
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+
+from pydantic import Field
 from typing import Any, Protocol
 
 from mcp.server.extension import Extension, MethodBinding
@@ -464,6 +466,42 @@ def requested_ttl(metadata: Any) -> int | None:
     return min(value, MAX_TTL_MS)
 
 
+#: What `resultType` a task-shaped answer carries on the wire.
+#:
+#: The 2026-07-28 vocabulary tags every result so a client knows how to parse
+#: it. `"complete"` and `"input_required"` are the core tags; the union is
+#: open and **the tasks extension reserves `"task"`** — the SDK's own
+#: `ResultType` docstring says so.
+#:
+#: It matters because of what the runner does with an untagged result. A tag
+#: outside the core vocabulary marks a shape the extension owns, and the
+#: per-version sieve is skipped; an *absent* tag means `"complete"`, so the
+#: answer is sieved against `union[CallToolResult, InputRequiredResult]` —
+#: which a task is not. `CreateTaskResult` has no `result_type` field at all
+#: (only `meta` and `task`), so returning the model could only ever produce an
+#: untagged result, and every `tools/call` asking for a task came back
+#: `-32603 Handler returned an invalid result`. Measured against mcp 2.1.1 on
+#: a deployment on 2026-09-06; the tests below hold it against the SDK's own
+#: `CORE_RESULT_TYPES` rather than against this string.
+TASK_RESULT_TYPE = "task"
+
+
+class TaskShapedResult(CreateTaskResult):
+    """`CreateTaskResult`, tagged as the shape it is.
+
+    A subclass rather than a mapping, so this is still a `CreateTaskResult`
+    to everything that reads one — the tests, and any caller holding the
+    model — and the only thing added is the tag the wire needs.
+    """
+
+    result_type: str = Field(default=TASK_RESULT_TYPE, alias="resultType")
+
+
+def _as_a_task(record: "TaskRecord") -> TaskShapedResult:
+    """The answer for a call that became a task."""
+    return TaskShapedResult(task=record.public())
+
+
 class TasksExtension(Extension):
     """`tasks/*`, and the interception that creates one.
 
@@ -614,7 +652,7 @@ class TasksExtension(Extension):
                         ),
                     )
                 logger.info("Task %s answered again for key %s", existing.task_id, key)
-                return CreateTaskResult(task=existing.public())
+                return _as_a_task(existing)
 
         record = TaskRecord(
             task_id=f"tsk_{uuid.uuid4().hex}",
@@ -631,7 +669,7 @@ class TasksExtension(Extension):
             record.tool or "a tool call",
             record.ttl,
         )
-        return CreateTaskResult(task=record.public())
+        return _as_a_task(record)
 
     async def _publish(self, ctx: Any, record: TaskRecord | None) -> None:
         """Tell the client a task changed, if the session can carry it.

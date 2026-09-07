@@ -18,6 +18,7 @@ pub mod agent_group_archive;
 pub mod agent_identity;
 pub mod agent_launch;
 pub mod agent_name_template;
+pub mod agent_ownership;
 pub mod agent_runtime;
 pub mod agent_scan;
 pub mod agent_stats;
@@ -42,6 +43,7 @@ pub mod external_pr;
 pub mod feature_flag_state;
 pub mod fenced_code;
 pub mod finalizer;
+pub mod fleet_contract;
 pub mod git_query;
 pub mod glossary;
 pub mod host_bridge;
@@ -62,6 +64,7 @@ pub mod prompt_literals;
 mod prompt_rewrite;
 pub mod prompt_stash;
 pub mod provider_disable;
+pub mod provider_priority;
 pub mod query;
 mod reference_path;
 pub mod referenced_by;
@@ -75,6 +78,7 @@ mod store_lock;
 pub mod suffix;
 pub mod task_type;
 pub mod telemetry;
+pub mod text_tail;
 pub mod vcs_log;
 pub mod wire;
 pub mod workspace_lease;
@@ -215,6 +219,26 @@ pub use agent_name_template::{
     render_agent_name_template, validate_agent_name_template_token,
     AgentNameTemplate, AgentNameTemplateError, AGENT_NAME_TEMPLATE_ALPHABET,
     AGENT_NAME_TEMPLATE_MARKER,
+};
+pub use agent_ownership::{
+    agent_ownership_batch_request_from_json_value, plan_agent_ownership_batch,
+    AgentCleanupEffectWire, AgentCleanupReservationWire,
+    AgentCleanupRootPlanWire, AgentCleanupRootWire,
+    AgentExpectedOwnerPredicateWire, AgentExpectedOwnerWire,
+    AgentMarkerStateWire, AgentNameRegistryEntryWire,
+    AgentNameRegistryMergeWire, AgentNameReservationAcceptedWire,
+    AgentNameReservationBlockedWire, AgentNameReservationOperationWire,
+    AgentNameReservationRequestWire, AgentOwnershipBatchError,
+    AgentOwnershipBatchPlanWire, AgentOwnershipBatchRequestWire,
+    AgentOwnershipClosureWire, AgentOwnershipOwnerDecisionWire,
+    AgentOwnershipSlotWire, AgentOwnershipSourceKindWire,
+    AgentOwnershipSourceRecordWire, AgentProcessIdentityWire,
+    AgentSourceSignatureWire, AGENT_OWNERSHIP_BATCH_WIRE_SCHEMA_VERSION,
+    CLEANUP_EFFECT_ARTIFACT_DIR, CLEANUP_EFFECT_BUNDLE_PATH,
+    CLEANUP_OUTCOME_BLOCKED, CLEANUP_OUTCOME_PRESERVED,
+    CLEANUP_OUTCOME_SELECTED, REGISTRY_MERGE_ACTION_NO_OP,
+    REGISTRY_MERGE_ACTION_REMOVE, REGISTRY_MERGE_ACTION_UPSERT,
+    RESERVATION_KIND_CLEANUP_IN_PROGRESS,
 };
 pub use agent_runtime::{
     aggregate_clan_runtime, aggregate_clan_runtime_records,
@@ -658,6 +682,71 @@ pub use finalizer::{
     FinalizerSubmissionPayloadWire, FinalizerSubmissionValidationWire,
     FinalizerTriggerKindWire, FINALIZER_WIRE_SCHEMA_VERSION,
 };
+pub use fleet_contract::{
+    classify_cursor_replay, count_focus_and_fleet, count_logical_agents,
+    cursor_replay_reason_to_resync_reason, decide_operation_replay,
+    ensure_installation_identity, fleet_content_read_limit,
+    fleet_contract_schema_version, fleet_count_revision,
+    fleet_project_eligibility_limit, instance_locator_key,
+    load_installation_identity, logical_locator_key,
+    migrate_installation_identity, operation_payload_fingerprint,
+    project_resolved_agent_detail, project_resolved_agent_summary,
+    reconcile_follow_records, rotate_installation_identity,
+    select_fleet_catalog_page, select_fleet_logical_batch,
+    validate_connection_plan, validate_content_handle,
+    validate_fleet_authoritative_snapshot, validate_fleet_catalog_query,
+    validate_fleet_content_read_request, validate_fleet_detail_request,
+    validate_fleet_invalidation_event, validate_fleet_logical_batch_request,
+    validate_fleet_project_eligibility_request, validate_fleet_replay_capacity,
+    validate_fleet_snapshot_freshness, validate_resolved_agent_summary,
+    validate_store_cursor, AgentInstanceLocatorWire, CacheFreshnessRequestWire,
+    CacheFreshnessWire, CapabilitySetWire, ConnectionHealthWire,
+    ConnectionPlanWire, ContentHandleKindWire, ContentHandleWire,
+    ContentMetadataWire, CursorReplayClassificationWire,
+    CursorReplayDecisionWire, CursorReplayReasonWire, CursorReplayRequestWire,
+    DurableOperationRecordWire, FleetAuthoritativeSnapshotWire,
+    FleetCatalogPageSelectionWire, FleetCatalogPageWire, FleetCatalogQueryWire,
+    FleetConnectionKindWire, FleetContentReadRequestWire,
+    FleetContentReadResponseWire, FleetContractError, FleetCountBasisWire,
+    FleetDetailRequestWire, FleetDetailResponseWire, FleetEventStreamItemWire,
+    FleetHostCountInputWire, FleetHostCountWire, FleetInvalidationEventWire,
+    FleetInvalidationKindWire, FleetLogicalAgentCountsRequestWire,
+    FleetLogicalAgentCountsWire, FleetLogicalBatchEntryWire,
+    FleetLogicalBatchRequestWire, FleetLogicalBatchResponseWire,
+    FleetProjectEligibilityRequestWire, FleetProjectEligibilityResponseWire,
+    FleetProjectEligibilityWire, FleetResyncReasonWire,
+    FleetResyncRequiredWire, FleetRowKindWire, FleetScopeCountsWire,
+    FleetSnapshotFreshnessWire, FleetStatusBucketWire,
+    FleetSummaryResponseWire, FocusFleetCountsRequestWire,
+    FocusFleetCountsWire, FollowActivationWire, FollowCreatedByWire,
+    FollowDiagnosticSeverityWire, FollowDiagnosticWire,
+    FollowFamilyPromotionWire, FollowReconciliationRequestWire,
+    FollowReconciliationWire, FollowRecordWire, FollowStateWire,
+    FollowTombstoneWire, HumanDisplayLabelsWire,
+    InstallationIdentityEnsureOutcomeWire, InstallationIdentityLoadOutcomeWire,
+    InstallationIdentityMigrateOutcomeWire,
+    InstallationIdentityMigrateRequestWire, InstallationIdentityRecordWire,
+    InstallationIdentityRotateOutcomeWire,
+    InstallationIdentityRotateRequestWire, LogicalAgentLocatorWire,
+    ObservationFreshnessWire, OperationDecisionKindWire,
+    OperationDecisionReasonWire, OperationDecisionRequestWire,
+    OperationDecisionWire, OperationReceiptStateWire, OperationReceiptWire,
+    OriginLocatorWire, OwnerDisplayNameRequestWire, OwnerDisplayNameWire,
+    OwnerLivenessWire, OwnerResolutionFactsWire, PayloadFingerprintRequestWire,
+    PayloadFingerprintWire, ProjectLocatorWire, ResolvedAgentDetailWire,
+    ResolvedAgentProjectionRequestWire, ResolvedAgentSummaryWire,
+    ResourceRevisionWire, RuntimeDurationRequestWire, RuntimeDurationStateWire,
+    RuntimeDurationWire, ScopedOperationKeyWire, StoreCursorWire,
+    TlsTrustModeWire, TlsTrustSettingsWire, FLEET_CONTRACT_SCHEMA_VERSION,
+    FLEET_INITIAL_CURSOR_GENERATION, FLEET_INSTALLATION_IDENTITY_FILENAME,
+    FLEET_INSTALLATION_IDENTITY_MAX_BYTES,
+    FLEET_INSTALLATION_IDENTITY_SCHEMA_VERSION, FLEET_INSTALLATION_ID_PREFIX,
+    FLEET_READ_DEFAULT_CONTENT_BYTES, FLEET_READ_DEFAULT_PAGE_ROWS,
+    FLEET_READ_DEFAULT_REPLAY_EVENTS, FLEET_READ_MAX_BATCH_IDS,
+    FLEET_READ_MAX_CONTENT_BYTES, FLEET_READ_MAX_FILTER_BYTES,
+    FLEET_READ_MAX_PAGE_ROWS, FLEET_READ_MAX_PROJECT_IDS,
+    FLEET_READ_MAX_QUERY_BYTES, FLEET_READ_MAX_REPLAY_EVENTS,
+};
 pub use git_query::{
     derive_git_workspace_name, parse_git_branch_name,
     parse_git_conflicted_files, parse_git_local_changes,
@@ -836,6 +925,22 @@ pub use provider_disable::{
     ProviderDisableWire, ProviderDisableWriteOutcomeWire,
     PROVIDER_DISABLE_STATE_FILENAME, PROVIDER_DISABLE_WIRE_SCHEMA_VERSION,
 };
+pub use provider_priority::{
+    classify_provider_availability, classify_provider_availability_many,
+    clear_provider_priority, decode_provider_priority_bytes,
+    get_provider_priority, get_provider_routing_context,
+    peek_provider_priority, provider_priority_state_path,
+    provider_routing_context_from_parts, set_provider_priority_relative,
+    set_provider_priority_until, ProviderAvailabilityFactsWire,
+    ProviderAvailabilityProvenance, ProviderAvailabilityWire,
+    ProviderEffectiveAvailability, ProviderPriorityDecodeWire,
+    ProviderPriorityError, ProviderPriorityTargetFactsWire,
+    ProviderPriorityWire, ProviderPriorityWriteOutcomeWire,
+    ProviderPriorityWriteStatus, ProviderRoutingContextWire,
+    PROVIDER_AVAILABILITY_WIRE_SCHEMA_VERSION,
+    PROVIDER_PRIORITY_STATE_FILENAME, PROVIDER_PRIORITY_WIRE_SCHEMA_VERSION,
+    PROVIDER_ROUTING_CONTEXT_WIRE_SCHEMA_VERSION,
+};
 pub use query::{
     canonicalize_query, canonicalize_query_with_profile, compile_query,
     compile_query_with_profile, effective_project_name, evaluate_query_many,
@@ -910,6 +1015,7 @@ pub use telemetry::{
     TelemetryStoreStatsWire, TELEMETRY_MAX_BUSY_TIMEOUT,
     TELEMETRY_WIRE_SCHEMA_VERSION,
 };
+pub use text_tail::{tail_text_by_lines_and_chars, TextTailWire};
 pub use vcs_log::{
     aggregate_commit_log, classify_commit_origin, classify_commit_types,
     classify_commit_types_for_commit, parse_git_log, AggregatedCommitWire,

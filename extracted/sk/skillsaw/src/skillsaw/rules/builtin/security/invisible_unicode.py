@@ -22,6 +22,7 @@ from skillsaw.context import RepositoryContext
 from skillsaw.rules.builtin.content_analysis import (
     gather_all_content_blocks,
     FrontmatterField,
+    iter_frontmatter_strings,
 )
 
 # Family a: invisible / zero-width characters.
@@ -55,6 +56,11 @@ _TAG_CODEPOINTS = frozenset({0xE0001}) | frozenset(range(0xE0020, 0xE0080))
 
 _ALL_CODEPOINTS = _INVISIBLE_CODEPOINTS | _BIDI_CODEPOINTS | _TAG_CODEPOINTS
 
+# Deletion table mapping all flaggable codepoints to None.
+# If str.translate(_PRESENCE_TABLE) preserves the string length, no flaggable
+# characters are present. This provides a fast prefilter before regex evaluation.
+_PRESENCE_TABLE = {codepoint: None for codepoint in _ALL_CODEPOINTS}
+
 # ZWNJ / ZWJ have legitimate uses: emoji ZWJ sequences (family emoji,
 # profession emoji) and cursive-script shaping (Arabic, Persian, Indic).
 # They are flagged only in a suspicious context — see ``_joiner_suspicious``.
@@ -83,36 +89,9 @@ def _rgi_flag_offsets(text: str) -> FrozenSet[int]:
     return frozenset(offsets)
 
 
-def _iter_strings(value: Any, _seen: Optional[Set[int]] = None) -> Iterator[str]:
-    """Yield every string embedded in a frontmatter value.
-
-    Nested lists and mappings are walked (mapping keys included): a payload
-    in ``allowed-tools: [Ba<ZWSP>sh]`` never surfaces through ``str(value)``
-    because ``repr`` backslash-escapes format characters.
-
-    Containers already visited are skipped by ``id`` so self-referential
-    structures built from YAML anchor/alias cycles (``metadata: &m\\n
-    nested: *m`` — legal YAML that PyYAML constructs as a dict containing
-    itself) terminate instead of raising ``RecursionError``.
-    """
-    if isinstance(value, str):
-        yield value
-        return
-    if not isinstance(value, (dict, list, tuple)):
-        return
-    if _seen is None:
-        _seen = set()
-    if id(value) in _seen:
-        return
-    _seen.add(id(value))
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if isinstance(key, str):
-                yield key
-            yield from _iter_strings(item, _seen)
-    else:
-        for item in value:
-            yield from _iter_strings(item, _seen)
+# One walker for every rule that reads frontmatter values, so a YAML alias
+# DAG is visited once everywhere (see content_analysis.iter_frontmatter_strings).
+_iter_strings = iter_frontmatter_strings
 
 
 def _joiner_suspicious(text: str, index: int) -> bool:
@@ -168,7 +147,6 @@ def _codepoint_summary(counts: Counter) -> str:
 class SecurityInvisibleUnicodeRule(Rule):
     """Detect invisible and reordering unicode in agent context"""
 
-    formats = None
     repo_types = None
     since = "0.17.0"
 
@@ -250,10 +228,12 @@ class SecurityInvisibleUnicodeRule(Rule):
     ) -> Dict[int, Counter]:
         """Map 1-based line number -> Counter of flagged codepoints.
 
-        One whole-text ``finditer`` pass is the gate — clean text costs a
-        single scan and no per-line work.  Line offsets are computed only
-        when there is at least one surviving hit.
+        Uses ``_PRESENCE_TABLE`` and ``str.isascii`` to quickly skip clean text
+        before running the regex pattern. Line offsets are only computed when
+        matches are found.
         """
+        if text.isascii() or len(text.translate(_PRESENCE_TABLE)) == len(text):
+            return {}
         hit_offsets = []
         flag_offsets: Optional[FrozenSet[int]] = None  # computed on first tag hit
         for match in pattern.finditer(text):

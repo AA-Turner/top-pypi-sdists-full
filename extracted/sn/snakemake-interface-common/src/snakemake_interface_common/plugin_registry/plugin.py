@@ -277,7 +277,7 @@ class PluginBase(ABC, Generic[TSettingsBase]):
                         value = self._parse_type(
                             thefield, value, thefield.metadata["type"]
                         )
-                    elif thefield.type != str and isinstance(thefield.type, type):
+                    elif thefield.type != str:
                         value = self._parse_type(thefield, value, thefield.type)
 
                     # expand variables and user dirs in paths
@@ -332,8 +332,8 @@ class PluginBase(ABC, Generic[TSettingsBase]):
     def _get_prefixed_name(self, field_name: str) -> str:
         return f"{self.cli_prefix}_{field_name}"
 
-    def _parse_type(self, thefield: Field, value: Any, thetype: Type) -> Any:
-        def apply_type(value: Any, thetype: Type) -> Any:
+    def _parse_type(self, thefield: Field, value: Any, thetype: Any) -> Any:
+        def apply_type(value: Any, thetype: Any) -> Any:
             try:
                 return thetype(value)
             except Exception as e:

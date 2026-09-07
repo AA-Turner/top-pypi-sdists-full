@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import field
 import logging
+import math
 from pathlib import Path
+import threading
 import traceback
 from typing import Any
 from typing import Callable
@@ -16,6 +19,7 @@ from dcc_mcp_core.result_envelope import ToolResultEnvelope
 logger = logging.getLogger(__name__)
 
 _MAX_TIMEOUT_MS = 3_600_000
+_MAX_CONTINUATION_TIMEOUT_SECS = 300.0
 
 
 @dataclass(frozen=True)
@@ -55,6 +59,45 @@ class DeferredToolResult:
             raise ValueError("timeout_secs must be > 0")
         if self.poll_interval_secs <= 0:
             raise ValueError("poll_interval_secs must be > 0")
+
+
+@dataclass
+class ContinuationOutcome:
+    """Transport-internal split-phase result.
+
+    The callable is intentionally kept out of the wire result.  A host
+    dispatcher may return this value after its bounded main-thread phase;
+    Core then invokes ``continuation`` on the request/job worker and exposes
+    only that terminal value to MCP and REST callers.
+    """
+
+    continuation: Callable[..., Any]
+    timeout_secs: float = 300.0
+    _dcc_mcp_split_phase: bool = True
+    _claimed: bool = field(default=False, init=False, repr=False)
+    _claim_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if not callable(self.continuation):
+            raise TypeError("continuation must be callable")
+        if (
+            not math.isfinite(self.timeout_secs)
+            or self.timeout_secs <= 0
+            or self.timeout_secs > _MAX_CONTINUATION_TIMEOUT_SECS
+        ):
+            raise ValueError("timeout_secs must be finite, > 0, and <= 300 seconds")
+
+    def claim(self) -> bool:
+        """Atomically claim ownership; returns ``False`` on replay."""
+        with self._claim_lock:
+            if self._claimed:
+                return False
+            self._claimed = True
+            return True
+
+
+# Descriptive alias used by adapter-facing code and issue #2380.
+SplitPhaseOutcome = ContinuationOutcome
 
 
 def context_from_kwargs(
@@ -220,6 +263,8 @@ def is_host_queue_dispatcher(dispatcher: Any | None) -> bool:
 for _public_contract in (
     BaseDccCallableDispatcher,
     DeferredToolResult,
+    ContinuationOutcome,
+    SplitPhaseOutcome,
     InProcessExecutionContext,
     exception_to_error_envelope,
     sandbox_denied_envelope,

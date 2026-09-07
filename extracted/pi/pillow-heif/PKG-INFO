@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow_heif
-Version: 1.6.0
+Version: 1.7.0
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun
@@ -28,6 +28,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
@@ -56,6 +57,7 @@ Requires-Dist: pympler; extra == "dev"
 Requires-Dist: opencv-python==5.0.0.93; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Dynamic: license-file

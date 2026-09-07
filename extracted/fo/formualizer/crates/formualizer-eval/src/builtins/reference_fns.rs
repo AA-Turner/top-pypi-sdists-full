@@ -1,5 +1,5 @@
 use crate::args::{ArgSchema, CoercionPolicy, ShapeKind};
-use crate::function::{FnCaps, Function};
+use crate::function::{FnCaps, Function, FunctionResolution};
 use crate::traits::{ArgumentHandle, FunctionContext};
 use formualizer_common::{ArgKind, ExcelError, ExcelErrorKind, LiteralValue};
 use formualizer_parse::parser::ReferenceType;
@@ -132,6 +132,217 @@ fn resolve_reference_bounds<'b>(
 #[derive(Debug)]
 pub struct IndexFn;
 
+impl IndexFn {
+    fn index_argument<'a, 'b>(arg: &ArgumentHandle<'a, 'b>) -> Result<Option<i64>, ExcelError> {
+        if arg.is_omitted() {
+            return Ok(Some(0));
+        }
+        match arg.value()? {
+            crate::traits::CalcValue::Range(_)
+            | crate::traits::CalcValue::Scalar(LiteralValue::Array(_)) => Ok(None),
+            value => match value.into_literal() {
+                LiteralValue::Number(number) => Ok(Some(number as i64)),
+                LiteralValue::Int(integer) => Ok(Some(integer)),
+                _ => Err(ExcelError::new(ExcelErrorKind::Value)),
+            },
+        }
+    }
+
+    fn bounded_dimensions(base: &ReferenceType) -> Option<(u32, u32)> {
+        match base {
+            ReferenceType::Cell { .. } => Some((1, 1)),
+            ReferenceType::Range {
+                start_row: Some(start_row),
+                start_col: Some(start_col),
+                end_row: Some(end_row),
+                end_col: Some(end_col),
+                ..
+            } => Some((
+                end_row.checked_sub(*start_row)?.checked_add(1)?,
+                end_col.checked_sub(*start_col)?.checked_add(1)?,
+            )),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn precise_single_cell_selection<'a, 'b>(
+        args: &[ArgumentHandle<'a, 'b>],
+        rows: u32,
+        cols: u32,
+    ) -> bool {
+        if !(2..=3).contains(&args.len()) {
+            return false;
+        }
+        let Ok(Some(position)) = Self::index_argument(&args[1]) else {
+            return false;
+        };
+        if args.len() == 3 {
+            let Ok(Some(column)) = Self::index_argument(&args[2]) else {
+                return false;
+            };
+            if args[1].is_omitted() {
+                column > 0 && rows == 1 && u32::try_from(column).is_ok_and(|col| col <= cols)
+            } else if args[2].is_omitted() {
+                position > 0 && cols == 1 && u32::try_from(position).is_ok_and(|row| row <= rows)
+            } else {
+                position > 0
+                    && column > 0
+                    && u32::try_from(position).is_ok_and(|row| row <= rows)
+                    && u32::try_from(column).is_ok_and(|col| col <= cols)
+            }
+        } else if rows == 1 {
+            position > 0 && u32::try_from(position).is_ok_and(|col| col <= cols)
+        } else if cols == 1 {
+            position > 0 && u32::try_from(position).is_ok_and(|row| row <= rows)
+        } else {
+            false
+        }
+    }
+
+    fn reference_from_base<'a, 'b>(
+        args: &[ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+        base: ReferenceType,
+    ) -> Option<Result<ReferenceType, ExcelError>> {
+        let position = match Self::index_argument(&args[1]) {
+            Ok(Some(position)) => position,
+            Ok(None) => return None,
+            Err(error) => return Some(Err(error)),
+        };
+        let explicit_col = if args.len() >= 3 {
+            match Self::index_argument(&args[2]) {
+                Ok(Some(column)) => Some(column),
+                Ok(None) => return None,
+                Err(error) => return Some(Err(error)),
+            }
+        } else {
+            None
+        };
+
+        let (sheet, sr, sc, er, ec) = match resolve_reference_bounds(ctx, &base) {
+            Ok(bounds) => bounds,
+            Err(error) => return Some(Err(error)),
+        };
+        let (row, col) = match explicit_col {
+            Some(col) => (position, col),
+            None if sr == er => (1, position),
+            None => (position, 1),
+        };
+        if row < 0 || col < 0 {
+            return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
+        }
+        let range_ref = |sheet, sr, sc, er, ec| ReferenceType::Range {
+            sheet,
+            start_row: Some(sr),
+            start_col: Some(sc),
+            end_row: Some(er),
+            end_col: Some(ec),
+            start_row_abs: false,
+            start_col_abs: false,
+            end_row_abs: false,
+            end_col_abs: false,
+        };
+        if col == 0 {
+            if row == 0 {
+                return Some(Ok(range_ref(sheet, sr, sc, er, ec)));
+            }
+            let r = sr + (row as u32) - 1;
+            if r > er {
+                return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
+            }
+            return Some(Ok(if sc == ec {
+                ReferenceType::cell(sheet, r, sc)
+            } else {
+                range_ref(sheet, r, sc, r, ec)
+            }));
+        }
+        if row == 0 {
+            let c = sc + (col as u32) - 1;
+            if c > ec {
+                return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
+            }
+            return Some(Ok(if sr == er {
+                ReferenceType::cell(sheet, sr, c)
+            } else {
+                range_ref(sheet, sr, c, er, c)
+            }));
+        }
+        let r = sr + (row as u32) - 1;
+        let c = sc + (col as u32) - 1;
+        if r > er || c > ec {
+            return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
+        }
+        Some(Ok(ReferenceType::cell(sheet, r, c)))
+    }
+
+    fn materialize_reference<'b>(
+        ctx: &dyn FunctionContext<'b>,
+        reference: &ReferenceType,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let view = ctx.resolve_range_view(reference, ctx.current_sheet())?;
+        let (rows, cols) = view.dims();
+        if rows == 1 && cols == 1 {
+            Ok(crate::traits::CalcValue::Scalar(
+                view.as_1x1().unwrap_or(LiteralValue::Empty),
+            ))
+        } else {
+            Ok(crate::traits::CalcValue::Range(view))
+        }
+    }
+
+    /// Attempt the precise single-cell fast path.
+    ///
+    /// Returns `None` when any gate declines, in which case the caller falls
+    /// back to `validated_dispatch`. Factored out of `dispatch` (and
+    /// parameterized over the dispatching function) so tests can assert which
+    /// path a given argument shape takes and observe the format policy being
+    /// applied to the precise result.
+    pub(crate) fn precise_dispatch<'a, 'b, 'c>(
+        function: &dyn Function,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Option<crate::traits::CalcValue<'b>> {
+        let argument = args.first()?;
+        if !argument.may_return_reference() {
+            return None;
+        }
+        let Ok(FunctionResolution::Reference(base)) = argument.resolve_reference_or_value() else {
+            return None;
+        };
+        let (rows, cols) = Self::bounded_dimensions(&base)?;
+        if !Self::precise_single_cell_selection(args, rows, cols) {
+            return None;
+        }
+        let Some(Ok(reference @ ReferenceType::Cell { .. })) =
+            Self::reference_from_base(args, ctx, base)
+        else {
+            return None;
+        };
+        let value = Self::materialize_reference(ctx, &reference).ok()?;
+        Some(function.apply_format_propagation(value))
+    }
+
+    fn validated_dispatch<'a, 'b>(
+        &self,
+        args: &[ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        use crate::args::{ValidationOptions, validate_and_prepare};
+        if let Err(error) = validate_and_prepare(
+            args,
+            self.arg_schema(),
+            ValidationOptions {
+                warn_only: false,
+                min_args: self.min_args(),
+            },
+        ) {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(error)));
+        }
+        self.eval(args, ctx)
+            .map(|result| self.apply_format_propagation(result))
+    }
+}
+
 /// Returns the value or reference at a 1-based row and column within an array or range.
 ///
 /// `INDEX` can operate on both references and array literals. When the first argument is
@@ -209,125 +420,32 @@ impl Function for IndexFn {
         &SCHEMA
     }
 
+    fn dispatch<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        if let Some(value) = Self::precise_dispatch(self, args, ctx) {
+            return Ok(value);
+        }
+        self.validated_dispatch(args, ctx)
+    }
+
     fn eval_reference<'a, 'b, 'c>(
         &self,
         args: &'c [ArgumentHandle<'a, 'b>],
         ctx: &dyn FunctionContext<'b>,
     ) -> Option<Result<ReferenceType, ExcelError>> {
-        // args: array(by_ref), row, col (col optional for 1D)
         if args.len() < 2 {
             return Some(Err(ExcelError::new(ExcelErrorKind::Value)));
         }
-        // Return None for array literals so eval() handles them
-        let base = match args[0].as_reference_or_eval() {
-            Ok(r) => r,
-            Err(_) => return None,
-        };
-        // Defensive: value() currently materializes omitted indexes as Number(0), so these
-        // row/column checks are redundant while documenting whole-row/column intent.
-        let position = if args[1].is_omitted() {
-            0
-        } else {
-            match args[1].value() {
-                Ok(cv) => match cv.into_literal() {
-                    LiteralValue::Number(n) => n as i64,
-                    LiteralValue::Int(i) => i,
-                    _ => return Some(Err(ExcelError::new(ExcelErrorKind::Value))),
-                },
-                Err(e) => return Some(Err(e)),
+        let base = match args[0].resolve_reference_or_value() {
+            Ok(FunctionResolution::Reference(reference)) => reference,
+            Ok(FunctionResolution::ReferenceError(_) | FunctionResolution::Value(_)) | Err(_) => {
+                return None;
             }
         };
-        let explicit_col = if args.len() >= 3 {
-            Some(if args[2].is_omitted() {
-                0
-            } else {
-                match args[2].value() {
-                    Ok(cv) => match cv.into_literal() {
-                        LiteralValue::Number(n) => n as i64,
-                        LiteralValue::Int(i) => i,
-                        _ => return Some(Err(ExcelError::new(ExcelErrorKind::Value))),
-                    },
-                    Err(e) => return Some(Err(e)),
-                }
-            })
-        } else {
-            None
-        };
-
-        // Only Range/Cell supported for now; unbounded ranges (e.g. B:B, 2:2)
-        // are clamped to the used region instead of erroring.
-        let (sheet, sr, sc, er, ec) = match resolve_reference_bounds(ctx, &base) {
-            Ok(bounds) => bounds,
-            Err(e) => return Some(Err(e)),
-        };
-
-        let (row, col) = match explicit_col {
-            Some(col) => (position, col),
-            None if sr == er => {
-                // Excel treats INDEX(single_row_range, n) as horizontal indexing.
-                (1, position)
-            }
-            None => {
-                // Excel treats INDEX(single_col_range, n) as vertical indexing and defaults
-                // 2-D ranges to the first column when column_num is omitted.
-                (position, 1)
-            }
-        };
-
-        // 1-based indexing per Excel. A 0 means "the entire row" (column_num == 0)
-        // or "the entire column" (row_num == 0); 0 for both yields the whole range.
-        // Negative indices are #REF!.
-        if row < 0 || col < 0 {
-            return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
-        }
-        let range_ref = |sheet, sr, sc, er, ec| ReferenceType::Range {
-            sheet,
-            start_row: Some(sr),
-            start_col: Some(sc),
-            end_row: Some(er),
-            end_col: Some(ec),
-            start_row_abs: false,
-            start_col_abs: false,
-            end_row_abs: false,
-            end_col_abs: false,
-        };
-        if col == 0 {
-            if row == 0 {
-                // INDEX(range, 0, 0) -> the entire range.
-                return Some(Ok(range_ref(sheet, sr, sc, er, ec)));
-            }
-            // INDEX(range, r, 0) -> the entire row r (degenerates to a cell for a
-            // single-column range).
-            let r = sr + (row as u32) - 1;
-            if r > er {
-                return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
-            }
-            return Some(Ok(if sc == ec {
-                ReferenceType::cell(sheet, r, sc)
-            } else {
-                range_ref(sheet, r, sc, r, ec)
-            }));
-        }
-        if row == 0 {
-            // INDEX(range, 0, c) -> the entire column c (degenerates to a cell for a
-            // single-row range).
-            let c = sc + (col as u32) - 1;
-            if c > ec {
-                return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
-            }
-            return Some(Ok(if sr == er {
-                ReferenceType::cell(sheet, sr, c)
-            } else {
-                range_ref(sheet, sr, c, er, c)
-            }));
-        }
-        let r = sr + (row as u32) - 1;
-        let c = sc + (col as u32) - 1;
-        if r > er || c > ec {
-            return Some(Err(ExcelError::new(ExcelErrorKind::Ref)));
-        }
-
-        Some(Ok(ReferenceType::cell(sheet, r, c)))
+        Self::reference_from_base(args, ctx, base)
     }
 
     fn eval<'a, 'b, 'c>(
@@ -338,23 +456,9 @@ impl Function for IndexFn {
         // First try to handle as a reference
         if let Some(result) = self.eval_reference(args, ctx) {
             match result {
-                Ok(r) => {
-                    // Materialize to value
-                    let current_sheet = ctx.current_sheet();
-                    match ctx.resolve_range_view(&r, current_sheet) {
-                        Ok(rv) => {
-                            let (rows, cols) = rv.dims();
-                            if rows == 1 && cols == 1 {
-                                Ok(crate::traits::CalcValue::Scalar(
-                                    rv.as_1x1().unwrap_or(LiteralValue::Empty),
-                                ))
-                            } else {
-                                Ok(crate::traits::CalcValue::Range(rv))
-                            }
-                        }
-                        Err(e) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
-                    }
-                }
+                Ok(reference) => Self::materialize_reference(ctx, &reference).or_else(|error| {
+                    Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(error)))
+                }),
                 Err(e) => Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(e))),
             }
         } else {
@@ -896,10 +1000,123 @@ impl Function for IndirectFn {
     }
 }
 
+#[derive(Debug)]
+pub struct HyperlinkFn;
+
+/// Returns the friendly name of a hyperlink, or its link location when no name is given.
+///
+/// The returned value is `friendly_name` when the second argument is present,
+/// otherwise `link_location`.
+///
+/// Known divergence: the friendly name is always returned as text, whereas
+/// Excel passes numbers and booleans through with their original type, so
+/// `=ISNUMBER(HYPERLINK("x",1))` is FALSE here and TRUE in Excel.
+///
+/// ```yaml,sandbox
+/// title: "Hyperlink with a friendly name"
+/// formula: '=HYPERLINK("https://example.com","Example")'
+/// expected: "Example"
+/// ```
+///
+/// ```yaml,sandbox
+/// title: "Hyperlink without a friendly name"
+/// formula: '=HYPERLINK("https://example.com")'
+/// expected: "https://example.com"
+/// ```
+///
+/// ```yaml,docs
+/// related:
+///   - INDIRECT
+/// faq:
+///   - q: "What does HYPERLINK return?"
+///     a: "The friendly name when provided, otherwise the link location, always as text."
+/// ```
+/// [formualizer-docgen:schema:start]
+/// Name: HYPERLINK
+/// Type: HyperlinkFn
+/// Min args: 1
+/// Max args: 2
+/// Variadic: false
+/// Signature: HYPERLINK(arg1: any@scalar, arg2?: any@scalar)
+/// Arg schema: arg1{kinds=any,required=true,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}; arg2{kinds=any,required=false,shape=scalar,by_ref=false,coercion=None,max=None,repeating=None,default=false}
+/// Caps: PURE
+/// [formualizer-docgen:schema:end]
+impl Function for HyperlinkFn {
+    fn caps(&self) -> FnCaps {
+        FnCaps::PURE
+    }
+    fn name(&self) -> &'static str {
+        "HYPERLINK"
+    }
+    fn min_args(&self) -> usize {
+        1
+    }
+    fn arg_schema(&self) -> &'static [ArgSchema] {
+        use std::sync::LazyLock;
+        static SCHEMA: LazyLock<Vec<ArgSchema>> = LazyLock::new(|| {
+            let mut optional = ArgSchema::any();
+            optional.required = false;
+            vec![ArgSchema::any(), optional]
+        });
+        &SCHEMA
+    }
+
+    fn eval<'a, 'b, 'c>(
+        &self,
+        args: &'c [ArgumentHandle<'a, 'b>],
+        _ctx: &dyn FunctionContext<'b>,
+    ) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+        let link = hyperlink_text(&args[0])?;
+        if args.len() < 2 {
+            return Ok(link);
+        }
+        hyperlink_text(&args[1])
+    }
+}
+
+/// Coerces a HYPERLINK argument to its display text.
+///
+/// Errors propagate as the argument's own error. Multi-cell references and
+/// array constants cannot name a hyperlink target, so they surface `#VALUE!`
+/// instead of leaking a debug-formatted array literal into the cell text.
+/// A 1x1 array collapses to its single element.
+fn hyperlink_text<'a, 'b>(
+    arg: &ArgumentHandle<'a, 'b>,
+) -> Result<crate::traits::CalcValue<'b>, ExcelError> {
+    let lit = match arg.value()? {
+        crate::traits::CalcValue::Scalar(lit) => lit,
+        crate::traits::CalcValue::AnnotatedScalar(lit, _) => lit,
+        crate::traits::CalcValue::Range(view) => {
+            let (rows, cols) = view.dims();
+            if rows == 1 && cols == 1 {
+                view.get_cell(0, 0)
+            } else {
+                return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                    ExcelError::new_value(),
+                )));
+            }
+        }
+        crate::traits::CalcValue::Callable(_) => {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(
+                ExcelError::new(ExcelErrorKind::Calc).with_message("LAMBDA value must be invoked"),
+            )));
+        }
+    };
+    Ok(crate::traits::CalcValue::Scalar(match lit {
+        LiteralValue::Error(e) => LiteralValue::Error(e),
+        LiteralValue::Array(arr) if arr.len() == 1 && arr[0].len() == 1 => {
+            LiteralValue::Text(crate::coercion::to_text_invariant(&arr[0][0]))
+        }
+        LiteralValue::Array(_) => LiteralValue::Error(ExcelError::new_value()),
+        other => LiteralValue::Text(crate::coercion::to_text_invariant(&other)),
+    }))
+}
+
 pub fn register_builtins() {
     crate::function_registry::register_builtin(std::sync::Arc::new(IndexFn));
     crate::function_registry::register_builtin(std::sync::Arc::new(OffsetFn));
     crate::function_registry::register_builtin(std::sync::Arc::new(IndirectFn));
+    crate::function_registry::register_builtin(std::sync::Arc::new(HyperlinkFn));
 }
 
 #[cfg(test)]

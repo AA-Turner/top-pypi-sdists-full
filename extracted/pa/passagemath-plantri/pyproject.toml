@@ -3,12 +3,12 @@
 requires = [
     'setuptools >= 77.0.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.8.10.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.8.10.0',
-    'passagemath-categories ~= 10.8.10.0',
-    'passagemath-environment ~= 10.8.10.0',
-    'passagemath-objects ~= 10.8.10.0',
-    'cython >=3.1.0,<3.3.0',
+    'passagemath-conf ~= 10.8.11.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.11.0',
+    'passagemath-categories ~= 10.8.11.0',
+    'passagemath-environment ~= 10.8.11.0',
+    'passagemath-objects ~= 10.8.11.0',
+    'cython >=3.1.0,<3.4.0',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
 ]
 build-backend = "setuptools.build_meta"
@@ -58,8 +58,8 @@ content-type = "text/x-rst"
 
 [project.optional-dependencies]
 test = [
-    'passagemath-graphs ~= 10.8.10.0',
-    'passagemath-repl ~= 10.8.10.0',
+    'passagemath-graphs ~= 10.8.11.0',
+    'passagemath-repl ~= 10.8.11.0',
 ]
 
 [tool.cibuildwheel.linux]

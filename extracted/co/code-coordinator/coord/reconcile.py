@@ -61,8 +61,9 @@ def _query_agent(host: str, port: int = AGENT_PORT, timeout: float = 5.0) -> dic
 # Terminal statuses an agent reports in its /status `completed` history,
 # mapped to the board terminal status we persist. (#625)
 #
-# #2234: "refused_policy" (coord.agent.REFUSED_POLICY) joins "advisory" as
-# its own pass-through entry — WITHOUT this, `reconcile_completed_
+# #2234/#3164: "refused_policy" (coord.agent.REFUSED_POLICY) and
+# "refused_premise" (coord.agent.REFUSED_PREMISE) join "advisory" as their
+# own pass-through entries — WITHOUT this, `reconcile_completed_
 # assignments` below (the daemon's passive tick, the primary production
 # path a completion is first observed on) reads `terminal = _AGENT_TERMINAL_
 # STATUS.get(...)` as `None` for an unrecognised status and just
@@ -75,6 +76,7 @@ _AGENT_TERMINAL_STATUS = {
     "done": "done",
     "advisory": "advisory",
     "refused_policy": "refused_policy",
+    "refused_premise": "refused_premise",
     "failed": "failed",
     "cancelled": "failed",
 }
@@ -143,7 +145,9 @@ _LATE_REPORT_CORRECTION_WINDOW_SECONDS = 6 * 3600.0
 # passive correction pass has no business doing. A row whose real status
 # turns out to be `done` is left on its (safe, conservative) `failed`/
 # `advisory` guess — a human or `coord notify` can still promote it.
-_LATE_REPORT_SAFE_TARGETS = frozenset({"failed", "advisory", "refused_policy"})
+_LATE_REPORT_SAFE_TARGETS = frozenset(
+    {"failed", "advisory", "refused_policy", "refused_premise"}
+)
 
 
 def is_attended_session(a: object) -> bool:
@@ -1047,13 +1051,28 @@ def _capture_cost_from_entry_best_effort(assignment_id: str, entry: dict) -> Non
     serves terminal entries) with ``cost_so_far`` as a fallback.  Either is
     used only when present and > 0 so an un-measured session isn't written as 0.
 
+    #3158: this is only ONE of the two places a terminal row's cost can be
+    captured — the daemon's passive reconcile tick, and only for a row it
+    catches transitioning to terminal *while the agent still serves the
+    ``completed`` entry this function is handed*. A missed tick (agent
+    restart, retention, a slow tick) means this function is never even
+    called for that row, and ``cost_usd`` stays NULL forever — the #3158
+    root cause. ``coord backfill-cost`` (coord/commands/merge.py) is the
+    fleet-wide repair for that population, going through each agent's
+    ``/logs/<id>`` directly instead of depending on this opportunistic path.
+    When THIS function IS reached and finds no cost, it still records that
+    fact (see below) so a later backfill run doesn't have to re-parse a log
+    that already told us there's nothing in it.
+
     Token counts are captured separately by ``_capture_tokens_best_effort``
     (#667 Gap B), which is called at the same call site.
     """
     try:
-        from coord.state import update_assignment_cost  # noqa: PLC0415
+        from coord.state import mark_cost_unmeasured, update_assignment_cost  # noqa: PLC0415
 
-        raw_cost = entry.get("total_cost_usd") or entry.get("cost_so_far")
+        raw_cost = entry.get("total_cost_usd")
+        if raw_cost is None:
+            raw_cost = entry.get("cost_so_far")
         if raw_cost is not None:
             try:
                 cost = float(raw_cost)
@@ -1062,6 +1081,18 @@ def _capture_cost_from_entry_best_effort(assignment_id: str, entry: dict) -> Non
             else:
                 if cost > 0:
                     update_assignment_cost(assignment_id, cost)
+                elif "total_cost_usd" in entry:
+                    # #3158: `"total_cost_usd" in entry` (as opposed to just
+                    # `raw_cost is not None`) is the signal that
+                    # `coord.agent.AgentServer.list_assignments` actually
+                    # ran a FULL re-parse of this assignment's log and
+                    # found nothing — as opposed to the key being absent
+                    # because the log wasn't stream-json or the parse
+                    # itself raised. Only that positive case is safe to
+                    # record as "un-measured" rather than silently leaving
+                    # both columns NULL (indistinguishable from "never
+                    # examined") per #1763's "never silently priced at $0".
+                    mark_cost_unmeasured(assignment_id)
     except Exception:  # noqa: BLE001 — never let cost capture break the reconcile
         pass
 
@@ -2194,6 +2225,30 @@ def reconcile(board: Board, config: Config) -> list[str]:
             # NOTE: do NOT add to newly_failed — a policy refusal is never a
             # candidate for auto_reassign; retrying it reproduces the
             # identical, correct refusal every time.
+        elif agent_status == "refused_premise":
+            # #3164: worker exited cleanly, pushed 0 commits, and its own
+            # final message reported an investigated, refuted issue premise
+            # — no repo rule involved. Mirrors the "refused_policy" branch
+            # immediately above exactly (move to completed, skip review,
+            # never a candidate for auto_reassign) — the two differ only in
+            # the OPERATOR remedy (`coord/drive.py` / `coord/drive_queue.py`
+            # print a re-scope/close-and-audit-dependents note here instead
+            # of a title-retarget one), never in this control flow.
+            done = board.mark_done_by_id(
+                a.assignment_id,
+                finished_at=entry.get("finished_at"),
+                branch=branch,
+            )
+            if done is not None:
+                # mark_done_by_id sets status="done"; correct it.
+                done.status = "refused_premise"
+                if done.type in WORK_LIKE_TYPES:
+                    # No code pushed → nothing to review.
+                    done.review_state = "advisory"
+                _record_usage_limit_reason(a.assignment_id, entry)
+            # NOTE: do NOT add to newly_failed — a premise refusal is never a
+            # candidate for auto_reassign; retrying it reproduces the
+            # identical, correct refusal every time.
         else:
             # Defensive: don't downgrade a DB-done assignment to failed when
             # the agent reports cancelled (e.g. after POST /cancel cleanup
@@ -3323,11 +3378,13 @@ def reconcile_board_merges(
                 and a.review_state == "pending"
             )
             or a.status == "advisory"
-            # #2234: a refused_policy row is the same "ghost sibling" shape
-            # as advisory above — a terminal, zero-commit no-op that should
-            # auto-settle to `merged` once GitHub confirms the issue went
-            # terminal, rather than sitting on `refused_policy` forever.
+            # #2234/#3164: a refused_policy/refused_premise row is the same
+            # "ghost sibling" shape as advisory above — a terminal,
+            # zero-commit no-op that should auto-settle to `merged` once
+            # GitHub confirms the issue went terminal, rather than sitting on
+            # `refused_policy`/`refused_premise` forever.
             or a.status == "refused_policy"
+            or a.status == "refused_premise"
             or (
                 a.type == "work"
                 and a.status == "merged"
@@ -3386,6 +3443,19 @@ def reconcile_board_merges(
             if not dry_run:
                 a.status = "merged"
                 state.mark_refused_policy_settled(a.assignment_id or "")
+        elif a.status == "refused_premise":
+            # #3164: same settling as refused_policy above — once GitHub
+            # confirms the issue went terminal, a refused_premise row
+            # auto-settles to 'merged' rather than sitting on the board
+            # forever.
+            actions.append(
+                f"settle refused_premise {a.assignment_id} "
+                f"({a.repo_name} #{a.issue_number})"
+                + (" [dry-run]" if dry_run else "")
+            )
+            if not dry_run:
+                a.status = "merged"
+                state.mark_refused_premise_settled(a.assignment_id or "")
         elif a.type == "work":
             # #951: type=work, status=merged, review_state=pending — a row
             # that already fell out of sweep (b)'s status=='done' candidates

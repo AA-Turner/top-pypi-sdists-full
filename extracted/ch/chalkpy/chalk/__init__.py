@@ -44,6 +44,7 @@ from chalk.features.tag import BranchId, EnvironmentId
 from chalk.features.underscore import _, __, underscore
 from chalk.importer import get_resolver
 from chalk.logging import chalk_logger
+from chalk.metrics import log_custom_metric
 from chalk.ml.model_handler import model_handler
 from chalk.ml.model_reference import ModelReference
 from chalk.operators import StaticOperator, scan_parquet
@@ -126,6 +127,7 @@ __all__ = (
     "make_model_resolver",
     "make_sql_file_resolver",
     "model_handler",
+    "log_custom_metric",
     "offline",
     "online",
     "op",

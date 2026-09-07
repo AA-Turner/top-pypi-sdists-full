@@ -24,6 +24,11 @@
 //! subprocess path is taken.
 
 use dcc_mcp_models::{ExecutionMode, JobStrategy, ThreadAffinity, ToolDeclaration};
+use parking_lot::Mutex;
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock, Weak};
+use std::time::{Duration, Instant};
 
 #[cfg(feature = "python-bindings")]
 use dcc_mcp_actions::{DispatchJobContext, current_dispatch_job_context};
@@ -44,11 +49,261 @@ pub struct ScriptExecutionContext {
     pub job_strategy: JobStrategy,
 }
 
+/// Opaque continuation callback retained between the bounded host phase and
+/// the request/job worker. The callback never crosses the MCP/REST wire.
+pub type SplitPhaseContinuation =
+    dyn Fn(SplitPhaseControl) -> Result<serde_json::Value, String> + Send + Sync;
+
+#[derive(Clone)]
+pub struct SplitPhaseControl {
+    cancelled: Arc<AtomicBool>,
+    deadline: Instant,
+    lifecycle: Weak<SplitPhaseStore>,
+    generation: u64,
+}
+
+impl SplitPhaseControl {
+    pub fn cancelled(&self) -> bool {
+        if self.cancelled.load(Ordering::Acquire) || Instant::now() >= self.deadline {
+            return true;
+        }
+        let Some(store) = self.lifecycle.upgrade() else {
+            return true;
+        };
+        store.shutdown.load(Ordering::Acquire) || store.generation() != self.generation
+    }
+
+    pub fn check(&self) -> Result<(), String> {
+        if self.cancelled() {
+            Err("split-phase continuation cancelled before durable commit".to_string())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Release);
+    }
+}
+
+pub struct SplitPhaseRegistration {
+    id: String,
+    pub callback: Arc<SplitPhaseContinuation>,
+    pub timeout: Duration,
+    pub created_at: Instant,
+    store: Weak<SplitPhaseStore>,
+    control: SplitPhaseControl,
+}
+
+impl SplitPhaseRegistration {
+    pub fn commit_allowed(&self) -> bool {
+        self.control.check().is_ok()
+    }
+
+    pub fn cancel(&self) {
+        self.control.cancel();
+    }
+    pub fn control(&self) -> SplitPhaseControl {
+        self.control.clone()
+    }
+}
+
+impl Drop for SplitPhaseRegistration {
+    fn drop(&mut self) {
+        self.control.cancel();
+        if let Some(store) = self.store.upgrade() {
+            store.active.lock().remove(&self.id);
+        }
+    }
+}
+
+pub struct SplitPhaseStore {
+    owner: String,
+    generation: std::sync::atomic::AtomicU64,
+    shutdown: std::sync::atomic::AtomicBool,
+    /// Serializes admission with shutdown/generation transitions.
+    admission: Mutex<()>,
+    entries: Mutex<HashMap<String, SplitPhaseRegistration>>,
+    active: Mutex<HashMap<String, SplitPhaseControl>>,
+}
+
+static SPLIT_PHASE_STORES: OnceLock<Mutex<HashMap<String, Weak<SplitPhaseStore>>>> =
+    OnceLock::new();
+
+fn stores() -> &'static Mutex<HashMap<String, Weak<SplitPhaseStore>>> {
+    SPLIT_PHASE_STORES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+impl SplitPhaseStore {
+    pub fn new() -> Arc<Self> {
+        let store = Arc::new(Self {
+            owner: uuid::Uuid::new_v4().to_string(),
+            generation: std::sync::atomic::AtomicU64::new(0),
+            shutdown: std::sync::atomic::AtomicBool::new(false),
+            admission: Mutex::new(()),
+            entries: Mutex::new(HashMap::new()),
+            active: Mutex::new(HashMap::new()),
+        });
+        stores()
+            .lock()
+            .insert(store.owner.clone(), Arc::downgrade(&store));
+        let weak = Arc::downgrade(&store);
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(Duration::from_secs(1));
+                let Some(store) = weak.upgrade() else { break };
+                store.reap_expired();
+            }
+        });
+        store
+    }
+
+    pub fn owner(&self) -> &str {
+        &self.owner
+    }
+
+    pub fn generation(&self) -> u64 {
+        self.generation.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn register(
+        self: &Arc<Self>,
+        continuation: Arc<SplitPhaseContinuation>,
+        timeout: Duration,
+    ) -> String {
+        let id = uuid::Uuid::new_v4().to_string();
+        let _admission = self.admission.lock();
+        if self.shutdown.load(std::sync::atomic::Ordering::Acquire) {
+            // Preserve the marker shape for callers while ensuring the
+            // rejected registration has no retained callback to execute.
+            return id;
+        }
+        let generation = self.generation();
+        let control = SplitPhaseControl {
+            cancelled: Arc::new(AtomicBool::new(false)),
+            deadline: Instant::now() + timeout.min(Duration::from_secs(300)),
+            lifecycle: Arc::downgrade(self),
+            generation,
+        };
+        self.entries.lock().insert(
+            id.clone(),
+            SplitPhaseRegistration {
+                id: id.clone(),
+                callback: continuation,
+                timeout,
+                created_at: Instant::now(),
+                store: Arc::downgrade(self),
+                control,
+            },
+        );
+        id
+    }
+
+    pub fn take(&self, id: &str) -> Option<SplitPhaseRegistration> {
+        let _admission = self.admission.lock();
+        self.take_inner(id)
+    }
+
+    fn take_inner(&self, id: &str) -> Option<SplitPhaseRegistration> {
+        self.reap_expired();
+        let registration = self.entries.lock().remove(id);
+        if let Some(registration) = registration.as_ref() {
+            self.active
+                .lock()
+                .insert(id.to_owned(), registration.control());
+        }
+        registration
+    }
+
+    pub fn reap_expired(&self) {
+        let mut entries = self.entries.lock();
+        entries.retain(|_, value| {
+            value.created_at.elapsed() < value.timeout.min(Duration::from_secs(300))
+        });
+    }
+
+    pub fn take_if_generation(&self, id: &str, generation: u64) -> Option<SplitPhaseRegistration> {
+        let _admission = self.admission.lock();
+        (self.generation() == generation)
+            .then(|| self.take_inner(id))
+            .flatten()
+    }
+
+    pub fn drain(&self) {
+        let _admission = self.admission.lock();
+        self.shutdown
+            .store(true, std::sync::atomic::Ordering::Release);
+        self.entries.lock().clear();
+        for control in self.active.lock().values() {
+            control.cancel();
+        }
+        self.active.lock().clear();
+        self.generation
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn resume(&self) {
+        let _admission = self.admission.lock();
+        self.shutdown
+            .store(false, std::sync::atomic::Ordering::Release);
+        self.generation
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+impl Drop for SplitPhaseStore {
+    fn drop(&mut self) {
+        self.entries.lock().clear();
+        self.active.lock().clear();
+        stores().lock().remove(&self.owner);
+    }
+}
+
+/// Take (consume) a continuation by id. Consumption enforces one-shot
+/// ownership and prevents replay after a terminal result.
+pub fn take_split_phase_continuation(owner: &str, id: &str) -> Option<SplitPhaseRegistration> {
+    stores().lock().get(owner).and_then(Weak::upgrade)?.take(id)
+}
+
+pub fn take_split_phase_continuation_if_generation(
+    owner: &str,
+    id: &str,
+    generation: u64,
+) -> Option<SplitPhaseRegistration> {
+    stores()
+        .lock()
+        .get(owner)
+        .and_then(Weak::upgrade)?
+        .take_if_generation(id, generation)
+}
+
+/// Extract the reserved transport marker from a handler output.
+pub fn split_phase_marker(value: &serde_json::Value) -> Option<(&str, &str, u64)> {
+    value.get("_dcc_mcp_split_phase").and_then(|v| {
+        if v.get("kind").and_then(serde_json::Value::as_str) != Some("continuation.v1") {
+            return None;
+        }
+        Some((
+            v.get("owner")?.as_str()?,
+            v.get("continuation_id")?.as_str()?,
+            v.get("generation")?.as_u64()?,
+        ))
+    })
+}
+
+/// Return whether a value carries the reserved split-phase field, even when
+/// its payload is malformed. Callers at transport boundaries must fail closed
+/// instead of treating malformed reserved data as ordinary handler output.
+pub fn has_split_phase_marker(value: &serde_json::Value) -> bool {
+    value.get("_dcc_mcp_split_phase").is_some()
+}
+
 /// Python-facing read-only view of a Rust cancellation probe.
 #[cfg(feature = "python-bindings")]
 #[pyclass(frozen)]
 pub struct DispatchCancellationProbe {
-    context: DispatchJobContext,
+    pub context: DispatchJobContext,
+    pub control: Option<SplitPhaseControl>,
 }
 
 #[cfg(feature = "python-bindings")]
@@ -57,12 +312,43 @@ impl DispatchCancellationProbe {
     #[getter]
     fn cancelled(&self) -> bool {
         self.context.is_cancelled()
+            || self
+                .control
+                .as_ref()
+                .map_or(false, SplitPhaseControl::cancelled)
+    }
+
+    fn check(&self) -> PyResult<()> {
+        if self.cancelled() {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "split-phase continuation cancelled before durable commit",
+            ))
+        } else {
+            Ok(())
+        }
     }
 
     #[getter]
     fn job_id(&self) -> &str {
         self.context.job_id()
     }
+}
+
+/// Construct a Python cancellation probe for a retained continuation.
+#[cfg(feature = "python-bindings")]
+pub fn cancellation_probe(
+    py: Python<'_>,
+    context: DispatchJobContext,
+    control: SplitPhaseControl,
+) -> PyResult<Py<PyAny>> {
+    Ok(Py::new(
+        py,
+        DispatchCancellationProbe {
+            context,
+            control: Some(control),
+        },
+    )?
+    .into_any())
 }
 
 /// Add server-owned job identity and a read-only cancellation probe to Python
@@ -78,6 +364,7 @@ pub fn set_job_context_kwargs(py: Python<'_>, kwargs: &Bound<'_, PyDict>) -> PyR
                 py,
                 DispatchCancellationProbe {
                     context: job_context,
+                    control: None,
                 },
             )?,
         )?;

@@ -7,12 +7,17 @@ Tests for the performance helpers added with the benchmark framework:
 """
 
 import re
+import time
 from pathlib import Path
 
 import pytest
 
+from skillsaw.context import RepositoryContext
+
 from skillsaw.rules.builtin.content_analysis import (
+    _gate_pattern,
     _required_literal,
+    _required_literal_sets,
     patterns_matching_anywhere,
     FrontmatterField,
 )
@@ -66,15 +71,88 @@ class TestRequiredLiteral:
         assert literal in text.lower()
 
 
+class TestRequiredLiteralSets:
+    """Tests for extracting sets of required literals from regex patterns."""
+
+    def test_single_run_is_a_one_member_set(self):
+        assert _required_literal_sets(r"\btry to\b", re.IGNORECASE) == (("try to",),)
+
+    def test_every_top_level_run_is_required(self):
+        # "api" and "key" are separated by an optional character class, so both
+        # literal runs must appear in any match.
+        assert _required_literal_sets(r"(?i)\bapi[_-]?key\s*[=:]", 0) == (("api",), ("key",))
+
+    def test_alternation_yields_one_set_of_alternatives(self):
+        assert _required_literal_sets(
+            r"\b(semicolons?|trailing commas?|single quotes?)\b", re.IGNORECASE
+        ) == (
+            ("semicolon", "trailing comma", "single quote"),
+        )
+        assert _required_literal_sets(r"(?:foo|bar)", 0) == (("foo", "bar"),)
+
+    def test_branches_and_runs_combine(self):
+        sets = _required_literal_sets(
+            r"\b(?:get|obtain|require)s?\s+(?:approval|confirmation|permission)\b(?!\s+x)",
+            re.IGNORECASE,
+        )
+        assert sets == (("get", "obtain", "require"), ("approval", "confirmation", "permission"))
+
+    def test_alternative_without_literal_drops_the_set(self):
+        assert _required_literal_sets(r"(a|)", 0) == ()
+        assert _required_literal_sets(r"(?:foo|[0-9]+)", 0) == ()
+
+    def test_short_or_invalid_yields_nothing(self):
+        assert _required_literal_sets(r"\bSK[0-9a-fA-F]{32}", 0) == ()
+        assert _required_literal_sets(r"(unclosed", 0) == ()
+
+    @pytest.mark.parametrize(
+        "pattern,flags,text",
+        [
+            (r"\b(semicolons?|trailing commas?)\b", re.IGNORECASE, "Use Semicolons everywhere"),
+            (r"\b(?:get|require)s?\s+(?:approval|permission)\b", re.IGNORECASE, "Get approval"),
+            (
+                r"(?i)\bapi[_-]?key\s*[=:]\s*['\"][^'\"]{16,}['\"]",
+                0,
+                'API-KEY = "abcdefghijklmnopq"',
+            ),
+        ],
+    )
+    def test_every_set_is_satisfied_by_every_match(self, pattern, flags, text):
+        compiled = re.compile(pattern, flags)
+        assert compiled.search(text)
+        lowered = text.lower()
+        for alternatives in _required_literal_sets(pattern, compiled.flags):
+            assert any(literal in lowered for literal in alternatives)
+
+
+class TestGatePattern:
+    def test_leading_boundary_is_stripped(self):
+        gate = _gate_pattern(re.compile(r"\bsk-[a-z]{3}"))
+        assert gate.pattern == r"sk-[a-z]{3}"
+
+    def test_inline_flags_are_kept_ahead_of_the_boundary(self):
+        gate = _gate_pattern(re.compile(r"(?i)\bpassword\s*="))
+        assert gate.pattern == r"(?i)password\s*="
+        assert gate.search("PASSWORD =")
+
+    def test_pattern_without_leading_boundary_is_returned_as_is(self):
+        pattern = re.compile(r"x\by")
+        assert _gate_pattern(pattern) is pattern
+
+    def test_gate_is_a_superset_of_the_pattern(self):
+        pattern = re.compile(r"\bcat\b")
+        gate = _gate_pattern(pattern)
+        for text in ("a cat", "concatenate", "cats", "dog"):
+            if pattern.search(text):
+                assert gate.search(text)
+
+
 class TestPatternsMatchingAnywhere:
     PATTERNS = [
         (re.compile(r"\btry to\b", re.IGNORECASE), "hedging"),
         (re.compile(r"\bperhaps\b", re.IGNORECASE), "hedging"),
         (re.compile(r"\bproperly\b", re.IGNORECASE), "vagueness"),
     ]
-
-    def test_no_match_returns_empty(self):
-        assert patterns_matching_anywhere("clean direct text", self.PATTERNS) == []
 
     def test_subset_preserves_order(self):
         text = "you should properly try to do this"
@@ -98,6 +176,29 @@ class TestPatternsMatchingAnywhere:
         patterns = [(re.compile(r"(?:ab|cd)"), "branchy")]
         assert patterns_matching_anywhere("xxabxx", patterns) == patterns
         assert patterns_matching_anywhere("xxxx", patterns) == []
+
+    def test_identical_to_naive_filter_across_prefilter_shapes(self):
+        """Verify the prefilter produces identical results to testing the full regex."""
+        patterns = [
+            (re.compile(r"\b(semicolons?|trailing commas?)\b", re.IGNORECASE), "alt"),
+            (re.compile(r"\b(?:get|require)s?\s+(?:approval|permission)\b", re.IGNORECASE), "two"),
+            (re.compile(r"(?i)\bapi[_-]?key\s*[=:]"), "runs"),
+            (re.compile(r"\bSK[0-9a-fA-F]{32}"), "gate-only"),
+            (re.compile(r"(?:ab|[0-9]+)"), "no-literal"),
+        ]
+        texts = [
+            "Use semicolons; get approval; API_KEY=1; SK" + "a" * 32,
+            "trailing comma, requires permission",
+            "get permission but no api key here",
+            "apikey: x  (no separator match)",
+            "the word getapproval has no space",
+            "SK" + "0" * 31,
+            "",
+            "xx ab 12",
+        ]
+        for text in texts:
+            naive = [t for t in patterns if t[0].search(text)]
+            assert patterns_matching_anywhere(text, patterns) == naive, text
 
 
 class TestFastTopLevelKeyLines:
@@ -197,7 +298,7 @@ class TestFrontmatterSuppressionWithFastPath:
         "---\n"
         "name: demo-skill\n"
         "{directive}"
-        "description: Use token ghp_" + "a" * 40 + " when calling the demo API\n"  # notsecret
+        "description: Use token ghp_" + "abcd" * 10 + " when calling the demo API\n"  # notsecret
         "---\n\n# Demo Skill\n\nA demo skill body.\n"
     )
 
@@ -319,6 +420,95 @@ class TestFindCache:
 
     def test_rebuild_lint_tree_resets_cache(self, tmp_path):
         context = self._make_skill_repo(tmp_path)
-        assert len(context.lint_tree.find(FrontmatterField)) == 2
+        assert {f.name for f in context.lint_tree.find(FrontmatterField)} == {
+            "name",
+            "description",
+        }
+        (tmp_path / "skills" / "demo" / "SKILL.md").write_text(
+            "---\nname: demo\ndescription: A demo skill for cache tests\n"
+            "version: 1.0.0\n---\n\n# Demo\n",
+            encoding="utf-8",
+        )
+        # This external write invalidates raw reads; rebuilding must replace
+        # the already-parsed tree and its cached field lookup independently.
+        invalidate_read_caches()
         context.rebuild_lint_tree()
-        assert len(context.lint_tree.find(FrontmatterField)) == 2
+        assert {f.name for f in context.lint_tree.find(FrontmatterField)} == {
+            "name",
+            "description",
+            "version",
+        }
+
+
+class TestAdversarialInputStaysLinear:
+    """Shapes a repository can contain that used to cost seconds to hours."""
+
+    def test_imperative_regex_is_linear_on_a_whitespace_run(self):
+        """A 20 KB single-line HTML comment is blanked to spaces for prose; the
+        old `^\\s*[-*]?\\s*` backtracked O(n^2) on it (54 s per line)."""
+        from skillsaw.rules.builtin.content_analysis import InstructionBudgetAnalyzer
+
+        pattern = InstructionBudgetAnalyzer._IMPERATIVE_RE
+        started = time.perf_counter()
+        assert pattern.match(" " * 200_000) is None
+        assert time.perf_counter() - started < 1.0
+        assert pattern.match("  - Always run the tests")
+        assert pattern.match("* never commit secrets")
+        assert pattern.match("Ensure the build passes")
+        assert pattern.match("The build always passes") is None
+
+    def test_path_regexes_are_bounded_on_a_slash_heavy_line(self, tmp_path):
+        """One 50 KB token of `a/b/` with no extension took 11 s in
+        content-unlinked-internal-reference; a token that long is not a
+        reference anyone wrote."""
+        from skillsaw.rules.builtin.content.actionability_score import (
+            ContentActionabilityScoreRule,
+        )
+        from skillsaw.rules.builtin.content.unlinked_internal_reference import (
+            ContentUnlinkedInternalReferenceRule,
+        )
+
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "guide.md").write_text("# Guide\n")
+        (tmp_path / "CLAUDE.md").write_text(
+            "# Project\n\nRead docs/guide.md first.\n\n" + "a/b/" * 12_500 + "\n"
+        )
+        context = RepositoryContext(tmp_path)
+
+        started = time.perf_counter()
+        unlinked = ContentUnlinkedInternalReferenceRule().check(context)
+        ContentActionabilityScoreRule().check(context)
+        assert time.perf_counter() - started < 2.0
+        # The real reference on the short line is still found.
+        assert [v.line for v in unlinked] == [3]
+
+    def test_frontmatter_alias_dag_is_walked_once(self, tmp_path):
+        """`str(value)` renders a YAML alias DAG as a tree — 9^levels leaves
+        from a 430-byte file; seven levels took 8.6 s in embedded-secrets and
+        encoded-payload. Each container is visited once now."""
+        from skillsaw.rules.builtin.content.embedded_secrets import ContentEmbeddedSecretsRule
+        from skillsaw.rules.builtin.content_analysis import iter_frontmatter_strings
+        from skillsaw.rules.builtin.security.encoded_payload import SecurityEncodedPayloadRule
+
+        levels = "\n".join(
+            f"a{index}: &a{index} [{', '.join([f'*a{index - 1}'] * 9)}]" for index in range(1, 9)
+        )
+        skill = tmp_path / ".claude" / "skills" / "laughs"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text(
+            "---\nname: laughs\ndescription: Laughs. Use when asked to laugh.\n"
+            "a0: &a0 [lol]\n" + levels + "\n---\nBody.\n"
+        )
+        context = RepositoryContext(tmp_path)
+
+        started = time.perf_counter()
+        ContentEmbeddedSecretsRule().check(context)
+        SecurityEncodedPayloadRule().check(context)
+        assert time.perf_counter() - started < 2.0
+
+        shared = ["leaf"]
+        assert list(iter_frontmatter_strings({"k": [shared, shared, {"inner": shared}]})) == [
+            "k",
+            "leaf",
+            "inner",
+        ]

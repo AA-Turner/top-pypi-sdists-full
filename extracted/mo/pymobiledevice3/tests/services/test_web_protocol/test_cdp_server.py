@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Optional
 from urllib.parse import urlsplit
 
+import httpx
 import pytest
 import uvicorn
 from wsproto import ConnectionType, WSConnection
@@ -1536,7 +1537,8 @@ def test_landing_page_links_each_kind_to_its_own_frontend() -> None:
     html = targets_html(inspector, "127.0.0.1:9222")
 
     assert '<a href="/devtools/inspector.html?ws=127.0.0.1:9222/devtools/page/PID:1:1">Example</a>' in html
-    assert '<a href="/devtools/js_app.html?ws=127.0.0.1:9222/devtools/page/PID:2:1">myapp (2): JSContext</a>' in html
+    # Every JSContext of a process is titled "JSContext"; the context number tells them apart.
+    assert '<a href="/devtools/js_app.html?ws=127.0.0.1:9222/devtools/page/PID:2:1">myapp (2): JSContext #1</a>' in html
 
 
 def test_landing_page_escapes_titles_from_the_device() -> None:
@@ -1705,3 +1707,159 @@ async def test_a_frame_target_going_away_does_not_reset_the_frontend(monkeypatch
 
         assert target.output_queue.empty()
         assert "frame-2" not in target._destroyed_targets
+
+
+def _landing_page_app() -> Any:
+    """The bridge app wired to a fake inspector so the landing page can be served without a device."""
+
+    class _Inspector:
+        def __init__(self) -> None:
+            self.application_pages: dict[str, dict[str, Page]] = {}
+            self.connected_application: dict[str, Application] = {}
+
+        async def get_open_pages(self) -> None:
+            pass
+
+    class _Holder:
+        running = False
+
+    app.state.inspector = _Inspector()
+    app.state.holder = _Holder()
+    return app
+
+
+@pytest.mark.asyncio
+async def test_landing_page_carries_the_project_favicon_and_logo() -> None:
+    """The landing page declares the project logo as its icon and shows it next to the title."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=_landing_page_app()), base_url="http://t") as client:
+        html = (await client.get("/")).text
+
+    assert '<link rel="icon" type="image/png" href="/logo.png">' in html
+    assert '<img class="logo" src="/logo.png" alt="">' in html
+
+
+@pytest.mark.asyncio
+async def test_logo_is_served_as_png_under_both_names() -> None:
+    """/logo.png is the bundled PNG; /favicon.ico answers browsers that ask for the default icon path."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=_landing_page_app()), base_url="http://t") as client:
+        logo = await client.get("/logo.png")
+        favicon = await client.get("/favicon.ico")
+
+    assert logo.status_code == 200
+    assert logo.headers["content-type"] == "image/png"
+    assert logo.content.startswith(b"\x89PNG\r\n\x1a\n")
+    assert favicon.status_code == 200
+    assert favicon.headers["content-type"] == "image/png"
+    assert favicon.content == logo.content
+
+
+async def testp_cdp_server_handles_editing_keys(lockdown: LockdownClient) -> None:
+    """
+    Editing keys act on the focused field the way a keyboard's would - on keyDown, so a held key
+    repeats: Backspace used to act on keyUp only, so holding it deleted one character. Cmd/Ctrl-A
+    selects all, the arrows and Home/End move the caret (with Shift extending the selection),
+    Delete deletes forward, and typing or Backspace replace whatever is selected. The page's own
+    keydown listeners run first and can prevent the default, as they would in a browser.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        try:
+
+            async def command(method: str, params: dict[str, Any]) -> dict[str, Any]:
+                return await client.command(next(message_ids), method, params)
+
+            async def evaluate(expression: str) -> Any:
+                response = await command("Runtime.evaluate", {"expression": expression, "returnByValue": True})
+                return response.get("result", {}).get("result", {}).get("value")
+
+            async def key(key_: str, modifiers: int = 0, repeats: int = 0) -> None:
+                """Press a key the way DevTools' screencast does: keyDown (and its auto-repeats), keyUp."""
+                params: dict[str, Any] = {"key": key_, "code": key_, "modifiers": modifiers}
+                await command("Input.dispatchKeyEvent", {"type": "keyDown", "autoRepeat": False, **params})
+                for _ in range(repeats):
+                    await command("Input.dispatchKeyEvent", {"type": "keyDown", "autoRepeat": True, **params})
+                await command("Input.dispatchKeyEvent", {"type": "keyUp", **params})
+
+            async def type_char(char: str) -> None:
+                for type_ in ("keyDown", "char", "keyUp"):
+                    params: dict[str, Any] = {"type": type_, "key": char, "code": f"Key{char.upper()}"}
+                    if type_ == "char":
+                        params["text"] = char
+                    await command("Input.dispatchKeyEvent", params)
+
+            await command("Page.enable", {})
+            await command("Runtime.enable", {})
+            await command("Page.navigate", {"url": "https://example.com/"})
+
+            async def reset_field(value: str = "") -> None:
+                await evaluate(
+                    "(function () {"
+                    "  document.body.innerHTML = '';"
+                    "  var el = document.createElement('input');"
+                    "  el.id = 'f';"
+                    "  el.type = 'text';"
+                    f"  el.value = {json.dumps(value)};"
+                    "  document.body.appendChild(el);"
+                    "  el.focus();"
+                    "  el.setSelectionRange(el.value.length, el.value.length);"
+                    "  return 'ok';"
+                    "})()"
+                )
+
+            async def field_value() -> Any:
+                return await evaluate("document.getElementById('f').value")
+
+            META, SHIFT = 4, 8
+
+            await reset_field("hello")
+            await key("Backspace", repeats=2)
+            assert await field_value() == "he", "a held Backspace must delete once per repeat"
+
+            await reset_field("hello")
+            await key("a", modifiers=META)
+            await type_char("x")
+            assert await field_value() == "x", "typing after Cmd-A must replace the whole value"
+
+            await reset_field("hello")
+            await key("a", modifiers=META)
+            await key("Backspace")
+            assert await field_value() == "", "Backspace after Cmd-A must clear the field"
+
+            await reset_field("abc")
+            await key("ArrowLeft")
+            await type_char("X")
+            assert await field_value() == "abXc", "ArrowLeft must move the caret back one character"
+
+            await key("ArrowLeft", modifiers=SHIFT, repeats=1)
+            await type_char("Y")
+            assert await field_value() == "aYc", "Shift-ArrowLeft must extend the selection, replaced by typing"
+
+            await key("Home")
+            await key("Delete")
+            assert await field_value() == "Yc", "Home then Delete must delete the first character"
+
+            await key("End")
+            await key("Backspace")
+            assert await field_value() == "Y", "End then Backspace must delete the last character"
+
+            # A page that handles the shortcut itself keeps it: preventing the default on keydown
+            # stops the bridge's select-all, exactly as it stops a browser's.
+            await reset_field("hello")
+            await evaluate(
+                "window.__keys = [];"
+                " document.getElementById('f').addEventListener('keydown', e => {"
+                "   window.__keys.push(e.key + (e.metaKey ? '+meta' : ''));"
+                "   if (e.metaKey && e.key === 'a') { e.preventDefault(); }"
+                " });"
+                " 'ok'"
+            )
+            await key("a", modifiers=META)
+            await type_char("z")
+            assert await evaluate("JSON.stringify(window.__keys)") == '["a+meta","z"]', (
+                "the page's keydown listener must see every key with its modifiers"
+            )
+            assert await field_value() == "helloz", "a page that prevents Cmd-A's default must keep its value"
+        finally:
+            await client.close()

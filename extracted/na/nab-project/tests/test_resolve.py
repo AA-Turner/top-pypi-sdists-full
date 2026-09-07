@@ -1648,7 +1648,7 @@ class TestResolveUniversalPyproject:
     def test_fork_selects_on_its_own_member_too(
         self, mock_engine: MagicMock, tmp_path: Path
     ) -> None:
-        """A fork's own member is one of the selections its lock gates on.
+        """A fork's lock records its own member among its selections.
 
         ``shared`` is required by the conflicting ``cpu`` extra and by the
         non-conflicting ``docs`` extra, so the cpu fork has to attribute it
@@ -2269,11 +2269,11 @@ class TestResolveUniversalPyproject:
     def test_umbrella_extra_co_selecting_above_a_micro_boundary_raises(
         self, tmp_path: Path
     ) -> None:
-        """A self-ref gated on a micro of the tuple's own minor still refuses.
+        """A self-ref conditioned on a micro of the tuple's minor still refuses.
 
         ``all`` reaches cpu everywhere and gpu from 3.10.4 up, so every real
         3.10.4+ interpreter activates both. The tuple's synthesized 3.10.0
-        answers the gate false, so the check has to split the minor before it
+        answers the condition false, so the check splits the minor before it
         reads the clause.
         """
         pyproject = tmp_path / "pyproject.toml"
@@ -3022,7 +3022,7 @@ class TestLoadExtraRequirements:
         assert "x" not in names
 
     def test_selected_extra_name_canonicalized(self, tmp_path: Path) -> None:
-        """A --extra spelling differing only by case/separator still resolves."""
+        """A --extra form differing only by case or separator still resolves."""
         path = tmp_path / "pyproject.toml"
         path.write_text(
             "[project]\nname = 'x'\n"
@@ -3035,9 +3035,9 @@ class TestLoadExtraRequirements:
     def test_self_ref_marker_rides_onto_the_deps_it_reaches(
         self, tmp_path: Path
     ) -> None:
-        """A marker-gated self-ref gates the deps its extra pulls in.
+        """A self-ref marker applies to the deps its extra pulls in.
 
-        The gate is carried rather than evaluated here, so the per-target
+        The condition is carried rather than evaluated here, so the per-target
         parse is what drops the dep on an environment the marker excludes;
         ``build_resolver_inputs`` below is where that is asserted.
         """
@@ -3150,7 +3150,7 @@ class TestBuildResolverInputs:
     def test_extra_marker_without_spaces_warns(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """packaging normalises the spelling, so the scan sees one form."""
+        """packaging normalises the marker before the scan."""
         reqs = [Requirement('foo ; extra=="test"')]
         with caplog.at_level("WARNING", logger="nab_provider.resolver_inputs"):
             build_resolver_inputs(
@@ -3391,7 +3391,7 @@ class TestBuildConstraints:
     def test_dropped_constraint_warning_omits_pkg_extra(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """pkg[extra] is the one spelling the constraint parser refuses."""
+        """The constraint parser refuses the pkg[extra] form."""
         message = self._drop_warning(caplog)
 
         assert "pkg[extra]" not in message
@@ -3400,7 +3400,7 @@ class TestBuildConstraints:
     def test_dropped_group_constraint_warning_omits_the_extras_rule(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """A group membership has no extras spelling, so that sentence stays out."""
+        """A group membership has no extras syntax, so that sentence stays out."""
         message = self._drop_warning(caplog, 'foo<2.0 ; "docs" in dependency_groups')
 
         assert "cannot carry extras" not in message
@@ -3626,7 +3626,7 @@ class TestCheckGroupDisjointness:
         _check_group_disjointness(per_group, [_target({})])
 
     def test_self_empty_group_does_not_blame_an_unversioned_group(self) -> None:
-        """A group that cannot hold alone is named, and nobody else is."""
+        """Name only the group whose requirements conflict."""
         per_group = {
             "alpha": [Requirement("sphinx>=7"), Requirement("sphinx<6")],
             "beta": [Requirement("sphinx")],
@@ -3920,7 +3920,7 @@ class TestAugmentResolutionError:
         clause = self._no_versions_clause("missing-pkg")
         exc = ResolutionError("base message", incompatibility=clause)
         provider = MagicMock()
-        provider.get_no_versions_reason.side_effect = lambda pkg: (
+        provider.get_no_versions_reason.side_effect = lambda pkg, _range: (
             Diagnostic("package not found on any configured index")
             if pkg == "missing-pkg"
             else None
@@ -3975,7 +3975,7 @@ class TestAugmentResolutionError:
             cause_right=None,
         )
         packages = _walk_no_versions_packages(derived)
-        assert packages == ["buried-pkg"]
+        assert packages == [("buried-pkg", Range.full())]
 
     def test_walk_skips_non_string_packages(self) -> None:
         """Non-str term packages (e.g. the root sentinel) are filtered out."""
@@ -3996,7 +3996,7 @@ class TestAugmentResolutionError:
             ],
             cause=IncompatibilityCause.DEPENDENCY,
         )
-        assert _walk_no_versions_packages(clause) == ["cand"]
+        assert _walk_no_versions_packages(clause) == [("cand", Range.full())]
 
     def test_walk_names_merged_self_dependency_candidate(self) -> None:
         """A self-dependency merges to one positive term and still names it."""
@@ -4005,7 +4005,7 @@ class TestAugmentResolutionError:
             cause=IncompatibilityCause.DEPENDENCY,
             dependency_range=Range.singleton(1),
         )
-        assert _walk_no_versions_packages(clause) == ["cand"]
+        assert _walk_no_versions_packages(clause) == [("cand", Range.full())]
 
     def test_grouped_clause_hint_survives_a_later_range(self) -> None:
         """Accepted tolerance: reasons are keyed by package name, so a later
@@ -4019,7 +4019,7 @@ class TestAugmentResolutionError:
         )
         exc = ResolutionError("base message", incompatibility=clause)
         provider = MagicMock()
-        provider.get_no_versions_reason.side_effect = lambda pkg: (
+        provider.get_no_versions_reason.side_effect = lambda pkg, _range: (
             Diagnostic("no version matches the requirement") if pkg == "cand" else None
         )
         _augment_resolution_error(exc, provider)
@@ -4070,7 +4070,7 @@ class TestAugmentResolutionError:
         )
         # Walk should record ``shared`` exactly once even though ``leaf``
         # is reachable from two branches of the derivation DAG.
-        assert _walk_no_versions_packages(top) == ["shared"]
+        assert _walk_no_versions_packages(top) == [("shared", Range.full())]
 
     def test_walks_a_chain_deeper_than_the_recursion_limit(self) -> None:
         """A derivation longer than the recursion limit is still walked."""
@@ -4083,7 +4083,7 @@ class TestAugmentResolutionError:
                 cause_right=None,
             )
 
-        assert _walk_no_versions_packages(node) == ["buried-pkg"]
+        assert _walk_no_versions_packages(node) == [("buried-pkg", Range.full())]
 
     def test_resolve_pyproject_re_raises_with_diagnostic(self, tmp_path: Path) -> None:
         """``resolve_pyproject`` re-raises the augmented ResolutionError."""
@@ -4387,7 +4387,7 @@ class TestAugmentResolutionError:
     def test_bans_from_separate_scans_are_counted_together(
         self, tmp_path: Path
     ) -> None:
-        """Every scan's ban reaches the diagnostic, not just the first one's.
+        """Every scan's ban reaches the diagnostic.
 
         ``foo`` 5.0 is unreadable and 4.0 is not, so the first scan bans one
         version; backtracking past 4.0 starts a second scan that bans 3.0.  The
@@ -4432,6 +4432,82 @@ class TestAugmentResolutionError:
             "No metadata for foo==3.0: no PEP 658 metadata and no sdist"
             " available" in diagnostics
         )
+
+    def test_root_ban_outlives_the_scan_that_accepted_an_older_version(
+        self, tmp_path: Path
+    ) -> None:
+        """A root ban remains visible after a scan accepts an older version."""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            '[project]\nname = "proj"\ndependencies = ["foo", "lib==9.0"]\n',
+            encoding="utf-8",
+        )
+
+        coordinator = make_coordinator(
+            listings={
+                "foo": _index_wheels("foo", "5.0", "4.0"),
+                "lib": _index_wheels("lib", "9.0", "8.0"),
+                "other": _index_wheels("other", "6.0"),
+            },
+            metadata_by_version={
+                "5.0": _metadata("foo", "5.0", "lib==8.0"),
+                "4.0": _metadata("foo", "4.0", "other==7.0"),
+                "9.0": _metadata("lib", "9.0"),
+                "8.0": _metadata("lib", "8.0"),
+                "6.0": _metadata("other", "6.0"),
+            },
+        )
+
+        with patch("nab_project.resolve.FetchCoordinator") as mock_coord_cls:
+            mock_coord_cls.return_value.__enter__ = lambda _self: coordinator
+            mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
+            with pytest.raises(ResolutionError) as info:
+                _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.12.0")
+
+        derivation = str(info.value).split("Diagnostics:")[0]
+        assert "lib" not in derivation
+
+        diagnostics = _diagnostics(info.value)
+        assert "<VersionRange" not in diagnostics
+        assert (
+            "foo: 5.0 needs lib in ==8.0, but your project requires lib ==9.0"
+            in diagnostics
+        )
+
+    def test_an_unsatisfiable_ask_names_no_uninvolved_requirement(
+        self, tmp_path: Path
+    ) -> None:
+        """An unrelated root constraint stays out of the failure report."""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            '[project]\nname = "proj"\ndependencies = ["app", "lib==9.0", "tool"]\n',
+            encoding="utf-8",
+        )
+
+        coordinator = make_coordinator(
+            listings={
+                "app": _index_wheels("app", "5.0", "4.0"),
+                "lib": _index_wheels("lib", "9.0", "8.0"),
+                "tool": _index_wheels("tool", "1.0"),
+            },
+            metadata_by_version={
+                "5.0": _metadata("app", "5.0", "lib==8.0"),
+                "4.0": _metadata("app", "4.0"),
+                "9.0": _metadata("lib", "9.0"),
+                "8.0": _metadata("lib", "8.0"),
+                "1.0": _metadata("tool", "1.0", "app>=6.0"),
+            },
+        )
+
+        with patch("nab_project.resolve.FetchCoordinator") as mock_coord_cls:
+            mock_coord_cls.return_value.__enter__ = lambda _self: coordinator
+            mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
+            with pytest.raises(ResolutionError) as info:
+                _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.12.0")
+
+        diagnostics = _diagnostics(info.value)
+        assert "app: no version matches the requirement" in diagnostics
+        assert "lib" not in diagnostics
 
     def test_cutoff_filtered_sdist_is_not_reported_as_never_published(
         self, tmp_path: Path
@@ -4676,7 +4752,7 @@ class TestAugmentResolutionError:
         ) in diagnostics
 
     def test_derivation_renders_readable_ranges(self, tmp_path: Path) -> None:
-        """The derivation states ranges as requirements, like the diagnostics do.
+        """The derivation and diagnostics state ranges as requirements.
 
         ``a`` and ``b`` pin ``c`` at different versions, so the term the report
         carries for ``b`` is the widened complement of ``b``'s pin.
@@ -5185,7 +5261,7 @@ class TestLocalVcsRequiresPython:
     def test_resolve_pyproject_declared_target_satisfies_index(
         self, tmp_path: Path
     ) -> None:
-        """The declared environment's Python also gates index candidates.
+        """The declared environment's Python also filters index candidates.
 
         An index candidate whose Requires-Python admits only the declared
         Python must survive the listing filter, matching the local-source
@@ -5225,7 +5301,7 @@ class TestLocalVcsRequiresPython:
     def test_resolve_index_metadata_requires_python_rejects_omitted_listing(
         self, tmp_path: Path
     ) -> None:
-        """The wheel METADATA gates an index candidate the listing does not.
+        """Wheel METADATA can reject a candidate admitted by the listing.
 
         The Simple-API requires-python hint is optional; when the listing omits
         it the wheel's METADATA carries the authoritative Requires-Python, and a
@@ -5692,7 +5768,7 @@ def _pylock_selected(pylock: Pylock, **kwargs: list[str]) -> set[str]:
 
 
 class TestExtraAndGroupMembershipMarkers:
-    """A selected extra or group gates the packages only it reaches.
+    """A selected extra or group marks only the packages it reaches.
 
     End to end from ``pyproject.toml`` to the emitted lock.  PEP 751
     defaults an install to no extras and to ``default-groups``, so a
@@ -5791,7 +5867,7 @@ class TestExtraAndGroupMembershipMarkers:
     def test_default_install_skips_extra_and_group_packages(
         self, tmp_path: Path
     ) -> None:
-        """The spec's default install context: no extras, no groups."""
+        """The spec's default install context has empty extras and groups."""
         pylock = self._lock(tmp_path, extras=("cli",), groups=("dev",))
 
         assert _pylock_selected(pylock) == {"core"}
@@ -5859,14 +5935,14 @@ class TestExtraAndGroupMembershipMarkers:
     def test_package_reached_by_base_and_extra_is_unconditional(
         self, tmp_path: Path
     ) -> None:
-        """An extra re-requiring a project dependency does not gate it."""
+        """An extra re-requiring a project dependency leaves it unconditional."""
         root = self._ROOT.replace('cli = ["mytool"]', 'cli = ["mytool", "core"]')
         pylock = self._lock(tmp_path, extras=("cli",), root=root)
 
         assert _pylock_selected(pylock) == {"core"}
 
     def test_default_group_still_installs_by_default(self, tmp_path: Path) -> None:
-        """A ``default-groups`` member gates on the group but installs by default.
+        """A ``default-groups`` member carries the group marker and installs by default.
 
         PEP 751 seeds ``dependency_groups`` from ``default-groups`` when
         the installer is given no group selection, so the membership
@@ -5958,7 +6034,7 @@ class TestExtraAndGroupMembershipMarkers:
     def test_naming_them_gates_them_with_nothing_selected(self, tmp_path: Path) -> None:
         """The name means one thing whether or not the run selects a group.
 
-        A lock written with no selection still gates the project's own
+        A lock written with no selection still conditions the project's own
         dependencies, so an installer reading two locks of the same
         project does not get two answers to the same request.
         """
@@ -6008,7 +6084,7 @@ class TestExtraAndGroupMembershipMarkers:
         assert set(_pylock_markers(pylock)) == {"core", "mytool", "subtool"}
 
     def test_extra_requiring_an_extra_of_a_base_package(self, tmp_path: Path) -> None:
-        """``cli = ["core[fancy]"]``: core stays unconditional, fancy's dep is gated."""
+        """``cli = ["core[fancy]"]`` leaves core unconditional and marks fancy's dep."""
         root = self._ROOT.replace('cli = ["mytool"]', 'cli = ["core[fancy]"]')
         pylock = self._lock(
             tmp_path,
@@ -6026,10 +6102,10 @@ class TestExtraAndGroupMembershipMarkers:
         assert _pylock_markers(pylock) == {"core": None, "subtool": '"cli" in extras'}
 
     def test_matrix_gates_the_extra_on_every_target(self, tmp_path: Path) -> None:
-        """A matrix folds the extra into every target, and gates it there too.
+        """A matrix attaches the extra selection to every target.
 
-        The gate is a property of the install context, not of the
-        platform, so an extra every target reaches the same way carries
+        The selection condition belongs to the install context. An extra that
+        every target reaches the same way carries
         the bare membership clause.
         """
         root = self._ROOT + (
@@ -6055,7 +6131,7 @@ class TestExtraAndGroupMembershipMarkers:
 
 
 class TestConflictMemberMembershipMarkers:
-    """A conflict fork's own extra gates the packages only it reaches.
+    """A conflict fork's own extra marks only the packages it reaches.
 
     End to end from ``pyproject.toml`` to the emitted lock, for
     ``nab lock --extra cpu --extra gpu --extra docs`` over an
@@ -6619,10 +6695,10 @@ class TestBuildGroup:
             )
 
     def test_a_build_requirements_lock_drops_the_group(self, tmp_path: Path) -> None:
-        """Its roots already are the build requirements, so nothing gates them.
+        """Its build-requirement roots remain unconditional.
 
         The pins are the same either way, so what the group would change is
-        the lock offering a name that gates nothing.
+        the lock offering an unused selection name.
         """
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(self._PYPROJECT + _BOTH_GROUPS)
@@ -6716,7 +6792,7 @@ class TestBuildGroup:
 
 
 class TestBuildGroupMarkers:
-    """``build-group`` gates ``[build-system].requires`` end to end."""
+    """``build-group`` marks ``[build-system].requires`` end to end."""
 
     _MEMBERS: ClassVar[dict[str, str]] = {
         "core": '[project]\nname = "core"\nversion = "1.0"\n',
@@ -6860,7 +6936,7 @@ class TestConfiguredGroupConflicts:
         ]
 
     def test_each_fork_claims_only_the_context_it_walked(self, tmp_path: Path) -> None:
-        """A fork that never resolved the build requirements has no gate for them."""
+        """A fork that skipped build requirements has no selection for them."""
         main_fork, build_fork = self._forks(
             tmp_path, self._CONFLICT, conflicts=(_groups_conflict("main", "build"),)
         )
@@ -6940,7 +7016,7 @@ class TestConfiguredGroupConflicts:
             assert "packaging<24" in {str(r) for r in fork.requirements}
 
     def test_a_three_member_set_forks_three_ways(self, tmp_path: Path) -> None:
-        """The spelling the docs give for conflicting all three at once."""
+        """The documented form conflicts all three groups at once."""
         forks = self._forks(
             tmp_path,
             'conflicts = [[{ group = "main" }, { group = "build" },'
@@ -7120,7 +7196,7 @@ class TestConfiguredGroupConflictMarkers:
 
 
 class TestConfiguredGroupConflictDivergentPins:
-    """The case the declaration exists for: one package, two pins, one lock."""
+    """A configured group conflict puts two pins for one package in a lock."""
 
     _ROOT = (
         '[project]\nname = "app"\nversion = "1.0"\n'

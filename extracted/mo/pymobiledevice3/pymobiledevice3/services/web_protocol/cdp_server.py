@@ -1,4 +1,5 @@
 import asyncio
+import importlib.resources
 import json
 import shutil
 import subprocess
@@ -18,19 +19,24 @@ from fastapi import FastAPI, Request, WebSocket
 from fastapi.logger import logger
 from fastapi.responses import HTMLResponse, Response
 
+import pymobiledevice3.resources
 from pymobiledevice3.services.web_protocol.cdp_browser import (
+    HELD_TARGETS,
     PAGE_HANDOVER_TIMEOUT,
     PAGE_LOCKS,
     PAGE_TAKEOVERS,
     TARGET_CREATION_TIMEOUT,
     CdpBrowser,
+    HeldTargets,
+    adopt_held_target,
     iter_inspectable,
     target_title,
     target_type,
+    target_url,
 )
 from pymobiledevice3.services.web_protocol.cdp_target import CdpTarget
 from pymobiledevice3.services.web_protocol.session_protocol import SessionProtocol
-from pymobiledevice3.services.webinspector import Page, WebinspectorService, WirTypes
+from pymobiledevice3.services.webinspector import Application, Page, WebinspectorService, WirTypes
 
 # chrome://inspect routes a network target's DevTools through Chrome's browser-process relay,
 # which deadlocks after sustained console traffic (the console/screen freeze). Serving the DevTools
@@ -78,7 +84,7 @@ _CHROME_DEFAULT_PATHS: dict[str, tuple[str, ...]] = {
 
 
 NO_TARGETS_MESSAGE = "No inspectable pages. Open a page in Safari."
-NO_TARGETS_MESSAGE_HTML = f"<p>{NO_TARGETS_MESSAGE}</p>"
+NO_TARGETS_MESSAGE_HTML = f'<p class="empty">{NO_TARGETS_MESSAGE}</p>'
 
 # How often the landing page re-reads the target list. Serving one is a read of already-pushed
 # state (see refresh_listings), so this can be short enough that a tab opened or closed on the
@@ -86,39 +92,198 @@ NO_TARGETS_MESSAGE_HTML = f"<p>{NO_TARGETS_MESSAGE}</p>"
 # polling while it is not the visible tab.
 INDEX_POLL_INTERVAL_MS = 750
 
+# The project logo, served as the landing page's favicon and header image (see serve_logo).
+LOGO_PNG = (importlib.resources.files(pymobiledevice3.resources) / "webinspector" / "logo.png").read_bytes()
+
+# Label of the landing page's pause-on-launch switch (see pause_new_targets endpoints).
+PAUSE_NEW_TARGETS_LABEL = "Pause new JSContexts on launch"
+
+INDEX_STYLE = """
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f7; --card: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #e5e5ea;
+  --accent: #0a84ff; --page: #dbeafe; --page-text: #1e40af; --js: #fef3c7; --js-text: #92400e;
+  --paused: #fde68a; --paused-text: #78350f; --switch: #c7c7cc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e; --card: #2c2c2e; --text: #f5f5f7; --muted: #98989d; --line: #3a3a3c;
+    --page: #1e3a8a; --page-text: #bfdbfe; --js: #78350f; --js-text: #fde68a;
+    --paused: #92400e; --paused-text: #fef3c7; --switch: #48484a;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 18px 16px 32px; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; margin-bottom: 12px; }
+.logo { height: 40px; width: auto; }
+h1 { font-size: 17px; font-weight: 600; margin: 0; flex: 1 1 auto; }
+h1 small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; font-size: 13px; }
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch {
+  position: relative; width: 34px; height: 20px; border-radius: 10px; background: var(--switch);
+  transition: background .15s;
+}
+.switch::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s;
+}
+.toggle input:checked + .switch { background: var(--accent); }
+.toggle input:checked + .switch::after { transform: translateX(14px); }
+.toggle input:focus-visible + .switch { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hint { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--muted); }
+ul.targets { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+li.target {
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px;
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: 10px; row-gap: 0;
+  align-items: center;
+}
+.kind {
+  grid-row: 1 / span 3; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+}
+.kind.page { background: var(--page); color: var(--page-text); }
+.kind.jscontext { background: var(--js); color: var(--js-text); }
+li.target a { color: var(--accent); font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
+li.target a:hover { text-decoration: underline; }
+li.target small { color: var(--muted); font-size: 11.5px; overflow-wrap: anywhere; }
+.badge {
+  display: inline-block; margin-left: 6px; font-size: 10px; font-weight: 600; padding: 1px 7px;
+  border-radius: 999px; background: var(--paused); color: var(--paused-text); vertical-align: 1px;
+}
+details.attach { grid-column: 2; margin-top: 2px; font-size: 12px; }
+details.attach summary, details.editors summary { cursor: pointer; color: var(--muted); }
+details.attach summary:hover, details.editors summary:hover { color: var(--text); }
+.snippet { position: relative; margin-top: 6px; }
+details.attach pre {
+  margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line);
+  font: 11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-x: auto; user-select: all;
+}
+button.copy {
+  position: absolute; top: 5px; right: 5px; font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line); background: var(--card); color: var(--text);
+  cursor: pointer; opacity: 0; transition: opacity .15s;
+}
+.snippet:hover button.copy, button.copy:focus-visible, button.copy.done { opacity: 1; }
+button.copy:hover { border-color: var(--accent); }
+button.copy.done { color: var(--accent); border-color: var(--accent); }
+details.editors { flex-basis: 100%; font-size: 12px; color: var(--muted); }
+details.editors p { margin: 6px 0 0; }
+details.editors code { font: 11.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); }
+p.empty { color: var(--muted); text-align: center; padding: 28px 0; }
+"""
+
 INDEX_SCRIPT = Template("""
 (function () {
   const container = document.getElementById('targets');
+  const toggle = document.getElementById('pause-new-targets');
   let rendered = null;
   function render(targets) {
     container.textContent = '';
     if (!targets.length) {
       const empty = document.createElement('p');
+      empty.className = 'empty';
       empty.textContent = $empty;
       container.appendChild(empty);
       return;
     }
     const list = document.createElement('ul');
+    list.className = 'targets';
     for (const target of targets) {
+      const kind = document.createElement('span');
+      kind.className = 'kind ' + (target.type === 'node' ? 'jscontext' : 'page');
+      kind.textContent = target.type === 'node' ? 'JSContext' : 'Page';
+      const title = document.createElement('span');
       const link = document.createElement('a');
       link.href = target.devtoolsFrontendUrl;
       link.textContent = target.title || target.url || ('page ' + target.id);
+      title.appendChild(link);
+      if (target.paused) {
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = 'paused';
+        title.appendChild(badge);
+      }
       const url = document.createElement('small');
       url.textContent = target.url;
+      const attach = document.createElement('details');
+      attach.className = 'attach';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Attach from VS Code';
+      const config = document.createElement('pre');
+      config.textContent = JSON.stringify(target.attach, null, 4);
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'copy';
+      copy.title = 'Copy to clipboard';
+      copy.textContent = 'Copy';
+      const snippet = document.createElement('div');
+      snippet.className = 'snippet';
+      snippet.append(copy, config);
+      attach.append(summary, snippet);
       const item = document.createElement('li');
-      item.append(link, document.createElement('br'), url);
+      item.className = 'target';
+      item.append(kind, title, url, attach);
       list.appendChild(item);
     }
     container.appendChild(list);
   }
+  container.addEventListener('click', async (event) => {
+    const button = event.target.closest('button.copy');
+    if (!button) {
+      return;
+    }
+    const text = button.parentElement.querySelector('pre').textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      // No clipboard API (a non-loopback host over plain http): fall back to a selection copy.
+      const range = document.createRange();
+      range.selectNodeContents(button.parentElement.querySelector('pre'));
+      const selection = getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.execCommand('copy');
+      selection.removeAllRanges();
+    }
+    button.textContent = 'Copied';
+    button.classList.add('done');
+    setTimeout(() => {
+      button.textContent = 'Copy';
+      button.classList.remove('done');
+    }, 1500);
+  });
+  let pending = false;
+  toggle.addEventListener('change', async () => {
+    pending = true;
+    try {
+      const response = await fetch('/pause-new-targets', {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({enabled: toggle.checked}),
+      });
+      toggle.checked = (await response.json()).enabled;
+    } catch (error) {
+      toggle.checked = !toggle.checked;
+    } finally {
+      pending = false;
+    }
+  });
   async function poll() {
     if (!document.hidden) {
       try {
-        const targets = await (await fetch('/json/list', {cache: 'no-store'})).json();
-        const serialized = JSON.stringify(targets);
+        const listing = await (await fetch('/api/targets', {cache: 'no-store'})).json();
+        const serialized = JSON.stringify(listing.targets);
         if (serialized !== rendered) {
           rendered = serialized;
-          render(targets);
+          render(listing.targets);
+        }
+        if (!pending) {
+          toggle.checked = listing.pause_new_targets;
         }
       } catch (error) {
         // The bridge is momentarily busy or gone; leave the list as it is and try again.
@@ -169,9 +334,18 @@ async def lifespan(app: FastAPI):
     # lock belongs to a loop that is gone.
     PAGE_LOCKS.clear()
     PAGE_TAKEOVERS.clear()
+    HELD_TARGETS.clear()
     await app.state.inspector.connect()
-    yield
-    _reap_local_frontend()
+    # The bridge's own automatic-inspection debugger (`--pause-new-targets`); toggled from the
+    # landing page as well, so it exists either way and is merely started or not.
+    app.state.holder = HeldTargets(app.state.inspector)
+    if getattr(app.state, "pause_new_targets", False):
+        await app.state.holder.start()
+    try:
+        yield
+    finally:
+        await app.state.holder.stop()
+        _reap_local_frontend()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -304,11 +478,76 @@ async def available_targets(request: Request, _: str):
             "id": target_id,
             "title": target_title(application, page),
             "type": target_type(page),
-            "url": page.web_url,
+            "url": target_url(application, page),
             "webSocketDebuggerUrl": f"ws://{host}/devtools/page/{target_id}",
             "devtoolsFrontendUrl": f"{_frontend_url(page)}?ws={host}/devtools/page/{target_id}",
         })
     return targets
+
+
+def attach_config(application: Application, page: Page, host: str, target_id: str) -> dict[str, Any]:
+    """The VS Code launch.json configuration that attaches to exactly this debuggable.
+
+    js-debug's `chrome` attach takes web pages only and picks them by URL; a JSContext (a
+    `node` target) is reached by its websocket address directly.
+    """
+    title = target_title(application, page)
+    if page.type_ == WirTypes.JAVASCRIPT:
+        return {
+            "name": f"Attach to {title}",
+            "type": "node",
+            "request": "attach",
+            "websocketAddress": f"ws://{host}/devtools/page/{target_id}",
+        }
+    address, _, port = host.rpartition(":")
+    return {
+        "name": f"Attach to {title or page.web_url}",
+        "type": "chrome",
+        "request": "attach",
+        "address": address or host,
+        "port": int(port) if port.isdigit() else 9222,
+        "urlFilter": page.web_url,
+        "webRoot": "${workspaceFolder}",
+    }
+
+
+@app.get("/api/targets")
+async def landing_targets(request: Request) -> dict[str, Any]:
+    """What the landing page renders: the /json/list targets plus what only the bridge knows -
+    which of them it is holding paused, and whether it is taking new ones (the page's switch)."""
+    await refresh_listings()
+    host = request.headers.get("host", "127.0.0.1:9222")
+    targets: list[dict[str, Any]] = []
+    for target_id, application, page in iter_inspectable(app.state.inspector):
+        targets.append({
+            "id": target_id,
+            "title": target_title(application, page),
+            "type": target_type(page),
+            "url": target_url(application, page),
+            "paused": target_id in HELD_TARGETS,
+            "webSocketDebuggerUrl": f"ws://{host}/devtools/page/{target_id}",
+            "devtoolsFrontendUrl": f"{_frontend_url(page)}?ws={host}/devtools/page/{target_id}",
+            "attach": attach_config(application, page, host, target_id),
+        })
+    return {"targets": targets, "pause_new_targets": app.state.holder.running}
+
+
+@app.get("/pause-new-targets")
+async def get_pause_new_targets() -> dict[str, bool]:
+    """Whether the bridge attaches to and pauses every JSContext an app creates (see HeldTargets)."""
+    return {"enabled": app.state.holder.running}
+
+
+@app.post("/pause-new-targets")
+async def set_pause_new_targets(request: Request) -> dict[str, bool]:
+    """Switch pause-on-launch on or off at runtime - the landing page's toggle. Off lets go of
+    every context still held, and stops webinspectord from offering new ones."""
+    body = await request.json()
+    if bool(body.get("enabled")):
+        await app.state.holder.start()
+    else:
+        await app.state.holder.stop()
+    return {"enabled": app.state.holder.running}
 
 
 def _frontend_url(page: Page) -> str:
@@ -328,12 +567,36 @@ async def index(request: Request) -> HTMLResponse:
     the page was loaded appears without reloading it by hand."""
     await refresh_listings()
     host = request.headers.get("host", "127.0.0.1:9222")
+    checked = " checked" if app.state.holder.running else ""
     return HTMLResponse(
-        f"<!doctype html><meta charset=utf-8><title>pymobiledevice3 Web Inspector</title>"
-        f"<h2>pymobiledevice3 Web Inspector</h2>"
+        "<!doctype html><meta charset=utf-8>"
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        "<title>pymobiledevice3 Web Inspector</title>"
+        '<link rel="icon" type="image/png" href="/logo.png">'
+        f"<style>{INDEX_STYLE}</style>"
+        "<main><header>"
+        '<img class="logo" src="/logo.png" alt="">'
+        "<h1>Web Inspector<small>pymobiledevice3 &middot; inspectable pages and JSContexts on the device</small></h1>"
+        f'<label class="toggle"><input type="checkbox" id="pause-new-targets"{checked}>'
+        f'<span class="switch"></span>{PAUSE_NEW_TARGETS_LABEL}</label>'
+        '<p class="hint">Attaches to every JSContext an app creates before it runs and stops it on its '
+        "first statement; open it from the list to land on the pause. "
+        "Pages cannot be held before they run.</p>"
+        '<details class="editors"><summary>Attach from an editor</summary>'
+        "<p><b>VS Code</b>: expand a target below and put its configuration into "
+        "<code>.vscode/launch.json</code> (js-debug is built in). A page configuration attaches "
+        "to that page by URL; a JSContext configuration attaches to that context by its "
+        "websocket address, so it is specific to the process listed.</p>"
+        "<p><b>WebStorm</b>: Run &gt; Edit Configurations &gt; Add &gt; <b>Attach to Node.js/Chrome</b>, "
+        f"host <code>{escape(host.rpartition(':')[0] or host)}</code>, port "
+        f"<code>{escape(host.rpartition(':')[2])}</code>, attach to "
+        "<i>Chrome or Node.js &gt; 6.3 started with --inspect</i>. Debug it and pick the page or "
+        "JSContext from the list WebStorm shows.</p></details>"
+        "</header>"
         # Rendered server-side once so the list is there before any script runs, then kept up to
         # date in place by INDEX_SCRIPT.
         f'<div id="targets">{targets_html(app.state.inspector, host)}</div>'
+        "</main>"
         f"<script>{INDEX_SCRIPT}</script>"
     )
 
@@ -344,12 +607,30 @@ def targets_html(inspector: WebinspectorService, host: str) -> str:
     for target_id, application, page in iter_inspectable(inspector):
         frontend = f"{_frontend_url(page)}?ws={host}/devtools/page/{target_id}"
         title = target_title(application, page) or page.web_url or f"page {target_id}"
+        is_jscontext = page.type_ == WirTypes.JAVASCRIPT
+        kind = f'<span class="kind {"jscontext" if is_jscontext else "page"}">{"JSContext" if is_jscontext else "Page"}</span>'
+        # Attached before it ran and stopped on its first statement; opening it lands there.
+        badge = '<span class="badge">paused</span>' if target_id in HELD_TARGETS else ""
+        config = json.dumps(attach_config(application, page, host, target_id), indent=4)
+        attach = (
+            '<details class="attach"><summary>Attach from VS Code</summary>'
+            '<div class="snippet"><button type="button" class="copy" title="Copy to clipboard">Copy</button>'
+            f"<pre>{escape(config, quote=False)}</pre></div></details>"
+        )
         items.append(
-            f'<li><a href="{escape(frontend)}">{escape(title)}</a><br><small>{escape(page.web_url)}</small></li>'
+            f'<li class="target">{kind}<span><a href="{escape(frontend)}">{escape(title)}</a>{badge}</span>'
+            f"<small>{escape(target_url(application, page))}</small>{attach}</li>"
         )
     if not items:
         return NO_TARGETS_MESSAGE_HTML
-    return "<ul>" + "".join(items) + "</ul>"
+    return '<ul class="targets">' + "".join(items) + "</ul>"
+
+
+@app.get("/logo.png")
+@app.get("/favicon.ico")
+async def serve_logo() -> Response:
+    """The project logo; /favicon.ico as well, for browsers that ask for the default icon path."""
+    return Response(content=LOGO_PNG, media_type="image/png")
 
 
 @app.get("/devtools/{path:path}")
@@ -387,7 +668,7 @@ async def browser_debugger(websocket: WebSocket, connection_id: str):
     """Browser-level endpoint (the one /json/version advertises): flat-session Target-domain
     debugging for Chrome-compatible clients such as VS Code's js-debug and Puppeteer."""
     await websocket.accept()
-    browser = CdpBrowser(app.state.inspector, websocket)
+    browser = CdpBrowser(app.state.inspector, websocket, pause_on_start=getattr(app.state, "pause_new_targets", False))
     try:
         await browser.run()
     finally:
@@ -433,10 +714,17 @@ async def page_debugger(websocket: WebSocket, page_id: str):
     taken_over = asyncio.Event()
     PAGE_TAKEOVERS[page_id] = taken_over
     try:
+        held = adopt_held_target(page_id)
         try:
-            # Bound the wait: if the device never reports the target (e.g. webinspectord is in a
-            # bad state), fail the connection instead of keeping a zombie handler alive forever.
-            target = await asyncio.wait_for(CdpTarget.create(protocol), TARGET_CREATION_TIMEOUT)
+            if held is not None:
+                # The bridge attached before the context ran and kept it paused on its first
+                # statement for exactly this: the frontend takes that session over and, once its
+                # debugger is on, is shown the pause.
+                target = held
+            else:
+                # Bound the wait: if the device never reports the target (e.g. webinspectord is
+                # in a bad state), fail the connection instead of keeping a zombie handler alive.
+                target = await asyncio.wait_for(CdpTarget.create(protocol), TARGET_CREATION_TIMEOUT)
         except (asyncio.TimeoutError, TimeoutError):
             # A page already being debugged over another Web Inspector connection - a second
             # pymobiledevice3, Safari's own Web Inspector, or a client that exited without

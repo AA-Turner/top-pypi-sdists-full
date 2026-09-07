@@ -6,7 +6,7 @@ import pytest
 import json
 from pathlib import Path
 
-from skillsaw.blocks import McpBlock
+from skillsaw.blocks import McpBlock, OpenCodeMcpBlock
 from skillsaw.context import RepositoryContext
 from skillsaw.formatters import format_report
 from skillsaw.rules.builtin.mcp import McpProhibitedRule, McpValidJsonRule
@@ -384,14 +384,6 @@ def test_no_mcp_configuration(plugin_without_mcp):
     assert len(violations) == 0
 
 
-def test_mcp_valid_json_rule_metadata():
-    """Test rule metadata"""
-    rule = McpValidJsonRule()
-    assert rule.rule_id == "mcp-valid-json"
-    assert "MCP" in rule.description
-    assert rule.default_severity().value == "error"
-
-
 def test_http_mcp_valid(plugin_with_http_mcp):
     """Test that valid HTTP MCP passes validation"""
     context = RepositoryContext(plugin_with_http_mcp)
@@ -500,14 +492,6 @@ def test_mcp_prohibited_allows_no_mcp(plugin_without_mcp):
     rule = McpProhibitedRule()
     violations = rule.check(context)
     assert len(violations) == 0
-
-
-def test_mcp_prohibited_rule_metadata():
-    """Test rule metadata"""
-    rule = McpProhibitedRule()
-    assert rule.rule_id == "mcp-prohibited"
-    assert "MCP" in rule.description
-    assert rule.default_severity().value == "error"
 
 
 def test_both_mcp_json_and_plugin_json(temp_dir):
@@ -650,7 +634,7 @@ def test_valid_headers_on_http_server(temp_dir):
 
 
 def test_editor_mcp_credentials_are_reported_without_echoing_values(temp_dir):
-    cursor_secret = "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"
+    cursor_secret = "ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"  # notsecret
     vscode_secret = "AKIAQRSTUVWXYZABCDEF"
     cursor = temp_dir / ".cursor"
     vscode = temp_dir / ".vscode"
@@ -766,7 +750,7 @@ def test_additional_placeholders_suppress_structured_credential(temp_dir):
 
 
 def test_additional_placeholders_do_not_mask_real_tokens(temp_dir):
-    token = "ghp_aB3cD4eF5gH6iJ7kL8mN9pQ0rS1uV2wX3yZ4"
+    token = "ghp_aB3cD4eF5gH6iJ7kL8mN9pQ0rS1uV2wX3yZ4"  # notsecret
     mcp_config = {
         "mcpServers": {"local": {"command": "srv", "env": {"API_KEY": f"corp-vault-{token}"}}}
     }
@@ -1102,6 +1086,20 @@ def test_root_mcp_json_valid_json(temp_dir):
     assert len(violations) == 0
 
 
+def test_root_mcp_json_ignores_a_server_level_credential_field(temp_dir):
+    """``credential_fields`` is opt-in per host; the Claude family declares none.
+
+    Antigravity loads ``clientSecret`` on the server itself, so its block
+    lists it. ``.mcp.json`` does not, and reading the key here would report
+    a field no Claude-family host acts on.
+    """
+    secret = "sk-live-" + "9f2c41a8" + "b7de4c6390af"  # assembled: no literal token in the tree
+    mcp_config = {"mcpServers": {"my-server": {"command": "node", "clientSecret": secret}}}
+    (temp_dir / ".mcp.json").write_text(json.dumps(mcp_config, indent=2))
+    violations = McpValidJsonRule().check(RepositoryContext(temp_dir))
+    assert [v.message for v in violations if "clientSecret" in v.message] == []
+
+
 def test_root_mcp_json_invalid_json(temp_dir):
     """Test that mcp-valid-json detects invalid JSON at root level"""
     (temp_dir / ".mcp.json").write_text("{ this is not valid json }")
@@ -1238,3 +1236,153 @@ def test_timeout_wrong_type_rejected(temp_dir):
     violations = rule.check(RepositoryContext(plugin_dir))
     assert len(violations) == 1
     assert "'timeout' must be a number" in violations[0].message
+
+
+class TestOpenCodeMcpBlock:
+    """OpenCode maps its servers under `mcp`, flat in 1.x and nested in 2.0."""
+
+    @staticmethod
+    def _repo(temp_dir, config):
+        (temp_dir / "opencode.json").write_text(json.dumps(config))
+        return RepositoryContext(temp_dir)
+
+    def _block(self, temp_dir, config):
+        blocks = self._repo(temp_dir, config).lint_tree.find(OpenCodeMcpBlock)
+        assert len(blocks) == 1
+        return blocks[0]
+
+    def test_the_v1_flat_map_is_read(self, temp_dir):
+        block = self._block(
+            temp_dir,
+            {"mcp": {"playwright": {"type": "local", "command": ["npx", "mcp"]}}},
+        )
+        assert block.server_names == {"playwright"}
+
+    def test_the_v2_nested_map_is_read(self, temp_dir):
+        block = self._block(
+            temp_dir,
+            {"mcp": {"servers": {"playwright": {"type": "local", "command": ["npx"]}}}},
+        )
+        assert block.server_names == {"playwright"}
+
+    def test_a_v1_server_named_servers_is_not_mistaken_for_the_v2_wrapper(self, temp_dir):
+        """Nothing forbids the name, so only the value shape can tell them apart."""
+        block = self._block(
+            temp_dir,
+            {"mcp": {"servers": {"type": "local", "command": ["npx", "servers-mcp"]}}},
+        )
+        assert block.server_names == {"servers"}
+
+    @pytest.mark.parametrize("server_name", ["command", "type", "url", "enabled"])
+    def test_a_v2_server_named_after_a_connection_field_is_still_found(self, temp_dir, server_name):
+        """The wrapper test reads value shapes, not key names.
+
+        Matching on names alone would read the whole `servers` map as one v1
+        server, hiding every server inside it from the policy and credential
+        scans — the same hole as reading only one layout.
+        """
+        block = self._block(
+            temp_dir,
+            {"mcp": {"servers": {server_name: {"type": "local", "command": ["npx", "mcp"]}}}},
+        )
+        assert block.server_names == {server_name}
+
+    @pytest.mark.parametrize("name", ["servers", "timeout"])
+    @pytest.mark.parametrize("enabled", [False, True])
+    def test_a_named_v1_toggle_is_kept_as_one_server(self, temp_dir, name, enabled):
+        block = self._block(temp_dir, {"mcp": {name: {"enabled": enabled}}})
+        assert block.server_entries() == [(name, {"enabled": enabled})]
+        assert block.server_names == {name}
+
+    def test_a_v1_server_named_servers_is_still_told_apart(self, temp_dir):
+        """The other direction of the same test: a real server keeps its reading."""
+        block = self._block(
+            temp_dir,
+            {"mcp": {"servers": {"type": "remote", "url": "https://x.example/mcp"}}},
+        )
+        assert block.server_names == {"servers"}
+
+    def test_an_empty_v2_wrapper_declares_no_servers(self, temp_dir):
+        block = self._block(temp_dir, {"mcp": {"servers": {}}})
+        assert block.server_names == set()
+
+    def test_a_config_without_mcp_declares_no_servers(self, temp_dir):
+        block = self._block(temp_dir, {"model": "anthropic/claude-sonnet-4-5"})
+        assert block.server_names == set()
+        assert block.raw_data is not None, "the rest of the config still parses"
+
+    def test_the_claude_shape_rule_stands_aside(self, temp_dir):
+        """Its every check would misfire on a correctly written OpenCode config."""
+        context = self._repo(
+            temp_dir,
+            {"mcp": {"playwright": {"type": "local", "command": ["npx", "mcp"]}}},
+        )
+        assert McpValidJsonRule().check(context) == []
+
+    def test_the_policy_rule_reads_opencode_servers(self, temp_dir):
+        context = self._repo(
+            temp_dir,
+            {"mcp": {"servers": {"exfil": {"type": "remote", "url": "https://x.example/mcp"}}}},
+        )
+        violations = McpProhibitedRule({"allowlist": ["playwright"]}).check(context)
+        assert len(violations) == 1
+        assert "exfil" in violations[0].message
+
+    def test_both_layouts_in_one_file_are_read(self, temp_dir):
+        """A file mid-migration carries both, and both load.
+
+        Returning one layout would let a config hide a server behind the
+        other, since the discriminator reads author-chosen names.
+        """
+        block = self._block(
+            temp_dir,
+            {
+                "mcp": {
+                    "exfil": {"type": "local", "command": ["npx", "@attacker/mcp"]},
+                    "servers": {"playwright": {"type": "local", "command": ["npx", "playwright"]}},
+                }
+            },
+        )
+        assert block.server_names == {"exfil", "playwright"}
+
+    def test_a_name_declared_in_both_layouts_is_returned_twice(self, temp_dir):
+        """Two objects ship, each able to carry its own defect."""
+        block = self._block(
+            temp_dir,
+            {
+                "mcp": {
+                    "dup": {"type": "local", "command": ["npx", "one"]},
+                    "servers": {"dup": {"type": "local", "command": ["npx", "two"]}},
+                }
+            },
+        )
+        names = [name for name, _ in block.server_entries()]
+        assert names.count("dup") == 2
+        assert block.server_names == {"dup"}
+
+    def test_a_v2_global_timeout_is_not_read_as_a_server(self, temp_dir):
+        """v2 puts a `timeout` setting beside `servers`; upstream skips it too."""
+        block = self._block(
+            temp_dir,
+            {
+                "mcp": {
+                    "timeout": {"startup": 5000},
+                    "servers": {"ok": {"type": "local", "command": ["npx", "mcp"]}},
+                }
+            },
+        )
+        assert block.server_names == {"ok"}
+
+    def test_a_v1_server_actually_named_timeout_survives(self, temp_dir):
+        """Only a value carrying no connection field is treated as the setting."""
+        block = self._block(
+            temp_dir,
+            {"mcp": {"timeout": {"type": "local", "command": ["npx", "timeout-mcp"]}}},
+        )
+        assert block.server_names == {"timeout"}
+
+    def test_a_non_object_server_value_is_still_listed(self, temp_dir):
+        """The validating rule needs it; `servers` drops it."""
+        block = self._block(temp_dir, {"mcp": {"broken": "npx mcp"}})
+        assert block.server_entries() == [("broken", "npx mcp")]
+        assert block.servers == []

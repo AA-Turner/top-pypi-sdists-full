@@ -1,5 +1,3 @@
-# flake8: noqa
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -9,6 +7,7 @@ import warnings
 
 import numpy
 from optuna import logging
+from optuna._deprecated import _DEPRECATION_WARNING_TEMPLATE
 from optuna._experimental import experimental_class
 from optuna._experimental import experimental_func
 from optuna._imports import try_import
@@ -16,7 +15,6 @@ from optuna._transform import _SearchSpaceTransform
 from optuna.distributions import BaseDistribution
 from optuna.samplers import BaseSampler
 from optuna.samplers import RandomSampler
-from optuna.samplers._base import _CONSTRAINTS_KEY
 from optuna.samplers._base import _process_constraints_after_trial
 from optuna.search_space import IntersectionSearchSpace
 from optuna.study import Study
@@ -31,10 +29,8 @@ with try_import() as _imports:
     from botorch.acquisition.monte_carlo import qExpectedImprovement
     from botorch.acquisition.monte_carlo import qNoisyExpectedImprovement
     from botorch.acquisition.multi_objective import monte_carlo
+    from botorch.acquisition.multi_objective import objective as multi_objective_objective
     from botorch.acquisition.multi_objective.analytic import ExpectedHypervolumeImprovement
-    from botorch.acquisition.multi_objective.objective import (
-        FeasibilityWeightedMCMultiOutputObjective,
-    )
     from botorch.acquisition.multi_objective.objective import IdentityMCMultiOutputObjective
     from botorch.acquisition.objective import ConstrainedMCObjective
     from botorch.acquisition.objective import GenericMCObjective
@@ -79,10 +75,12 @@ with try_import() as _imports_logei:
 with try_import() as _imports_qlogei:
     from botorch.acquisition.logei import qLogExpectedImprovement
 
+with try_import() as _imports_qloghvi:
+    from botorch.acquisition.multi_objective.logei import qLogExpectedHypervolumeImprovement
+    from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement
+
 with try_import() as _imports_qhvkg:
-    from botorch.acquisition.multi_objective.hypervolume_knowledge_gradient import (
-        qHypervolumeKnowledgeGradient,
-    )
+    from botorch.acquisition.multi_objective import hypervolume_knowledge_gradient
 
 
 def _validate_botorch_version_for_constrained_opt(func_name: str) -> None:
@@ -95,7 +93,16 @@ def _validate_botorch_version_for_constrained_opt(func_name: str) -> None:
 
 
 def _get_constraint_funcs(n_constraints: int) -> list[Callable[["torch.Tensor"], "torch.Tensor"]]:
-    return [lambda Z: Z[..., -n_constraints + i] for i in range(n_constraints)]
+    # Use a typed inner factory rather than a lambda with default-arg binding:
+    # the factory captures ``i`` per iteration (no late-binding bug) and gives
+    # mypy a concrete signature for the returned callable.
+    def _make_func(i: int) -> Callable[["torch.Tensor"], "torch.Tensor"]:
+        def _constraint(Z: "torch.Tensor") -> "torch.Tensor":
+            return Z[..., -n_constraints + i]
+
+        return _constraint
+
+    return [_make_func(i) for i in range(n_constraints)]
 
 
 @experimental_func("3.3.0")
@@ -527,8 +534,13 @@ def qehvi_candidates_func(
 
     ref_point_list = ref_point.tolist()
 
-    if hasattr(monte_carlo, "qLogExpectedHypervolumeImprovement"):
-        hypervol_improvement_method = monte_carlo.qLogExpectedHypervolumeImprovement
+    # qLogEHVI is numerically more stable than qEHVI and is recommended by BoTorch.
+    # cf. https://arxiv.org/abs/2310.20708
+    # qLogEHVI raises an IndexError when every cell of the approximate box
+    # decomposition has been pruned (num_cells == 0), so fall back to qEHVI in
+    # that case, which returns zero improvement.
+    if _imports_qloghvi.is_successful() and partitioning.get_hypercell_bounds().shape[-2] > 0:
+        hypervol_improvement_method = qLogExpectedHypervolumeImprovement
     else:
         hypervol_improvement_method = monte_carlo.qExpectedHypervolumeImprovement
 
@@ -676,9 +688,16 @@ def qnehvi_candidates_func(
 
     ref_point_list = ref_point.tolist()
 
+    # qLogNEHVI is numerically more stable than qNEHVI and is recommended by BoTorch.
+    # cf. https://arxiv.org/abs/2310.20708
+    if _imports_qloghvi.is_successful():
+        noisy_hypervol_improvement_method = qLogNoisyExpectedHypervolumeImprovement
+    else:
+        noisy_hypervol_improvement_method = monte_carlo.qNoisyExpectedHypervolumeImprovement
+
     # prune_baseline=True is generally recommended by the documentation of BoTorch.
     # cf. https://botorch.org/api/acquisition.html (accessed on 2022/11/18)
-    acqf = monte_carlo.qNoisyExpectedHypervolumeImprovement(
+    acqf = noisy_hypervol_improvement_method(
         model=model,
         ref_point=ref_point_list,
         X_baseline=train_x,
@@ -967,7 +986,7 @@ def qhvkg_candidates_func(
     fit_gpytorch_mll(mll)
 
     n_constraints = train_con.size(1) if train_con is not None else 0
-    objective = FeasibilityWeightedMCMultiOutputObjective(
+    objective = multi_objective_objective.FeasibilityWeightedMCMultiOutputObjective(
         model,
         X_baseline=train_x,
         constraint_idcs=[-n_constraints + i for i in range(n_constraints)],
@@ -975,7 +994,7 @@ def qhvkg_candidates_func(
 
     ref_point = train_obj.min(dim=0).values - 1e-8
 
-    acqf = qHypervolumeKnowledgeGradient(
+    acqf = hypervolume_knowledge_gradient.qHypervolumeKnowledgeGradient(
         model=model,
         ref_point=ref_point,
         num_fantasies=16,
@@ -1059,9 +1078,8 @@ class BoTorchSampler(BaseSampler):
             An optional function that suggests the next candidates. It must take the training
             data, the objectives, the constraints, the search space bounds and return the next
             candidates. The arguments are of type :class:`torch.Tensor`. The return value must be a
-            :class:`torch.Tensor`. However, if ``constraints_func`` is omitted, constraints will be
-            :obj:`None`. For any constraints that failed to compute, the tensor will contain
-            NaN.
+            :class:`torch.Tensor`. However, if no constraint is set by
+            :meth:`~optuna.trial.Trial.set_constraint`, constraints will be :obj:`None`.
 
             If omitted, it is determined automatically based on the number of objectives and
             whether a constraint is specified. If the
@@ -1084,8 +1102,10 @@ class BoTorchSampler(BaseSampler):
             be a sequence of :obj:`float` s. A value strictly larger than 0 means that a
             constraint is violated. A value equal to or smaller than 0 is considered feasible.
 
-            If omitted, no constraints will be passed to ``candidates_func`` nor taken into
-            account during suggestion.
+            .. warning::
+                Deprecated in v5.0.0. This feature will be removed in the future. The removal of
+                this feature is currently scheduled for v7.0.0, but this schedule is subject to
+                change. Use :meth:`~optuna.trial.Trial.set_constraint` instead.
         n_startup_trials:
             Number of initial trials, that is the number of trials to resort to independent
             sampling.
@@ -1130,6 +1150,12 @@ class BoTorchSampler(BaseSampler):
         device: "torch.device" | None = None,
     ):
         _imports.check()
+
+        if constraints_func is not None:
+            msg = _DEPRECATION_WARNING_TEMPLATE.format(
+                name="`constraints_func`", d_ver="5.0.0", r_ver="7.0.0"
+            )
+            warnings.warn(f"{msg} Use `optuna.trial.Trial.set_constraint` instead.", FutureWarning)
 
         self._candidates_func = candidates_func
         self._constraints_func = constraints_func
@@ -1193,6 +1219,7 @@ class BoTorchSampler(BaseSampler):
             (n_trials, n_objectives), dtype=numpy.float64
         )
         params: numpy.ndarray | torch.Tensor
+        constraint_keys: list[str] | None = None
         con: numpy.ndarray | torch.Tensor | None = None
         bounds: numpy.ndarray | torch.Tensor = trans.bounds
         params = numpy.empty((n_trials, trans.bounds.shape[0]), dtype=numpy.float64)
@@ -1207,23 +1234,26 @@ class BoTorchSampler(BaseSampler):
                     ):  # BoTorch always assumes maximization.
                         value *= -1
                     values[trial_idx, obj_idx] = value
-                if self._constraints_func is not None:
-                    constraints = study._storage.get_trial_system_attrs(trial._trial_id).get(
-                        _CONSTRAINTS_KEY
-                    )
-                    if constraints is not None:
-                        n_constraints = len(constraints)
 
-                        if con is None:
-                            con = numpy.full(
-                                (n_completed_trials, n_constraints), numpy.nan, dtype=numpy.float64
-                            )
-                        elif n_constraints != con.shape[1]:
-                            raise RuntimeError(
-                                f"Expected {con.shape[1]} constraints "
-                                f"but received {n_constraints}."
-                            )
-                        con[trial_idx] = constraints
+                if not hasattr(trial, "constraints"):
+                    raise RuntimeError("BoTorchSampler requires Optuna v5.0.0 or newer.")
+                constraints = trial.constraints
+                if constraint_keys is None:
+                    constraint_keys = list(constraints.keys())
+                    if len(constraint_keys) != 0:
+                        con = numpy.full(
+                            (n_completed_trials, len(constraint_keys)),
+                            numpy.nan,
+                            dtype=numpy.float64,
+                        )
+                elif constraints.keys() != set(constraint_keys):
+                    raise RuntimeError(
+                        f"Expected the constraints named {constraint_keys} "
+                        f"but received {list(constraints.keys())}."
+                    )
+                if con is not None:
+                    assert isinstance(con, numpy.ndarray)
+                    con[trial_idx] = [constraints[key] for key in constraint_keys]
             elif trial.state == TrialState.RUNNING:
                 if all(p in trial.params for p in search_space):
                     params[trial_idx] = trans.transform(trial.params)
@@ -1232,17 +1262,11 @@ class BoTorchSampler(BaseSampler):
             else:
                 assert False, "trail.state must be TrialState.COMPLETE or TrialState.RUNNING."
 
-        if self._constraints_func is not None:
-            if con is None:
-                warnings.warn(
-                    "`constraints_func` was given but no call to it correctly computed "
-                    "constraints. Constraints passed to `candidates_func` will be `None`."
-                )
-            elif numpy.isnan(con).any():
-                warnings.warn(
-                    "`constraints_func` was given but some calls to it did not correctly compute "
-                    "constraints. Constraints passed to `candidates_func` will contain NaN."
-                )
+        if self._constraints_func is not None and con is None:
+            warnings.warn(
+                "`constraints_func` was given but no call to it correctly computed "
+                "constraints. Constraints passed to `candidates_func` will be `None`."
+            )
 
         values = torch.from_numpy(values).to(self._device)
         params = torch.from_numpy(params).to(self._device)

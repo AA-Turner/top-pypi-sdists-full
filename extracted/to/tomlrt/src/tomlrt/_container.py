@@ -655,9 +655,9 @@ class Container(_View, dict[str, Any]):
         """Install ``value`` (an AoT) under ``key``.
 
         Live-attached sources or private orphans with intact entry
-        slots route through :func:`clone_aot_entry` to preserve per-entry
-        trivia and nested sub-sections. Detached AoTs without preserved
-        slots are rehomed entry-by-entry.
+        slots are cloned to preserve per-entry trivia and nested
+        sub-sections. Detached AoTs without preserved slots are rehomed
+        entry-by-entry.
         """
         src_root = value._layout_root  # noqa: SLF001
         if src_root is not None and not src_root._is_private:  # noqa: SLF001
@@ -679,10 +679,9 @@ class Container(_View, dict[str, Any]):
             preserve_cst = owner is not None and entry_table._header_ref is not None  # noqa: SLF001
             if preserve_cst:
                 # Gathering includes nested AoTs and requires the live view.
-                _layout_ops.clone_aot_entry(
+                _layout_ops.add_aot_entry(
                     value,
                     entry_table,
-                    dst_path=value._path,  # noqa: SLF001
                     preserve_source_separator=True,
                 )
                 # The copy is the one that lives on, so the original
@@ -694,14 +693,20 @@ class Container(_View, dict[str, Any]):
                 _layout_ops.add_aot_entry(value, None, rehome=entry_table)
         _layout_ops.synthesise_header_for_emptied(emptied)
 
-    def _attach_section(self, key: str, value: Container) -> None:
-        """Install ``value`` (a section-flavoured Table) under ``key``.
+    def _attach_section(self, key: str, source: Container) -> None:
+        """Install ``source`` (a section-flavoured Table) under ``key``.
 
         Clones from a live source so identity and trivia survive where
         possible — including normalising an AoT-entry source's
         ``[[..]]`` head to ``[..]``. Falls back to synthesis only for a
         truly detached source with no slots of its own.
+
+        An overlapping source is read from a snapshot in another
+        document, through the ordinary live-source branches.
         """
+        snapshot = _snapshot_for_overlapping_install(self, key, source)
+        assert isinstance(snapshot, Container)
+        value: Container = snapshot
         src_root = value._layout_root
         live_source = src_root is not None and not src_root._is_private  # noqa: SLF001
         if live_source:
@@ -712,18 +717,7 @@ class Container(_View, dict[str, Any]):
             elif isinstance(value, Document):
                 _layout_ops.clone_document_as_section(self, key, value)
             else:
-                snapshot = _snapshot_for_overlapping_install(self, key, value)
-                assert isinstance(snapshot, Container)
-                _install_attached_subtree(self, (key,), snapshot)
-            return
-        # An overlapping install can never be a move — the source would
-        # have to end up inside itself — so it is copied instead, as it
-        # is for a live source above. The copy is a fresh detached
-        # `Document`, which installs as a section.
-        snapshot = _snapshot_for_overlapping_install(self, key, value)
-        if snapshot is not value:
-            assert isinstance(snapshot, Document)
-            _layout_ops.clone_document_as_section(self, key, snapshot)
+                _install_attached_subtree(self, (key,), value)
             return
         if src_root is not None and src_root._is_private and value._refs:  # noqa: SLF001
             # Private orphan with intact slots: move the slots into the
@@ -1623,16 +1617,13 @@ def _reset_table_for_rehome(t: Container) -> None:
     every slot-linkage field, so the standard attach path treats ``t``
     as freshly constructed.
 
-    Also resets nested non-inline ``Container`` / ``AoT`` children from
-    the same detached subtree, descending unconditionally. Most callers
-    re-root a whole subtree to the same orphan in one pass before any of
-    its tables can be independently touched. The exception is an orphan
-    emptied by adoption: a descendant there may still own slots, whose
-    CST is dropped in favour of synthesis from dict storage.
-
-    Used when re-installing a held view that was detached into a
-    private orphan ``Document``.
+    A rooted subtree's descendants share its document: adopting a
+    child elsewhere removes the old logical binding. Non-inline
+    children are reset recursively. Factories have no linkage to clear
+    and may hold independently owned sources, so they are left alone.
     """
+    if t._layout_root is None:  # noqa: SLF001
+        return
     t._layout_root = None  # noqa: SLF001
     t._path = ()  # noqa: SLF001
     t._host = None  # noqa: SLF001
@@ -1708,10 +1699,11 @@ def _install_dotted_direct_kvs(
 
     ``host`` is the nearest header-bearing ancestor at-or-above
     ``dst_parent`` (or the doc / AoT-entry root). Creates implicit
-    intermediates as needed. Each value's CST and leading trivia are
+    intermediates as needed. Each value's CST and whole-line trivia are
     deep-cloned from the corresponding source slot so string/number
-    style, inline-array pad, and standalone comments survive — a
-    re-synthesis from the logical value would drop all of those.
+    style, inline-array pad, and both standalone and end-of-line
+    comments survive — a re-synthesis from the logical value would drop
+    all of those.
     """
     from tomlrt._build import _decode_value  # noqa: PLC0415
 
@@ -1732,6 +1724,10 @@ def _install_dotted_direct_kvs(
         cst = copy.deepcopy(src_slot.value)
         _retarget_to_doc(cst, doc)
         leading = retarget_newlines(src_slot.leading, doc._newline)  # noqa: SLF001
+        eol = retarget_newlines(src_slot.eol, doc._newline)  # noqa: SLF001
+        key_parts, key_seps = _layout_ops.respell_key_prefix(
+            src_slot.key_parts, src_slot.key_seps, len(src_slot.key_parts), leaf_keypath
+        )
         decoded = _decode_value(cst, doc, destination, k, owner)
         _layout_ops.install_dotted_kv_slot(
             host,
@@ -1739,6 +1735,9 @@ def _install_dotted_direct_kvs(
             cst,
             leaf_parent=destination,
             leading=leading,
+            eol=eol,
+            key_parts=key_parts,
+            key_seps=key_seps,
         )
         dict.__setitem__(destination, k, decoded)
 
@@ -1769,10 +1768,14 @@ def _snapshot_for_overlapping_install(
 ) -> TomlInput:
     """Snapshot ``value`` if an overlapping install cannot safely read it.
 
-    An ancestor source would grow while it is read. During overwrite, a
-    headerless grandchild also depends on implicit intermediates that
-    deletion resets. Other descendants retain independent slot anchors
-    and use the trivia-preserving private-orphan adopt path.
+    A source the write site lives in would grow while it is read.
+    During overwrite, a headerless grandchild also depends on implicit
+    intermediates that deletion resets. Other descendants retain
+    independent slot anchors and use the trivia-preserving
+    private-orphan adopt path.
+
+    The snapshot is the same view in a byte-exact copy of the document,
+    so it is read exactly as the source would have been.
     """
     if not isinstance(value, (Container, AoT)):
         return value
@@ -1781,17 +1784,15 @@ def _snapshot_for_overlapping_install(
         return value
     dest_path = (*parent._path, key)  # noqa: SLF001
     value_path = value._path  # noqa: SLF001
-    vlen, dlen = len(value_path), len(dest_path)
-    ancestor_overlap = vlen < dlen and dest_path[:vlen] == value_path
     headerless_value = not isinstance(value, AoT) and value._header_ref is None  # noqa: SLF001
     descendant_overlap = (
-        headerless_value and vlen - dlen >= 2 and value_path[:dlen] == dest_path
+        headerless_value
+        and len(value_path) - len(dest_path) >= 2
+        and value_path[: len(dest_path)] == dest_path
     )
-    if not (ancestor_overlap or descendant_overlap):
+    if not (_layout_ops.hosts_site(value, parent) or descendant_overlap):
         return value
-    if isinstance(value, AoT):
-        return AoT(value.to_list())
-    return Document(value.to_dict())
+    return _layout_ops.stable_snapshot(value)
 
 
 def _collect_private_roots(value: object, found: dict[int, Document]) -> None:

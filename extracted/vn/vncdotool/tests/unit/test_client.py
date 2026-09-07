@@ -1,7 +1,9 @@
 from unittest import TestCase, mock
 import io
+import warnings
 
-from vncdotool import client, rfb
+from vncdotool import client
+from vncdotool.keys import Key
 
 
 class TestVNCDoToolClient(TestCase):
@@ -51,12 +53,12 @@ class TestVNCDoToolClient(TestCase):
         cli.keyPress('ctrl-alt-del')
 
         # XXX doesn't ensure correct order
-        cli.keyEvent.assert_any_call(rfb.KEY_ControlLeft, down=1)
-        cli.keyEvent.assert_any_call(rfb.KEY_AltLeft, down=1)
-        cli.keyEvent.assert_any_call(rfb.KEY_Delete, down=1)
-        cli.keyEvent.assert_any_call(rfb.KEY_ControlLeft, down=0)
-        cli.keyEvent.assert_any_call(rfb.KEY_AltLeft, down=0)
-        cli.keyEvent.assert_any_call(rfb.KEY_Delete, down=0)
+        cli.keyEvent.assert_any_call(Key.ControlLeft, down=1)
+        cli.keyEvent.assert_any_call(Key.AltLeft, down=1)
+        cli.keyEvent.assert_any_call(Key.Delete, down=1)
+        cli.keyEvent.assert_any_call(Key.ControlLeft, down=0)
+        cli.keyEvent.assert_any_call(Key.AltLeft, down=0)
+        cli.keyEvent.assert_any_call(Key.Delete, down=0)
 
     @mock.patch('vncdotool.client.Deferred')
     def test_captureScreen(self, Deferred):
@@ -205,12 +207,79 @@ class TestVNCDoToolClient(TestCase):
 
         self.deferred.callback.assert_called_once_with(self.client)
 
+    # A framebuffer update whose only rectangle is the DesktopSize
+    # pseudo-encoding carries no pixel data.
+    MSG_FBU_DESKTOP_SIZE_ONLY = (
+        b"\x00"  # FRAMEBUFFER_UPDATE
+        b"\x00"  # padding
+        b"\x00\x01"  # number-of-rectangles
+        b"\x00\x00\x00\x00\x07\x80\x04\xb0"  # x=0 y=0 w=1920 h=1200
+        b"\xff\xff\xff\x21"  # PSEUDO_DESKTOP_SIZE (-223)
+    )
+    MSG_FBU_ONE_PIXEL = (
+        b"\x00"  # FRAMEBUFFER_UPDATE
+        b"\x00"  # padding
+        b"\x00\x01"  # number-of-rectangles
+        b"\x00\x00\x00\x00\x00\x01\x00\x01"  # x=0 y=0 w=1 h=1
+        b"\x00\x00\x00\x00"  # Encoding.RAW
+        b"\xff\x00\x00\x00"  # one RGBX pixel
+    )
+
+    def _connect(self) -> None:
+        self.client._packet = bytearray(self.MSG_HANDSHAKE)
+        self.client._handleInitial()
+        self.client._handleServerInit(self.MSG_INIT)
+
+    def test_desktop_size_only_update_rerequests_instead_of_completing(self) -> None:
+        cli = self.client
+        self._connect()
+        d = cli.refreshScreen()
+        fired: list = []
+        d.addCallback(fired.append)
+        cli.framebufferUpdateRequest.reset_mock()
+
+        cli.dataReceived(self.MSG_FBU_DESKTOP_SIZE_ONLY)
+
+        self.assertEqual(fired, [])
+        cli.framebufferUpdateRequest.assert_called_once_with()
+
+    def test_refresh_completes_once_pixel_data_arrives(self) -> None:
+        cli = self.client
+        self._connect()
+        d = cli.refreshScreen()
+        fired: list = []
+        d.addCallback(fired.append)
+
+        cli.dataReceived(self.MSG_FBU_DESKTOP_SIZE_ONLY)
+        cli.dataReceived(self.MSG_FBU_ONE_PIXEL)
+
+        self.assertEqual(fired, [cli])
+        assert cli.screen is not None
+        self.assertEqual(cli.screen.size, (1920, 1200))
+
     def test_vncRequestPassword_attribute(self):
         cli = self.client
         cli.sendPassword = mock.Mock()
         cli.factory.password = 'mushroommushroom'
         cli.vncRequestPassword()
         cli.sendPassword.assert_called_once_with(cli.factory.password)
+
+    def test_vncAuthFailed_reports_connection_failed(self):
+        cli = self.client
+        cli.vncAuthFailed(b'Authentication failure')
+
+        assert cli.factory.clientConnectionFailed.called
+        reason = cli.factory.clientConnectionFailed.call_args[0][1]
+        assert isinstance(reason.value, client.AuthenticationError)
+
+    def test_vncProtocolError_reports_connection_failed(self):
+        cli = self.client
+        cli.vncProtocolError('unknown encoding received')
+
+        assert cli.factory.clientConnectionFailed.called
+        reason = cli.factory.clientConnectionFailed.call_args[0][1]
+        assert isinstance(reason.value, client.ProtocolError)
+        assert 'unknown encoding' in str(reason.value)
 
 
 class TestVNCDoToolFactory(TestCase):
@@ -239,3 +308,62 @@ class TestVNCDoToolFactory(TestCase):
         self.factory.clientConnectionFailed(connector, reason)
 
         deferred.errback.assert_called_once_with(reason)
+
+
+class TestImageMode(TestCase):
+
+    def setUp(self) -> None:
+        self.client = client.VNCDoToolClient()
+        self.client.transport = mock.Mock()
+        self.client.factory = mock.Mock()
+
+    def test_image_mode_warns_on_access(self):
+        with self.assertWarns(FutureWarning):
+            self.client.image_mode
+
+    def test_image_mode_returns_negotiated_mode(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            assert self.client.image_mode == "RGBX"
+
+    def test_setImageMode_does_not_warn(self):
+        self.client._version_server = (3, 8)
+        self.client.pixel_format = client.RGB24
+        self.client.setPixelFormat = mock.Mock()  # type: ignore[assignment]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            self.client.setImageMode()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            assert self.client.image_mode == "RGB"
+
+    def test_setImageMode_falls_back_for_apple_remote_desktop(self):
+        self.client._version_server = (3, 889)
+        self.client.pixel_format = mock.Mock()  # unrecognised by PF2IM
+        self.client.setPixelFormat = mock.Mock()  # type: ignore[assignment]
+
+        self.client.setImageMode()
+
+        self.client.setPixelFormat.assert_called_once_with(client.BGR16)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            assert self.client.image_mode == "BGR;16"
+
+    @mock.patch('PIL.Image.frombytes')
+    def test_updateRectangle_does_not_warn(self, frombytes):
+        cli = self.client
+        cli.image = mock.Mock()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            cli.updateRectangle(0, 0, 100, 200, mock.Mock())
+
+    def test_updateCursor_does_not_warn(self):
+        cli = self.client
+        cli.factory.nocursor = False
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            cli.updateCursor(0, 0, 4, 4, b"\x00" * (4 * 4 * 4), b"\x00" * 4)

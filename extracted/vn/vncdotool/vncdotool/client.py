@@ -10,9 +10,10 @@ from __future__ import annotations
 import logging
 import math
 import socket
+import warnings
 from pathlib import Path
 from struct import pack
-from typing import IO, Any, Iterator, TypeVar, Union
+from typing import IO, Any, Callable, Iterator, TypeVar, Union
 
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
@@ -21,92 +22,12 @@ from twisted.internet.interfaces import IConnector, ITCPTransport
 from twisted.python.failure import Failure
 
 from . import rfb
+from .keys import KEYMAP
 
 TClient = TypeVar("TClient", bound="VNCDoToolClient")
 TFile = Union[str, Path, IO[bytes]]
 
 log = logging.getLogger(__name__)
-
-
-KEYMAP = {
-    "bsp": rfb.KEY_BackSpace,
-    "tab": rfb.KEY_Tab,
-    "return": rfb.KEY_Return,
-    "enter": rfb.KEY_Return,
-    "esc": rfb.KEY_Escape,
-    "ins": rfb.KEY_Insert,
-    "delete": rfb.KEY_Delete,
-    "del": rfb.KEY_Delete,
-    "home": rfb.KEY_Home,
-    "end": rfb.KEY_End,
-    "pgup": rfb.KEY_PageUp,
-    "pgdn": rfb.KEY_PageDown,
-    "left": rfb.KEY_Left,
-    "up": rfb.KEY_Up,
-    "right": rfb.KEY_Right,
-    "down": rfb.KEY_Down,
-    "slash": rfb.KEY_BackSlash,
-    "bslash": rfb.KEY_BackSlash,
-    "fslash": rfb.KEY_ForwardSlash,
-    "spacebar": rfb.KEY_SpaceBar,
-    "space": rfb.KEY_SpaceBar,
-    "sb": rfb.KEY_SpaceBar,
-    "f1": rfb.KEY_F1,
-    "f2": rfb.KEY_F2,
-    "f3": rfb.KEY_F3,
-    "f4": rfb.KEY_F4,
-    "f5": rfb.KEY_F5,
-    "f6": rfb.KEY_F6,
-    "f7": rfb.KEY_F7,
-    "f8": rfb.KEY_F8,
-    "f9": rfb.KEY_F9,
-    "f10": rfb.KEY_F10,
-    "f11": rfb.KEY_F11,
-    "f12": rfb.KEY_F12,
-    "f13": rfb.KEY_F13,
-    "f14": rfb.KEY_F14,
-    "f15": rfb.KEY_F15,
-    "f16": rfb.KEY_F16,
-    "f17": rfb.KEY_F17,
-    "f18": rfb.KEY_F18,
-    "f19": rfb.KEY_F19,
-    "f20": rfb.KEY_F20,
-    "lshift": rfb.KEY_ShiftLeft,
-    "shift": rfb.KEY_ShiftLeft,
-    "rshift": rfb.KEY_ShiftRight,
-    "lctrl": rfb.KEY_ControlLeft,
-    "ctrl": rfb.KEY_ControlLeft,
-    "rctrl": rfb.KEY_ControlRight,
-    "lmeta": rfb.KEY_MetaLeft,
-    "meta": rfb.KEY_MetaLeft,
-    "rmeta": rfb.KEY_MetaRight,
-    "lalt": rfb.KEY_AltLeft,
-    "alt": rfb.KEY_AltLeft,
-    "ralt": rfb.KEY_AltRight,
-    "scrlk": rfb.KEY_Scroll_Lock,
-    "sysrq": rfb.KEY_Sys_Req,
-    "numlk": rfb.KEY_Num_Lock,
-    "caplk": rfb.KEY_Caps_Lock,
-    "pause": rfb.KEY_Pause,
-    "lsuper": rfb.KEY_Super_L,
-    "super": rfb.KEY_Super_L,
-    "rsuper": rfb.KEY_Super_R,
-    "lhyper": rfb.KEY_Hyper_L,
-    "hyper": rfb.KEY_Hyper_L,
-    "rhyper": rfb.KEY_Hyper_R,
-    "kp0": rfb.KEY_KP_0,
-    "kp1": rfb.KEY_KP_1,
-    "kp2": rfb.KEY_KP_2,
-    "kp3": rfb.KEY_KP_3,
-    "kp4": rfb.KEY_KP_4,
-    "kp5": rfb.KEY_KP_5,
-    "kp6": rfb.KEY_KP_6,
-    "kp7": rfb.KEY_KP_7,
-    "kp8": rfb.KEY_KP_8,
-    "kp9": rfb.KEY_KP_9,
-    "kpenter": rfb.KEY_KP_Enter,
-    "minus": ord('-'),  # Literal `-` will get split while decoding
-}
 
 # Enable using vncdotool without PIL. Of course capture and expect
 # won't work but at least we can still offer key, type, press and
@@ -137,6 +58,10 @@ class AuthenticationError(VNCDoException):
     """VNC Server requires Authentication"""
 
 
+class ProtocolError(VNCDoException):
+    """VNC Server sent something we cannot handle"""
+
+
 RGB32 = rfb.PixelFormat(32, 24, False, True, 255, 255, 255, 0, 8, 16)
 RGB24 = rfb.PixelFormat(24, 24, False, True, 255, 255, 255, 0, 8, 16)
 BGR16 = rfb.PixelFormat(16, 16, False, True, 31, 63, 31, 11, 5, 0)
@@ -155,7 +80,7 @@ class VNCDoToolClient(rfb.RFBClient):
     y = 0
     buttons = 0
     screen: Image.Image | None = None
-    image_mode = PF2IM[rfb.PixelFormat()]
+    _image_mode = PF2IM[rfb.PixelFormat()]
     deferred: Deferred | None = None
 
     cursor: Image.Image | None = None
@@ -380,10 +305,20 @@ class VNCDoToolClient(rfb.RFBClient):
 
         returnValue(self)
 
+    @property
+    def image_mode(self) -> str:
+        warnings.warn(
+            "image_mode will change in a future release; please comment on "
+            "https://github.com/sibson/vncdotool/issues/385 if you rely on it",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self._image_mode
+
     def setImageMode(self) -> None:
         """Check support for PixelFormats announced by server or select client supported alternative."""
         try:
-            self.image_mode = PF2IM[self.pixel_format]
+            self._image_mode = PF2IM[self.pixel_format]
         except LookupError:
             if self._version_server == (3, 889):  # Apple Remote Desktop
                 pixel_format = BGR16
@@ -391,7 +326,7 @@ class VNCDoToolClient(rfb.RFBClient):
                 pixel_format = RGB32
 
             self.setPixelFormat(pixel_format)
-            self.image_mode = PF2IM[pixel_format]
+            self._image_mode = PF2IM[pixel_format]
 
     #
     # base customizations
@@ -404,6 +339,16 @@ class VNCDoToolClient(rfb.RFBClient):
             )
             return
         self.sendPassword(self.factory.password)
+
+    def vncAuthFailed(self, reason: bytes | str) -> None:
+        super().vncAuthFailed(reason)
+        if isinstance(reason, bytes):
+            reason = reason.decode("utf-8", "replace")
+        self.factory.clientConnectionFailed(self, Failure(AuthenticationError(reason)))
+
+    def vncProtocolError(self, reason: str) -> None:
+        super().vncProtocolError(reason)
+        self.factory.clientConnectionFailed(self, Failure(ProtocolError(reason)))
 
     def vncConnectionMade(self) -> None:
         self.setImageMode()
@@ -437,7 +382,7 @@ class VNCDoToolClient(rfb.RFBClient):
             return
 
         size = (width, height)
-        update = Image.frombytes("RGB", size, data, "raw", self.image_mode)
+        update = Image.frombytes("RGB", size, data, "raw", self._image_mode)
         if not self.screen:
             self.screen = update
         # track upward screen resizes, often occurs during os boot of VMs
@@ -459,6 +404,11 @@ class VNCDoToolClient(rfb.RFBClient):
 
     def commitUpdate(self, rectangles: list[rfb.Rect] | None = None) -> None:
         if self.deferred:
+            if not rectangles:
+                # No rectangle in this update painted self.screen; wait for
+                # one that does before completing the refresh.
+                self.framebufferUpdateRequest()
+                return
             d = self.deferred
             self.deferred = None
             d.callback(self)
@@ -473,7 +423,7 @@ class VNCDoToolClient(rfb.RFBClient):
             self.cursor = None
 
         self.cursor = Image.frombytes(
-            "RGB", (width, height), image, "raw", self.image_mode
+            "RGB", (width, height), image, "raw", self._image_mode
         )
         self.cmask = Image.frombytes("1", (width, height), mask)
         self.cfocus = x, y
@@ -546,9 +496,12 @@ class VNCDoToolFactory(rfb.RFBFactory):
 
     def __init__(self) -> None:
         self.deferred = Deferred()
+        self._disconnect_callbacks: list[Callable[[Failure], None]] = []
 
     def clientConnectionLost(self, connector: IConnector, reason: Failure) -> None:
-        pass
+        for cb in self._disconnect_callbacks:
+            cb(reason)
+        self._disconnect_callbacks.clear()
 
     def clientConnectionFailed(self, connector: IConnector, reason: Failure) -> None:
         self.deferred.errback(reason)

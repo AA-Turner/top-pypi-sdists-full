@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: gdown
-Version: 6.1.1
+Version: 6.2.0
 Summary: Google Drive Public File/Folder Downloader
 Project-URL: Homepage, https://github.com/wkentaro/gdown
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>
@@ -26,6 +26,8 @@ Requires-Dist: filelock
 Requires-Dist: requests[socks]
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.0; python_version < '3.12'
+Provides-Extra: secretstorage
+Requires-Dist: secretstorage; extra == 'secretstorage'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -117,16 +119,19 @@ gdown "$url" -O "my_name.${filename##*.}"
 
 ```bash
 # Download an entire folder
-gdown https://drive.google.com/drive/folders/15uNXeRBIhVvZJIhL4yTw4IsStMhUaaxl -O /tmp/folder --folder
+gdown https://drive.google.com/drive/folders/15uNXeRBIhVvZJIhL4yTw4IsStMhUaaxl -O /tmp/folder
 
 # List folder contents as a JSON array (each entry has url and path)
-gdown https://drive.google.com/drive/folders/15uNXeRBIhVvZJIhL4yTw4IsStMhUaaxl --folder --json
+gdown https://drive.google.com/drive/folders/15uNXeRBIhVvZJIhL4yTw4IsStMhUaaxl --json
 
 # Filter by path and download matches
-gdown https://drive.google.com/drive/folders/15uNXeRBIhVvZJIhL4yTw4IsStMhUaaxl --folder --json \
+gdown https://drive.google.com/drive/folders/15uNXeRBIhVvZJIhL4yTw4IsStMhUaaxl --json \
   | jq -r '.[] | select(.path | test("shad")) | .url' \
   | xargs -n1 gdown
 ```
+
+Folder URLs are detected automatically. A bare folder ID still requires
+`--folder` because file and folder IDs have the same format.
 
 #### Google Docs, Sheets, Slides
 
@@ -159,7 +164,13 @@ gdown https://drive.google.com/uc?id=1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ --proxy h
 # Skip TLS certificate verification
 gdown https://drive.google.com/uc?id=1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ --no-check-certificate
 
-# Don't use cookies from ~/.cache/gdown/cookies.txt
+# Download as your signed-in Google account, reusing your browser's cookies
+gdown https://drive.google.com/uc?id=1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ --cookies-from-browser firefox
+
+# Read and save cookies in a file other than ~/.cache/gdown/cookies.txt
+gdown https://drive.google.com/uc?id=1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ --cookies ./cookies.txt
+
+# Don't read or save cookies
 gdown https://drive.google.com/uc?id=1l_5RK28JRL19wpT22B-DY9We3TVXnnQQ --no-cookies
 
 # Use a custom User-Agent
@@ -231,14 +242,37 @@ Make sure the file sharing is set to "Anyone with the link".
 
 ### Download still fails even with "Anyone with the link"
 
-Google throttles downloads when too many people access the same file.
-If you can still open the file in your browser, try exporting cookies:
+Google throttles downloads when too many people access the same file, but
+lets a signed-in account through. If you can still open the file in your
+browser, reuse that browser's cookies:
 
-1. Install a browser extension like [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
-2. Export `cookies.txt` and move it to `~/.cache/gdown/cookies.txt`
-3. Run the download again
+```bash
+gdown --cookies-from-browser firefox https://drive.google.com/uc?id=FILE_ID
+```
 
-Once the file is in place, gdown loads it automatically (no extra flags needed).
+Supported browsers: brave, chrome, chromium, edge, firefox, opera, safari,
+vivaldi, whale. gdown saves the cookies to
+`~/.cache/gdown/cookies.txt`, so later runs need no flag. That file then
+holds your whole google.com session, Gmail and Account included, so treat
+it like a password. To revoke it, delete the file and sign out of Google in
+that browser.
+
+Platform notes:
+
+- Linux Chromium-family browsers using GNOME Keyring require `secretstorage`
+  in gdown's Python environment. Install with `pip install 'gdown[secretstorage]'`
+  or run `uvx --from 'gdown[secretstorage]' gdown --cookies-from-browser chrome URL`.
+  Firefox needs no extra dependency.
+- macOS asks for your login password once to unlock the Chromium-family
+  keychain entry; Firefox needs nothing.
+- Windows Chrome 127+ encrypts cookies so other programs cannot read them.
+  Use Firefox there.
+- Safari requires Full Disk Access for your terminal.
+
+If none of that works, export a Netscape `cookies.txt` with a browser
+extension such as [Get cookies.txt LOCALLY](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc)
+and pass it with `--cookies cookies.txt`. gdown rewrites that file while
+resolving each Google Drive file, whether or not it downloads it.
 
 ### Download stops after ~1 hour
 

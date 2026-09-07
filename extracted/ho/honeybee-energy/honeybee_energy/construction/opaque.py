@@ -293,11 +293,19 @@ class OpaqueConstruction(_ConstructionBase):
         con_id = gbxml_element.get('id').replace('_', ' ')
         mat_layers = []
         for xml_mat in gbxml_element.findall('LayerId'):
-            mat_id = xml_mat.get('layerIdRef')
+            mat_id = xml_mat.get('layerIdRef').replace('_', ' ')
             try:
-                mat_layers.append(materials[mat_id.replace('_', ' ')])
+                layer_obj = materials[mat_id]
             except KeyError as e:
-                raise ValueError('Failed to find {} in materials.'.format(e))
+                try:  # try stripping out _Layer added to the end
+                    mat_id = mat_id.replace('_Layer', '')
+                    layer_obj = materials[mat_id]
+                except KeyError:
+                    raise ValueError('Failed to find {} in materials.'.format(e))
+            if isinstance(layer_obj, (list, tuple)):
+                mat_layers.extend(layer_obj)
+            else:
+                mat_layers.append(layer_obj)
         new_obj = cls(con_id, mat_layers)
         name = gbxml_element.find('Name')
         if name is not None:
@@ -542,6 +550,78 @@ class OpaqueConstruction(_ConstructionBase):
                 mat_obj = EnergyMaterialVegetation.from_idf(mat_str)
                 materials_dict[mat_obj.identifier.upper()] = mat_obj
         return materials_dict
+
+    @staticmethod
+    def extract_all_from_gbxml_file(gbxml_file):
+        """Extract all OpaqueConstruction objects from an EnergyPlus gbXML file.
+
+        Args:
+            gbxml_file: A path to an gbXML file containing objects for opaque
+                constructions and corresponding materials.
+
+        Returns:
+            A tuple with two elements
+
+            -   constructions: A list of all OpaqueConstruction objects in the gbXML
+                file as honeybee_energy OpaqueConstruction objects.
+
+            -   materials: A list of all opaque materials in the gbXML file as
+                honeybee_energy EnergyMaterial objects.
+        """
+        # register all of the namespaces within OpenStudio-exported XMLs
+        ET.register_namespace('', 'http://www.gbxml.org/schema')
+        ET.register_namespace('xhtml', 'http://www.w3.org/1999/xhtml')
+        ET.register_namespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance')
+        ET.register_namespace('xsd', 'http://www.w3.org/2001/XMLSchema')
+
+        # load the file to an element tree
+        tree = ET.parse(gbxml_file)
+        root = tree.getroot()
+        gbxml_header = r'{http://www.gbxml.org/schema}'
+
+        # find all of the materials and load them
+        materials = {}
+        for mat_element in root.findall(gbxml_header + 'Material'):
+            mat = None
+            # Recursively strip namespaces from tags to make them parse-able
+            for elem in mat_element.iter():
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]
+            try:
+                mat = EnergyMaterial.from_gbxml_element(mat_element)
+            except Exception:  # probably a no-mass material
+                try:
+                    mat = EnergyMaterialNoMass.from_gbxml_element(mat_element)
+                except Exception:  # not a material that can be translated
+                    pass
+            if mat:
+                materials[mat.identifier] = mat
+
+        # extract all of the layer definitions
+        for layer_element in root.findall(gbxml_header + 'Layer'):
+            layer_element_id = layer_element.get('id').replace('_', ' ')
+            layers_def = []
+            for mat_element in layer_element.findall(gbxml_header + 'MaterialId'):
+                mat_id = mat_element.get('materialIdRef').replace('_', ' ')
+                layers_def.append(materials[mat_id])
+            materials[layer_element_id] = layers_def
+
+        # extract all of the construction objects
+        constructions = []
+        for con_element in root.findall(gbxml_header + 'Construction'):
+            # Recursively strip namespaces from tags to make them parse-able
+            for elem in con_element.iter():
+                if '}' in elem.tag:
+                    elem.tag = elem.tag.split('}', 1)[1]
+            layers = con_element.findall('LayerId')
+            if len(layers) == 0:
+                continue  # air boundary construction with no layers
+            con = OpaqueConstruction.from_gbxml_element(con_element, materials)
+            constructions.append(con)
+
+        # return all constructions and material definitions
+        materials = [mat for mat in materials.values() if not isinstance(mat, list)]
+        return constructions, materials
 
     @staticmethod
     def _old_schema_materials(data):

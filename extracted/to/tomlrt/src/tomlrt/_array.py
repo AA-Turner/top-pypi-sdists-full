@@ -379,17 +379,12 @@ class Array(_View, list[Any]):
     def insert(self, index: SupportsIndex, value: Any) -> None:
         i = _norm_insert_index(index, len(self))
         cst, decoded = self._prepare_item(value)
-        self._insert_synthesised(i, cst, decoded)
-
-    def _insert_synthesised(self, index: int, cst: Value, decoded: object) -> None:
-        """Insert an already-synthesised value."""
-        if index == len(self):
+        if i == len(self):
             self._append_with_style(cst, decoded, self._style())
             return
-        style = self._style()
         new_item = _make_item(cst, has_comma=True)
-        splice_insert(self._value, new_item, index, style, self._doc_newline)
-        list.insert(self, index, decoded)
+        splice_insert(self._value, (new_item,), i, self._doc_newline)
+        list.insert(self, i, decoded)
 
     def _replace_synthesised(self, index: int, cst: Value, decoded: object) -> None:
         """Replace an item with an already-synthesised value."""
@@ -450,12 +445,9 @@ class Array(_View, list[Any]):
             except TypeError as exc:
                 msg = "can only assign an iterable"
                 raise TypeError(msg) from exc
-            indices = range(*index.indices(len(self)))
-            if (
-                index.step is not None
-                and index.step != 1
-                and len(values) != len(indices)
-            ):
+            start, stop, step = index.indices(len(self))
+            indices = range(start, stop, step)
+            if step != 1 and len(values) != len(indices):
                 msg = (
                     f"attempt to assign sequence of size {len(values)} "
                     f"to extended slice of size {len(indices)}"
@@ -467,16 +459,22 @@ class Array(_View, list[Any]):
             ):
                 return
             prepared = [self._synth_item(v) for v in values]
-            if index.step is not None and index.step != 1:
+            if step != 1:
                 # Extended slice positions are unchanged; replace per slot.
                 for k, (cst, decoded) in zip(indices, prepared, strict=True):
                     self._replace_synthesised(k, cst, decoded)
                 return
             # Reuse delete/insert boundary handling for contiguous slices.
-            start, stop, _ = index.indices(len(self))
             del self[start:stop]
-            for offset, (cst, decoded) in enumerate(prepared):
-                self._insert_synthesised(start + offset, cst, decoded)
+            if start == len(self):
+                for cst, decoded in prepared:
+                    self._append_with_style(cst, decoded, self._style())
+            elif prepared:
+                new_items = [_make_item(cst, has_comma=True) for cst, _ in prepared]
+                splice_insert(self._value, new_items, start, self._doc_newline)
+                list.__setitem__(
+                    self, slice(start, start), [decoded for _, decoded in prepared]
+                )
             return
         # int index: reject before synthesising or mutating any CST, to
         # match the IndexError ``list.__setitem__`` raises for a bad index.
@@ -621,32 +619,6 @@ class AoT(_View, list["Table"]):
             return self[-1]
         return _layout_ops.add_aot_entry(self, body)
 
-    def _add_entry_attached(self, value: Mapping[str, TomlInput]) -> Table:
-        """Dispatch a new attached AoT entry from ``value``.
-
-        Precondition: attached AoT. Prefers the trivia-preserving clone
-        path for an existing AoT entry or section.
-        """
-        if isinstance(value, _container.Table) and value._layout_root is not None:  # noqa: SLF001
-            if value._is_own_aot_entry:  # noqa: SLF001
-                return _layout_ops.clone_aot_entry(self, value)
-            if value._header_ref is not None and not value._inline:  # noqa: SLF001
-                return _layout_ops.clone_table_as_aot_entry(self, value)
-        return _layout_ops.add_aot_entry(self, value)
-
-    def _replace_entry_attached(
-        self, index: int, value: Mapping[str, TomlInput]
-    ) -> None:
-        """Dispatch in-place replacement of an attached AoT entry."""
-        if (
-            isinstance(value, _container.Table)
-            and value._layout_root is not None  # noqa: SLF001
-            and value._is_own_aot_entry  # noqa: SLF001
-        ):
-            _layout_ops.replace_aot_entry_with_clone(self, index, value)
-            return
-        _layout_ops.replace_aot_entry(self, index, value)
-
     # Each of these must route attached vs. detached AoTs differently:
     # inherited `list` behaviour alone would corrupt the doc-stream.
 
@@ -719,34 +691,13 @@ class AoT(_View, list["Table"]):
                     self, index, [_make_unattached_entry(v) for v in typed_values]
                 )
                 return
-            # Contiguous replacement: delete, append via dispatcher,
-            # then renormalise to the requested order.
-            if index.step is None or index.step == 1:
-                start = index.indices(len(self))[0]
-                if indices:
-                    _layout_ops.remove_aot_entries(self, indices)
-                # New entries are appended at the tail, so they only need
-                # moving if that is not where they belong. Comparing orders
-                # instead would compare entries by value, and value-equal
-                # entries are not interchangeable: the reorder is keyed on
-                # identity.
-                needs_reorder = bool(typed_values) and start != len(self)
-                new_entries = [self._add_entry_attached(v) for v in typed_values]
-                if needs_reorder:
-                    cur: list[Table] = list(self)[: -len(new_entries)]
-                    for off, e in enumerate(new_entries):
-                        cur.insert(start + off, e)
-                    _layout_ops.renormalise_aot_order(self, cur)
-                return
-            # Extended slice: length already matched, so replace in place.
-            for i, v in zip(indices, typed_values, strict=True):
-                self._replace_entry_attached(i, v)
+            _layout_ops.assign_aot_entries(self, index, typed_values)
             return
         entry = _prepare_aot_entries((value,))[0]
         if self._layout_root is None:
             list.__setitem__(self, index, _make_unattached_entry(entry))
             return
-        self._replace_entry_attached(operator.index(index), entry)
+        _layout_ops.assign_aot_entries(self, operator.index(index), (entry,))
 
     @override
     def append(self, value: Table | Mapping[str, TomlInput]) -> None:
@@ -759,7 +710,7 @@ class AoT(_View, list["Table"]):
         if self._layout_root is None:
             list.append(self, _make_unattached_entry(entry))
             return
-        self._add_entry_attached(entry)
+        _layout_ops.add_aot_entry(self, entry)
 
     @override
     def extend(self, values: Iterable[Table | Mapping[str, TomlInput]]) -> None:
@@ -779,7 +730,7 @@ class AoT(_View, list["Table"]):
         # Normalise against the pre-append length to match list.insert.
         idx = _norm_insert_index(index, len(self))
         needs_reorder = idx != len(self)
-        new_entry = self._add_entry_attached(entry)
+        new_entry = _layout_ops.add_aot_entry(self, entry)
         if needs_reorder:
             new_order: list[Table] = list(self)
             new_order.pop()
@@ -843,7 +794,7 @@ class AoT(_View, list["Table"]):
         originals = list(self)
         for _ in range(n - 1):
             for e in originals:
-                _layout_ops.clone_aot_entry(self, e)
+                _layout_ops.add_aot_entry(self, e)
         return self
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansi2html
-Version: 1.9.4
+Version: 1.9.5
 Summary: Convert text with ANSI color codes to HTML or to LaTeX
 Author-email: Ralph Bean <rbean@redhat.com>
 Maintainer-email: Ralph Bean <rbean@redhat.com>
@@ -14,17 +14,15 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Quality Assurance
@@ -34,11 +32,9 @@ Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Text Processing :: Markup
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: importlib-metadata; python_version < "3.8"
-Requires-Dist: typing_extensions; python_version < "3.8"
 Provides-Extra: docs
 Requires-Dist: mkdocs; extra == "docs"
 Requires-Dist: mkdocs-material; extra == "docs"
@@ -51,7 +47,7 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Dynamic: license-file
 
-[![Build Status - main branch](https://github.com/pycontribs/ansi2html/workflows/tox/badge.svg?branch=main)](https://github.com/pycontribs/ansi2html/actions?query=workflow%3Atox+branch%3Amain)
+[![tox](https://github.com/pycontribs/ansi2html/actions/workflows/tox.yml/badge.svg?branch=main)](https://github.com/pycontribs/ansi2html/actions/workflows/tox.yml)
 
 # ansi2html
 
@@ -105,3 +101,12 @@ pypi: <https://pypi.org/project/ansi2html/>
 
 - Author: [Ralph Bean](mailto:rbean@redhat.com)
 - Contributor: [Robin Schneider](mailto:ypid23@aol.de)
+- Contributor: [Sebastian Pipping](mailto:sebastian@pipping.org)
+- Contributor: [Jens Timmerman](mailto:jens.timmerman@gmail.com)
+- Contributor: [Sorin Sbarnea](mailto:ssbarnea@redhat.com)
+- Contributor: [Daniel Ziegenberg](mailto:daniel@ziegenberg.at)
+- Contributor: [Kuno Woudt](mailto:kuno@frob.nl)
+- Contributor: [Robin Schneider](mailto:ypid23@aol.de)
+- Contributor: [Martin Zimmermann](mailto:info@posativ.org)
+- Contributor: [Paul Sherratt](mailto:paul.sherratt@gamma.co.uk)
+- Contributor: [Arusekk](mailto:floss@arusekk.pl)

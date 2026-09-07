@@ -27,9 +27,12 @@ from __future__ import annotations
 
 import contextlib
 import csv
+import json
+import math
 import os
 from collections.abc import Iterable, Iterator
-from datetime import timedelta
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
@@ -60,8 +63,10 @@ from .row import Row
 from .row_group import RowGroup
 from .table_cache import _XP_COLUMN_IDX, _XP_ROW_IDX, TableCache
 from .utils import (
+    NameUnifyer,
     convert_coordinates,
     digit_to_alpha,
+    format_json,
     increment,
     isiterable,
     translate_from_any,
@@ -148,6 +153,22 @@ def _get_python_value(
         return Boolean.decode(data.lower())
     # So a string
     return data
+
+
+def _populate_table(table: Table, rows: Iterable[Iterable[Any]]) -> None:
+    """Populate a table with rows of values, appending each row in-place.
+
+    Args:
+        table: Target Table instance.
+        rows: 2D iterable of cell values.
+    """
+    for row in rows:
+        row_elem = Row()
+        row_converted = [
+            _get_python_value(val) if isinstance(val, str) else val for val in row
+        ]
+        row_elem.set_values(row_converted)
+        table.append_row(row_elem, clone=False)
 
 
 class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
@@ -297,8 +318,11 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
 
     def clear(self) -> None:
         """Remove all children, text content, and attributes from the table
-        element."""
+        element (preserving table name if set)."""
+        name = self.name
         self._xml_element.clear()
+        if name:
+            self.name = name
         self._table_cache = TableCache()
 
     def _translate_y_from_any(self, y: str | int) -> int:
@@ -2909,16 +2933,130 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         # Make the rows
         reader = csv.reader(data, dialect=dialect, **fmtparams)
         table = cls(name, style=style)
-        encoding = fmtparams.get("encoding", "utf-8")
-        for line in reader:
-            row = Row()
-            # rstrip line
-            while line and not line[-1].strip():
-                line.pop()
-            for value in line:
-                cell = Cell(_get_python_value(value, encoding))
-                row.append_cell(cell, clone=False)
-            table.append_row(row, clone=False)
+        table.clear()
+
+        def _read_lines() -> Iterator[list[str]]:
+            for line in reader:
+                while line and not line[-1].strip():
+                    line.pop()
+                yield line
+
+        _populate_table(table, _read_lines())
+        return table
+
+    def to_json(
+        self,
+        path_or_file: str | Path | None = None,
+        pretty: bool = False,
+        ensure_ascii: bool = False,
+    ) -> str | None:
+        """Export the table values as a JSON string or file.
+
+        Args:
+            path_or_file: The path or file to save the JSON content to.
+                If None, the JSON content is returned as a string.
+            pretty: Use pretty formater. Defaults to False.
+            ensure_ascii: If True, non-ASCII characters are escaped. Defaults
+                to False.
+
+        Returns:
+            str | None: The JSON content as a string if `path_or_file` is
+                None, otherwise None.
+        """
+        cloned_table = self.clone
+        cloned_table.rstrip(aggressive=True)
+        rows = cloned_table._serialize_table_rows()
+        name = self.name
+        if not name:
+            unifyer = NameUnifyer()
+            name = unifyer.unique()
+        data: Any = {name: rows}
+        if pretty:
+            content = format_json(data, ensure_ascii=ensure_ascii)
+        else:
+            content = json.dumps(data, ensure_ascii=ensure_ascii, allow_nan=False)
+        if path_or_file:
+            Path(path_or_file).write_text(content, encoding="utf-8")
+            return None
+        return content
+
+    def _serialize_table_rows(self) -> list[list[CellValue]]:
+        serialized_rows: list[list[CellValue]] = []
+        for row in self.values:
+            serialized_row: list[Any] = []
+            for val in row:
+                if val is None or isinstance(val, (str, int, bool)):
+                    serialized_row.append(val)
+                elif isinstance(val, float):
+                    if math.isnan(val) or math.isinf(val):
+                        serialized_row.append(None)
+                    else:
+                        serialized_row.append(val)
+                elif isinstance(val, Decimal):
+                    if val.is_nan() or val.is_infinite():
+                        serialized_row.append(None)
+                    else:
+                        serialized_row.append(
+                            int(val) if int(val) == val else float(val)
+                        )
+                elif isinstance(val, datetime):
+                    serialized_row.append(DateTime.encode(val))
+                elif isinstance(val, date):
+                    serialized_row.append(Date.encode(val))
+                elif isinstance(val, timedelta):
+                    serialized_row.append(Duration.encode(val))
+                else:
+                    serialized_row.append(str(val))
+            while serialized_row and serialized_row[-1] is None:
+                serialized_row.pop()
+            serialized_rows.append(serialized_row)
+
+        while serialized_rows and not serialized_rows[-1]:
+            serialized_rows.pop()
+
+        return serialized_rows
+
+    @classmethod
+    def from_json(
+        cls,
+        content: str | dict[str, list[list[Any]]] | list[list[Any]],
+        name: str = "",
+    ) -> Table:
+        """Import JSON content into a new Table object.
+
+        Args:
+            content: A JSON string, dictionary `{table_name: [[...], ...]}` or
+                2D list `[[...], ...]`.
+            name: Name of table to create. If None, uses key from dict or
+                "Sheet".
+
+        Returns:
+            Table: A new Table object populated with the JSON data.
+        """
+        if isinstance(content, str):
+            data = json.loads(content)
+        else:
+            data = content
+
+        unifyer = NameUnifyer()
+        if isinstance(data, dict):
+            if not data:
+                table_name = unifyer.unique(name)
+                rows_data: list[list[Any]] = []
+            else:
+                key = next(iter(data))
+                table_name = unifyer.unique(key)
+                rows_data = data[key]
+        elif isinstance(data, list):
+            table_name = unifyer.unique(name)
+            rows_data = data
+        else:
+            msg = "JSON content must be a dict, list, or valid JSON string."
+            raise TypeError(msg)
+
+        table = cls(table_name)
+        table.clear()
+        _populate_table(table, rows_data)
         return table
 
 

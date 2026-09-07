@@ -13,7 +13,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, overload
+from typing import TYPE_CHECKING, Protocol, TypeVar
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import tomli
@@ -35,6 +35,7 @@ from .groups import BASE_MEMBER
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
+    from nab_provider._vendor.packaging.utils import NormalizedName
     from nab_provider._vendor.packaging.version import Version
     from nab_provider.policy import ArchiveSource, LocalSource, VcsSource
     from nab_provider.records import IndexConfig
@@ -56,6 +57,7 @@ logger = logging.getLogger(__name__)
 
 
 __all__ = [
+    "ArtifactMemo",
     "MissingHashError",
     "MissingSdistError",
     "MissingVcsCommitError",
@@ -65,6 +67,8 @@ __all__ = [
     "require_artifact_hashes",
     "strip_userinfo",
 ]
+
+_Artifact = TypeVar("_Artifact", "WheelArtifact", "SdistArtifact")
 
 
 class _LockInputIndex(Protocol):
@@ -92,8 +96,10 @@ class LockInputProvider(Protocol):
     may supply a stub without inheriting the full Provider class.
     """
 
-    deps_cache: Mapping[tuple[str, Version], Mapping[str, object]]
-    """Direct dependencies per ``(canonical name, version)``."""
+    @property
+    def deps_cache(self) -> Mapping[tuple[str, Version], Mapping[str, object]]:
+        """Direct dependencies per ``(canonical name, version)``."""
+        ...
 
     @property
     def extra_deps_map(
@@ -144,6 +150,16 @@ class LockInputProvider(Protocol):
     def tag_excluded_wheel_count(self, canonical_name: str, version: Version, /) -> int:
         """Return how many wheels the tag filter dropped at ``version``."""
         ...
+
+
+class ArtifactMemo:
+    """Lock artifacts shared by one resolve, keyed by listing URL."""
+
+    __slots__ = ("sdists", "wheels")
+
+    def __init__(self) -> None:
+        self.wheels: dict[str, WheelArtifact] = {}
+        self.sdists: dict[str, SdistArtifact] = {}
 
 
 class MissingHashError(ValueError):
@@ -268,6 +284,7 @@ def build_target_lock(
     resolved_keys: Iterable[str] = (),
     base_roots: Iterable[str] | None = None,
     selector_roots: Mapping[tuple[str, str], Iterable[str]] | None = None,
+    artifacts: ArtifactMemo | None = None,
 ) -> TargetLock:
     """Build one target's :class:`~nab_project.lockfile.TargetLock`.
 
@@ -291,10 +308,13 @@ def build_target_lock(
     roots raises.
 
     Every wheel the target can install, plus the sdist, is recorded for
-    each pinned version.
+    each pinned version.  ``artifacts`` is the :class:`ArtifactMemo` the
+    run's targets share; a call without one gets a memo of its own.
     """
     from ..lockfile import LocalPin, TargetLock
 
+    if artifacts is None:
+        artifacts = ArtifactMemo()
     if base_roots is None:
         if selector_roots:
             msg = (
@@ -341,7 +361,7 @@ def build_target_lock(
             )
             continue
         lock_pins[canonical] = _index_pin_from_listing(
-            provider, canonical, version, indexes
+            provider, canonical, version, indexes, artifacts
         )
 
     dependencies, base_dependencies = _forward_dependency_graph(
@@ -382,10 +402,10 @@ def _membership_gates(
 
     Reachability is over this target's resolved graph, so an extras proxy
     (an extra requiring ``pkg[fancy]`` while the project requires plain
-    ``pkg``) gates what ``fancy`` adds without gating ``pkg``.
+    ``pkg``) conditions ``fancy`` additions but not ``pkg``.
 
-    Empty roots on both sides gate nothing, which is a lock with no
-    selection and no name for the project's own dependencies.
+    Empty roots on both sides produce no membership conditions. The lock
+    has no selection or name for the project's own dependencies.
     """
     pinned = {canonicalize_name(name): version for name, version in pins.items()}
 
@@ -400,7 +420,7 @@ def _membership_gates(
 
 def _reachable_names(
     provider: LockInputProvider,
-    pinned: Mapping[str, Version],
+    pinned: Mapping[NormalizedName, Version],
     roots: Iterable[str],
 ) -> set[str]:
     """Return the pinned names reachable from ``roots`` at their pinned versions.
@@ -499,6 +519,7 @@ def _index_pin_from_listing(
     canonical: str,
     version: Version,
     indexes: Sequence[IndexConfig],
+    artifacts: ArtifactMemo,
 ) -> IndexPin:
     """Construct an :class:`IndexPin` for an index-served package.
 
@@ -539,11 +560,15 @@ def _index_pin_from_listing(
             raise MissingSdistError(msg)
 
     wheels = tuple(
-        _build_artifact(f, WheelArtifact) for f in files if isinstance(f, WheelFile)
+        _build_artifact(f, WheelArtifact, artifacts.wheels)
+        for f in files
+        if isinstance(f, WheelFile)
     )
     sdist_file = next((f for f in files if isinstance(f, SdistFile)), None)
     sdist = (
-        _build_artifact(sdist_file, SdistArtifact) if sdist_file is not None else None
+        _build_artifact(sdist_file, SdistArtifact, artifacts.sdists)
+        if sdist_file is not None
+        else None
     )
 
     override_rp = provider.effective_requires_python(canonical, version)
@@ -575,29 +600,23 @@ def _index_pin_from_listing(
     )
 
 
-@overload
 def _build_artifact(
     source: WheelFile | SdistFile,
-    cls: type[WheelArtifact],
-) -> WheelArtifact: ...
-@overload
-def _build_artifact(
-    source: WheelFile | SdistFile,
-    cls: type[SdistArtifact],
-) -> SdistArtifact: ...
-def _build_artifact(
-    source: WheelFile | SdistFile,
-    cls: type[WheelArtifact | SdistArtifact],
-) -> WheelArtifact | SdistArtifact:
-    hashes = _filter_acceptable_hashes(source.hashes)
-    return cls(
-        filename=source.filename,
-        url=strip_userinfo(source.url),
-        hashes=hashes,
-        size=source.size,
-        upload_time=_parse_upload_time(source.upload_time),
-        local_path=source.local_path,
-    )
+    cls: type[_Artifact],
+    memo: dict[str, _Artifact],
+) -> _Artifact:
+    """Build or reuse the artifact for ``source.url``."""
+    artifact = memo.get(source.url)
+    if artifact is None:
+        artifact = memo[source.url] = cls(
+            filename=source.filename,
+            url=strip_userinfo(source.url),
+            hashes=_filter_acceptable_hashes(source.hashes),
+            size=source.size,
+            upload_time=_parse_upload_time(source.upload_time),
+            local_path=source.local_path,
+        )
+    return artifact
 
 
 def _parse_upload_time(raw: str | None) -> datetime | None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yaspin
-Version: 3.4.0
+Version: 3.5.0
 Summary: Yet Another Terminal Spinner
 License: MIT
 License-File: LICENSE
@@ -39,7 +39,7 @@ Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
-Requires-Dist: termcolor (>=3.2,<4.0)
+Requires-Dist: termcolor (>=3.3,<4.0)
 Project-URL: Bug Tracker, https://github.com/pavdmyt/yaspin/issues
 Project-URL: Changelog, https://github.com/pavdmyt/yaspin/releases
 Project-URL: Documentation, https://github.com/pavdmyt/yaspin/blob/master/README.md
@@ -56,6 +56,7 @@ Description-Content-Type: text/markdown
 [![Coverage](https://codecov.io/gh/pavdmyt/yaspin/branch/master/graph/badge.svg)](https://codecov.io/gh/pavdmyt/yaspin)
 [![pypi](https://img.shields.io/pypi/v/yaspin.svg)](https://pypi.org/project/yaspin/)
 [![Versions](https://img.shields.io/pypi/pyversions/yaspin.svg)](https://pypi.org/project/yaspin/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/pavdmyt/yaspin)
 
 [![Wheel](https://img.shields.io/pypi/wheel/yaspin.svg)](https://pypi.org/project/yaspin/)
 [![Examples](https://img.shields.io/badge/learn%20by-examples-0077b3.svg)](https://github.com/pavdmyt/yaspin/tree/master/examples)
@@ -291,6 +292,19 @@ with yaspin(text="elapsed time", timer=True) as sp:
     time.sleep(3.1415)
     sp.ok()
 ```
+
+To omit the fractions of a second, pass a format string with one automatic
+replacement field. It receives the elapsed time as a `datetime.timedelta`.
+Use a second field to receive hundredths of a second.
+
+```python
+with yaspin(text="elapsed time", timer=" ({})") as sp:
+    time.sleep(3.1415)
+    sp.ok()
+```
+
+The default `timer=True` format is ` ({}.{:02.0f})`. Custom formats must
+contain one or two automatic replacement fields.
 
 ### Custom streams
 

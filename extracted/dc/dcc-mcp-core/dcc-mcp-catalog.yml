@@ -156,6 +156,24 @@ entries:
       sha256: "4df543a902bcd771bc0733c1ba894fd802a64e1e897adb65c29800dcf5cb2ccf"
       instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-unreal/main/README.md"
 
+  - name: "dcc-mcp-liquigen"
+    # Pin the immutable PyPI wheel published through the repository's trusted publisher.
+    description: "LiquiGen adapter with typed node-graph inspection, simulation controls, VAT export, and Unreal Engine handoff"
+    dcc: ["liquigen"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-liquigen"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-liquigen/issues"
+    tags: ["adapter", "liquigen", "official", "water", "simulation", "vat", "unreal"]
+    version: "0.1.0"
+    min_core_version: "0.20.22"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-liquigen"
+      url: "https://files.pythonhosted.org/packages/57/04/09ef0e03c75d0aa2694338a4bb5d3e19d1b5c3d996dac3e635dab2ad450c/dcc_mcp_liquigen-0.1.0-py3-none-any.whl"
+      sha256: "130caacfb16b99b9365db071f145a7613f20b45d9b11a7397934c918b7691d0b"
+      entry_point: "dcc_mcp_liquigen.server:main"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-liquigen/main/README.md"
+
   - name: "dcc-mcp-zbrush"
     description: "ZBrush adapter for DCC-MCP"
     dcc: ["zbrush"]
@@ -303,6 +321,23 @@ entries:
       url: "https://files.pythonhosted.org/packages/db/ef/0966f1657f016669be5b57bdc5657f140a3863aac459979e1f2a15b1f0be/dcc_mcp_renderdoc-0.3.0-py3-none-any.whl"
       sha256: "f8d0290c825c6e167acade9d1fbdaafc2c5e42edc06eaca6506acde251d4aa17"
       instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-renderdoc/main/README.md"
+
+  - name: "dcc-mcp-obs"
+    description: "Native OBS Studio adapter with exact-process scene and source inspection plus typed recording control"
+    dcc: ["obs"]
+    url: "https://github.com/dcc-mcp/dcc-mcp-obs"
+    issues_url: "https://github.com/dcc-mcp/dcc-mcp-obs/issues"
+    tags: ["adapter", "obs", "official", "pip", "recording", "streaming", "broadcast"]
+    version: "1.1.0"
+    min_core_version: "0.20.14"
+    maintainer: "dcc-mcp"
+    install:
+      type: pip
+      pip_package: "dcc-mcp-obs"
+      url: "https://files.pythonhosted.org/packages/cc/6e/fd6b04280ab4de5c1839cf7449f894b10e5cc9184fdefb34e073a214aa1a/dcc_mcp_obs-1.1.0-py3-none-any.whl"
+      sha256: "d407127d5b200df29a6cab0a5ed6546a03a6c5a8f93b617d0dd034442f0c6b7a"
+      entry_point: "dcc_mcp_obs:ObsMcpServer"
+      instructions_url: "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-obs/main/install.md"
 
   - name: "dcc-mcp-substance3d-designer"
     description: "Substance 3D Designer adapter for DCC-MCP"

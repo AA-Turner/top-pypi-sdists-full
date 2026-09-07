@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from optuna._warnings import optuna_warn
+from optuna.study._constrained_optimization import _CONSTRAINTS_KEY
 from optuna.trial import TrialState
 
 
@@ -104,7 +105,7 @@ class BaseSampler(abc.ABC):
         that use relationship between parameters such as Gaussian Process and CMA-ES.
 
         .. note::
-                The failed trials are ignored by any build-in samplers when they sample new
+                The failed trials are ignored by any built-in samplers when they sample new
                 parameters. Thus, failed trials are regarded as deleted in the samplers'
                 perspective.
 
@@ -141,7 +142,7 @@ class BaseSampler(abc.ABC):
         sampling and TPE.
 
         .. note::
-                The failed trials are ignored by any build-in samplers when they sample new
+                The failed trials are ignored by any built-in samplers when they sample new
                 parameters. Thus, failed trials are regarded as deleted in the samplers'
                 perspective.
 
@@ -234,9 +235,6 @@ class BaseSampler(abc.ABC):
                 "If the study is being used for multi-objective optimization, "
                 f"{self.__class__.__name__} cannot be used."
             )
-
-
-_CONSTRAINTS_KEY = "constraints"
 
 
 def _process_constraints_after_trial(

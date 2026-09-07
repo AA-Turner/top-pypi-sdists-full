@@ -25,7 +25,6 @@ class ContentBrokenInternalReferenceRule(Rule):
 
     autofix_confidence = AutofixConfidence.SUGGEST
 
-    formats = None
     since = "0.9.0"
     repo_types = None
 
@@ -56,6 +55,7 @@ class ContentBrokenInternalReferenceRule(Rule):
         # marketplaces effectively unlintable. Reset per check() so each run
         # sees the current filesystem, matching the uncached behavior.
         self._paths_by_name: Optional[Dict[str, List[str]]] = None
+        self._names_by_length: Dict[int, List[str]] = {}
         self._fuzzy_name_cache: Dict[str, Optional[str]] = {}
         violations = []
         for cf in gather_all_content_blocks(context):
@@ -78,8 +78,16 @@ class ContentBrokenInternalReferenceRule(Rule):
                     continue
                 if _URI_SCHEME.match(target):
                     continue
-                # Strip anchor from path (e.g., "file.md#section")
-                target_path = target.split("#")[0]
+                # URI queries and fragments are not filesystem path text.
+                # Retain exact existing filenames containing '?' on hosts
+                # that permit them, just like the literal %XX fallback below.
+                with_query = target.split("#", 1)[0]
+                target_path = with_query.split("?", 1)[0]
+                if target_path != with_query and (
+                    self._exists_in_repo(root, link_dir, with_query)
+                    or self._exists_in_repo(root, link_dir, unquote(with_query))
+                ):
+                    continue
                 if not target_path:
                     continue
                 # Decode percent-escapes (%20 etc.) for the filesystem
@@ -125,14 +133,19 @@ class ContentBrokenInternalReferenceRule(Rule):
                         msg += f" (did you mean '{suggestion}'?)"
                     elif not link.has_dest_span:
                         msg += " (reference-style link — fix the definition manually)"
-                    # fix() only rewrites links that have a fuzzy-match
-                    # suggestion and an inline destination span.
+                    # Keep fix inputs separate from the human message.
+                    fix_data = (
+                        {"target": target, "suggestion": suggestion}
+                        if suggestion is not None and link.has_dest_span
+                        else None
+                    )
                     violations.append(
                         self.violation(
                             msg,
                             block=cf,
                             line=link.body_line,
-                            fixable=suggestion is not None and link.has_dest_span,
+                            fixable=fix_data is not None,
+                            fix_data=fix_data,
                         )
                     )
         return violations
@@ -152,16 +165,17 @@ class ContentBrokenInternalReferenceRule(Rule):
     def _collect_repo_paths(self, root: Path) -> List[str]:
         """Collect all file paths in the repo, relative to root."""
         paths = []
-        for dirpath, dirnames, filenames in os.walk(root):
+        root_str = str(root)
+        for dirpath, dirnames, filenames in os.walk(root_str):
             dirnames[:] = [
                 d for d in dirnames if d not in {".git", "node_modules", "__pycache__", ".venv"}
             ]
+            # Derive relative directory path via string slicing rather than calling
+            # Path.relative_to on each file.
+            rel_dir = dirpath[len(root_str) + 1 :]
+            prefix = rel_dir + os.sep if rel_dir else ""
             for f in filenames:
-                full = Path(dirpath) / f
-                try:
-                    paths.append(str(full.relative_to(root)))
-                except ValueError:
-                    continue
+                paths.append(prefix + f)
         return paths
 
     def _path_index(self, root: Path) -> Dict[str, List[str]]:
@@ -169,14 +183,32 @@ class ContentBrokenInternalReferenceRule(Rule):
         if self._paths_by_name is None:
             index: Dict[str, List[str]] = {}
             for p in self._collect_repo_paths(root):
-                index.setdefault(Path(p).name, []).append(p)
+                index.setdefault(os.path.basename(p), []).append(p)
             self._paths_by_name = index
+            names_by_length: Dict[int, List[str]] = {}
+            for name in index:
+                names_by_length.setdefault(len(name), []).append(name)
+            self._names_by_length = names_by_length
         return self._paths_by_name
 
+    _FUZZY_CUTOFF = 0.6
+
     def _close_name(self, index: Dict[str, List[str]], target_name: str) -> Optional[str]:
-        """Best fuzzy file-name match, memoized — broken targets repeat a lot."""
+        """Find the closest matching file name, memoized for repeated broken links.
+
+        Filters candidates by length similarity first (using difflib's ratio bounds)
+        before running ``get_close_matches``, reducing overhead when comparing against
+        large numbers of files.
+        """
         if target_name not in self._fuzzy_name_cache:
-            close = difflib.get_close_matches(target_name, list(index), n=1, cutoff=0.6)
+            la = len(target_name)
+            cutoff = self._FUZZY_CUTOFF
+            candidates: List[str] = []
+            for lb, names in self._names_by_length.items():
+                # Use difflib's real_quick_ratio length threshold to filter candidates
+                if 2.0 * min(la, lb) / (la + lb) >= cutoff:
+                    candidates.extend(names)
+            close = difflib.get_close_matches(target_name, candidates, n=1, cutoff=cutoff)
             self._fuzzy_name_cache[target_name] = close[0] if close else None
         return self._fuzzy_name_cache[target_name]
 
@@ -216,10 +248,12 @@ class ContentBrokenInternalReferenceRule(Rule):
     ) -> List[AutofixResult]:
         fixes_by_file: Dict[Path, List[tuple]] = defaultdict(list)
         for v in violations:
-            if not v.file_path or "did you mean" not in v.message:
+            if not v.file_path or not v.fix_data:
                 continue
-            suggestion = v.message.split("did you mean '")[1].rstrip("'?)")
-            old_target = v.message.split("](")[1].split(")")[0]
+            old_target = v.fix_data.get("target")
+            suggestion = v.fix_data.get("suggestion")
+            if not isinstance(old_target, str) or not isinstance(suggestion, str):
+                continue
             fixes_by_file[v.file_path].append((old_target, suggestion, v))
 
         results: List[AutofixResult] = []
@@ -234,8 +268,10 @@ class ContentBrokenInternalReferenceRule(Rule):
             for old_target, suggestion, v in replacements:
                 if v.block is None or v.file_line is None:
                     continue
-                # Preserve any anchor from the original target.
-                anchor = "#" + old_target.split("#", 1)[1] if "#" in old_target else ""
+                # Preserve the exact query and fragment, including empty
+                # delimiters, while replacing only the URI path.
+                old_path = old_target.split("#", 1)[0].split("?", 1)[0]
+                suffix = old_target[len(old_path) :]
                 doc = v.block.markdown
                 for link in doc.links():
                     if (
@@ -264,7 +300,7 @@ class ContentBrokenInternalReferenceRule(Rule):
                     # silently destroyed. Paths without special characters
                     # pass through unchanged.
                     dest = quote(suggestion, safe="/")
-                    edits.append((link.dest_file_line, span[0], span[1], dest + anchor))
+                    edits.append((link.dest_file_line, span[0], span[1], dest + suffix))
                     violations_fixed.append(v)
                     break
             fixed = splice(content, edits)

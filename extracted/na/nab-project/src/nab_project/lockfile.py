@@ -22,6 +22,7 @@ from nab_provider._vendor.packaging.utils import canonicalize_name
 from nab_provider._vendor.packaging.version import Version
 
 from ._lockfile.builder import (
+    ArtifactMemo,
     MissingHashError,
     MissingSdistError,
     MissingVcsCommitError,
@@ -69,6 +70,7 @@ __all__ = [
     "BASE_MEMBER",
     "LOCK_VERSION",
     "ArchivePin",
+    "ArtifactMemo",
     "DisjointnessError",
     "DivergentBaseDependencyError",
     "IndexPin",
@@ -276,8 +278,11 @@ class IndexPin(ValueType):
 
     def replace(self, **changes: object) -> IndexPin:
         """Return a copy with ``changes`` applied, as ``dataclasses.replace`` would."""
-        kept = {name: getattr(self, name) for name in self.__match_args__}
-        return IndexPin(**{**kept, **changes})
+        kept: dict[str, Any] = {
+            name: getattr(self, name) for name in self.__match_args__
+        }
+        kept.update(changes)
+        return IndexPin(**kept)
 
 
 class LocalPin(ValueType):
@@ -581,8 +586,8 @@ class TargetLock:
     them into ``'name' in extras`` / ``'name' in dependency_groups``
     clauses on that package's marker.  With no ``base-group`` set there
     is no name to give the project's own dependencies, so the writer
-    drops the gate of every package they reach and it stays
-    unconditional.
+    removes the membership condition from each reached package, leaving
+    it unconditional.
     """
 
     target: ResolveTarget
@@ -615,7 +620,7 @@ class LockInput:
     membership clause, so it does not install when no member is
     selected.
 
-    The missing-key vs empty-frozenset distinction is load-bearing:
+    The missing-key and empty-frozenset cases differ:
     a missing signature means no base pass ran for that env (with no
     forks: the no-conflict path; with forks: base status unknowable,
     so the membership OR is kept).  An empty frozenset means the base
@@ -680,8 +685,8 @@ def drop_workspace_pins(lock_input: LockInput, exclude: frozenset[str]) -> LockI
 
     ``exclude`` holds canonical workspace member names; pin keys are already
     canonical.  An empty set returns ``lock_input`` unchanged.  Each target's
-    pins are filtered, and its forward dependency graph and membership gates
-    with them, so no emitted edge or gate names a dropped member with no
+    pins, forward dependency graph, and membership map are filtered. No
+    emitted edge or selector names a dropped member with no
     ``[[packages]]`` entry.  ``base_dependencies`` carries through untouched:
     it is never emitted, and cutting the member out of it would strip base
     status from everything reached only through that member.

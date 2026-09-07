@@ -31,7 +31,8 @@ use dcc_mcp_transport::discovery::{
 
 use crate::gateway::admin::trace::TraceContext;
 use crate::gateway::http_registration::{
-    HttpInstanceDeregisterRequest, HttpInstanceRegistry, entry_discovery_mcp_url, entry_mcp_url,
+    HttpInstanceDeregisterRequest, HttpInstanceRegistry, SOURCE_HTTP, canonical_host_identity,
+    canonical_url_host, entry_discovery_mcp_url, entry_mcp_url, entry_registry_source,
     entry_uses_sidecar_dispatch,
 };
 
@@ -579,6 +580,7 @@ pub async fn describe_tool_full(
             .find(|entry| entry.instance_id == record.instance_id);
         return Err(unroutable_instance_error(gs, &record, known.as_ref()));
     };
+    ensure_safe_backend_target(entry)?;
     if is_backend_job_tool(&record.backend_tool) {
         return Ok((record, backend_job_status_tool()));
     }
@@ -698,6 +700,7 @@ pub async fn call_service(
             .find(|entry| entry.instance_id == record.instance_id);
         return Err(unroutable_instance_error(gs, &record, known.as_ref()));
     };
+    ensure_safe_backend_target(entry)?;
     super::lease_guard::check_call_owner(entry, meta.as_ref()).map_err(|error| {
         ServiceError::new(
             error.kind(),
@@ -926,10 +929,12 @@ pub async fn refresh_search_backends(gs: &GatewayState, query: &SearchQuery) {
         .live_instances(reg)
         .into_iter()
         .filter(|entry| {
-            !matches!(
-                entry.status,
-                dcc_mcp_transport::discovery::types::ServiceStatus::Unreachable
-            )
+            gs.policy.allows_dcc(&entry.dcc_type)
+                && safe_discovery_target(entry)
+                && !matches!(
+                    entry.status,
+                    dcc_mcp_transport::discovery::types::ServiceStatus::Unreachable
+                )
         })
         .collect();
     let live_ids: std::collections::HashSet<_> = reachable_instances
@@ -969,6 +974,212 @@ pub async fn refresh_search_backends(gs: &GatewayState, query: &SearchQuery) {
             refresh_search_instances(&state, instances, SearchRefreshMode::Stale).await;
         });
     }
+}
+
+/// Validate registry metadata before any periodic capability request. HTTP
+/// registrations are untrusted cross-process input; DNS names and private
+/// literals are rejected so refresh cannot become a private-network SSRF.
+pub(crate) fn ensure_safe_backend_target(entry: &ServiceEntry) -> Result<(), ServiceError> {
+    if safe_discovery_target(entry) {
+        return Ok(());
+    }
+    Err(ServiceError::new(
+        "unsafe-backend-target",
+        format!(
+            "instance {} has an unsafe or unsupported backend target",
+            entry.instance_id
+        ),
+    )
+    .with_instance_provenance("unsafe-target", Some(entry.instance_id))
+    .with_actionability(
+        false,
+        "Use a trusted backend endpoint with a public literal address and no URL credentials.",
+    ))
+}
+
+pub(crate) fn safe_discovery_target(entry: &ServiceEntry) -> bool {
+    let Some(entry_host) = canonical_host_identity(&entry.host) else {
+        return false;
+    };
+    let raw = entry_discovery_mcp_url(entry);
+    // Dispatch-only sidecars intentionally have no separate discovery
+    // endpoint. Keep them eligible for direct dispatch only when their MCP
+    // endpoint is present; every discovery/health caller separately requires
+    // a non-empty discovery URL before issuing HTTP.
+    if raw.is_empty() {
+        return entry_uses_sidecar_dispatch(entry)
+            && entry_registry_source(entry) != SOURCE_HTTP
+            && safe_mcp_url(entry, &entry_mcp_url(entry), false);
+    }
+    if !safe_discovery_url(entry, &raw, entry_registry_source(entry) == SOURCE_HTTP) {
+        return false;
+    }
+    let Ok(url) = reqwest::Url::parse(&raw) else {
+        return false;
+    };
+    if entry_registry_source(entry) != SOURCE_HTTP {
+        return true;
+    }
+    // HTTP registrations must keep both their advertised MCP identity and
+    // optional discovery endpoint on the same host. Discovery may use a
+    // dedicated port, but it cannot redirect the gateway to another host.
+    let advertised = entry_mcp_url(entry);
+    let Ok(advertised_url) = reqwest::Url::parse(&advertised) else {
+        return false;
+    };
+    if advertised_url.username() != ""
+        || advertised_url.password().is_some()
+        || advertised_url.query().is_some()
+        || advertised_url.fragment().is_some()
+        || !advertised_url
+            .path()
+            .trim_end_matches('/')
+            .ends_with("/mcp")
+        || canonical_url_host(&advertised_url).as_deref() != Some(entry_host.as_str())
+        || advertised_url.port_or_known_default() != Some(entry.port)
+    {
+        return false;
+    }
+    let Some(host) = canonical_url_host(&url) else {
+        return false;
+    };
+    if host != entry_host {
+        return false;
+    }
+    let Ok(ip) = host.parse::<std::net::IpAddr>() else {
+        return false;
+    };
+    is_public_ip(ip)
+}
+
+fn safe_mcp_url(entry: &ServiceEntry, raw: &str, require_public: bool) -> bool {
+    let Ok(url) = reqwest::Url::parse(raw) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !url.path().trim_end_matches('/').ends_with("/mcp")
+        || canonical_url_host(&url) != canonical_host_identity(&entry.host)
+        || url.port_or_known_default() != Some(entry.port)
+    {
+        return false;
+    }
+    if !require_public {
+        return true;
+    }
+    let Some(host) = canonical_url_host(&url) else {
+        return false;
+    };
+    let Ok(ip) = host.parse::<std::net::IpAddr>() else {
+        return false;
+    };
+    is_public_ip(ip)
+}
+
+fn safe_discovery_url(entry: &ServiceEntry, raw: &str, require_public: bool) -> bool {
+    let Ok(url) = reqwest::Url::parse(raw) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https")
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !url.path().trim_end_matches('/').ends_with("/mcp")
+        || canonical_url_host(&url) != canonical_host_identity(&entry.host)
+    {
+        return false;
+    }
+    if !require_public {
+        return true;
+    }
+    let Some(host) = canonical_url_host(&url) else {
+        return false;
+    };
+    let Ok(ip) = host.parse::<std::net::IpAddr>() else {
+        return false;
+    };
+    is_public_ip(ip)
+}
+
+/// Return true only for globally routable unicast addresses. Registration
+/// metadata is untrusted input, so reject special-use ranges even when the
+/// standard library does not expose a dedicated predicate for them.
+pub(crate) fn is_public_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(ip) => {
+            let octets = ip.octets();
+            let first = octets[0];
+            let second = octets[1];
+            !(ip.is_private()
+                || ip.is_loopback()
+                || ip.is_link_local()
+                || ip.is_unspecified()
+                || ip.is_broadcast()
+                || ip.is_multicast()
+                || first == 0
+                || (first == 100 && (64..=127).contains(&second)) // CGNAT
+                || (first == 192 && second == 0) // IETF protocol assignments / TEST-NET-1
+                || (first == 198 && second == 18) // benchmarking
+                || (first == 198 && second == 19)
+                || (first == 198 && second == 51 && octets[2] == 100) // TEST-NET-2
+                || (first == 203 && second == 0 && octets[2] == 113) // TEST-NET-3
+                || first >= 224) // multicast and reserved
+        }
+        std::net::IpAddr::V6(ip) => {
+            if let Some(mapped) = ip.to_ipv4() {
+                return is_public_ip(std::net::IpAddr::V4(mapped));
+            }
+            if ipv6_matches_prefix(ip, [0x0064, 0xff9b, 0, 0, 0, 0, 0, 0], 96) {
+                let octets = ip.octets();
+                let translated =
+                    std::net::Ipv4Addr::new(octets[12], octets[13], octets[14], octets[15]);
+                return is_public_ip(std::net::IpAddr::V4(translated));
+            }
+            !(ip.is_loopback()
+                || ip.is_unspecified()
+                || ip.is_unique_local()
+                || ip.is_unicast_link_local()
+                || ip.is_multicast()
+                || NON_GLOBAL_IPV6_PREFIXES
+                    .iter()
+                    .any(|(prefix, prefix_len)| ipv6_matches_prefix(ip, *prefix, *prefix_len)))
+        }
+    }
+}
+
+/// IANA special-purpose IPv6 blocks that are not globally reachable and are
+/// not already covered by stable `Ipv6Addr` predicates. Prefix matching keeps
+/// the policy auditable when the registry adds a whole block rather than one
+/// exemplar address.
+const NON_GLOBAL_IPV6_PREFIXES: &[([u16; 8], u8)] = &[
+    ([0x0064, 0xff9b, 0x0001, 0, 0, 0, 0, 0], 48), // local-use NAT64
+    ([0x0100, 0, 0, 0, 0, 0, 0, 0], 64),           // discard-only
+    ([0x0100, 0, 0, 0x0001, 0, 0, 0, 0], 64),      // dummy IPv6 prefix
+    ([0x2001, 0, 0, 0, 0, 0, 0, 0], 32),           // Teredo
+    ([0x2001, 0x0002, 0, 0, 0, 0, 0, 0], 48),      // benchmarking
+    ([0x2001, 0x0010, 0, 0, 0, 0, 0, 0], 28),      // deprecated ORCHID
+    ([0x2001, 0x0020, 0, 0, 0, 0, 0, 0], 28),      // ORCHIDv2
+    ([0x2001, 0x0db8, 0, 0, 0, 0, 0, 0], 32),      // documentation
+    ([0x2002, 0, 0, 0, 0, 0, 0, 0], 16),           // 6to4
+    ([0x3fff, 0, 0, 0, 0, 0, 0, 0], 16),           // documentation/reserved
+    ([0x5f00, 0, 0, 0, 0, 0, 0, 0], 16),           // SRv6 SID
+    ([0xfec0, 0, 0, 0, 0, 0, 0, 0], 10),           // deprecated site-local
+];
+
+fn ipv6_matches_prefix(ip: std::net::Ipv6Addr, prefix: [u16; 8], prefix_len: u8) -> bool {
+    debug_assert!(prefix_len <= 128);
+    let address = u128::from_be_bytes(ip.octets());
+    let prefix = u128::from_be_bytes(std::net::Ipv6Addr::from(prefix).octets());
+    let mask = if prefix_len == 0 {
+        0
+    } else {
+        u128::MAX << (128 - u32::from(prefix_len))
+    };
+    address & mask == prefix & mask
 }
 
 #[derive(Clone, Copy)]
@@ -1171,6 +1382,10 @@ pub(crate) async fn refresh_live_backend_locked(
     entry: &ServiceEntry,
     reason: RefreshReason,
 ) {
+    if !gs.policy.allows_dcc(&entry.dcc_type) || !safe_discovery_target(entry) {
+        tracing::warn!(instance = %entry.instance_id, "skipping capability refresh for an unauthorized or unsafe backend target");
+        return;
+    }
     let url = entry_discovery_mcp_url(entry);
     if !url.is_empty() {
         refresh_instance_bounded(gs, &url, entry.instance_id, &entry.dcc_type, reason).await;
@@ -1188,6 +1403,7 @@ async fn refresh_all_live_backends_inner(
     let instances: Vec<_> = gs
         .live_instances(reg)
         .into_iter()
+        .filter(|entry| gs.policy.allows_dcc(&entry.dcc_type) && safe_discovery_target(entry))
         .filter(|e| {
             !matches!(
                 e.status,
@@ -1430,7 +1646,123 @@ fn parse_instance_uuid(instance_hint: &str) -> Option<Uuid> {
 mod unit_tests {
     use super::*;
     use crate::gateway::capability::{CapabilityRecord, InstanceFingerprint, tool_slug};
+    use crate::gateway::http_registration::SOURCE_HTTP;
     use uuid::Uuid;
+
+    #[test]
+    fn unsafe_http_discovery_targets_are_rejected() {
+        let mut entry = ServiceEntry::new("maya", "127.0.0.1", 8765);
+        entry.metadata.insert(
+            "dcc_mcp_registry_source".to_string(),
+            SOURCE_HTTP.to_string(),
+        );
+        assert!(!safe_discovery_target(&entry));
+
+        entry.host = "backend.example".to_string();
+        entry.metadata.insert(
+            "mcp_url".to_string(),
+            "https://backend.example:8765/mcp?token=secret".to_string(),
+        );
+        assert!(!safe_discovery_target(&entry));
+    }
+
+    #[test]
+    fn mapped_private_ipv6_discovery_target_is_rejected() {
+        let mut entry = ServiceEntry::new("maya", "::ffff:127.0.0.1", 8765);
+        entry.metadata.insert(
+            "dcc_mcp_registry_source".to_string(),
+            SOURCE_HTTP.to_string(),
+        );
+        entry.metadata.insert(
+            "mcp_url".to_string(),
+            "https://[::ffff:127.0.0.1]:8765/mcp".to_string(),
+        );
+        assert!(!safe_discovery_target(&entry));
+        let error = ensure_safe_backend_target(&entry).expect_err("unsafe target must fail closed");
+        assert_eq!(error.kind, "unsafe-backend-target");
+    }
+
+    #[test]
+    fn trusted_sidecar_accepts_same_host_discovery_on_a_dedicated_port() {
+        let mut entry = ServiceEntry::new("maya", "127.0.0.1", 8765);
+        entry.metadata.insert(
+            "mcp_url".to_string(),
+            "http://127.0.0.1:8765/mcp".to_string(),
+        );
+        entry.metadata.insert(
+            "discovery_mcp_url".to_string(),
+            "http://127.0.0.1:9876/mcp".to_string(),
+        );
+
+        assert!(safe_discovery_target(&entry));
+    }
+
+    #[test]
+    fn special_use_public_looking_ipv4_ranges_are_rejected() {
+        for host in [
+            "100.64.0.1",   // CGNAT
+            "192.0.2.1",    // TEST-NET-1
+            "198.51.100.1", // TEST-NET-2
+            "203.0.113.1",  // TEST-NET-3
+            "224.0.0.1",    // multicast
+            "240.0.0.1",    // reserved
+        ] {
+            let mut entry = ServiceEntry::new("maya", host, 8765);
+            entry.metadata.insert(
+                "dcc_mcp_registry_source".to_string(),
+                SOURCE_HTTP.to_string(),
+            );
+            entry
+                .metadata
+                .insert("mcp_url".to_string(), format!("https://{host}:8765/mcp"));
+            assert!(!safe_discovery_target(&entry), "{host} must be rejected");
+        }
+    }
+
+    #[test]
+    fn public_and_non_global_ipv6_discovery_targets_are_classified() {
+        let public = "2606:4700:4700::1111";
+        let mut entry = ServiceEntry::new("maya", public, 8765);
+        entry.metadata.insert(
+            "dcc_mcp_registry_source".to_string(),
+            SOURCE_HTTP.to_string(),
+        );
+        entry.metadata.insert(
+            "mcp_url".to_string(),
+            format!("https://[{public}]:8765/mcp"),
+        );
+        assert!(safe_discovery_target(&entry));
+
+        for host in ["64:ff9b::808:808", "64:ff9b::101:101"] {
+            entry.host = host.to_string();
+            entry
+                .metadata
+                .insert("mcp_url".to_string(), format!("https://[{host}]:8765/mcp"));
+            assert!(safe_discovery_target(&entry), "{host} must remain public");
+        }
+
+        for host in [
+            "::",
+            "::1",
+            "fe80::1",
+            "fc00::1",
+            "ff02::1",
+            "fec0::1",
+            "64:ff9b:1::1",
+            "64:ff9b::7f00:1",
+            "64:ff9b::c0a8:101",
+            "100::1",
+            "2001:20::1",
+            "100:0:0:1::1",
+            "5f00::1",
+        ] {
+            entry.host = host.to_string();
+            entry
+                .metadata
+                .insert("mcp_url".to_string(), format!("https://[{host}]:8765/mcp"));
+            assert!(!safe_discovery_target(&entry), "{host} must be rejected");
+        }
+    }
 
     fn push(index: &CapabilityIndex, dcc: &str, iid: Uuid, backend_tool: &str, loaded: bool) {
         let rec = CapabilityRecord::new(

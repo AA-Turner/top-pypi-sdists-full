@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.982
+Version: 0.4.992
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -231,6 +231,69 @@ yield_outlook.run(cfg_geocif)  # uses config defaults (10 years, mean)
 # predicted/outlook maps for the best model by rRMSEp, plus references.
 ```
 
+### Cone-of-uncertainty figures
+
+From an outlook DB produced with `[ML] run_time_steps = all` and
+`estimate_ci_for_all = True` (tabpfn native quantiles at every forecast issue
+month for every hindcast year), `geocif.viz.cone` renders per crop: a per-year
+hindcast validation grid of forecast cones vs observed, a full-size live-year
+cone with an empirical hindcast-error band, per-stage coverage vs the nominal
+level, and per-state mini-cones. Outputs land under
+`{dir_output}/{project}/ml/analysis/{Month_DD_YYYY_HHhmm}/cone/`, split into
+`plots/` (PNG) and `csvs/`, with a `lookup_plots_csvs.csv` manifest in both --
+the same shape the outlook products use.
+
+Configure it with a `[cone]` section and the whole run is one call — which is
+how it runs on the cluster:
+
+```ini
+[cone]
+start_year = 2005          ; first harvest year drawn in the grid
+crops = ['maize', 'soybean']
+; explicit per-crop DBs: an outlook DB written for one crop can also hold
+; another crop's table built with the wrong detrend method
+dbs = {'maize': 'outlook_09_06_2026_11h31.db', 'soybean': 'outlook_09_06_2026_11h21.db'}
+model = tabpfn
+units = bu/ac              ; or tn/ha
+ncols = 5                  ; columns in the per-year grid
+states_years = [2012, 2025, 2026]   ; years to draw per-state cone grids for
+min_region_frac = 1.0      ; a stage must cover the FULL region pool to be drawn
+use_nass_reference = True  ; USDA finals + monthly in-season track
+nass_offline = False       ; True = cached NASS extract only, never call the API
+```
+
+```python
+from geocif.viz import cone
+cone.run([geobase, countries, crops, geocif])       # everything from [cone]
+# CLI equivalent:
+#   python -m geocif.viz.cone --config geobase.txt --config ... [--start-year 2005]
+# or fully explicit, without a config:
+#   python -m geocif.viz.cone --db X.db --table T --crop maize --out DIR [--no-nass]
+```
+
+**USDA NASS reference.** With `use_nass_reference = True` (key from `[NASS]
+api_key`), `geocif.viz.nass` pulls QuickStats state yields: the **final**
+estimates fill missing observed values, and the **monthly in-season forecasts**
+are drawn as USDA's own track next to the cone, so each forecast issue date is
+compared against the USDA number published that month. Two API facts the module
+encodes: `freq_desc = MONTHLY` is rejected outright — the monthly forecasts are
+`reference_period_desc = "YEAR - AUG FORECAST"` (…SEP/OCT/NOV) — and a `"YEAR"`
+row is the final estimate *only* once it was loaded after its crop year, because
+mid-season NASS mirrors the latest forecast into that row. The response is
+cached beside the figures so a rerun works without network access.
+
+**August is the earliest USDA yield forecast** for corn and soybeans — there is
+no July or earlier estimate in the archive — so cone points issued in June and
+July have no USDA counterpart by construction, and the live season carries at
+most one square until the September report (~Sep 11). Use `states_years` to draw
+per-state grids for finished seasons as well, where the full Aug/Sep/Oct track
+is available.
+
+**No prose on the canvas.** Figures carry a title, axis labels and a legend —
+nothing else. Interval level, coverage, sample sizes and units provenance live
+in the companion CSVs (and the run log), so they can be quoted in the
+surrounding text rather than shrinking the plotting area.
+
 ### Cropmask optimizers
 
 Two consumers of `geoprepare` extraction outputs that tune the cropland mask used downstream. Run *after* the corresponding geoprepare extractor has written its outputs.
@@ -419,6 +482,36 @@ Run:
 from geocif import experiments
 experiments.run(cfg_geocif)
 ```
+
+### Standalone diagnostics (`geocif.experiments` package)
+
+Separate from the sweep runner above, `geocif/experiments/` holds read-only
+diagnostics that answer one question against data already on disk — no model
+training, no writes to the outlook DB. Each writes a date-stamped
+`ml/analysis/<stamp>/explore/<name>/` tree of `plots/`, `tables/` and a
+`README.md` carrying the verdict and the knobs that change it.
+
+| Module | Question it answers |
+|---|---|
+| `residuals_vs_cid` | Which CID anomalies does the yield model fail to absorb? |
+| `drought_audit` | Do drought years actually look anomalous in the inputs, or did the pipeline flatten them? |
+| `irrigation_kansas` | Does irrigated share interact with in-season stress to move county yield anomalies — and which stress CID and month carry it? |
+
+```python
+from geocif.experiments import irrigation_kansas
+irrigation_kansas.run(cfg)                          # kansas maize, ESI + heat + rain candidates
+irrigation_kansas.run(cfg, state="nebraska")
+irrigation_kansas.run(cfg, stress_cids=["TX90p", "KDD"])
+```
+
+`irrigation_kansas` standardises yields *within county* (Theil-Sen detrended
+residual over that county's own residual sd) before correlating with
+`irr_share`. Raw yield levels would only re-measure the irrigated/dryland level
+gap (171.3 vs 69.8 bu/ac in Kansas maize); the open question is whether
+irrigation buffers year-to-year variability, which is what the anomaly isolates.
+It ranks candidate stress CIDs by the R² their `irr_share x stress` interaction
+adds over a no-interaction model, so `[ML] irrigation_stress_cid` can be chosen
+from evidence rather than assumed.
 
 ### Experiments output
 

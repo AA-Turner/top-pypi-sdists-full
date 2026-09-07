@@ -13,6 +13,7 @@ use crate::canonical::{
     context::CanonicalizationContext,
     emptiness,
     ir::{ArrayLeaf, ContainsFacet, ObjectLeaf, ObjectViolation, PropertyMap, Schema, SchemaKind},
+    negate,
     parse::{self, ParseOutput},
     DefinitionMap, ROOT_DEFINITION_KEY,
 };
@@ -22,7 +23,7 @@ use crate::canonical::{
 const FOLD_BUDGET: u64 = 40_000;
 
 /// Folding rounds one schema may take to settle. A fold can rebuild a leaf through passes that
-/// read no targets, leaving conjunctions a resolving read folds again on the next round; a form
+/// read no targets, leaving `allOf`s a resolving read folds again on the next round; a form
 /// still moving past the cap is kept as it stands.
 const SETTLE_ROUNDS: usize = 8;
 
@@ -43,15 +44,16 @@ pub(crate) fn through_targets(
     // Normalization must not read targets, or it would produce forms the parse cannot.
     let plain =
         CanonicalizationContext::new(ctx.draft(), ctx.pattern_options(), ctx.validate_formats());
-    let mut definitions = parsed.definitions.clone();
-    // One context for the whole pass, so the intersection cache and the budget are shared.
-    let mut resolving = reading(&definitions, ctx);
+    // One context for the whole pass, so the intersection cache and the budget are shared. It
+    // holds the map alone, so a settled body lands in place and later bodies read it.
+    let mut resolving = reading(&parsed.definitions, ctx);
     for uri in order {
-        let body = definitions
+        let body = resolving
+            .targets()
             .get(&uri)
             .cloned()
             .expect("the order names the map's own keys");
-        let settled = settle(&body, &definitions, &resolving, &plain);
+        let settled = settle(&body, resolving.targets(), &resolving, &plain);
         // An approximated result is not a canonical form; keep what the parse built. Both contexts
         // answer, since the union folds run against `plain`.
         if approximated(&resolving) || approximated(&plain) {
@@ -60,22 +62,20 @@ pub(crate) fn through_targets(
         if settled == body {
             continue;
         }
-        definitions.insert(uri, settled);
-        // Later bodies must see the new one.
-        resolving.read_targets(Arc::new(definitions.clone()));
+        resolving.targets_mut().insert(uri, settled);
     }
-    let root = settle(&parsed.root, &definitions, &resolving, &plain);
+    let root = settle(&parsed.root, resolving.targets(), &resolving, &plain);
     if approximated(&resolving) || approximated(&plain) {
         return parsed;
     }
     parsed.root = root;
-    parsed.definitions = definitions;
+    parsed.definitions = resolving.into_targets();
     // Folding inlines targets, which can leave definitions unreferenced.
     parse::prune_unreachable_definitions(&parsed.root, &mut parsed.definitions);
     parsed
 }
 
-/// `folded` to a fixpoint, since one round's rebuilt leaves can hold conjunctions the next
+/// `folded` until it stops changing, since one round's rebuilt leaves can hold `allOf`s the next
 /// round folds.
 fn settle(
     schema: &Schema,
@@ -145,6 +145,9 @@ fn settled(schema: &Schema) -> bool {
                     ObjectViolation::UndeclaredValueFails { additional, .. } => {
                         !algebra::contains_reference(additional)
                     }
+                    ObjectViolation::PatternValueFails { schema, .. } => {
+                        !algebra::contains_reference(schema)
+                    }
                 })
                 && leaf
                     .properties
@@ -167,7 +170,7 @@ fn settled(schema: &Schema) -> bool {
 
 /// `schema` with every `allOf` below it folded.
 ///
-/// `ctx` resolves references - that is what lets a conjunction settle. `plain` does not, and only
+/// `ctx` resolves references - that is what lets an `allOf` settle. `plain` does not, and only
 /// the union fold uses it: resolving there would replace a branch with the schema it references,
 /// which the parse never does.
 fn folded(
@@ -178,14 +181,14 @@ fn folded(
 ) -> Schema {
     match schema.kind() {
         SchemaKind::AllOf(branches) => {
-            let conjuncts = each(branches.as_slice(), definitions, ctx, plain);
+            let folded = each(branches.as_slice(), definitions, ctx, plain);
             // Nothing changed below and no branch resolves: leave it alone.
-            if conjuncts == branches.as_slice()
-                && !conjuncts.iter().any(|branch| names_a_body(branch, ctx))
+            if folded == branches.as_slice()
+                && !folded.iter().any(|branch| names_a_body(branch, ctx))
             {
                 return schema.clone();
             }
-            conjuncts
+            folded
                 .into_iter()
                 .reduce(|left, right| algebra::intersect(left, right, ctx))
                 .unwrap_or_else(|| schema.clone())
@@ -227,11 +230,14 @@ fn folded(
             Schema::new(SchemaKind::OneOf(choice))
         }
         SchemaKind::Not(inner) => {
-            let complemented = folded(inner, definitions, ctx, plain);
-            if complemented == *inner {
+            let body = folded(inner, definitions, ctx, plain);
+            if body == *inner {
                 return schema.clone();
             }
-            Schema::new(SchemaKind::Not(complemented))
+            // The folded body may be one negation expresses, or nothing at all: wrapping it raw
+            // would leave a `not` the parse never builds, such as `not: false`. Where negation
+            // still declines, the node stands unfolded.
+            negate::negate_in_place(&body, definitions, plain).unwrap_or_else(|| schema.clone())
         }
         SchemaKind::Array(leaf) => {
             let leaf = leaf.get();
@@ -271,9 +277,13 @@ fn folded(
         SchemaKind::Object(leaf) => {
             let leaf = leaf.get();
             let entries = |map: &PropertyMap| -> PropertyMap {
-                map.iter()
-                    .map(|(key, schema)| (Arc::clone(key), folded(schema, definitions, ctx, plain)))
-                    .collect()
+                PropertyMap::from_sorted(
+                    map.iter()
+                        .map(|(key, schema)| {
+                            (Arc::clone(key), folded(schema, definitions, ctx, plain))
+                        })
+                        .collect(),
+                )
             };
             let keys = ObjectLeaf {
                 sizes: leaf.sizes.clone(),

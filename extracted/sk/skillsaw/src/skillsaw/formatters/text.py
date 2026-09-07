@@ -5,11 +5,20 @@ Text output formatter — human-readable terminal output with optional ANSI colo
 from pathlib import Path
 from typing import List, Optional
 
-from ..rule import AutofixConfidence, Rule, RuleViolation, Severity
+from ..rule import AutofixConfidence, Rule, RuleViolation, Severity, severities_at_or_above
 from ..rule_docs import rule_doc_url
 from ..diagnostics import terminal_safe
 from . import get_counts, relative_path, should_show_info
 from skillsaw.paths import contained_resolve, safe_resolve
+
+# Below this many displayed findings the severity totals already say where
+# the work is; above it a first run scrolls past and needs a triage aid.
+TOP_RULES_THRESHOLD = 50
+
+# Five rows is the whole point — a longer list is another wall of text.
+TOP_RULES_LIMIT = 5
+
+_SEVERITY_RANK = {Severity.ERROR: 0, Severity.WARNING: 1, Severity.INFO: 2}
 
 
 def format_duration(seconds: float) -> str:
@@ -54,6 +63,8 @@ def format_text(
     fail_level: str = "error",
     color: bool = False,
     hyperlinks: bool = False,
+    # Kept last so existing positional callers keep their bindings.
+    fix_level: str = "warning",
 ) -> str:
     show_info = should_show_info(verbose, fail_level)
     red = "\033[91m" if color else ""
@@ -73,10 +84,22 @@ def format_text(
     # Synthetic rule IDs (e.g. invalid-config) have no documentation page —
     # only link rules that actually ran as builtins.
     builtin_ids = {r.rule_id for r in rules if getattr(r, "_source", "builtin") == "builtin"}
+    # What `skillsaw explain` resolves: every builtin rule and the plugin
+    # rules that ran. A custom rule from `.skillsaw.yaml` and the linter's
+    # own ids (`invalid-config`) have no page to point at.
+    from ..rules.builtin import BUILTIN_RULE_REGISTRY
+
+    explainable_ids = set(BUILTIN_RULE_REGISTRY) | {
+        r.rule_id for r in rules if getattr(r, "_source", "builtin").startswith("plugin:")
+    }
+
+    # Markers mean "skillsaw fix repairs this", so they gate on the fix
+    # scope — a shown-but-below-threshold finding stays unmarked.
+    scope = severities_at_or_above(fix_level)
 
     def fix_marker(v: RuleViolation) -> str:
         """Ruff-style fixability marker: [*] safe, [?] needs --suggest."""
-        if not v.fixable:
+        if not v.fixable or v.severity not in scope:
             return ""
         return " [*]" if v.fix_confidence == AutofixConfidence.SAFE else " [?]"
 
@@ -160,12 +183,12 @@ def format_text(
             )
 
     # Legend for the [*]/[?] markers and the lint-to-fix hint. Counts are
-    # over the violations shown above, so marked lines and counts agree
-    # (`skillsaw fix` groups per-file fixes and may report different totals).
-    safe_fixable = sum(1 for v in shown if v.fixable and v.fix_confidence == AutofixConfidence.SAFE)
-    suggest_fixable = sum(
-        1 for v in shown if v.fixable and v.fix_confidence != AutofixConfidence.SAFE
-    )
+    # over the marked violations shown above, so marked lines and counts
+    # agree (`skillsaw fix` groups per-file fixes and may report different
+    # totals).
+    fixable_shown = [v for v in shown if v.fixable and v.severity in scope]
+    safe_fixable = sum(1 for v in fixable_shown if v.fix_confidence == AutofixConfidence.SAFE)
+    suggest_fixable = sum(1 for v in fixable_shown if v.fix_confidence != AutofixConfidence.SAFE)
     if safe_fixable and suggest_fixable:
         output.append(
             f"  {green}[*] {safe_fixable} violation(s) fixable with `skillsaw fix`"
@@ -180,6 +203,70 @@ def format_text(
             f"  {green}[?] {suggest_fixable} violation(s) fixable with"
             f" `skillsaw fix --suggest`{reset}"
         )
+
+    # Where the findings are concentrated. The totals above say how much
+    # there is; these rows say which few rules produced it and what to do
+    # about each, so a first run over a large repository is triageable
+    # without scrolling back through hundreds of lines.
+    if len(shown) >= TOP_RULES_THRESHOLD:
+        grouped = {}
+        for v in shown:
+            grouped.setdefault(v.rule_id, []).append(v)
+        ranked = sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0]))
+        ranked = ranked[:TOP_RULES_LIMIT]
+
+        severity_color = {Severity.ERROR: red, Severity.WARNING: yellow, Severity.INFO: blue}
+        rows = []
+        for rule_id, group in ranked:
+            severity = min(group, key=lambda v: _SEVERITY_RANK[v.severity]).severity
+            files = len({v.file_path for v in group if v.file_path is not None})
+            markers = {fix_marker(v).strip() for v in group}
+            safe_rule_id = terminal_safe(rule_id)
+            if "[*]" in markers:
+                hint = f"{green}[*] safe autofix{reset}"
+            elif "[?]" in markers:
+                hint = f"{green}[?] fix --suggest{reset}"
+            elif rule_id in explainable_ids:
+                hint = f"{dim}skillsaw explain {safe_rule_id}{reset}"
+            elif any(v.source == "custom" for v in group):
+                hint = f"{dim}custom rule{reset}"
+            else:
+                hint = ""
+            rows.append(
+                {
+                    "id": safe_rule_id,
+                    "rule_id": rule_id,
+                    "count": f"{len(group):,}",
+                    "severity": severity,
+                    "files": f"{files:,} file{'' if files == 1 else 's'}" if files else "",
+                    "hint": hint,
+                }
+            )
+
+        id_width = max(len(r["id"]) for r in rows)
+        count_width = max(len(r["count"]) for r in rows)
+        severity_width = max(len(r["severity"].value) for r in rows)
+        files_width = max(len(r["files"]) for r in rows)
+
+        top_total = sum(len(group) for _, group in ranked)
+        output.append(f"\n{bold}Top rules{reset} ({top_total:,} of {len(shown):,} findings):")
+        for r in rows:
+            # Pad from the plain id — an OSC 8 link carries invisible bytes
+            # that would throw the column alignment off.
+            id_cell = r["id"]
+            if hyperlinks and r["rule_id"] in builtin_ids:
+                id_cell = _osc8(rule_doc_url(r["rule_id"]), id_cell)
+            id_cell += " " * (id_width - len(r["id"]))
+            severity_cell = severity_color[r["severity"]]
+            severity_cell += f"{r['severity'].value.ljust(severity_width)}{reset}"
+            cells = [id_cell, r["count"].rjust(count_width), severity_cell]
+            # Whole-repository findings carry no path, so the column is
+            # dropped rather than left as a gap in every row.
+            if files_width:
+                cells.append(r["files"].ljust(files_width))
+            if r["hint"]:
+                cells.append(r["hint"])
+            output.append("  " + "  ".join(cells))
 
     if errors == 0 and warnings == 0 and (fail_level != "info" or info == 0):
         output.append(f"\n{green}{bold}✓ All checks passed!{reset}")

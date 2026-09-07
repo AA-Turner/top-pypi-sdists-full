@@ -31,6 +31,7 @@ __all__ = [
     "intern_version",
     "metadata_deps_are_static",
     "metadata_header_block",
+    "metadata_without_description",
     "parse_metadata",
     "static_project_from_table",
     "validate_specifier_versions",
@@ -234,17 +235,36 @@ _LOGICAL_LINE = re.compile(r"\n(?![ \t])")
 _LOGICAL_LINE_CR = re.compile(r"(?:\r\n|\r(?!\n)|\n)(?![ \t])")
 
 
-def _logical_lines(text: str) -> list[str]:
-    r"""Split ``text`` into RFC 822 logical lines, each holding its own folds.
-
-    A line ending inside a fold stays. The ending that closes a logical line
-    goes, except that the common pattern splits on the ``\n`` of a ``\r\n``
-    and leaves the ``\r`` at the end of the line.
-    """
-    # Equal counts mean every \r begins a \r\n, so no line ends on a bare one.
+def _logical_line_boundary(text: str) -> re.Pattern[str]:
+    """Return the logical-line boundary pattern for ``text``."""
+    # Unequal counts reveal a bare CR line ending.
     if "\r" in text and text.count("\r") != text.count("\r\n"):
-        return _LOGICAL_LINE_CR.split(text)
-    return _LOGICAL_LINE.split(text)
+        return _LOGICAL_LINE_CR
+    return _LOGICAL_LINE
+
+
+def _logical_lines(text: str) -> list[str]:
+    r"""Split RFC 822 logical lines while retaining folded line endings."""
+    return _logical_line_boundary(text).split(text)
+
+
+def _description_start(text: str) -> int:
+    """Return the index where a ``Description:`` line starts in ``text``, or -1."""
+    if text.startswith("Description:"):
+        return 0
+    at = text.find("\nDescription:")
+    return -1 if at < 0 else at + 1
+
+
+def metadata_without_description(text: str) -> str:
+    """Remove the first case-sensitive ``Description:`` field and its folds."""
+    start = _description_start(text)
+    if start < 0:
+        return text
+
+    boundary = _logical_line_boundary(text).search(text, start)
+    end = len(text) if boundary is None else boundary.end()
+    return text[:start] + text[end:]
 
 
 def _read_header_fields(text: str) -> dict[str, list[str]]:

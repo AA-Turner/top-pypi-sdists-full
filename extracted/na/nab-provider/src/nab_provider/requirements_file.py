@@ -11,14 +11,20 @@ from nab_provider._vendor.packaging.markers import Marker
 from nab_provider._vendor.packaging.utils import canonicalize_name
 
 from .marker_holds import dependency_marker_holds, intractable_as_error, marker_set
-from .metadata import validate_specifier_versions
 from .pep508 import NESTED_MARKER_MESSAGE, parse_requirement
+from .project_requirements import (
+    InvalidProjectRequirementError,
+    parse_project_requirement,
+    parse_requirements,
+    require_string_list,
+)
 from .resolver_inputs import (
     raise_for_unsatisfiable as raise_for_unsatisfiable,  # noqa: PLC0414  (re-export)
 )
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from types import CodeType
 
     from nab_provider._vendor.packaging.requirements import Requirement
 
@@ -36,9 +42,7 @@ __all__ = [
     "self_extra_markers",
 ]
 
-
-class InvalidProjectRequirementError(ValueError):
-    """A pyproject.toml dependency or metadata value is invalid or unresolvable."""
+_GROUP_LOADER_FILE = resolve_dependency_groups.__code__.co_filename
 
 
 class InvalidProjectTableError(TypeError):
@@ -49,69 +53,6 @@ class InvalidProjectTableError(TypeError):
     specifically so an unrelated internal ``TypeError`` is not mislabelled
     as a user-file error.
     """
-
-
-def _add_extra_marker(dep_str: str, extra_name: str) -> str:
-    """Append ``extra == "name"`` to a :pep:`508` dep string.
-
-    Parses with :class:`Requirement` rather than splitting on the first
-    ``;`` so a semicolon inside a direct-reference URL is not mistaken
-    for the marker separator; an existing marker is combined with ``and``.
-
-    ``extra_name`` is a table key interpolated into the quoted marker, so
-    it is canonicalised with ``validate=True`` (PEP 685). A key that is
-    not a valid name (say one containing a quote) then raises
-    :class:`InvalidName` instead of producing a marker that gates the dep
-    wrongly.
-    """
-    req = parse_requirement(dep_str)
-    canonical_extra = canonicalize_name(extra_name, validate=True)
-    extra_marker = f'extra == "{canonical_extra}"'
-    if req.marker is not None:
-        marker = f"({req.marker}) and {extra_marker}"
-    else:
-        marker = extra_marker
-    req.marker = None
-    return f"{req} ; {marker}"
-
-
-def parse_project_requirement(
-    dep_str: str, source: str, *, extra: str | None = None
-) -> Requirement:
-    """Parse one PEP 508 dependency string, raising if it is malformed.
-
-    An ``extra`` name is folded in as an ``extra == "name"`` marker. A string
-    that is not valid PEP 508, or one whose specifier carries a version that
-    will not convert, raises :class:`InvalidProjectRequirementError`, so a
-    candidate declaring one malformed dependency is rejected whole rather
-    than resolved with the dependency silently dropped.
-    """
-    try:
-        text = _add_extra_marker(dep_str, extra) if extra is not None else dep_str
-        req = parse_requirement(text)
-        validate_specifier_versions(req.specifier)
-    except ValueError as exc:
-        msg = f"invalid requirement in {source}: {exc}"
-        raise InvalidProjectRequirementError(msg) from exc
-    return req
-
-
-def parse_requirements(strings: Sequence[str], source: str) -> list[Requirement]:
-    """Parse PEP 508 strings, naming ``source`` if one is malformed."""
-    return [parse_project_requirement(s, source) for s in strings]
-
-
-def require_string_list(value: object, source: str) -> list[str]:
-    """Validate that a PEP 621 dependency value is an array of strings.
-
-    A bare string passes the type checker as ``Sequence[str]`` but
-    iterates character by character, so ``dependencies = "requests"``
-    would parse as eight single-character requirements rather than fail.
-    """
-    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        msg = f"{source} must be an array of strings"
-        raise InvalidProjectRequirementError(msg)
-    return value
 
 
 def _canonicalize_optional_deps(
@@ -329,8 +270,8 @@ def _self_ref_edges(
 
     The self-ref's own marker is reduced against the walked ``extra``: a
     contradiction means it does not activate (no entries), a tautology
-    propagates the inherited ``gates`` unchanged, and an environment
-    residual is added to the gate carried onto the reached extras.
+    propagates the inherited conditions unchanged, and an environment
+    residual is added to the conditions carried onto the reached extras.
     """
     edge = gates
     if req.marker is not None:
@@ -386,27 +327,45 @@ def expand_group_includes(
     return out
 
 
+def _too_deep_error(exc: RecursionError) -> InvalidProjectRequirementError:
+    """Distinguish repeated include frames from recursive requirement parsing."""
+    # Include traversal can exhaust the stack inside a non-recursive ABC check.
+    seen: set[CodeType] = set()
+    tb = exc.__traceback__
+    while tb is not None:
+        code = tb.tb_frame.f_code
+        if code.co_filename != _GROUP_LOADER_FILE:
+            if code in seen:
+                msg = (
+                    "invalid requirement in [dependency-groups]: "
+                    f"{NESTED_MARKER_MESSAGE}"
+                )
+                return InvalidProjectRequirementError(msg)
+            seen.add(code)
+        tb = tb.tb_next
+
+    msg = (
+        "invalid [dependency-groups]: "
+        "include-group chain is nested too deeply to resolve"
+    )
+    return InvalidProjectRequirementError(msg)
+
+
 def resolve_groups_to_requirements(
     groups: Mapping[str, Sequence[str | Mapping[str, str]]],
     selected: Sequence[str],
 ) -> list[Requirement]:
-    """Resolve PEP 735 group includes and return the union of requirements.
+    """Resolve selected PEP 735 groups and return their combined requirements.
 
-    ``selected`` names the groups whose requirements should be
-    expanded.  An unknown group name surfaces as :class:`LookupError`;
-    a malformed requirement string, cyclic include, or duplicate group
-    name surfaces as :class:`InvalidProjectRequirementError`.  Returns
-    an empty list when ``selected`` is empty.
+    Unknown groups raise LookupError. Invalid group data or excessive nesting
+    raises InvalidProjectRequirementError.
     """
     if not selected:
         return []
     try:
         resolved = resolve_dependency_groups(groups, *selected)
     except RecursionError as exc:
-        # The vendored loader parses each entry itself, so an over-nested
-        # marker never reaches the guarded parse below.
-        msg = f"invalid requirement in [dependency-groups]: {NESTED_MARKER_MESSAGE}"
-        raise InvalidProjectRequirementError(msg) from exc
+        raise _too_deep_error(exc) from exc
     except ExceptionGroup as group:
         detail = "; ".join(str(e) for e in group.exceptions)
         if all(isinstance(e, LookupError) for e in group.exceptions):

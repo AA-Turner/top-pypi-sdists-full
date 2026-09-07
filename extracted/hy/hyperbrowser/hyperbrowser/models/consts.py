@@ -83,6 +83,7 @@ ClaudeComputerUseLlm = Literal[
 ]
 CuaLlm = Literal[
     "computer-use-preview",
+    "gpt-6-astra",
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "gpt-5.6-luna",
@@ -104,6 +105,19 @@ GrokReasoningEffort = Literal[
     "low",
     "medium",
     "high",
+]
+MetaComputerUseLlm = Literal[
+    "muse-spark-1.1",
+    "muse-spark-1.2",
+    "muse-spark-1.3",
+]
+MetaReasoningEffort = Literal[
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
 ]
 SessionRegion = Literal[
     "us",

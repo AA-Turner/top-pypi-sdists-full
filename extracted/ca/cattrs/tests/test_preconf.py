@@ -1,5 +1,6 @@
 # ruff: noqa: PLC0415
-from collections.abc import Callable, Set
+import time
+from collections.abc import Callable, Iterator, Set
 from datetime import date, datetime, timezone
 from enum import Enum, IntEnum, unique
 from json import dumps as json_dumps
@@ -45,7 +46,6 @@ from cattrs._compat import (
 )
 from cattrs.fns import identity
 from cattrs.preconf.bson import make_converter as bson_make_converter
-from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
 from cattrs.preconf.json import make_converter as json_make_converter
 from cattrs.preconf.msgpack import make_converter as msgpack_make_converter
 from cattrs.preconf.pyyaml import make_converter as pyyaml_make_converter
@@ -55,6 +55,13 @@ from cattrs.preconf.ujson import make_converter as ujson_make_converter
 
 NO_MSGSPEC: Final = python_implementation() == "PyPy"
 NO_ORJSON: Final = python_implementation() == "PyPy"
+
+try:
+    __import__("cbor2")
+except ImportError:  # pragma: no cover
+    NO_CBOR2 = True
+else:
+    NO_CBOR2 = False
 
 
 @define
@@ -798,7 +805,6 @@ def test_tomlkit_date_strings():
     booleans(),
 )
 def test_tomllib_converter(everything: Everything, detailed_validation: bool):
-
     converter = tomllib_make_converter(detailed_validation=detailed_validation)
     raw = converter.dumps(everything)
 
@@ -834,25 +840,34 @@ def test_tomllib_converter_unstruct_collection_overrides(everything: Everything)
     assert raw["a_frozenset"] == sorted(raw["a_frozenset"])
 
 
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
 @given(everythings(min_int=-9223372036854775808, max_int=18446744073709551615))
 def test_cbor2(everything: Everything):
     from cbor2 import dumps as cbor2_dumps
     from cbor2 import loads as cbor2_loads
+
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
 
     converter = cbor2_make_converter()
     raw = cbor2_dumps(converter.unstructure(everything))
     assert converter.structure(cbor2_loads(raw), Everything) == everything
 
 
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
 @given(everythings(min_int=-9223372036854775808, max_int=18446744073709551615))
 def test_cbor2_converter(everything: Everything):
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
+
     converter = cbor2_make_converter()
     raw = converter.dumps(everything)
     assert converter.loads(raw, Everything) == everything
 
 
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
 @given(everythings(min_int=-9223372036854775808, max_int=18446744073709551615))
 def test_cbor2_converter_unstruct_collection_overrides(everything: Everything):
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
+
     converter = cbor2_make_converter(unstruct_collection_overrides={Set: sorted})
     raw = converter.unstructure(everything)
     assert raw["a_set"] == sorted(raw["a_set"])
@@ -860,17 +875,23 @@ def test_cbor2_converter_unstruct_collection_overrides(everything: Everything):
     assert raw["a_frozenset"] == sorted(raw["a_frozenset"])
 
 
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
 @given(union_and_val=native_unions(include_datetimes=False), detailed_validation=...)
 def test_cbor2_unions(union_and_val: tuple, detailed_validation: bool):
     """Native union passthrough works."""
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
+
     converter = cbor2_make_converter(detailed_validation=detailed_validation)
     type, val = union_and_val
 
     assert converter.structure(val, type) == val
 
 
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
 def test_cbor2_native_enums():
     """Bare, string and int enums are handled correctly."""
+
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
 
     converter = cbor2_make_converter()
 
@@ -885,8 +906,11 @@ def test_cbor2_native_enums():
     )
 
 
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
 def test_cbor2_efficient_enum():
     """`str` and `int` enums are handled efficiently."""
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
+
     converter = cbor2_make_converter()
 
     assert converter.get_unstructure_hook(Everything.AnIntEnum) == identity
@@ -971,7 +995,6 @@ def test_msgspec_efficient_enum():
     "converter_factory",
     [
         bson_make_converter,
-        cbor2_make_converter,
         json_make_converter,
         msgpack_make_converter,
         tomlkit_make_converter,
@@ -985,6 +1008,14 @@ def test_literal_dicts(converter_factory: Callable[[], Converter]):
 
     assert converter.structure({"a": 1}, Dict[Literal["a"], int]) == {"a": 1}
     assert converter.unstructure({"a": 1}, Dict[Literal["a"], int]) == {"a": 1}
+
+
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
+def test_literal_dicts_cbor2():
+    """Dicts with keys that aren't subclasses of `type` work."""
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
+
+    test_literal_dicts(cbor2_make_converter)
 
 
 @pytest.mark.skipif(NO_ORJSON, reason="orjson not available")
@@ -1006,3 +1037,47 @@ def test_literal_dicts_msgspec():
 def test_literal_dicts_tomllib():
     """Dicts with keys that aren't subclasses of `type` work."""
     test_literal_dicts(tomllib_make_converter)
+
+
+@pytest.fixture
+def set_timezone(monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[str], None]]:
+    """Set the process timezone for the duration of a test."""
+
+    def setter(tz: str) -> None:
+        monkeypatch.setenv("TZ", tz)
+        time.tzset()
+
+    yield setter
+    monkeypatch.undo()
+    time.tzset()
+
+
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="tzset not available")
+@pytest.mark.parametrize("converter_factory", [msgpack_make_converter])
+def test_naive_datetimes_are_unstructured_as_utc(
+    converter_factory: Callable[[], Converter], set_timezone: Callable[[str], None]
+):
+    """Naive datetimes are unstructured as UTC, not as local time.
+
+    `datetime.timestamp` reads a naive datetime as local time, so without an
+    explicit assumption the value on the wire would depend on the timezone of
+    the machine doing the unstructuring. The structure hook reads timestamps
+    back as UTC, so UTC is what the unstructure hook has to assume.
+    """
+    naive = datetime(2026, 8, 25, 12, 30)
+    expected = naive.replace(tzinfo=timezone.utc).timestamp()
+
+    for tz in ["UTC", "Asia/Tokyo", "America/Toronto"]:
+        set_timezone(tz)
+        assert converter_factory().unstructure(naive) == expected
+
+
+@pytest.mark.skipif(NO_CBOR2, reason="cbor2 not available")
+@pytest.mark.skipif(not hasattr(time, "tzset"), reason="tzset not available")
+def test_naive_datetimes_are_unstructured_as_utc_cbor2(
+    set_timezone: Callable[[str], None],
+):
+    """Naive datetimes are unstructured as UTC, not as local time."""
+    from cattrs.preconf.cbor2 import make_converter as cbor2_make_converter
+
+    test_naive_datetimes_are_unstructured_as_utc(cbor2_make_converter, set_timezone)

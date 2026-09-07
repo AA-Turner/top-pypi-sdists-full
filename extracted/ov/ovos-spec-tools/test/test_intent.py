@@ -6,7 +6,10 @@ from ovos_spec_tools import (
     IntentBuilder,
     LocaleResources,
     MalformedIntent,
+    MalformedTypedSlots,
+    drop_unregistered_typed_slots,
     open_intent_envelope,
+    validate_typed_slots,
     voc_match,
 )
 from ovos_spec_tools.message import Message
@@ -249,3 +252,84 @@ def test_raw_intent_construction_does_not_validate():
     Intent()  # scaffold default, no raise
     rebuilt = open_intent_envelope({"intent_name": "Z"})
     assert rebuilt.name == "Z"
+
+
+# --- OVOS-INTENT-1 §5.6 typed_slots map validation --------------------------
+
+def test_validate_typed_slots_accepts_a_well_formed_map():
+    validate_typed_slots({
+        "date": [{"span": [17, 26], "surface": "tomorrow",
+                 "value": "2026-04-12T00:00:00+01:00"}],
+    })
+    validate_typed_slots({})
+
+
+def test_validate_typed_slots_rejects_empty_list():
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"number": []})
+
+
+def test_validate_typed_slots_rejects_unregistered_type_key():
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"gizmo": []})
+
+
+def test_validate_typed_slots_rejects_extra_or_missing_entry_keys():
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"number": [
+            {"span": [0, 2], "surface": "42", "value": 42, "extra": 1}]})
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"number": [{"span": [0, 2], "surface": "42"}]})
+
+
+def test_validate_typed_slots_rejects_malformed_span():
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"number": [
+            {"span": [5, 2], "surface": "42", "value": 42}]})
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"number": [
+            {"span": [0], "surface": "42", "value": 42}]})
+
+
+def test_validate_typed_slots_rejects_wrong_number_value():
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"number": [
+            {"span": [0, 6], "surface": "forty two", "value": "42"}]})
+
+
+def test_validate_typed_slots_rejects_bad_date_value():
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"date": [
+            {"span": [0, 8], "surface": "tomorrow", "value": "not a date"}]})
+
+
+def test_validate_typed_slots_accepts_good_color_value():
+    validate_typed_slots({"color": [
+        {"span": [0, 3], "surface": "red",
+         "value": {"hex": "#ff0000", "name": "red"}}]})
+    validate_typed_slots({"color": [
+        {"span": [0, 3], "surface": "red",
+         "value": {"hex": "#ff0000", "name": None}}]})
+
+
+def test_validate_typed_slots_rejects_bad_color_value():
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"color": [
+            {"span": [0, 3], "surface": "red",
+             "value": {"hex": "FF0000", "name": "red"}}]})
+    with pytest.raises(MalformedTypedSlots):
+        validate_typed_slots({"color": [
+            {"span": [0, 3], "surface": "red", "value": {"hex": "#ff0000"}}]})
+
+
+def test_drop_unregistered_typed_slots_removes_unregistered_and_empty_keys(caplog):
+    typed_slots = {
+        "date": [],
+        "gizmo": [{"span": [0, 1], "surface": "x", "value": 1}],
+        "number": [{"span": [0, 1], "surface": "1", "value": 1}],
+    }
+    with caplog.at_level("WARNING"):
+        result = drop_unregistered_typed_slots(typed_slots)
+    assert result == {"number": [{"span": [0, 1], "surface": "1", "value": 1}]}
+    assert "date" in caplog.text
+    assert "gizmo" in caplog.text

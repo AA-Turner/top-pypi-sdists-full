@@ -71,6 +71,7 @@ from typing import Any
 
 from dcc_mcp_core import json_loads
 from dcc_mcp_core import yaml_loads
+from dcc_mcp_core._runtime.recipe_schema import _RecipeSchemaValidator
 from dcc_mcp_core._tool_registration import ToolSpec
 from dcc_mcp_core._tool_registration import register_tools
 from dcc_mcp_core.constants import CATEGORY_RECIPES
@@ -90,7 +91,7 @@ class RecipeDefinition:
     name: str
     dcc: str = ""
     description: str = ""
-    inputs_schema: dict[str, Any] | None = None
+    inputs_schema: Any = None
     steps: list[Any] | None = None
     output_contract: str | dict[str, Any] | None = None
     toolset_profiles: list[str] | None = None
@@ -102,7 +103,7 @@ class RecipeDefinition:
             "name": self.name,
             "dcc": self.dcc,
             "description": self.description,
-            "inputs_schema": self.inputs_schema or {},
+            "inputs_schema": {} if self.inputs_schema is None else self.inputs_schema,
             "steps": self.steps or [],
             "output_contract": self.output_contract,
             "toolset_profiles": self.toolset_profiles or [],
@@ -312,7 +313,7 @@ def load_recipe_pack(recipes_path: str, *, skill_name: str = "") -> list[RecipeD
                 name=name,
                 dcc=str(item.get("dcc") or ""),
                 description=str(item.get("description") or ""),
-                inputs_schema=item.get("inputs_schema") if isinstance(item.get("inputs_schema"), dict) else {},
+                inputs_schema=item.get("inputs_schema", {}),
                 steps=item.get("steps") if isinstance(item.get("steps"), list) else [],
                 output_contract=item.get("output_contract"),
                 toolset_profiles=[str(p) for p in profiles] if isinstance(profiles, list) else [],
@@ -363,52 +364,22 @@ def find_recipe_entry(skill_md: Any, recipe_name: str) -> dict[str, Any] | None:
 
 
 def validate_recipe_inputs(recipe: dict[str, Any], inputs: dict[str, Any]) -> list[str]:
-    """Validate inputs against the recipe's JSON-schema-like input shape.
+    """Validate recipe inputs against the published Draft 2020-12 schema.
 
-    This intentionally implements a conservative subset (`required`,
-    `properties`, and primitive `type`) so recipe packs remain zero-dep and
-    useful even before adapters wire richer validation.
+    The core package deliberately does not depend on ``jsonschema`` at
+    runtime (Maya/Blender commonly embed Python 3.7).  This small validator
+    implements the assertion vocabulary used by published recipe packs and
+    fails closed when a schema is malformed.  Both recipe handlers call this
+    function, so validation and application cannot drift.
     """
-    schema = recipe.get("inputs_schema") or {}
-    if not isinstance(schema, dict):
-        return []
-    errors: list[str] = []
-    required = schema.get("required") or []
-    if isinstance(required, list):
-        for name in required:
-            if name not in inputs:
-                errors.append(f"Missing required input: {name}")
-
-    properties = schema.get("properties") or {}
-    if not isinstance(properties, dict):
-        return errors
-    for name, spec in properties.items():
-        if name not in inputs or not isinstance(spec, dict):
-            continue
-        expected = spec.get("type")
-        if expected and not _matches_json_type(inputs[name], expected):
-            errors.append(f"Input '{name}' expected {expected}, got {type(inputs[name]).__name__}")
-    return errors
-
-
-def _matches_json_type(value: Any, expected: Any) -> bool:
-    expected_types = expected if isinstance(expected, list) else [expected]
-    for item in expected_types:
-        if item == "string" and isinstance(value, str):
-            return True
-        if item == "number" and isinstance(value, (int, float)) and not isinstance(value, bool):
-            return True
-        if item == "integer" and isinstance(value, int) and not isinstance(value, bool):
-            return True
-        if item == "boolean" and isinstance(value, bool):
-            return True
-        if item == "array" and isinstance(value, list):
-            return True
-        if item == "object" and isinstance(value, dict):
-            return True
-        if item == "null" and value is None:
-            return True
-    return False
+    schema = {} if not isinstance(recipe, dict) or "inputs_schema" not in recipe else recipe["inputs_schema"]
+    try:
+        validator = _RecipeSchemaValidator(schema)
+        return validator.validate(inputs)
+    except (TypeError, ValueError, re.error, RecursionError, OverflowError):
+        # Schema authors must fix malformed contracts; callers must never get
+        # an execution plan from an unverifiable published schema.
+        return ["$: Recipe input schema is invalid"]
 
 
 def json_dumps_pretty(value: Any) -> str:

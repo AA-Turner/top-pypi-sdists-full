@@ -2352,3 +2352,59 @@ def test_whitespace_only_fence_info_does_not_crash(temp_dir):
     (core / "frames.py").write_text("def compose():\n    pass\n")
 
     assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_covered_subtrees_are_not_scanned_again(temp_dir, monkeypatch):
+    from collections import Counter
+
+    repo = copy_fixture("unreferenced-covered-subtrees", temp_dir)
+    rule = AgentSkillUnreferencedFilesRule()
+    calls = Counter()
+    original = rule._dir_mentioned
+
+    def record(text, spec, directory, source):
+        calls[directory] += 1
+        return original(text, spec, directory, source)
+
+    monkeypatch.setattr(rule, "_dir_mentioned", record)
+    findings = rule.check(RepositoryContext(repo))
+    assert [v.file_path.relative_to(repo).as_posix() for v in findings] == ["docs-other/orphan.md"]
+    # The root source covers docs/; subsequent reachable sources can still
+    # lead to assets/, but repeating descendant directory searches adds no work.
+    assert calls["docs/deep"] == 1
+    assert calls["docs-other"] > 1
+
+
+def test_root_only_skill_needs_no_reachability_source_reads(temp_dir, monkeypatch):
+    from skillsaw.rules.builtin.agentskills import unreferenced_files
+
+    repo = copy_fixture("agentskills/clean/code-review", temp_dir)
+    reads = []
+    original = unreferenced_files.read_text
+
+    def record(path):
+        reads.append(path.relative_to(repo).as_posix())
+        return original(path)
+
+    monkeypatch.setattr(unreferenced_files, "read_text", record)
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(repo)) == []
+    assert reads == []
+
+
+def test_reachability_stops_after_last_transitive_target(temp_dir, monkeypatch):
+    from skillsaw.rules.builtin.agentskills import unreferenced_files
+
+    repo = copy_fixture("unreferenced-covered-subtrees", temp_dir)
+    (repo / "docs-other" / "orphan.md").unlink()
+    reads = []
+    original = unreferenced_files.read_text
+
+    def record(path):
+        reads.append(path.relative_to(repo).as_posix())
+        return original(path)
+
+    monkeypatch.setattr(unreferenced_files, "read_text", record)
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(repo)) == []
+    # The root covers docs/, but its guide must still be read to reach the
+    # data file. Remaining queued documents cannot add any bundled target.
+    assert reads == ["SKILL.md", "docs/deep/guide.md"]

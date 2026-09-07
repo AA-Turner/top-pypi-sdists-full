@@ -83,7 +83,8 @@ pub(crate) fn collect_classified_references<'a>(
             }
             for violation in &leaf.violations {
                 match violation {
-                    ObjectViolation::NameFails(schema) => {
+                    ObjectViolation::NameFails(schema)
+                    | ObjectViolation::PatternValueFails { schema, .. } => {
                         collect_classified_references(schema, Position::Consuming, out);
                     }
                     ObjectViolation::UndeclaredValueFails { additional, .. } => {
@@ -137,7 +138,7 @@ pub(crate) fn reachable_definition_keys(
     reachable
 }
 
-/// Every pointer `schema` spells, position discarded.
+/// Every pointer `schema` names, position discarded.
 ///
 /// Derived from the classifying walker rather than repeated: the two must agree on which fields
 /// hold a schema, and a field missed here leaks a `$ref` to a definition nothing kept.
@@ -510,9 +511,8 @@ fn inverts(schema: &Schema) -> bool {
         }
         SchemaKind::Object(leaf) => {
             let leaf = leaf.get();
-            // `NameFails(S)` is `not(for every key, S(key))`: anti-monotone in `S` regardless of
-            // what `S` holds, so any violation demand at all inverts, not only one whose own body
-            // does.
+            // `NameFails(S)` is `not(for every key, S(key))`: widening `S` narrows it, whatever
+            // `S` holds, so any violation demand at all inverts, not only one whose own body does.
             leaf.property_names.as_ref().is_some_and(inverts)
                 || leaf.properties.values().any(inverts)
                 || leaf.pattern_properties.values().any(inverts)
@@ -619,7 +619,7 @@ fn may_fold(schema: &Schema, assumed: &AHashSet<Arc<str>>) -> bool {
         SchemaKind::False => true,
         SchemaKind::Reference(uri) => assumed.contains(uri.as_ref()),
         SchemaKind::TypedGroup { body, .. } => may_fold(body, assumed),
-        // One failing conjunct is enough; a disjunction needs every branch to fail.
+        // One failing `allOf` branch is enough; a union needs every branch to fail.
         SchemaKind::AllOf(branches) => branches.as_slice().iter().any(|b| may_fold(b, assumed)),
         SchemaKind::AnyOf(branches) => branches.as_slice().iter().all(|b| may_fold(b, assumed)),
         SchemaKind::OneOf(branches) => branches.iter().all(|b| may_fold(b, assumed)),
@@ -662,10 +662,11 @@ fn may_fold(schema: &Schema, assumed: &AHashSet<Arc<str>>) -> bool {
                     .property_names
                     .as_ref()
                     .is_some_and(|schema| may_fold(schema, assumed))
-                    // A violation records a rule the object must break, never a key it must carry.
+                    // A violation is a rule some key must break, not a constraint every key must satisfy.
                     || leaf.violations.iter().any(|violation| match violation {
                         ObjectViolation::NameFails(_)
-                        | ObjectViolation::UndeclaredValueFails { .. } => false,
+                        | ObjectViolation::UndeclaredValueFails { .. }
+                        | ObjectViolation::PatternValueFails { .. } => false,
                     }));
             // A key must come from the catch-all when nothing names one, so `minProperties` alone
             // demands it. Deciding which pattern claims a key needs the pattern engine, so any of
@@ -737,7 +738,7 @@ fn plausible_assumptions(
     parsed: &ParseOutput,
     mut assumed: AHashSet<Arc<str>>,
 ) -> AHashSet<Arc<str>> {
-    // The closure below would sweep every definition to produce a subset of the empty set.
+    // The loop below would sweep every definition to produce a subset of the empty set.
     if assumed.is_empty() {
         return assumed;
     }

@@ -9,8 +9,9 @@ manifest-supplied paths without aborting the lint.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Optional
+from typing import AbstractSet, Optional
 
 
 def is_absolute_path(path: str) -> bool:
@@ -39,6 +40,56 @@ def is_absolute_path(path: str) -> bool:
 def has_parent_traversal(path: str) -> bool:
     """True when the path contains a '..' component."""
     return ".." in path.replace("\\", "/").split("/")
+
+
+def path_within_roots(path: Path, roots: AbstractSet[Path]) -> bool:
+    """Whether resolved *path* equals or descends from an indexed root."""
+    if not roots:
+        return False  # Return early to avoid traversing parents when roots is empty
+    return path in roots or any(parent in roots for parent in path.parents)
+
+
+def relative_to_str(path: Path, root: Path) -> Optional[str]:
+    """Return ``str(path.relative_to(root))``, or ``None`` if *path* is outside *root*.
+
+    Both arguments must be absolute and normalized paths (e.g. from ``resolve()``).
+
+    On POSIX systems, this uses string prefix matching to avoid the overhead of
+    allocating intermediate ``Path`` objects across ancestor directories. On Windows,
+    it falls back to ``pathlib`` to preserve case-insensitive path semantics.
+    """
+    if os.name != "posix":
+        try:
+            return str(path.relative_to(root))
+        except ValueError:
+            return None
+    path_str = str(path)
+    root_str = str(root)
+    if path_str == root_str:
+        return "."
+    if root_str.endswith(os.sep):  # the filesystem root
+        prefix = root_str
+    else:
+        prefix = root_str + os.sep
+    if not path_str.startswith(prefix):
+        return None
+    return path_str[len(prefix) :]
+
+
+def is_case_only_alias(source: Path, destination: Path) -> bool:
+    """Whether destination is a spelling alias, not a separate hard-link entry.
+
+    Case-insensitive filesystems can resolve both spellings to the same inode
+    while listing only the source name. An independently listed destination
+    must remain a collision, even if it shares that inode.
+    """
+    return (
+        source.name != destination.name
+        and source.name.casefold() == destination.name.casefold()
+        and source.parent.samefile(destination.parent)
+        and source.samefile(destination)
+        and not any(child.name == destination.name for child in destination.parent.iterdir())
+    )
 
 
 def safe_resolve(path: Path) -> Optional[Path]:

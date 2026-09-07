@@ -16,7 +16,7 @@ except ImportError:
 # geocif.py:_compute_region_zscore_features (repeated `df[zname] = ...`
 # on a wide df fragments the internal block manager). Functionally
 # harmless and floods the log when region_zscore_cids has 10+ entries
-# × forecasted stages. Filter rather than refactor — the assignments
+# Ã— forecasted stages. Filter rather than refactor â€” the assignments
 # happen inside an inner loop and a pd.concat rewrite would be a
 # bigger change than this warning is worth.
 try:
@@ -27,6 +27,6 @@ except ImportError:
 
 __author__ = """Ritvik Sahajpal"""
 __email__ = "ritvik@umd.edu"
-__version__ = "0.4.982"
+__version__ = "0.4.992"
 
 __all__ = ["ml", "cid", "viz", "agmet", "fdw_export", "dashboard", "data_prep"]

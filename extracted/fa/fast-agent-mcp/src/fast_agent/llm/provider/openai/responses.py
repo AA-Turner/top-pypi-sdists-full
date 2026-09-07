@@ -13,7 +13,6 @@ from openai import APIError, AsyncOpenAI, AuthenticationError, DefaultAioHttpCli
 from fast_agent.constants import (
     ANTHROPIC_CITATIONS_CHANNEL,
     ANTHROPIC_SERVER_TOOLS_CHANNEL,
-    FAST_AGENT_SAFETY_DETAILS,
     OPENAI_ASSISTANT_MESSAGE_ITEMS,
     OPENAI_MCP_LIST_TOOLS_ITEMS,
     OPENAI_REASONING_ENCRYPTED,
@@ -22,7 +21,6 @@ from fast_agent.constants import (
 from fast_agent.core.exceptions import (
     ModelConfigError,
     ProviderKeyError,
-    ProviderSafetyBufferingError,
 )
 from fast_agent.core.logging.logger import get_logger
 from fast_agent.llm.fastagent_llm import FastAgentLLM
@@ -1205,9 +1203,16 @@ class ResponsesLLM(
             if getattr(output_item, "type", None) != "message":
                 continue
             response_content_blocks.extend(
-                TextContent(type="text", text=getattr(part, "text", ""))
+                TextContent(
+                    type="text",
+                    text=(
+                        getattr(part, "refusal", "")
+                        if getattr(part, "type", None) == "refusal"
+                        else getattr(part, "text", "")
+                    ),
+                )
                 for part in getattr(output_item, "content", []) or []
-                if getattr(part, "type", None) == "output_text"
+                if getattr(part, "type", None) in {"output_text", "refusal"}
             )
 
         if not response_content_blocks:
@@ -1228,7 +1233,10 @@ class ResponsesLLM(
 
         self._log_chat_finished(model=context.model_name)
         channels = self._responses_reasoning_channels(response, result.streamed_summary)
-        tool_calls = self._extract_tool_calls(response)
+        stop_reason = self._map_response_stop_reason(response)
+        tool_calls = (
+            None if stop_reason == LlmStopReason.SAFETY else self._extract_tool_calls(response)
+        )
         channels, message_phase = self._responses_raw_item_channels(response, channels)
         channels = self._responses_diagnostics_channels(channels)
         channels = self._responses_server_tool_channels(response, channels)
@@ -1247,9 +1255,7 @@ class ResponsesLLM(
             content=self._responses_content_blocks(response),
             tool_calls=tool_calls,
             channels=channels,
-            stop_reason=(
-                LlmStopReason.TOOL_USE if tool_calls else self._map_response_stop_reason(response)
-            ),
+            stop_reason=(LlmStopReason.TOOL_USE if tool_calls else stop_reason),
             phase=message_phase,
         )
 
@@ -1288,29 +1294,6 @@ class ResponsesLLM(
         )
         return build_stream_failure_response(self.provider, error, context.model_name)
 
-    def _safety_buffering_response(
-        self,
-        error: ProviderSafetyBufferingError,
-    ) -> PromptMessageExtended:
-        details = {
-            "provider": self.provider.value,
-            "category": "safety_buffering",
-            "model": error.model,
-            "reasons": error.reasons,
-            "use_cases": error.use_cases,
-            "retry_model": error.retry_model,
-        }
-        return PromptMessageExtended(
-            role="assistant",
-            content=[TextContent(type="text", text=error.message)],
-            channels={
-                FAST_AGENT_SAFETY_DETAILS: [
-                    TextContent(type="text", text=json.dumps(details)),
-                ]
-            },
-            stop_reason=LlmStopReason.SAFETY,
-        )
-
     async def _responses_completion(
         self,
         input_items: list[dict[str, Any]],
@@ -1327,8 +1310,6 @@ class ResponsesLLM(
                 tools=tools,
                 context=context,
             )
-        except ProviderSafetyBufferingError as error:
-            return self._safety_buffering_response(error)
         except asyncio.CancelledError:
             return Prompt.assistant(
                 TextContent(type="text", text=""),
@@ -1353,8 +1334,6 @@ class ResponsesLLM(
                 tools=tools,
                 context=context,
             )
-        except ProviderSafetyBufferingError as error:
-            return self._safety_buffering_response(error)
         except asyncio.CancelledError:
             return Prompt.assistant(
                 TextContent(type="text", text=""),
@@ -1738,9 +1717,6 @@ class ResponsesLLM(
                     reconnected=reconnected,
                 )
                 return result.response, result.streamed_summary, result.input_items
-            except ProviderSafetyBufferingError as error:
-                attempt_state.planner.rollback(error, stream_started=True)
-                raise
             except ResponsesWebSocketError as error:
                 last_error = self._handle_responses_ws_error(
                     error=error, attempt_state=attempt_state, context=context

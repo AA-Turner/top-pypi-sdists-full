@@ -1,6 +1,6 @@
 use crate::{
     compiler::Context,
-    evaluation::{Annotations, EvaluationNode},
+    evaluation::{Annotations, ChildList, EvaluationNode},
     keywords::{BoxedValidator, Keyword},
     paths::{LazyLocation, Location, RefTracker},
     validator::{EvaluationResult, Validate, ValidationContext},
@@ -129,6 +129,8 @@ struct KeywordValidators<F: Json> {
 
 struct KeywordValidatorEntry<F: Json> {
     validator: BoxedValidator<F>,
+    /// Asserts on the instance itself, so `is_valid` may run ahead of `validate`.
+    is_leaf: bool,
     location: Location,
     absolute_location: Option<Arc<Uri<String>>>,
     formatted_schema_location: OnceLock<Arc<str>>,
@@ -300,8 +302,10 @@ impl<F: Json> SchemaNode<F> {
             .map(|(keyword, validator)| {
                 let location = ctx.location().join(&keyword);
                 let absolute_location = ctx.absolute_location(&location);
+                let is_leaf = crate::keywords::keyword_is_leaf(&keyword);
                 KeywordValidatorEntry {
                     validator,
+                    is_leaf,
                     location,
                     absolute_location,
                     formatted_schema_location: OnceLock::new(),
@@ -466,8 +470,7 @@ impl<F: Json> SchemaNode<F> {
                 ),
             > + 'a,
     {
-        let (lower_bound, _) = subschemas.size_hint();
-        let mut children: Vec<EvaluationNode> = Vec::with_capacity(lower_bound);
+        let mut children = ChildList::default();
         let mut invalid = false;
 
         for (child_location, absolute_location, cached_schema_location, validator) in subschemas {
@@ -519,7 +522,7 @@ impl<F: Json> SchemaNode<F> {
                     )
                 }
             };
-            children.push(child_node);
+            children.push(&mut ctx.arena, child_node);
         }
         if invalid {
             EvaluationResult::Invalid {
@@ -547,7 +550,27 @@ fn stamp_absolute_location(errors: &mut [ValidationError<'_>], uri: Option<&Arc<
     }
 }
 
+impl<F: Json> SchemaNode<F> {
+    #[cold]
+    #[inline(never)]
+    fn false_schema_error<'i>(
+        &self,
+        instance: &F::Node<'i>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+    ) -> ValidationError<'i> {
+        ValidationError::false_schema(
+            self.location.clone(),
+            crate::paths::capture_evaluation_path(tracker, &self.location),
+            location.into(),
+            instance.lazy_value(),
+        )
+        .with_absolute_keyword_location(self.absolute_path.clone())
+    }
+}
+
 impl<F: Json> Validate<F> for SchemaNode<F> {
+    #[inline]
     fn is_valid(&self, instance: &F::Node<'_>, ctx: &mut ValidationContext) -> bool {
         match &self.inner.validators {
             // Single validator fast path
@@ -570,6 +593,8 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
         }
     }
 
+    #[allow(clippy::inline_always)]
+    #[inline(always)]
     fn validate<'i>(
         &self,
         instance: &F::Node<'i>,
@@ -580,6 +605,10 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
         match &self.inner.validators {
             NodeValidators::Keyword(kvs) if kvs.validators.len() == 1 => {
                 let entry = &kvs.validators[0];
+                // A passing keyword costs its `is_valid`; only a failing one builds an error.
+                if entry.is_leaf && entry.validator.is_valid(instance, ctx) {
+                    return Ok(());
+                }
                 return entry
                     .validator
                     .validate(instance, location, tracker, ctx)
@@ -589,6 +618,9 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
             }
             NodeValidators::Keyword(kvs) => {
                 for entry in &kvs.validators {
+                    if entry.is_leaf && entry.validator.is_valid(instance, ctx) {
+                        continue;
+                    }
                     entry
                         .validator
                         .validate(instance, location, tracker, ctx)
@@ -608,19 +640,15 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
                 }
             }
             NodeValidators::Boolean { validator: Some(_) } => {
-                return Err(ValidationError::false_schema(
-                    self.location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.location),
-                    location.into(),
-                    instance.lazy_value(),
-                )
-                .with_absolute_keyword_location(self.absolute_path.clone()));
+                return Err(self.false_schema_error(instance, location, tracker));
             }
             NodeValidators::Boolean { validator: None } => return Ok(()),
         }
         Ok(())
     }
 
+    #[allow(clippy::inline_always)]
+    #[inline(always)]
     fn collect_errors<'i>(
         &self,
         instance: &F::Node<'i>,
@@ -632,6 +660,9 @@ impl<F: Json> Validate<F> for SchemaNode<F> {
         match &self.inner.validators {
             NodeValidators::Keyword(kvs) => {
                 for entry in &kvs.validators {
+                    if entry.is_leaf && entry.validator.is_valid(instance, ctx) {
+                        continue;
+                    }
                     let start = errors.len();
                     entry
                         .validator
@@ -716,7 +747,7 @@ impl<F: Json> SchemaNode<F> {
                 } else {
                     EvaluationResult::Valid {
                         annotations: None,
-                        children: Vec::new(),
+                        children: ChildList::default(),
                     }
                 }
             }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.0.3
+Version: 1.0.4
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -38,8 +38,8 @@ Requires-Dist: agent-client-protocol>=0.12.1,<0.13 ; extra == 'acp'
 Requires-Dist: ag2[mcp] ; extra == 'acp'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'acp'
 Requires-Dist: uvicorn>=0.51.0,<1 ; extra == 'acp'
-Requires-Dist: ag-ui-protocol>=0.1.15,<0.2 ; extra == 'ag-ui'
-Requires-Dist: anthropic>=0.116.0,<1 ; extra == 'anthropic'
+Requires-Dist: ag-ui-protocol>=0.1.20,<0.2 ; extra == 'ag-ui'
+Requires-Dist: anthropic>=1.2.0,<2 ; extra == 'anthropic'
 Requires-Dist: boto3>=1.34.149 ; extra == 'bedrock'
 Requires-Dist: dashscope>=1.25.13 ; extra == 'dashscope'
 Requires-Dist: ddgs>=9.0.0,<10 ; extra == 'ddgs'
@@ -54,7 +54,7 @@ Requires-Dist: mcp>=2.0.0,<3 ; extra == 'mcp-ui'
 Requires-Dist: prometheus-client>=0.20.0,<0.30.0 ; extra == 'metrics'
 Requires-Dist: mistralai>=2.8.0,<3 ; extra == 'mistral'
 Requires-Dist: ollama>=0.4.7 ; extra == 'ollama'
-Requires-Dist: openai>=2.45.0,<3.0 ; extra == 'openai'
+Requires-Dist: openai>=3.4.0,<4 ; extra == 'openai'
 Requires-Dist: perplexityai>=0.30.0,<1 ; extra == 'perplexity'
 Requires-Dist: redis>=5.0,<9 ; extra == 'redis'
 Requires-Dist: tavily-python>=0.7.4,<0.8 ; extra == 'tavily'

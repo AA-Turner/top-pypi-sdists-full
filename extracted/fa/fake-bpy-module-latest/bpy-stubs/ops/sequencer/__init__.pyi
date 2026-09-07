@@ -2800,6 +2800,133 @@ class text_select_all(bpy.ops._BPyOpsSubModOp):
         :return: Result of the operator call.
         """
 
+class text_strip_add(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        filepath: str = "",
+        directory: str = "",
+        files: None
+        | bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
+        | None = None,
+        hide_props_region: bool | None = True,
+        check_existing: bool | None = False,
+        filter_blender: bool | None = False,
+        filter_backup: bool | None = False,
+        filter_image: bool | None = False,
+        filter_movie: bool | None = False,
+        filter_python: bool | None = False,
+        filter_font: bool | None = False,
+        filter_sound: bool | None = False,
+        filter_text: bool | None = True,
+        filter_archive: bool | None = False,
+        filter_btx: bool | None = False,
+        filter_alembic: bool | None = False,
+        filter_usd: bool | None = False,
+        filter_obj: bool | None = False,
+        filter_volume: bool | None = False,
+        filter_folder: bool | None = True,
+        filter_blenlib: bool | None = False,
+        filemode: int | None = 9,
+        relative_path: bool | None = True,
+        display_type: typing.Literal[
+            "DEFAULT", "LIST_VERTICAL", "LIST_HORIZONTAL", "THUMBNAIL"
+        ]
+        | None = "DEFAULT",
+        sort_method: typing.Literal[
+            "",
+            "DEFAULT",
+            "FILE_SORT_ALPHA",
+            "FILE_SORT_EXTENSION",
+            "FILE_SORT_TIME",
+            "FILE_SORT_SIZE",
+            "ASSET_CATALOG",
+        ]
+        | None = "",
+        move_strips: bool | None = True,
+        frame_start: int | None = 0,
+        length: int | None = 0,
+        channel: int | None = 1,
+        replace_sel: bool | None = True,
+        overlap: bool | None = False,
+        overlap_shuffle_override: bool | None = False,
+        skip_locked_or_muted_channels: bool | None = True,
+        text: str = "",
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Add a text strip to the sequencer
+
+                :param execution_context:
+                :param undo:
+                :param filepath: File Path, Path to file (optional, never None)
+                :param directory: Directory, Directory of the file (optional, never None)
+                :param files: Files, (optional)
+                :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+                :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+                :param filter_blender: Filter .blend files, (optional)
+                :param filter_backup: Filter backup .blend files, (optional)
+                :param filter_image: Filter image files, (optional)
+                :param filter_movie: Filter movie files, (optional)
+                :param filter_python: Filter Python files, (optional)
+                :param filter_font: Filter font files, (optional)
+                :param filter_sound: Filter sound files, (optional)
+                :param filter_text: Filter text files, (optional)
+                :param filter_archive: Filter archive files, (optional)
+                :param filter_btx: Filter btx files, (optional)
+                :param filter_alembic: Filter Alembic files, (optional)
+                :param filter_usd: Filter USD files, (optional)
+                :param filter_obj: Filter OBJ files, (optional)
+                :param filter_volume: Filter OpenVDB volume files, (optional)
+                :param filter_folder: Filter folders, (optional)
+                :param filter_blenlib: Filter Blender IDs, (optional)
+                :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+                :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+                :param display_type: Display Type, (optional)
+
+        DEFAULT
+        Default -- Automatically determine display type for files.
+
+        LIST_VERTICAL
+        Short List -- Display files as short list.
+
+        LIST_HORIZONTAL
+        Long List -- Display files as a detailed list.
+
+        THUMBNAIL
+        Thumbnails -- Display files as thumbnails.
+                :param sort_method: File sorting mode, (optional)
+
+        DEFAULT
+        Default -- Automatically determine sort method for files.
+
+        FILE_SORT_ALPHA
+        Name -- Sort the file list alphabetically.
+
+        FILE_SORT_EXTENSION
+        Extension -- Sort the file list by extension/type.
+
+        FILE_SORT_TIME
+        Modified Date -- Sort files by modification time.
+
+        FILE_SORT_SIZE
+        Size -- Sort files by size.
+
+        ASSET_CATALOG
+        Asset Catalog -- Sort the asset list so that assets in the same catalog are kept together. Within a single catalog, assets are ordered by name. The catalogs are in order of the flattened catalog hierarchy..
+                :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
+                :param frame_start: Start Frame, Start frame of the strip (in [-inf, inf], optional)
+                :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added (in [1, inf], optional)
+                :param channel: Channel, Channel to place this strip into (in [1, 128], optional)
+                :param replace_sel: Replace Selection, Deselect previously selected strips after add operation completes (optional)
+                :param overlap: Allow Overlap, Dont correct overlap on new strips (optional)
+                :param overlap_shuffle_override: Override Overlap Shuffle Behavior, Use the overlap_mode tool settings to determine how to shuffle overlapping strips (optional)
+                :param skip_locked_or_muted_channels: Skip Locked/Muted Channels, Make strips occupy nearest unmuted and unlocked channels (optional)
+                :param text: Text, Initialize the strip with this text (optional, never None)
+                :return: Result of the operator call.
+        """
+
 class text_strip_style_preset_add(bpy.ops._BPyOpsSubModOp):
     def __new__(
         cls,

@@ -1,0 +1,45 @@
+[package]
+name = "sase_gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Local host gateway for SASE mobile clients."
+readme = "README.md"
+
+[lib]
+name = "sase_gateway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sase_gateway"
+path = "src/main.rs"
+
+[[bin]]
+name = "sase_federation_worker"
+path = "src/federation_worker_main.rs"
+
+[dependencies]
+async-stream = { workspace = true }
+axum = { workspace = true }
+base64 = "0.22"
+chrono = { workspace = true, features = ["clock"] }
+fs2 = { workspace = true }
+hex = { workspace = true }
+libc = { workspace = true }
+rand = { workspace = true }
+jsonwebtoken = "9"
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+sase_core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_urlencoded = "0.7"
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }

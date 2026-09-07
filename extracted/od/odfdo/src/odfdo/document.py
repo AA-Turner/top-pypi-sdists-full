@@ -27,8 +27,8 @@ from __future__ import annotations
 
 import contextlib
 import io
+import json
 import posixpath
-from contextlib import suppress
 from copy import deepcopy
 from functools import cache
 from importlib import resources as rso
@@ -63,12 +63,14 @@ from .settings import Settings
 from .style import Style
 from .style_base import StyleBase
 from .styles import Styles
-from .table import Table
+from .table import Table, _populate_table
 from .utils import (
     FAMILY_LESS_STYLE_TAGS,
     FAMILY_MAPPING,
     Blob,
+    NameUnifyer,
     bytes_to_str,
+    format_json,
     is_RFC3066,
 )
 from .xmlpart import XmlPart
@@ -459,7 +461,7 @@ class Document(MDDocument):
         cls = _get_part_class(path)
         # XML part overwritten
         if cls is not None:
-            with suppress(KeyError):
+            with contextlib.suppress(KeyError):
                 del self.__xmlparts[path]
         self.container.set_part(path, data)
 
@@ -768,38 +770,134 @@ class Document(MDDocument):
             return self._markdown_export_text()
         return self._markdown_export_tables()
 
-    @staticmethod
-    def _make_markdown_table_identifier(
-        used_names: set[str], doc_stem: str, table: Table
-    ) -> str:
-        "Return a unique table identifier for the Markdown export."
-        raw_table_name = table.name or "table"
-        table_name = raw_table_name.replace(" ", "_")
-        if table_name in used_names:
-            counter = 2
-            while f"{table_name}_{counter}" in used_names:
-                counter += 1
-            table_name = f"{table_name}_{counter}"
-        used_names.add(table_name)
-        return f"{doc_stem}#{table_name}"
-
     def _markdown_export_tables(self) -> list[TableMarkdown]:
         doc_stem = self.path.stem if self.path else "spreadsheet"
         doc_stem = doc_stem.replace(" ", "_")
         tables = self.body.tables
-        used_names: set[str] = set()
+        unifyer = NameUnifyer()
         results: list[TableMarkdown] = []
         _set_global(self)
         try:
             for table in tables:
-                identifier = self._make_markdown_table_identifier(
-                    used_names, doc_stem, table
-                )
+                raw_table_name = table.name or ""
+                table_name = raw_table_name.replace(" ", "_")
+                unique_name = unifyer.unique(table_name)
+                identifier = f"{doc_stem}#{unique_name}"
                 content = table.to_markdown()
                 results.append(TableMarkdown(identifier, content))
         finally:
             _set_global(None)
         return results
+
+    def to_json(
+        self,
+        path_or_file: str | Path | None = None,
+        include_hidden: bool = False,
+        pretty: bool = False,
+        ensure_ascii: bool = False,
+    ) -> str | None:
+        """Export the values from all tables in the document to JSON format.
+
+        The JSON output is a dictionary mapping each table's name to its 2D
+        list of cell values (list of list of cell values).
+
+        Args:
+            path_or_file: The path or file to save the JSON content to.
+                If None, the JSON content is returned as a string.
+            include_hidden: If True, include hidden tables in the export.
+                Defaults to False.
+            pretty: Use pretty formater. Defaults to False.
+            ensure_ascii: If True, non-ASCII characters are escaped.
+                Defaults to False.
+
+        Returns:
+            str | None: The JSON content as a string if `path_or_file` is
+                None, otherwise None.
+        """
+        tables_dict: dict[str, list[list[Any]]] = {}
+        unifyer = NameUnifyer()
+
+        for table in self.body.tables:
+            if not include_hidden and not self.get_table_displayed(table):
+                continue
+            name = unifyer.unique(table.name or "")
+            cloned_table = table.clone
+            cloned_table.rstrip(aggressive=True)
+            tables_dict[name] = cloned_table._serialize_table_rows()
+
+        if pretty:
+            content_str = format_json(tables_dict, ensure_ascii=ensure_ascii)
+        else:
+            content_str = json.dumps(
+                tables_dict, ensure_ascii=ensure_ascii, allow_nan=False
+            )
+
+        if path_or_file:
+            Path(path_or_file).write_text(content_str, encoding="utf-8")
+            return None
+        return content_str
+
+    @classmethod
+    def from_json(
+        cls,
+        content: str | Path | dict[str, list[list[Any]]],
+        table_name: str = "",
+    ) -> Document:
+        """Create a new spreadsheet Document from JSON content.
+
+        Args:
+            content: A JSON string, a Path or filename to a JSON file, or a
+                dictionary mapping table names to 2D lists of cell values.
+            table_name: Name of the table if the input is a list.
+
+        Returns:
+            Document: A new spreadsheet Document containing Table elements
+                for each table in the JSON content.
+
+        Raises:
+            TypeError: If content is not a string, Path, or dict, or if the
+                decoded JSON structure is not a dictionary.
+        """
+        data: Any
+        if isinstance(content, Path):
+            data = json.loads(content.read_text(encoding="utf-8"))
+        elif isinstance(content, str):
+            with contextlib.suppress(OSError, ValueError):
+                if Path(content).is_file():
+                    content = Path(content).read_text(encoding="utf-8")
+            data = json.loads(content)
+        elif isinstance(content, dict | list):
+            data = content
+        else:
+            msg = "JSON content must be a string, Path, dict or list."
+            raise TypeError(msg)
+
+        if not isinstance(data, dict | list):
+            msg = (
+                "JSON document content must be a dictionary mapping "
+                "table names to row lists or a list of rows."
+            )
+            raise TypeError(msg)
+
+        doc = cls.new("spreadsheet")
+        body = doc.body
+        body.clear()
+
+        if isinstance(data, dict):
+            for t_name, rows in data.items():
+                table = Table(t_name)
+                table.clear()
+                body.append(table)
+                _populate_table(table, rows)
+        else:  # list
+            unifyer = NameUnifyer()
+            name = unifyer.unique(table_name)
+            table = Table(name)
+            table.clear()
+            body.append(table)
+            _populate_table(table, data)
+
+        return doc
 
     def _add_binary_part(self, blob: Blob) -> str:
         if not self.container:
@@ -1692,15 +1790,18 @@ class Document(MDDocument):
             return None
         return style.get_properties(area=area)
 
-    def _get_table(self, table: int | str) -> Table | None:
+    def _get_table(self, table: int | str | Table) -> Table | None:
+        if isinstance(table, Table):
+            return table
         if not isinstance(table, (int, str)):
-            raise TypeError(f"Table parameter must be int or str: {table!r}")
+            msg = f"Table parameter must be int or str or Table: {table!r}"
+            raise TypeError(msg)
         if isinstance(table, int):
             return self.body.get_table(position=table)
         return self.body.get_table(name=table)
 
     def get_cell_style_properties(
-        self, table: str | int, coord: tuple | list | str
+        self, table: str | int | Table, coord: tuple | list | str
     ) -> dict[str, str]:
         """Return the style properties of a table cell in an ODS document.
 
@@ -1709,7 +1810,7 @@ class Document(MDDocument):
         precedence.
 
         Args:
-            table: The name (str) or index (int) of the table.
+            table: The name (str), index (int), or Table object.
             coord: The coordinates of the cell (e.g., "A1", (0, 0)).
 
         Returns:
@@ -1745,7 +1846,7 @@ class Document(MDDocument):
 
     def get_cell_background_color(
         self,
-        table: str | int,
+        table: str | int | Table,
         coord: tuple | list | str,
         default: str = "#ffffff",
     ) -> str:
@@ -1755,7 +1856,7 @@ class Document(MDDocument):
         If no background color is explicitly defined, the `default` value is returned.
 
         Args:
-            table: The name (str) or index (int) of the table.
+            table: The name (str), index (int), or Table object.
             coord: The coordinates of the cell (e.g., "A1", (0, 0)).
             default: The default color to return if no background color is defined
                 (defaults to "#ffffff").
@@ -1768,12 +1869,12 @@ class Document(MDDocument):
 
     def get_table_style(
         self,
-        table: str | int,
+        table: str | int | Table,
     ) -> StyleBase | None:
         """Return the `StyleBase` instance associated with the table.
 
         Args:
-            table: The name (str) or index (int) of the table.
+            table: The name (str), index (int), or Table object.
 
         Returns:
             The `StyleBase` object for the table, or `None` if the table
@@ -1783,7 +1884,7 @@ class Document(MDDocument):
             return None
         return self.get_style("table", sheet.style)  # ty: ignore
 
-    def get_table_displayed(self, table: str | int) -> bool:
+    def get_table_displayed(self, table: str | int | Table) -> bool:
         """Return the `table:display` property of the table's style.
 
         This property indicates whether the table should be displayed in a
@@ -1791,7 +1892,7 @@ class Document(MDDocument):
         method from previous `odfdo` versions.
 
         Args:
-            table: The name (str) or index (int) of the table.
+            table: The name (str), index (int), or Table object.
 
         Returns:
             `True` if the table is set to be displayed, `False` otherwise.

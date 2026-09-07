@@ -1,34 +1,16 @@
-"""Codec for the parsed-listing cache: records <-> opaque cache blob.
+"""Translate parsed listing records to and from an opaque cache blob.
 
-Stores the post-:func:`nab_index.client._parse_files` records so a warm
-resolve skips ``json.loads`` and wheel/sdist filename parsing. This module
-owns the record<->bytes translation; :class:`~nab_index.cache.OnDiskCache`
-treats the blob as opaque and knows nothing about record shapes.
+The UTF-8 JSON wire form is ``[header, rows]``. The header carries format,
+codec, sort-key scheme, source-body digest, and dropped zip-sdist versions.
+An incompatible header or digest is a cache miss.
 
-Wire form (UTF-8 JSON of ``[header, rows]``):
+Rows preserve source order and tag each flat record as a wheel or sdist. A
+version cell is ``null`` where the row above carries the same version. Decode
+checks every field and restores interned strings. Integrity cells retain either
+the index table or parsed pairs so hash parsing stays deferred.
 
-* header ``[format, codec, key_scheme, body_digest, zip_sdists]`` is checked
-  before anything is trusted. A reader on a different ``format``, ``codec``, or
-  ``key_scheme`` treats the entry as a miss and rebuilds, so a cache written by
-  an older build self-heals instead of misdecoding. ``body_digest`` binds the
-  blob to the raw body it was parsed from; :func:`decode` rejects a blob whose
-  digest does not equal the policy's, so a raw-body update invalidates the
-  derived form. ``zip_sdists`` names the releases the listing offered as a
-  ``.zip`` sdist, which the parse drops, so no row can carry them.
-* rows hold one entry per surviving record, in the order the wire parse
-  returned them, so a downstream stable-sort tie-break stays identical. Each
-  row is a flat list tagged wheel or sdist by its first element. Every field is
-  type-checked on the way back, and ``requires_python`` and hash-algorithm
-  names are re-interned via ``sys.intern`` so the round trip reproduces the
-  dedup the wire parse builds.
-* the two integrity cells carry the index's own table, as a JSON object, when
-  the record was built from one, and the parsed pairs otherwise. A rehydrated
-  record defers the same way, so a listing pays the integrity parse only for
-  the files a resolve reads.
-
-The blob is portable: one entry serves every interpreter that shares the cache,
-and a body this module will not parse is a miss, never an exception reaching
-the caller.
+Invalid blobs are cache misses, not caller-visible errors. The on-disk cache
+treats this representation as opaque.
 """
 
 from __future__ import annotations
@@ -57,7 +39,7 @@ __all__ = ["ParsedListing", "corruption_reason", "decode", "encode"]
 # blob surfacing under the current bucket. Bump it when the header or row shape
 # changes, or when the same body parses to different records: ``body_digest``
 # pins only the input.
-FORMAT_VERSION = 4
+FORMAT_VERSION = 5
 # Serialization variant that wrote the rows, so a future codec switch
 # self-heals rather than misdecodes.
 CODEC = 1
@@ -125,14 +107,19 @@ def encode(
     is a derived property, so neither rides the wire.
     """
     rows: list[list[object]] = []
+    previous_version: str | None = None
     for record in files:
+        version = record.version
+        version_cell = None if version == previous_version else version
+        previous_version = version
+
         if isinstance(record, WheelFile):
             rows.append(
                 [
                     _TAG_WHEEL,
                     record.filename,
                     record.url,
-                    record.version,
+                    version_cell,
                     record.requires_python,
                     record.has_metadata,
                     record.upload_time,
@@ -147,7 +134,7 @@ def encode(
                     _TAG_SDIST,
                     record.filename,
                     record.url,
-                    record.version,
+                    version_cell,
                     record.requires_python,
                     record.upload_time,
                     _hashes_cell(record),
@@ -201,7 +188,7 @@ def corruption_reason(blob: bytes) -> str | None:
     warns only on the former. Every check past the build cells runs only once
     the header names this exact build, since a foreign build may have written a
     shape this one never did; checking earlier would misreport version skew as
-    corruption. This is a second pass used only to gate that warning;
+    corruption. This second pass decides whether to emit that warning;
     :func:`decode` returns ``None`` for every miss reason alike.
     """
     try:
@@ -265,10 +252,16 @@ def _decode_rows(rows: object) -> list[WheelFile | SdistFile]:
     """Rehydrate every row, raising :class:`_BadRowError` on the first bad one."""
     if not isinstance(rows, list):
         raise _BadRowError
-    return [_decode_row(row) for row in rows]
+    decoded: list[WheelFile | SdistFile] = []
+    previous_version: str | None = None
+    for row in rows:
+        record = _decode_row(row, previous_version)
+        previous_version = record.version
+        decoded.append(record)
+    return decoded
 
 
-def _decode_row(row: object) -> WheelFile | SdistFile:
+def _decode_row(row: object, previous_version: str | None) -> WheelFile | SdistFile:
     """Rehydrate one row, dispatching on the tag its first element carries."""
     if not isinstance(row, list) or not row:
         raise _BadRowError
@@ -277,14 +270,17 @@ def _decode_row(row: object) -> WheelFile | SdistFile:
     if type(tag) is not int:
         raise _BadRowError
     if tag == _TAG_WHEEL:
-        return _decode_wheel(row)
+        return _decode_wheel(row, previous_version)
     if tag == _TAG_SDIST:
-        return _decode_sdist(row)
+        return _decode_sdist(row, previous_version)
     raise _BadRowError
 
 
-def _decode_wheel(row: Sequence[object]) -> WheelFile:
-    """Rehydrate a wheel row.
+def _decode_wheel(row: Sequence[object], previous_version: str | None) -> WheelFile:
+    """Rehydrate a wheel row, whose ``null`` version means ``previous_version``.
+
+    A ``null`` on the first row leaves the version ``None``, which the field
+    check rejects.
 
     An integrity cell holding the index's own table passes through unparsed,
     for the record to parse on first read; any other form is parsed here.
@@ -301,6 +297,9 @@ def _decode_wheel(row: Sequence[object]) -> WheelFile:
         size,
         metadata_hash,
     ) = row
+
+    if version is None:
+        version = previous_version
 
     # ``type() is`` rather than ``isinstance``: bool is a subclass of int, so
     # ``True`` would pass as a size.
@@ -330,9 +329,12 @@ def _decode_wheel(row: Sequence[object]) -> WheelFile:
     )
 
 
-def _decode_sdist(row: Sequence[object]) -> SdistFile:
+def _decode_sdist(row: Sequence[object], previous_version: str | None) -> SdistFile:
     """Rehydrate a source-distribution row; see :func:`_decode_wheel`."""
     _, filename, url, version, requires_python, upload_time, hashes, size = row
+
+    if version is None:
+        version = previous_version
 
     if (
         type(filename) is not str

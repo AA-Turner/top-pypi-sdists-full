@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dcc-mcp-core
-Version: 0.20.22
+Version: 0.20.23
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -292,8 +292,9 @@ All three packages carry Codex `agents/openai.yaml` metadata while preserving
 their DCC-MCP and ClawHub contracts. Their source, vendor manifests, immutable
 versions, and publication workflows now live in
 [`dcc-mcp-agent-plugins`](https://github.com/dcc-mcp/dcc-mcp-agent-plugins).
-The copies under this repository's `skills/` directory remain frozen
-compatibility mirrors for existing Core consumers.
+This repository does not vendor those public packages. Its top-level `skills/`
+directory contains Core-owned marketplace and reference Skills. Bundled runtime
+Skills remain under `python/dcc_mcp_core/skills/`.
 
 Keep an official build current through the release manifest:
 
@@ -309,6 +310,7 @@ Then discover a live capability before calling it:
 
 ~~~bash
 dcc-mcp-cli dcc-types
+dcc-mcp-cli --output json dcc-types --dcc-type unreal
 dcc-mcp-cli list
 dcc-mcp-cli search --query "create sphere" --dcc-type maya --limit 20
 dcc-mcp-cli describe <tool-slug>
@@ -321,7 +323,12 @@ contain the unified search parser also accept unquoted positional words.
 
 `dcc-types` is an offline, catalog-backed capability query. It reports
 canonical adapter identifiers and install-plan availability; `list` remains
-the source of truth for live instances.
+the source of truth for live instances. The targeted `--dcc-type` form emits a
+versioned decision that keeps public catalog support, package/bootstrap state,
+registry registration, readiness, capability discovery, and real-host proof
+separate. In particular, `live_instances: 0` does not mean zero supported or
+installed applications; `live_instances: null` means the local registry
+observation was unavailable.
 
 Replace the placeholder with the slug returned by search. For remote workstations,
 register a gateway profile and select it:
@@ -347,7 +354,7 @@ After a task is accepted, agents can inspect bounded gateway evidence with
 `dcc-mcp-cli stats --range 24h --session-id task-42`. A zero call count means
 no telemetry evidence, and direct local calls may not be represented. Feed the
 result plus short task and validation summaries to the
-[`review_skill_improvement` prompt](skills/dcc-mcp-skills-creator/prompts.yaml).
+[`review_skill_improvement` prompt](https://github.com/dcc-mcp/dcc-mcp-agent-plugins/blob/main/plugins/dcc-mcp/skills/dcc-mcp-skills-creator/prompts.yaml).
 The prompt defaults to no change, prefers improving an existing skill, and
 never grants authority to edit or publish outside the task scope.
 

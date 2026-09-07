@@ -486,7 +486,12 @@ pub(crate) fn compile<'a, F: Json>(
 
         // Case 1: properties + additionalProperties: false + required: [1 item], no patternProperties
         // Handled by AdditionalPropertiesNotEmptyFalseWithRequired1Validator
-        if items.len() == 1 && additional_props_false && has_properties && !has_pattern_properties {
+        if items.len() == 1
+            && additional_props_false
+            && has_properties
+            && !has_pattern_properties
+            && !ctx.is_keyword_overridden("additionalProperties")
+        {
             return None;
         }
 
@@ -504,6 +509,7 @@ pub(crate) fn compile<'a, F: Json>(
             .is_some_and(|m| m.len() < HASHMAP_THRESHOLD);
         if items.len() == 2
             && has_properties
+            && !ctx.is_keyword_overridden("properties")
             && properties_below_threshold
             && !additional_props_false
             && !additional_props_is_schema
@@ -593,7 +599,7 @@ pub(crate) fn compile_with_path<F: Json>(
 mod tests {
     use super::HASHMAP_THRESHOLD;
     use crate::tests_util;
-    use serde_json::{json, Value};
+    use serde_json::{json, Map, Value};
     use test_case::test_case;
 
     #[test_case(&json!({"required": ["a"]}), &json!({}), "/required")]
@@ -791,5 +797,19 @@ mod tests {
         let instance = json!({"count": 1});
         let errors: Vec<_> = validator.iter_errors(&instance).collect();
         assert_eq!(errors.len(), 1);
+    }
+
+    // Sixteen names agreeing on length, first and last eight bytes share a head
+    #[test_case(16, true)]
+    #[test_case(15, false)]
+    fn colliding_required_names_scanned(present: usize, expected: bool) {
+        let names: Vec<String> = (0..16).map(|i| format!("prefix00{i:02}suffix00")).collect();
+        let schema = json!({"required": names});
+        let instance: Map<String, Value> = names
+            .iter()
+            .take(present)
+            .map(|name| (name.clone(), json!(1)))
+            .collect();
+        assert_eq!(crate::is_valid(&schema, &Value::Object(instance)), expected);
     }
 }

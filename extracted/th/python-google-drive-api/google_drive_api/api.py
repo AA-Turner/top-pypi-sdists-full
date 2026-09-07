@@ -36,22 +36,16 @@ class GoogleDriveApi:
     async def upload_file(
         self,
         file_metadata: dict[str, Any],
-        open_stream: Callable[
-            [], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]
-        ],
+        open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]],
         **kwargs: Any,
     ) -> aiohttp.ClientResponse:
         """Upload a new file (for media upload requests)."""
-        return await self._auth.multi_part_post(
-            DRIVE_API_UPLOAD_FILES, file_metadata, open_stream, **kwargs
-        )
+        return await self._auth.multi_part_post(DRIVE_API_UPLOAD_FILES, file_metadata, open_stream, **kwargs)
 
     async def resumable_upload_file(
         self,
         file_metadata: dict[str, Any],
-        open_stream: Callable[
-            [], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]
-        ],
+        open_stream: Callable[[], Coroutine[Any, Any, AsyncIterator[bytes]] | Awaitable[bytes]],
         stream_size: int,
         max_retries: int = 10,
         **kwargs: Any,
@@ -66,18 +60,33 @@ class GoogleDriveApi:
             **kwargs,
         )
 
-    async def get_file_content(
-        self, file_id: str, **kwargs: Any
-    ) -> aiohttp.ClientResponse:
+    async def get_file_content(self, file_id: str, **kwargs: Any) -> aiohttp.ClientResponse:
         """Get a file's content by ID."""
-        return await self._auth.get(
-            f"{DRIVE_API_FILES}/{file_id}", params={"alt": "media"}, **kwargs
-        )
+        params = {"alt": "media", **(kwargs.pop("params", None) or {})}
+        return await self._auth.get(f"{DRIVE_API_FILES}/{file_id}", params=params, **kwargs)
 
     async def delete_file(self, file_id: str, **kwargs: Any) -> aiohttp.ClientResponse:
         """Permanently delete a file owned by the user without moving it to the trash."""
         return await self._auth.delete(f"{DRIVE_API_FILES}/{file_id}", **kwargs)
 
     async def list_files(self, **kwargs: Any) -> dict[str, Any]:
-        """List the user's files."""
+        """List the user's files.
+
+        Returns a single page. Use list_all_files to follow nextPageToken.
+        """
         return await self._auth.get_json(DRIVE_API_FILES, **kwargs)
+
+    async def list_all_files(self, **kwargs: Any) -> AsyncIterator[dict[str, Any]]:
+        """List all of the user's files, following nextPageToken.
+
+        Note that fields must include nextPageToken for pagination to happen, e.g.
+        fields="nextPageToken,files(id,name)".
+        """
+        params = dict(kwargs.pop("params", None) or {})
+        while True:
+            res = await self.list_files(params=params, **kwargs)
+            for file in res.get("files", []):
+                yield file
+            if not (page_token := res.get("nextPageToken")):
+                return
+            params["pageToken"] = page_token

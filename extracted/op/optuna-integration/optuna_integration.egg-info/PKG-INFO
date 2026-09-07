@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optuna-integration
-Version: 4.9.0
+Version: 5.0.0
 Summary: Integration libraries of Optuna.
 Project-URL: repository, https://github.com/optuna/optuna-integration
 Classifier: Development Status :: 5 - Production/Stable
@@ -24,22 +24,6 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: optuna
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: fakeredis[lua]; extra == "test"
-Requires-Dist: grpcio; extra == "test"
-Requires-Dist: protobuf>=5.28.1; extra == "test"
-Provides-Extra: checking
-Requires-Dist: black<25.9.0; extra == "checking"
-Requires-Dist: blackdoc<0.4.2; extra == "checking"
-Requires-Dist: hacking; extra == "checking"
-Requires-Dist: isort; extra == "checking"
-Requires-Dist: mypy; extra == "checking"
-Requires-Dist: types-PyYAML; extra == "checking"
-Requires-Dist: types-redis; extra == "checking"
-Requires-Dist: types-setuptools; extra == "checking"
-Requires-Dist: typing_extensions>=3.10.0.0; extra == "checking"
 Provides-Extra: document
 Requires-Dist: mlflow; extra == "document"
 Requires-Dist: pandas; extra == "document"
@@ -48,24 +32,13 @@ Requires-Dist: scipy>=1.9.2; python_version >= "3.9" and extra == "document"
 Requires-Dist: sphinx; extra == "document"
 Requires-Dist: sphinx-notfound-page; extra == "document"
 Requires-Dist: sphinx_rtd_theme; extra == "document"
-Provides-Extra: allennlp
-Requires-Dist: allennlp; extra == "allennlp"
-Requires-Dist: jsonnet; extra == "allennlp"
-Requires-Dist: numpy<2.0.0; extra == "allennlp"
-Requires-Dist: psutil; extra == "allennlp"
-Provides-Extra: chainer
-Requires-Dist: chainer; extra == "chainer"
-Requires-Dist: numpy<2.0.0; extra == "chainer"
-Provides-Extra: chainermn
-Requires-Dist: chainermn; extra == "chainermn"
-Requires-Dist: numpy<2.0.0; extra == "chainermn"
 Provides-Extra: botorch
 Requires-Dist: botorch<0.10.0; extra == "botorch"
 Provides-Extra: catboost
-Requires-Dist: numpy<2.0.0; extra == "catboost"
+Requires-Dist: numpy; extra == "catboost"
 Requires-Dist: catboost; extra == "catboost"
 Provides-Extra: cma
-Requires-Dist: numpy<2.0.0; extra == "cma"
+Requires-Dist: numpy; extra == "cma"
 Requires-Dist: cma; extra == "cma"
 Provides-Extra: comet
 Requires-Dist: comet_ml>=3.39.3; extra == "comet"
@@ -77,28 +50,21 @@ Provides-Extra: fastaiv2
 Requires-Dist: fastai>=2.0.0; extra == "fastaiv2"
 Requires-Dist: fastcore<1.12.2; extra == "fastaiv2"
 Provides-Extra: keras
-Requires-Dist: tensorflow; extra == "keras"
+Requires-Dist: tensorflow>=2.20.0; extra == "keras"
 Provides-Extra: lightgbm
 Requires-Dist: lightgbm; extra == "lightgbm"
 Requires-Dist: scikit-learn; extra == "lightgbm"
 Provides-Extra: mlflow
 Requires-Dist: mlflow; extra == "mlflow"
-Provides-Extra: mxnet
-Requires-Dist: mxnet; extra == "mxnet"
-Provides-Extra: pytorch-distributed
-Requires-Dist: gpytorch; extra == "pytorch-distributed"
 Provides-Extra: pytorch-distributed
 Requires-Dist: gpytorch; extra == "pytorch-distributed"
 Provides-Extra: pytorch-ignite
 Requires-Dist: pytorch-ignite; extra == "pytorch-ignite"
-Provides-Extra: pytorch-ignite
-Requires-Dist: pytorch-ignite; extra == "pytorch-ignite"
-Provides-Extra: pytorch-lightning
-Requires-Dist: lightning; extra == "pytorch-lightning"
 Provides-Extra: pytorch-lightning
 Requires-Dist: lightning; extra == "pytorch-lightning"
 Provides-Extra: shap
-Requires-Dist: numpy<2.0.0; extra == "shap"
+Requires-Dist: numba>=0.60.0; extra == "shap"
+Requires-Dist: numpy; extra == "shap"
 Requires-Dist: shap; extra == "shap"
 Provides-Extra: sklearn
 Requires-Dist: pandas; extra == "sklearn"
@@ -108,17 +74,17 @@ Provides-Extra: skorch
 Requires-Dist: skorch; extra == "skorch"
 Provides-Extra: tensorboard
 Requires-Dist: tensorboard; extra == "tensorboard"
-Requires-Dist: tensorflow; extra == "tensorboard"
+Requires-Dist: tensorflow>=2.20.0; extra == "tensorboard"
 Provides-Extra: tensorflow
-Requires-Dist: tensorflow<=2.15.0; extra == "tensorflow"
+Requires-Dist: tensorflow>=2.20.0; extra == "tensorflow"
 Provides-Extra: tfkeras
-Requires-Dist: tensorflow; extra == "tfkeras"
+Requires-Dist: tensorflow>=2.20.0; extra == "tfkeras"
 Provides-Extra: wandb
 Requires-Dist: wandb; extra == "wandb"
 Provides-Extra: xgboost
 Requires-Dist: xgboost; extra == "xgboost"
 Provides-Extra: trackio
-Requires-Dist: trackio; extra == "trackio"
+Requires-Dist: trackio; python_version >= "3.10" and extra == "trackio"
 Dynamic: license-file
 
 # Optuna-Integration
@@ -185,10 +151,6 @@ Here is the table of `optuna-integration` modules:
 |[Weights & Biases](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#wandb)*|[WeightsAndBiasesCallback](https://github.com/optuna/optuna-examples/blob/main/wandb/wandb_integration.py)|
 |[XGBoost](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#xgboost)|[XGBoostPruningCallback](https://github.com/optuna/optuna-examples/tree/main/xgboost/xgboost_integration.py)|
 |[Trackio](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#trackio)*|[TrackioCallback](https://github.com/optuna/optuna-integration/tree/main/optuna_integration/trackio/trackio.py)|
-|[AllenNLP](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#allennlp)*|[AllenNLPPruningCallback](https://github.com/optuna/optuna-examples/blob/main/allennlp/allennlp_simple.py)|
-|[Chainer](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#chainer)*|[ChainerPruningExtension](https://github.com/optuna/optuna-examples/tree/main/chainer/chainer_integration.py)|
-|[ChainerMN](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#chainermn)* | [ChainerMNStudy](https://github.com/optuna/optuna-examples/tree/main/chainer/chainermn_simple.py) |
-|[MXNet](https://optuna-integration.readthedocs.io/en/stable/reference/index.html#mxnet)*|Unavailable|
 
 > [!WARNING]
 > `*` shows deprecated modules and they might be removed in the future.

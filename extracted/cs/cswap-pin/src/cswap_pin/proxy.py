@@ -12615,8 +12615,17 @@ class PinProxy:
             # `4 of 1 bridge(s)`, a numerator above its denominator, from two
             # counts of the same set taken seconds apart.
             posted = self._posting_now()
+            draining_now = this_process_is_draining()
             prev = getattr(self, "_last_deaf", None)
-            if now == prev:
+            # A BLIND EMITTED BECAUSE *THIS* PROCESS WAS DRAINING must not
+            # latch forever once the drain aborts and this process keeps
+            # serving: `now == prev` alone would otherwise dedupe away the
+            # MARK for an unchanged deaf set for the rest of this process's
+            # life, silencing every consumer of it. Only that one direction
+            # forces a re-emit; an ordinary unchanged set still dedupes.
+            stale_blind = (getattr(self, "_last_deaf_blind_draining", False)
+                           and not draining_now)
+            if now == prev and not stale_blind:
                 return
             # SAME GUARD AS THE CHEAP BRANCH, for the same reason: a mute
             # tuple is not a clear (nothing was judged, `DEAF_REPORT_BLIND`
@@ -12627,6 +12636,7 @@ class PinProxy:
                                                             grace=0.0):
                 return
             self._last_deaf = now
+            self._last_deaf_blind_draining = False
             if mute:
                 _log_lifecycle(
                     f"{DEAF_REPORT_BLIND} — {len(mute)} draining predecessor(s) "
@@ -12634,6 +12644,18 @@ class PinProxy:
                     "cannot be asked and a local answer would name every "
                     "pre-existing session: pid "
                     + " ".join(str(p) for p in mute)
+                )
+            elif now and draining_now:
+                # The in-memory depth map, not is_draining(certdir, os.getpid()):
+                # the marker lags the first beat, and the first beat is the
+                # whole window.
+                self._last_deaf_blind_draining = True
+                _log_lifecycle(
+                    f"{DEAF_REPORT_BLIND} — this process is draining, so its "
+                    "own held-bridge view is partial by construction and a "
+                    "bridge that looks streamless here may already be held "
+                    "by the successor: "
+                    + " ".join(self._with_deaf_age(b) for b in now)
                 )
             elif now:
                 _log_lifecycle(
@@ -16428,6 +16450,122 @@ def _stream_404_is_spurious(path: str | None, certdir=None) -> bool:
     return -_STREAM_LIVE_SECONDS <= (now - seen) <= _STREAM_LIVE_SECONDS
 
 
+_walled_switch_lock = threading.Lock()
+# reset -> (ok, retry_at). Insertion-ordered, capped at 8 — a bounded memo,
+# not a bound on how many walls can be in flight: once the cap is hit the
+# OLDEST entry is dropped, so a straggler request from a wall we already
+# left (A -> switched to B -> B also walled -> switched to C) can re-run the
+# switch once, the pre-existing behaviour. `retry_at` is None for a settled
+# switch (never re-tried) and a monotonic deadline for a raise (retried
+# after `_WALLED_SWITCH_RAISE_TTL`, so a raise still debounces a storm
+# instead of recording nothing).
+_walled_switch_seen: dict[bytes, tuple[bool, float | None]] = {}
+
+# ~ the cross-process lock timeouts this daemon and cswap itself use: long
+# enough that a storm on one wall does not re-attempt for every repeat,
+# short enough that a genuinely transient failure (the config lock held by
+# an install or a TUI swap) gets a fresh attempt well inside the wall.
+_WALLED_SWITCH_RAISE_TTL = 30.0
+
+
+def _switch_off_walled_account(reset: bytes, retry_after: bytes) -> bool:
+    """Switch cswap off the account that just 429'd, at most once per wall.
+
+    ``reset`` is the wall's own ``anthropic-ratelimit-unified-reset`` value —
+    unique per (account, window) already, so it needs no identity lookup and
+    no expiry: an epoch never recurs. Empty means this 429 is not an
+    account-level unified wall (an edge/gateway 429, or an org/key-scoped
+    limit) — nothing to key on and nothing `switch()` can fix, so relay it
+    untouched rather than debounce every header-less 429 against one shared
+    empty key.
+
+    True means "turn the 429 the client will see into a 401" — because either
+    this call switched the account off onto a credential the host confirmed
+    is LIVE, or an earlier call for this same wall already did. False (no
+    headroom anywhere, `switch()` raised, `switch()` landed a credential it
+    never validated, or a repeat of a wall that never earned a 401) means
+    relay the 429 untouched — a relayed wall 429 costs a sleep the client
+    can abandon; a 401 onto a credential nobody confirmed is alive is worse
+    than the wall itself, because CC rebuilds onto it.
+
+    Storm control and per-wall debounce are the SAME guard, and the lock is
+    held ACROSS `switch()`: the wall claims its slot and every waiter blocks
+    on the one call actually doing the work, rather than reading a
+    seen-but-not-yet-decided slot and relaying the wall 429 while the first
+    caller's switch is still landing. Concurrent 429s on one wall (measured:
+    ten in a cycle, each its own MITM thread) and a retry that reused the
+    same stale bearer all block here and then read the single settled
+    answer, instead of each taking three cross-process locks and a usage
+    fetch, or re-walling the account `switch()` just moved onto. A raise
+    records `False` for `_WALLED_SWITCH_RAISE_TTL` — not nothing, and not
+    forever — so a transient failure (this daemon's own
+    `claude_config_lock` held elsewhere, or an older claude-swap with no
+    such symbol) still debounces a storm, and a fresh attempt is due well
+    inside the wall rather than never.
+    """
+    if not reset:
+        _log_lifecycle(
+            "429 on /v1/messages — no reset header, not an account-level "
+            "wall, relaying the 429 unchanged"
+            + (f" (retry-after={retry_after.decode('latin1', 'replace')})"
+               if retry_after else "")
+        )
+        return False
+    with _walled_switch_lock:
+        if reset in _walled_switch_seen:
+            ok, retry_at = _walled_switch_seen[reset]
+            if retry_at is None or time.monotonic() < retry_at:
+                _log_lifecycle(
+                    "429 on /v1/messages — debounced repeat of wall reset="
+                    f"{reset.decode('latin1', 'replace')}, relaying "
+                    f"{'a 401' if ok else 'the 429 unchanged'}"
+                )
+                return ok
+            # The raise's short expiry passed: treat this wall as unseen.
+        try:
+            switcher = require("switcher")
+            result = switcher.switch_off_at_limit_account(
+                switcher.ClaudeAccountSwitcher()
+            )
+        except Exception as exc:  # noqa: BLE001 — never let this break the relay
+            _log_lifecycle(
+                f"429 on /v1/messages — switch_off_at_limit_account raised "
+                f"{exc.__class__.__name__}, relaying the 429 unchanged"
+            )
+            _walled_switch_seen[reset] = (
+                False, time.monotonic() + _WALLED_SWITCH_RAISE_TTL
+            )
+            if len(_walled_switch_seen) > 8:
+                del _walled_switch_seen[next(iter(_walled_switch_seen))]
+            return False
+        landed = bool(
+            result and result.get("switched") and not result.get("needsLogin")
+        )
+        validated = result.get("validated")
+        ok = landed and validated is True
+        if landed and not ok:
+            _log_lifecycle(
+                "429 on /v1/messages — switch landed but the host did not "
+                "validate the landing credential "
+                f"(validated {'absent' if validated is None else validated}), "
+                "relaying the 429 unchanged"
+            )
+        else:
+            _log_lifecycle(
+                "429 on /v1/messages — walled account switched off, relaying "
+                "a 401"
+                if ok else
+                f"429 on /v1/messages — switch() reported switched="
+                f"{result.get('switched') if result else None} needsLogin="
+                f"{result.get('needsLogin') if result else None}, relaying "
+                f"the 429 unchanged"
+            )
+        _walled_switch_seen[reset] = (ok, None)
+        if len(_walled_switch_seen) > 8:
+            del _walled_switch_seen[next(iter(_walled_switch_seen))]
+        return ok
+
+
 def _relay_response(
     up: ssl.SSLSocket,
     client: ssl.SSLSocket,
@@ -16503,6 +16641,31 @@ def _relay_response(
         return _AUTH_REJECTED
     _note_worker_status(path, status_line, certdir)
     _note_hop_trouble(status_line)
+    # Unconditional: `/v1/messages` is never pinned so the `swapped` take-back
+    # above cannot see it; 401 is a rebuild trigger, 429 is not.
+    _walled_401 = False
+    if (status_line.startswith(b"HTTP/1.1 429")
+            and (path or "").split("?", 1)[0].rstrip("/") == "/v1/messages"):
+        reset = next(
+            (l.split(b":", 1)[1].strip() for l in lines[1:]
+             if l.lower().startswith(b"anthropic-ratelimit-unified-reset:")),
+            b"",
+        )
+        retry_after = next(
+            (l.split(b":", 1)[1].strip() for l in lines[1:]
+             if l.lower().startswith(b"retry-after:")),
+            b"",
+        )
+        _walled_401 = _switch_off_walled_account(reset, retry_after)
+    if _walled_401:
+        if _TRACE is not None:
+            _TRACE.write(
+                f"[c{cid}]     <- {status_line.decode('latin1', 'replace')}"
+                " (account walled off — relayed as 401 so the client"
+                " rebuilds its credential instead of sleeping on it)\n"
+            )
+            _TRACE.flush()
+        status_line = b"HTTP/1.1 401 Unauthorized"
     if (status_line.startswith(b"HTTP/1.1 404")
             and _STREAM_ROUTE.search(path or "")
             and (_stream_404_is_spurious(path, certdir)
@@ -16550,6 +16713,18 @@ def _relay_response(
             chunked = True
         elif kl == b"connection" and b"close" in vl:
             keep = False
+        if _walled_401 and (
+            kl in (b"retry-after", b"x-should-retry")
+            or kl.startswith(b"anthropic-ratelimit-")
+        ):
+            # `retry-after` > 60s on a 401 throws
+            # `api_request_retry_after_too_long`; every rate-limit header
+            # (unified-status/-remaining/-limit and the requests/tokens-*
+            # family) is meaningless, or misleading, on a 401.
+            # `x-should-retry: true` would have the SDK retry internally on
+            # the same client without ever rebuilding it — no credential
+            # re-read, the whole point of the 401 defeated silently.
+            continue
         if kl in _HOP_BY_HOP_BYTES:
             continue
         out.append(line)

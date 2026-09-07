@@ -2,11 +2,8 @@ import pytest
 from pydantic import TypeAdapter
 
 from fr24 import FR24, FR24Cache
-from fr24._deprecated import JSON_API_DEPRECATION_NOTICE
 
 FLIGHT_ID = 0x2D81A27
-
-pytestmark = pytest.mark.skip(reason=JSON_API_DEPRECATION_NOTICE)
 
 
 @pytest.mark.anyio
@@ -38,9 +35,7 @@ async def test_playback_file_ops(fr24: FR24, cache: FR24Cache) -> None:
     fp.parent.mkdir(parents=True, exist_ok=True)
     fp.unlink(missing_ok=True)
     result.write_table(cache)
-    assert fp.exists(), (
-        f"{fp} not in {list(f.name for f in fp.parent.glob('*'))}"
-    )
+    assert fp.exists(), f"{fp} not in {[f.name for f in fp.parent.glob('*')]}"
 
     df_local = cache.playback.scan_table(ident).collect()
     assert df_local.equals(result.to_polars())

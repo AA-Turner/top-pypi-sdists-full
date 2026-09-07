@@ -95,7 +95,7 @@ fn rebuilt(
     Schema::new(wrap(renamed))
 }
 
-/// Rebuild a conjunction or a union: renaming reorders the branches, which are held sorted. Two
+/// Rebuild an `allOf` or an `anyOf`: renaming reorders the branches, which are held sorted. Two
 /// distinct names never become one, so the branches stay distinct and stay at least two.
 fn rebuilt_branches(
     schema: &Schema,
@@ -195,6 +195,12 @@ fn rename_object(
                         patterns: patterns.clone(),
                         additional: rename_references(additional, renames),
                     },
+                    ObjectViolation::PatternValueFails { pattern, schema } => {
+                        ObjectViolation::PatternValueFails {
+                            pattern: pattern.clone(),
+                            schema: rename_references(schema, renames),
+                        }
+                    }
                 })
                 .collect(),
         ),

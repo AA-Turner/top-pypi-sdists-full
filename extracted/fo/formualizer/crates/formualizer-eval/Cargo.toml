@@ -1,6 +1,6 @@
 [package]
 name = "formualizer-eval"
-version = "0.8.4"
+version = "0.9.0"
 edition = "2024"
 description = "High-performance Arrow-backed Excel formula engine with dependency graph and incremental recalculation"
 homepage.workspace = true
@@ -43,12 +43,12 @@ smallvec = { workspace = true }
 web-time = { workspace = true, optional = true }
 
 # Arrow (per-crate) — pinned to 58.x series
-arrow-array = "58.2.0"
-arrow-buffer = "58.2.0"
-arrow-schema = "58.2.0"
-arrow-select = "58.2.0"
-arrow-cast = "58.2.0"
-arrow = "58.2.0"
+arrow-array = "59.2.0"
+arrow-buffer = "59.2.0"
+arrow-schema = "59.2.0"
+arrow-select = "59.2.0"
+arrow-cast = "59.2.0"
+arrow = "59.2.0"
 
 [dependencies.tracing]
 version = "0.1"
@@ -123,6 +123,26 @@ benchmark_internal = []
 test-support = []
 
 [[example]]
+name = "perf_tranche_probe"
+path = "examples/perf_tranche_probe.rs"
+required-features = ["test-support"]
+
+[[example]]
+name = "range_projection_probe"
+path = "examples/range_projection_probe.rs"
+required-features = ["test-support"]
+
+[[example]]
 name = "recalc_quadratic"
 path = "examples/recalc_quadratic.rs"
+required-features = ["test-support"]
+
+[[example]]
+name = "recalc_reuse"
+path = "examples/recalc_reuse.rs"
+required-features = ["test-support"]
+
+[[example]]
+name = "recalc_invalidation"
+path = "examples/recalc_invalidation.rs"
 required-features = ["test-support"]

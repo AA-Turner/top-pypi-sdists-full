@@ -127,6 +127,7 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     GetModelResponse,
     GetModelVersionRequest,
     GetModelVersionResponse,
+    ModelArtifact,
     ModelVersionKey,
 )
 from chalk._gen.chalk.server.v1.model_registry_pb2_grpc import ModelRegistryServiceStub
@@ -155,7 +156,14 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListServiceTokensResponse,
 )
 from chalk._gen.chalk.server.v1.team_pb2_grpc import TeamServiceStub
-from chalk._gen.chalk.server.v1.training_runs_pb2 import CheckpointTrainingRunRequest, CheckpointTrainingRunResponse
+from chalk._gen.chalk.server.v1.training_runs_pb2 import (
+    CheckpointTrainingRunRequest,
+    CheckpointTrainingRunResponse,
+    GetLatestCheckpointRequest,
+    ReportTrainingMetricsRequest,
+    ReportTrainingMetricsResponse,
+    TrainingMetric,
+)
 from chalk._gen.chalk.server.v1.training_runs_pb2_grpc import TrainingRunServiceStub
 from chalk._gen.chalk.streaming.v1.simple_streaming_service_pb2_grpc import SimpleStreamingServiceStub
 from chalk._reporting.rich.color import CHALK_WEBSITE_GREEN
@@ -241,10 +249,19 @@ from chalk.features.feature_set import is_feature_set_class
 from chalk.features.resolver import Resolver
 from chalk.features.tag import DeploymentId
 from chalk.importer import CHALK_IMPORT_FLAG
-from chalk.ml import FileInfo, LocalSourceConfig, ModelEncoding, ModelRunCriterion, ModelType, SourceConfig
-from chalk.ml.model_file_transfer import ModelFileUploader
+from chalk.metric_utils import validated_metric, validated_metric_tags
+from chalk.ml.model_file_transfer import FileInfo, LocalSourceConfig, ModelFileUploader, SourceConfig
 from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH, is_model_handler
-from chalk.ml.utils import ModelClass, model_class_from_proto, model_encoding_from_proto, model_type_from_proto
+from chalk.ml.utils import (
+    CHALK_CHECKPOINT_DIR_ENV_VAR,
+    ModelClass,
+    ModelEncoding,
+    ModelRunCriterion,
+    ModelType,
+    model_class_from_proto,
+    model_encoding_from_proto,
+    model_type_from_proto,
+)
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
 from chalk.scalinggroup.spec import (
     DeleteScalingGroupResponse,
@@ -314,6 +331,8 @@ _BUILD_PROFILE_MAP = {
     "o2_no_profiling": DeploymentBuildProfile.DEPLOYMENT_BUILD_PROFILE_O2_NO_PROFILING,
     "o2_profiling": DeploymentBuildProfile.DEPLOYMENT_BUILD_PROFILE_O2_PROFILING,
 }
+
+MODEL_TRAINING_METRIC_PREFIX = "chalk.model_training."
 
 
 @dataclasses.dataclass
@@ -1044,6 +1063,23 @@ def _get_local_file_info(filename: str, file_path: str) -> FileInfo:
     file_hash = hashlib.sha256(file_data).digest()
     filesize_kb = ceil(os.path.getsize(local_path) / 1024.0)
     return FileInfo(filename, filesize_kb, file_hash)
+
+
+def _write_checkpoint_to_volume(artifact_path: str, file_paths: Mapping[str, str]) -> None:
+    """Mirror a checkpoint's files onto the locally mounted checkpoint volume, if configured.
+
+    The volume is expected to be mounted at the directory named by CHALK_CHECKPOINT_DIR_ENV_VAR,
+    with files laid out under the same relative artifact path used for remote storage so that
+    `chalk.ml.last_checkpoint_path` can resolve them by joining the two.
+    """
+    checkpoint_dir = os.getenv(CHALK_CHECKPOINT_DIR_ENV_VAR)
+    if not checkpoint_dir:
+        return
+
+    local_checkpoint_dir = os.path.join(checkpoint_dir, artifact_path)
+    os.makedirs(local_checkpoint_dir, exist_ok=True)
+    for filename, file_path in file_paths.items():
+        shutil.copy2(file_path, os.path.join(local_checkpoint_dir, filename))
 
 
 class ChalkGRPCClient:
@@ -4358,9 +4394,12 @@ class ChalkGRPCClient:
                     dir_allowlist=dir_allowlist,
                 )
 
+                artifact_path = f"env_{self._stub_refresher.environment_id}/artifacts/{resp.model_artifact_id}"
+                _write_checkpoint_to_volume(artifact_path, all_files_to_process)
+
                 return RegisterModelArtifactResponse(
                     artifact_id=resp.model_artifact_id,
-                    path=f"env_{self._stub_refresher.environment_id}/artifacts/{resp.model_artifact_id}",
+                    path=artifact_path,
                     spec=model_artifact,
                     metadata=metadata or {},
                     created_by="",
@@ -4448,6 +4487,18 @@ class ChalkGRPCClient:
         except grpc.RpcError as e:
             raise RuntimeError(f"Could not promote model artifact. {e.details()}")
 
+    def get_latest_checkpoint(self, training_run_id: str) -> Optional[ModelArtifact]:
+        resp = self._stub_refresher.call_training_run_stub(
+            lambda x: x.GetLatestCheckpoint(
+                GetLatestCheckpointRequest(
+                    training_run_id=training_run_id,
+                )
+            )
+        )
+        if not resp.HasField("model_artifact"):
+            return None
+        return resp.model_artifact
+
     def create_model_training_job(
         self,
         script: str,
@@ -4490,6 +4541,38 @@ class ChalkGRPCClient:
                     ),
                     source_file=script.encode("utf-8"),
                 ),
+            )
+        )
+
+    def report_training_metrics(
+        self,
+        training_run_id: str,
+        metrics: Mapping[str, float | int],
+        tags: Mapping[str, str] | None = None,
+    ) -> ReportTrainingMetricsResponse:
+        if not training_run_id:
+            raise ValueError("training_run_id is required.")
+        if len(metrics) == 0:
+            raise ValueError("metrics must not be empty.")
+        validated_tags = validated_metric_tags(tags)
+
+        proto_metrics: list[TrainingMetric] = []
+        for name, value in metrics.items():
+            metric_name, metric_value = validated_metric(name, value)
+            proto_metrics.append(
+                TrainingMetric(
+                    name=f"{MODEL_TRAINING_METRIC_PREFIX}{metric_name}",
+                    value=metric_value,
+                    tags=validated_tags,
+                )
+            )
+
+        return self._stub_refresher.call_training_run_stub(
+            lambda x: x.ReportTrainingMetrics(
+                ReportTrainingMetricsRequest(
+                    training_run_id=training_run_id,
+                    metrics=proto_metrics,
+                )
             )
         )
 

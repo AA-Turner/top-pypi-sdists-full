@@ -343,8 +343,10 @@ enum NormalizedRangeDependency {
     },
     OpenRect {
         sheet: String,
-        start: Option<(u32, u32)>,
-        end: Option<(u32, u32)>,
+        start_row: Option<u32>,
+        start_col: Option<u32>,
+        end_row: Option<u32>,
+        end_col: Option<u32>,
     },
 }
 
@@ -430,10 +432,18 @@ fn normalize_planner_range(graph: &DependencyGraph, range: &RangeKey) -> Normali
             sheet: graph.sheet_name(*sheet).to_string(),
             col: *col,
         },
-        RangeKey::OpenRect { sheet, start, end } => NormalizedRangeDependency::OpenRect {
+        RangeKey::OpenRect {
+            sheet,
+            start_row,
+            start_col,
+            end_row,
+            end_col,
+        } => NormalizedRangeDependency::OpenRect {
             sheet: graph.sheet_name(*sheet).to_string(),
-            start: start.map(planner_coord_to_vc),
-            end: end.map(planner_coord_to_vc),
+            start_row: start_row.map(|axis| axis.saturating_add(1)),
+            start_col: start_col.map(|axis| axis.saturating_add(1)),
+            end_row: end_row.map(|axis| axis.saturating_add(1)),
+            end_col: end_col.map(|axis| axis.saturating_add(1)),
         },
     }
 }
@@ -2694,16 +2704,109 @@ mod tests {
     }
 
     #[test]
-    fn formula_plane_dependency_summary_rejects_reference_returning_functions() {
-        let choose = summary("=CHOOSE(1,A1,B1)", 1, 1);
+    fn formula_plane_dependency_summary_accepts_cell_armed_reference_returning_functions() {
+        for formula in ["=IF(A1,B1,C1)", "=IFS(A1,B1,A2,C1)", "=CHOOSE(A1,B1,C1)"] {
+            let summary = summary(formula, 1, 4);
+            assert_eq!(
+                summary.formula_class,
+                FormulaClass::StaticPointwise,
+                "{formula}"
+            );
+            assert!(summary.reject_reasons.is_empty(), "{formula}: {summary:?}");
+            assert!(
+                summary.precedent_patterns.len() >= 3,
+                "{formula}: {summary:?}"
+            );
+        }
+    }
 
-        assert_eq!(choose.formula_class, FormulaClass::Rejected);
-        assert!(has_reason(
-            &choose,
-            &DependencyRejectReason::ReferenceReturningUnsupported {
-                function: Some("CHOOSE".to_string())
+    #[test]
+    fn reference_returning_admission_firewall_preserves_reject_reason_strings() {
+        let cases: [(&str, &[&str]); 9] = [
+            (
+                "=IF(TRUE,A1:A3,0)",
+                &["reference_returning_unsupported:IF", "spill_unsupported"],
+            ),
+            (
+                "=CHOOSE(2,A1,B1:B3)",
+                &[
+                    "reference_returning_unsupported:CHOOSE",
+                    "spill_unsupported",
+                ],
+            ),
+            (
+                "=IF(TRUE,NOW(),0)",
+                &[
+                    "volatile_unsupported:NOW",
+                    "reference_returning_unsupported:IF",
+                    "spill_unsupported",
+                ],
+            ),
+            (
+                "=IF(TRUE,OFFSET(A1,1,0),0)",
+                &[
+                    "dynamic_dependency:OFFSET",
+                    "volatile_unsupported:OFFSET",
+                    "reference_returning_unsupported:IF",
+                    "reference_returning_unsupported:OFFSET",
+                    "spill_unsupported",
+                ],
+            ),
+            (
+                "=IF(TRUE,INDIRECT(\"A1\"),0)",
+                &[
+                    "dynamic_dependency:INDIRECT",
+                    "volatile_unsupported:INDIRECT",
+                    "reference_returning_unsupported:IF",
+                    "reference_returning_unsupported:INDIRECT",
+                    "spill_unsupported",
+                ],
+            ),
+            (
+                "=IF(TRUE,INDEX(A1:A3,1),0)",
+                &[
+                    "reference_returning_unsupported:IF",
+                    "reference_returning_unsupported:INDEX",
+                    "spill_unsupported",
+                ],
+            ),
+            (
+                "=IF(TRUE,MyName,0)",
+                &[
+                    "named_range_unsupported",
+                    "reference_returning_unsupported:IF",
+                    "spill_unsupported",
+                ],
+            ),
+            (
+                "=IF(TRUE,SUM($A$1:$A),0)",
+                &[
+                    "open_range_unsupported",
+                    "reference_returning_unsupported:IF",
+                    "spill_unsupported",
+                ],
+            ),
+            (
+                "=(IF(TRUE,A1,B1)):(C1)",
+                &["reference_returning_unsupported"],
+            ),
+        ];
+
+        for (formula, expected) in cases {
+            let summary = summary(formula, 4, 6);
+            assert_eq!(summary.formula_class, FormulaClass::Rejected, "{formula}");
+            let actual = summary
+                .reject_reasons
+                .iter()
+                .map(dependency_reject_reason_key)
+                .collect::<BTreeSet<_>>();
+            for reason in expected {
+                assert!(
+                    actual.contains(*reason),
+                    "{formula}: missing {reason}; {actual:?}"
+                );
             }
-        ));
+        }
     }
 
     #[test]
@@ -2729,14 +2832,11 @@ mod tests {
     }
 
     #[test]
-    fn formula_plane_dependency_summary_rejects_may_spill_short_circuit_function() {
+    fn formula_plane_dependency_summary_accepts_scalar_armed_short_circuit_function() {
         let summary = summary("=IF(ISNUMBER(A1), A1*2, 0)", 1, 2);
 
-        assert_eq!(summary.formula_class, FormulaClass::Rejected);
-        assert!(has_reason(
-            &summary,
-            &DependencyRejectReason::SpillUnsupported
-        ));
+        assert_eq!(summary.formula_class, FormulaClass::StaticPointwise);
+        assert!(summary.reject_reasons.is_empty());
         assert_eq!(summary.precedent_patterns.len(), 1);
     }
 

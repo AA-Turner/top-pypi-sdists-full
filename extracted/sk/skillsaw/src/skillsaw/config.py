@@ -9,7 +9,7 @@ import re
 
 import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Set, Tuple, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 from skillsaw.paths import safe_resolve
 from skillsaw.utils import commented_key_line, read_yaml_commented
@@ -23,6 +23,7 @@ _DEFAULT_EXCLUDE_PATTERNS = [
     "**/template/**",
     "**/templates/**",
     "**/_template/**",
+    "**/__pycache__/**",
 ]
 
 # Severity threshold ordering for ``fail-on``: a run fails when violations
@@ -62,6 +63,9 @@ class LinterConfig:
     custom_rules: List[str] = field(default_factory=list)
     exclude_patterns: List[str] = field(default_factory=list)
     content_paths: List[str] = field(default_factory=list)
+    # Report diagnostics from externally sourced lint-tree nodes. Lock-managed
+    # skills and APM packages produce the tag; autofix always stands down.
+    lint_external_content: bool = True
     strict: bool = False
     # Severity threshold that fails the run: violations at this level or above
     # exit non-zero. ``strict: true`` is sugar for ``fail-on: warning``; the
@@ -85,6 +89,10 @@ class LinterConfig:
         default_factory=dict, compare=False, repr=False
     )
 
+    # default() materializes registry values for callers and config output;
+    # those values are not user severity overrides until changed.
+    _generated_rule_defaults: bool = field(default=False, init=False, repr=False, compare=False)
+
     # Recognised top-level config keys; anything else triggers a load warning.
     _KNOWN_KEYS = frozenset(
         {
@@ -93,6 +101,7 @@ class LinterConfig:
             "custom-rules",
             "exclude",
             "content-paths",
+            "lint-external-content",
             "strict",
             "fail-on",
             "plugins",
@@ -260,6 +269,17 @@ class LinterConfig:
                 f"got {type(raw_content_paths).__name__}"
             )
 
+        raw_lint_external_content = data.get("lint-external-content")
+        if raw_lint_external_content is None:
+            lint_external_content = True
+        elif isinstance(raw_lint_external_content, bool):
+            lint_external_content = raw_lint_external_content
+        else:
+            raise ValueError(
+                "'lint-external-content' must be a boolean, "
+                f"got {type(raw_lint_external_content).__name__}"
+            )
+
         if raw_strict is None:
             strict = False
         elif isinstance(raw_strict, bool):
@@ -325,6 +345,7 @@ class LinterConfig:
             custom_rules=custom_rules,
             exclude_patterns=exclude_patterns,
             content_paths=content_paths,
+            lint_external_content=lint_external_content,
             strict=strict,
             fail_on=fail_on,
             plugins_enabled=plugins_enabled,
@@ -360,11 +381,29 @@ class LinterConfig:
                 "enabled": rule.default_enabled,
                 "severity": rule.default_severity().value,
             }
-        return cls(
+        config = cls(
             version=__version__,
             exclude_patterns=list(_DEFAULT_EXCLUDE_PATTERNS),
             rules=rules,
         )
+        config._generated_rule_defaults = True
+        return config
+
+    def has_explicit_rule_severity(self, rule_id: str) -> bool:
+        """Whether a rule's severity is an override rather than a generated default.
+
+        Loaded YAML and directly constructed rule mappings express intent,
+        even when the chosen value equals the registry default. A default()
+        config keeps its generated values implicit; changing one to a different
+        severity is an override. Use a direct rule mapping to explicitly choose
+        the same value as a generated default.
+        """
+        severity = (self.rules.get(rule_id) or {}).get("severity")
+        if severity is None:
+            return False
+        return not self._generated_rule_defaults or severity != _default_rules().get(
+            rule_id, {}
+        ).get("severity")
 
     @classmethod
     def for_init(cls) -> "LinterConfig":
@@ -412,7 +451,6 @@ class LinterConfig:
         rule_id: str,
         context: "RepositoryContext",
         repo_types=None,
-        formats: Optional[Set[str]] = None,
         since_version: str = "0.1.0",
         default_enabled: Any = None,
         deprecated: Optional[str] = None,
@@ -424,7 +462,6 @@ class LinterConfig:
             rule_id: Rule identifier
             context: Repository context
             repo_types: Set of RepositoryType values the rule applies to (None = all)
-            formats: Set of detected format constants the rule requires (None = all)
             since_version: Minimum config version required for this rule
             default_enabled: Class-level default (``Rule.default_enabled``) for
                 rules outside the builtin registry — plugin rules
@@ -438,7 +475,6 @@ class LinterConfig:
             rule_id,
             context,
             repo_types,
-            formats,
             since_version,
             default_enabled=default_enabled,
             deprecated=deprecated,
@@ -450,7 +486,6 @@ class LinterConfig:
         rule_id: str,
         context: "RepositoryContext",
         repo_types=None,
-        formats: Optional[Set[str]] = None,
         since_version: str = "0.1.0",
         default_enabled: Any = None,
         deprecated: Optional[str] = None,
@@ -524,23 +559,19 @@ class LinterConfig:
         enabled = rule_config.get("enabled", fallback_enabled)
 
         if enabled == "auto":
-            if repo_types is None and formats is None:
+            # A rule declares where it applies with ``repo_types``.
+            applies_to = set(repo_types) if repo_types is not None else None
+            if applies_to is None:
                 return True, "enabled: auto (applies to all repo types)"
-            if repo_types is not None:
-                # ``repo_types`` may mix RepositoryType members with string
-                # names of plugin-contributed types (see skillsaw.plugins.
-                # PluginRepoType); strings match against the plugin set.
-                plugin_types = getattr(context, "plugin_repo_types", set())
-                matched_types = {
-                    t for t in repo_types if t in context.repo_types or t in plugin_types
-                }
-                if matched_types:
-                    matched = sorted(getattr(t, "value", t) for t in matched_types)
-                    return True, f"enabled: auto — detected repo type: {', '.join(matched)}"
-            if formats is not None and formats & context.detected_formats:
-                matched = sorted(formats & context.detected_formats)
-                return True, f"enabled: auto — detected format: {', '.join(matched)}"
-            return False, "enabled: auto — no matching repo type or format detected"
+            # ``applies_to`` may mix RepositoryType members with string names
+            # of plugin-contributed types (see skillsaw.plugins.
+            # PluginRepoType); strings match against the plugin set.
+            plugin_types = getattr(context, "plugin_repo_types", set())
+            matched_types = {t for t in applies_to if t in context.repo_types or t in plugin_types}
+            if matched_types:
+                matched = sorted(getattr(t, "value", t) for t in matched_types)
+                return True, f"enabled: auto — detected repo type: {', '.join(matched)}"
+            return False, "enabled: auto — no matching repo type detected"
 
         if bool(enabled):
             return True, "enabled by default"
@@ -558,6 +589,7 @@ class LinterConfig:
         d["fail-on"] = self.fail_on
         if self.content_paths:
             d["content-paths"] = self.content_paths
+        d["lint-external-content"] = self.lint_external_content
         if not self.plugins_enabled or self.disabled_plugins:
             plugins: Dict[str, Any] = {}
             if not self.plugins_enabled:
@@ -641,6 +673,8 @@ class LinterConfig:
                     f.write(f'    # - "{pat}"\n')
             f.write("\n# Additional markdown files to run content rules on (glob format)\n")
             self._write_field(f, "content-paths", self.content_paths)
+            f.write("\n# Report findings in external content (autofix never rewrites it)\n")
+            f.write(f"lint-external-content: {self._yaml_value(self.lint_external_content)}\n")
             f.write("\n# Treat warnings as errors\n")
             f.write(f"strict: {self._yaml_value(self.strict)}\n")
             f.write("\n# Fail on violations at this severity or above: error, warning, info\n")

@@ -8,13 +8,16 @@ import io
 import struct
 import sys
 import tarfile
+import urllib.request
 import zipfile
 import zlib
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
+from urllib.parse import unquote, urljoin, urlsplit
 
 import pytest
 
+from nab_index import local_index
 from nab_index.client import SdistFile, WheelFile, zip_sdist_version
 from nab_index.local_index import (
     LocalIndexClient,
@@ -314,7 +317,7 @@ def _write_corrupt_zstd_wheel(path: Path, name: str, version: str) -> None:
     The method is spelled as its number because ``zipfile.ZIP_ZSTANDARD`` only
     exists from 3.14, where reading the member raises ``ZstdError``: an
     ``Exception`` subclass that is not an ``OSError``.  Before 3.14 the method
-    is merely unsupported.
+    is unsupported.
     """
     _write_unsupported_compression_wheel(path, name, version, method=_ZIP_ZSTANDARD)
 
@@ -364,13 +367,61 @@ class TestErrorHierarchy:
         assert issubclass(HttpError, IndexAccessError)
 
 
+def _url2pathname_with_authority(url: str) -> str:
+    """Model Python 3.14's non-Windows file-URL authority handling."""
+    _, authority, path = urlsplit("file:" + url)[:3]
+    if authority not in ("", "localhost"):
+        msg = f"file:// scheme is supported only on localhost: {authority!r}"
+        raise OSError(msg)
+    return unquote(path)
+
+
+def _url2pathname_on_windows(url: str) -> str:
+    """Model Python 3.14's Windows drive-prefix handling."""
+    _, authority, path = urlsplit("file:" + url)[:3]
+    if authority[1:2] == ":":
+        path = authority + path
+    return unquote(path.replace("/", "\\"))
+
+
+def _urljoin_dropping_an_empty_authority(base: str, href: str) -> str:
+    """Model loss of an empty authority for the root-path examples."""
+    joined = urljoin(base, href)
+    scheme, netloc, path, _, _ = urlsplit(joined)
+    if netloc or not path.startswith("//"):
+        return joined
+    return f"{scheme}:{path}"
+
+
+@pytest.fixture(params=["stdlib", "collapsing"])
+def urljoin_contract(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise installed urljoin and the variant that drops an empty authority."""
+    if request.param == "collapsing":
+        monkeypatch.setattr(
+            local_index, "urljoin", _urljoin_dropping_an_empty_authority
+        )
+
+
+@pytest.fixture(params=["stdlib", "authority"])
+def url2pathname_contract(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise installed and Python 3.14 authority handling."""
+    if request.param == "authority":
+        monkeypatch.setattr(
+            urllib.request, "url2pathname", _url2pathname_with_authority
+        )
+
+
 class TestParseFileUrl:
     def test_absolute_path(self, tmp_path: Path) -> None:
         url = tmp_path.as_uri()
         assert parse_file_url(url) == tmp_path
 
     def test_url_encoding_round_trip(self, tmp_path: Path) -> None:
-        # Spaces and unicode in the path must round-trip cleanly.
+        # Spaces and unicode in the path must survive the round trip.
         # Build under tmp_path so the path is absolute on Windows.
         path = tmp_path / "with space" / "foo"
         path.parent.mkdir(parents=True)
@@ -390,6 +441,54 @@ class TestParseFileUrl:
         # RFC 8089: a "localhost" authority resolves like an empty one.
         with_host = tmp_path.as_uri().replace("file://", "file://localhost", 1)
         assert parse_file_url(with_host) == tmp_path
+
+    def test_double_slash_root_survives_an_empty_authority(
+        self, url2pathname_contract: None
+    ) -> None:
+        # pathlib keeps a "//" root on POSIX, and Path.as_uri writes four slashes.
+        url = "file:////srv/wheels/foo-1.0-py3-none-any.whl"
+        assert parse_file_url(url) == Path("//srv/wheels/foo-1.0-py3-none-any.whl")
+
+    def test_double_slash_root_keeps_a_localhost_first_segment(
+        self, url2pathname_contract: None
+    ) -> None:
+        url = "file:////localhost/srv/wheels"
+        assert parse_file_url(url) == Path("//localhost/srv/wheels")
+
+    def test_localhost_authority_keeps_a_double_slash_root(
+        self, url2pathname_contract: None
+    ) -> None:
+        url = "file://localhost//srv/wheels"
+        assert parse_file_url(url) == Path("//srv/wheels")
+
+    def test_drive_root_stays_a_drive_on_windows(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Windows reads ``C:`` in a ``//C:`` root as a drive, so it is not escaped."""
+        monkeypatch.setattr(sys, "platform", "win32")
+        monkeypatch.setattr(urllib.request, "url2pathname", _url2pathname_on_windows)
+        assert parse_file_url("file:////C:/tmp/x.whl") == Path("C:\\tmp\\x.whl")
+
+    def test_drive_shaped_root_is_a_root_off_windows(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Off Windows ``C:`` is an ordinary first segment, not a drive."""
+        monkeypatch.setattr(sys, "platform", "linux")
+        monkeypatch.setattr(
+            urllib.request, "url2pathname", _url2pathname_with_authority
+        )
+        assert parse_file_url("file:////C:/tmp/x.whl") == Path("//C:/tmp/x.whl")
+
+    def test_url2pathname_failure_is_a_value_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def reject(_url: str) -> str:
+            msg = "Bad URL"
+            raise OSError(msg)
+
+        monkeypatch.setattr(urllib.request, "url2pathname", reject)
+        with pytest.raises(ValueError, match="does not name a path"):
+            parse_file_url("file:///srv/wheels")
 
     def test_remote_authority_rejected_off_windows(
         self, monkeypatch: pytest.MonkeyPatch
@@ -748,7 +847,7 @@ class TestFlatWheelhouse:
 
     def test_requires_python_none_for_corrupt_zstd(self, tmp_path: Path) -> None:
         # The listing runs before any version is chosen, so an error here loses
-        # the package's other versions too, not just this wheel.
+        # every other version of the package too.
         _write_corrupt_zstd_wheel(tmp_path / "foo-1.0-py3-none-any.whl", "foo", "1.0")
         client = LocalIndexClient(tmp_path.as_uri())
         files = run(client.get_files("foo"))
@@ -1000,6 +1099,19 @@ class TestPep503Directory:
             result[0].local_path == package_dir.resolve() / "foo-1.0-py3-none-any.whl"
         )
 
+    def test_network_path_href_keeps_its_double_slash_root(
+        self, tmp_path: Path, urljoin_contract: None
+    ) -> None:
+        """The parsed link preserves matching URL and local path."""
+        body = '<a href="////localhost/packages/foo-1.0-py3-none-any.whl">foo</a>'
+        self._make_index(tmp_path, body)
+        client = LocalIndexClient(tmp_path.as_uri())
+        result = run(client.get_files("foo"))
+        assert result[0].url == "file:////localhost/packages/foo-1.0-py3-none-any.whl"
+        assert result[0].local_path == Path(
+            "//localhost/packages/foo-1.0-py3-none-any.whl"
+        )
+
     def test_relative_href_resolves_outside_package_dir(self, tmp_path: Path) -> None:
         simple = tmp_path / "simple"
         package_dir = simple / "foo"
@@ -1047,7 +1159,7 @@ class TestPep503Directory:
     def test_symlinked_root_resolves_hrefs_against_the_page_path(
         self, tmp_path: Path
     ) -> None:
-        """The symlink may be the index root itself, not only ``<root>/<package>``.
+        """The symlink may itself be the index root.
 
         A mirror can serve ``simple/`` out of another tree while the
         ``../../packages/`` its pages link to sits beside the served root.
@@ -1284,7 +1396,7 @@ class TestPep503Directory:
 
     def test_pep503_null_byte_directory_href_dropped(self, tmp_path: Path) -> None:
         # The null byte need not sit in the filename: the guard covers the
-        # whole path, not just its last segment.
+        # whole path, including directory segments.
         body = (
             '<a href="sub%00dir/foo-1.0-py3-none-any.whl">foo-bad</a>'
             '<a href="foo-2.0-py3-none-any.whl">foo-2.0</a>'

@@ -191,6 +191,29 @@ def test_replayed_item_order_matches_openai_output_order() -> None:
     assert [item.get("type") for item in items] == ["reasoning", "message", "function_call"]
 
 
+def test_foreign_reasoning_replayed_as_valid_assistant_output_text() -> None:
+    """Cross-provider reasoning has no OpenAI signature, but it still belongs
+    to the assistant. Responses rejects ``input_text`` inside assistant content.
+    """
+    message = UnifiedMessage(
+        role=Role.ASSISTANT,
+        content=[
+            ThinkingContent(text="private reasoning", provider="anthropic"),
+            TextContent(text="visible answer"),
+        ],
+    )
+
+    assert message.to_openai_items_modified() == [
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "output_text", "text": "private reasoning"},
+                {"type": "output_text", "text": "visible answer"},
+            ],
+        }
+    ]
+
+
 # ---------------------------------------------------------------------------
 # sanitize — the turn survives the adjacency guard
 # ---------------------------------------------------------------------------

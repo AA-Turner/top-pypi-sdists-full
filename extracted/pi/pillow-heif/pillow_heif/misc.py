@@ -6,7 +6,6 @@ Mostly for internal use, so prototypes can change between versions.
 import builtins
 import re
 from dataclasses import dataclass
-from enum import IntEnum
 from math import ceil
 from pathlib import Path
 from struct import pack, unpack
@@ -288,29 +287,17 @@ def _pil_to_supported_mode(img: Image.Image) -> Image.Image:
     return img
 
 
-class Transpose(IntEnum):
-    """Temporary workaround till we support old Pillows, remove this when a minimum Pillow version will have this."""
-
-    FLIP_LEFT_RIGHT = 0
-    FLIP_TOP_BOTTOM = 1
-    ROTATE_90 = 2
-    ROTATE_180 = 3
-    ROTATE_270 = 4
-    TRANSPOSE = 5
-    TRANSVERSE = 6
-
-
 def _rotate_pil(img: Image.Image, orientation: int) -> Image.Image:
     # Probably need create issue in Pillow to add support
     # for info["xmp"] or `getxmp()` for ImageOps.exif_transpose and remove this func.
     method = {
-        2: Transpose.FLIP_LEFT_RIGHT,
-        3: Transpose.ROTATE_180,
-        4: Transpose.FLIP_TOP_BOTTOM,
-        5: Transpose.TRANSPOSE,
-        6: Transpose.ROTATE_270,
-        7: Transpose.TRANSVERSE,
-        8: Transpose.ROTATE_90,
+        2: Image.Transpose.FLIP_LEFT_RIGHT,
+        3: Image.Transpose.ROTATE_180,
+        4: Image.Transpose.FLIP_TOP_BOTTOM,
+        5: Image.Transpose.TRANSPOSE,
+        6: Image.Transpose.ROTATE_270,
+        7: Image.Transpose.TRANSVERSE,
+        8: Image.Transpose.ROTATE_90,
     }.get(orientation)
     if method is not None:
         return img.transpose(method)
@@ -617,6 +604,9 @@ class CtxEncode:
             im_out.set_ambient_viewing_environment(
                 amve["ambient_illumination"], amve["ambient_light_x"], amve["ambient_light_y"]
             )
+        ndwt = kwargs.get("nominal_diffuse_white_luminance")
+        if ndwt is not None:  # 0 is a valid value
+            im_out.set_nominal_diffuse_white_luminance(ndwt)
 
     def _add_metadata(self, im_out, **kwargs) -> None:
         exif = kwargs.get("exif")
@@ -668,6 +658,7 @@ class MimCImage:  # pylint: disable=too-many-instance-attributes
         self.content_light_level = None
         self.mastering_display_colour_volume = None
         self.ambient_viewing_environment = None
+        self.nominal_diffuse_white_luminance = None
         self.camera_intrinsic_matrix = None
         self.camera_extrinsic_matrix_rot = None
         self.tiling = None

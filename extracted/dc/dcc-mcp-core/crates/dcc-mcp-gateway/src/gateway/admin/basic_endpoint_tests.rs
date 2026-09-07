@@ -8,11 +8,11 @@ mod endpoint_contracts {
     use axum::Router;
     use axum::body::to_bytes;
     use axum::http::{Request, StatusCode};
-    use serde_json::Value;
+    use serde_json::{Value, json};
     use tokio::sync::{RwLock, broadcast, watch};
     use tower::ServiceExt;
 
-    use crate::gateway::admin::application::router::build_admin_router;
+    use crate::gateway::admin::application::router::{build_admin_router, build_v1_debug_router};
     use crate::gateway::admin::state::AdminState;
     use crate::gateway::state::GatewayState;
     use dcc_mcp_transport::discovery::file_registry::FileRegistry;
@@ -94,12 +94,47 @@ mod endpoint_contracts {
         build_admin_router(make_admin_state())
     }
 
+    fn debug_router() -> Router {
+        build_v1_debug_router(make_admin_state())
+    }
+
+    fn gateway_router_with_admin(gateway: GatewayState) -> Router {
+        crate::gateway::build_gateway_router_with_admin(
+            gateway.clone(),
+            Some(AdminState::new(gateway)),
+            "/admin",
+        )
+    }
+
     async fn body_json(router: Router, uri: &str) -> (StatusCode, Value) {
         let resp = router
             .oneshot(
                 Request::builder()
                     .uri(uri)
                     .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = resp.status();
+        let bytes = to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        (status, body)
+    }
+
+    async fn request_json(
+        router: Router,
+        method: &str,
+        uri: &str,
+        body: Value,
+    ) -> (StatusCode, Value) {
+        let resp = router
+            .oneshot(
+                Request::builder()
+                    .method(method)
+                    .uri(uri)
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(body.to_string()))
                     .unwrap(),
             )
             .await
@@ -236,6 +271,302 @@ mod endpoint_contracts {
             body.get("instances_ready").is_some(),
             "expected instances_ready field"
         );
+    }
+
+    #[tokio::test]
+    async fn test_admin_health_includes_job_persistence_summary() {
+        let (_, body) = body_json(admin_router(), "/api/health").await;
+        assert_eq!(body["job_persistence"]["instances"], serde_json::json!([]));
+        assert_eq!(body["job_persistence"]["degraded_instances"], 0);
+        assert_eq!(body["job_persistence"]["disabled_instances"], 0);
+    }
+
+    #[tokio::test]
+    async fn test_admin_and_debug_health_expose_the_same_persistence_shape() {
+        let (_, admin) = body_json(admin_router(), "/api/health").await;
+        let (_, debug) = body_json(debug_router(), "/v1/debug/health").await;
+        assert_eq!(admin["job_persistence"], debug["job_persistence"]);
+    }
+
+    #[tokio::test]
+    async fn unsafe_http_registration_is_not_reported_ready_by_admin_routes() {
+        let mut gateway = make_gateway_state();
+        gateway.backend_timeout = Duration::from_millis(25);
+        let app = gateway_router_with_admin(gateway);
+
+        let (register_status, _) = request_json(
+            app.clone(),
+            "POST",
+            "/v1/instances/register",
+            json!({
+                "instance_id": "11111111-1111-4111-8111-111111111111",
+                "dcc_type": "maya",
+                "mcp_url": "http://127.0.0.1:9/mcp"
+            }),
+        )
+        .await;
+        assert_eq!(register_status, StatusCode::OK);
+
+        let (_, health) = body_json(app.clone(), "/admin/api/health").await;
+        assert_eq!(health["instances_ready"], 0, "{health}");
+        assert_eq!(health["instances_total"], 0, "{health}");
+        assert_eq!(health["instances_rejected"], 1, "{health}");
+        assert_eq!(health["status"], "degraded", "{health}");
+
+        let (_, reliability) = body_json(app.clone(), "/admin/api/reliability").await;
+        assert_eq!(
+            reliability["capability_funnel"]["instances_ready"], 0,
+            "{reliability}"
+        );
+        assert_eq!(
+            reliability["capability_funnel"]["instances_total"], 0,
+            "{reliability}"
+        );
+        assert_eq!(
+            reliability["capability_funnel"]["instances_rejected"], 1,
+            "{reliability}"
+        );
+        assert_eq!(reliability["status"], "degraded", "{reliability}");
+
+        let (dispatch_status, dispatch) = request_json(
+            app,
+            "POST",
+            "/mcp/dcc/maya",
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "health-contract-test", "version": "1.0"}
+                }
+            }),
+        )
+        .await;
+        assert_eq!(dispatch_status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(dispatch["kind"], "unsafe-backend-target", "{dispatch}");
+    }
+
+    #[tokio::test]
+    async fn mixed_safe_and_unsafe_instances_count_only_dispatchable_backend_as_ready() {
+        let mut gateway = make_gateway_state();
+        gateway.backend_timeout = Duration::from_millis(25);
+
+        let mut safe =
+            dcc_mcp_transport::discovery::types::ServiceEntry::new("blender", "127.0.0.1", 18812);
+        safe.metadata.insert(
+            "mcp_url".to_string(),
+            "http://127.0.0.1:18812/mcp".to_string(),
+        );
+        safe.metadata.insert(
+            "discovery_mcp_url".to_string(),
+            "http://127.0.0.1:18813/mcp".to_string(),
+        );
+        gateway.registry.register(safe).unwrap();
+
+        let app = gateway_router_with_admin(gateway);
+        let (register_status, _) = request_json(
+            app.clone(),
+            "POST",
+            "/v1/instances/register",
+            json!({
+                "instance_id": "22222222-2222-4222-8222-222222222222",
+                "dcc_type": "photoshop",
+                "mcp_url": "http://127.0.0.1:9/mcp"
+            }),
+        )
+        .await;
+        assert_eq!(register_status, StatusCode::OK);
+
+        let (_, health) = body_json(app.clone(), "/admin/api/health").await;
+        assert_eq!(health["instances_ready"], 1, "{health}");
+        assert_eq!(health["instances_total"], 1, "{health}");
+        assert_eq!(health["instances_rejected"], 1, "{health}");
+        assert_eq!(health["status"], "ok", "{health}");
+
+        let (_, reliability) = body_json(app, "/admin/api/reliability").await;
+        assert_eq!(
+            reliability["capability_funnel"]["instances_ready"], 1,
+            "{reliability}"
+        );
+        assert_eq!(
+            reliability["capability_funnel"]["instances_total"], 1,
+            "{reliability}"
+        );
+        assert_eq!(
+            reliability["capability_funnel"]["instances_rejected"], 1,
+            "{reliability}"
+        );
+        assert_eq!(reliability["status"], "ok", "{reliability}");
+    }
+
+    #[tokio::test]
+    async fn proxy_ignores_unsafe_available_registration_before_selecting_safe_busy_backend() {
+        let backend_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let backend_port = backend_listener.local_addr().unwrap().port();
+        let backend = Router::new().route(
+            "/mcp",
+            axum::routing::post(|| async { axum::Json(json!({"routed": "safe"})) }),
+        );
+        let backend_task = tokio::spawn(async move {
+            axum::serve(backend_listener, backend).await.unwrap();
+        });
+
+        let gateway = make_gateway_state();
+        let mut safe = dcc_mcp_transport::discovery::types::ServiceEntry::new(
+            "maya",
+            "127.0.0.1",
+            backend_port,
+        );
+        safe.instance_id = uuid::Uuid::parse_str("22222222-2222-4222-8222-222222222222").unwrap();
+        safe.status = dcc_mcp_transport::discovery::types::ServiceStatus::Busy;
+        gateway.registry.register(safe).unwrap();
+
+        let app = gateway_router_with_admin(gateway);
+        let (register_status, _) = request_json(
+            app.clone(),
+            "POST",
+            "/v1/instances/register",
+            json!({
+                "instance_id": "33333333-3333-4333-8333-333333333333",
+                "dcc_type": "maya",
+                "mcp_url": "http://127.0.0.1:9/mcp"
+            }),
+        )
+        .await;
+        assert_eq!(register_status, StatusCode::OK);
+
+        let (status, payload) = request_json(
+            app,
+            "POST",
+            "/mcp/dcc/maya",
+            json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-03-26",
+                    "capabilities": {},
+                    "clientInfo": {"name": "safe-candidate-test", "version": "1.0"}
+                }
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{payload}");
+        assert_eq!(payload["routed"], "safe", "{payload}");
+
+        backend_task.abort();
+    }
+
+    #[tokio::test]
+    async fn test_health_collector_projects_multiple_backends_and_failures() {
+        let healthy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let healthy_port = healthy_listener.local_addr().unwrap().port();
+        let healthy_app = Router::new().route(
+            "/health",
+            axum::routing::get(|| async {
+                axum::Json(serde_json::json!({
+                    "job_persistence": {
+                        "state": "healthy",
+                        "consecutive_failures": 0,
+                        "last_error_kind": "readonly"
+                    }
+                }))
+            }),
+        );
+        let healthy_task = tokio::spawn(async move {
+            axum::serve(healthy_listener, healthy_app).await.unwrap();
+        });
+
+        let malformed_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let malformed_port = malformed_listener.local_addr().unwrap().port();
+        let malformed_app = Router::new().route(
+            "/health",
+            axum::routing::get(|| async {
+                axum::Json(serde_json::json!({
+                    "job_persistence": {
+                        "state": "not-a-state",
+                        "last_error_kind": {"path": "C:/secret/jobs.sqlite3"}
+                    }
+                }))
+            }),
+        );
+        let malformed_task = tokio::spawn(async move {
+            axum::serve(malformed_listener, malformed_app)
+                .await
+                .unwrap();
+        });
+
+        let timeout_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let timeout_port = timeout_listener.local_addr().unwrap().port();
+        let timeout_task = tokio::spawn(async move {
+            loop {
+                let Ok((socket, _)) = timeout_listener.accept().await else {
+                    break;
+                };
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    drop(socket);
+                });
+            }
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut gateway = make_gateway_state();
+        gateway.registry = Arc::new(FileRegistry::new(dir.path()).unwrap());
+        gateway.backend_timeout = Duration::from_millis(25);
+        gateway
+            .registry
+            .register(dcc_mcp_transport::discovery::types::ServiceEntry::new(
+                "maya",
+                "127.0.0.1",
+                healthy_port,
+            ))
+            .unwrap();
+        gateway
+            .registry
+            .register(dcc_mcp_transport::discovery::types::ServiceEntry::new(
+                "blender",
+                "127.0.0.1",
+                malformed_port,
+            ))
+            .unwrap();
+        gateway
+            .registry
+            .register(dcc_mcp_transport::discovery::types::ServiceEntry::new(
+                "photoshop",
+                "127.0.0.1",
+                timeout_port,
+            ))
+            .unwrap();
+
+        let (_, body) = body_json(
+            build_admin_router(AdminState::new(gateway.clone())),
+            "/api/health",
+        )
+        .await;
+        let instances = body["job_persistence"]["instances"].as_array().unwrap();
+        assert_eq!(instances.len(), 3, "{body}");
+        let maya = instances.iter().find(|v| v["dcc_type"] == "maya").unwrap();
+        assert_eq!(maya["state"], "healthy");
+        assert_eq!(maya["last_error_kind"], "readonly");
+        let blender = instances
+            .iter()
+            .find(|v| v["dcc_type"] == "blender")
+            .unwrap();
+        assert_eq!(blender["state"], "unavailable");
+        assert_eq!(blender["last_error_kind"], "backend");
+        let photoshop = instances
+            .iter()
+            .find(|v| v["dcc_type"] == "photoshop")
+            .unwrap();
+        assert_eq!(photoshop["state"], "unavailable");
+        assert!(photoshop["last_error_kind"].is_null());
+
+        healthy_task.abort();
+        malformed_task.abort();
+        timeout_task.abort();
     }
 
     #[tokio::test]

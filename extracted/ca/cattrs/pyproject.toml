@@ -1,14 +1,12 @@
-[tool.black]
-skip-magic-trailing-comma = true
-
 [dependency-groups]
 lint = [
-    "black>=25.1.0",
     "ruff>=0.12.2",
 ]
 test = [
     "hypothesis>=6.135.26",
     "pytest>=8.4.1",
+    "pytest-typing; python_version == '3.14' and implementation_name == 'cpython'",
+    "mypy; python_version == '3.14' and implementation_name == 'cpython'",
     "pytest-benchmark>=5.1.0",
     "immutables>=0.21",
     "coverage>=7.9.2",
@@ -32,6 +30,16 @@ build-backend = "hatchling.build"
 
 [tool.mypy]
 strict = true
+
+[tool.pytest]
+addopts = [
+    "-l",
+    "--benchmark-sort=fullname",
+    "--benchmark-warmup=true",
+    "--benchmark-warmup-iterations=5",
+    "--benchmark-group-by=fullname",
+]
+typing_checkers = ["mypy"]
 
 [project]
 name = "cattrs"
@@ -93,15 +101,12 @@ bson = [
     "pymongo>=4.4.0",
 ]
 msgspec = [
-    "msgspec>=0.19.0; implementation_name == \"cpython\"",
+    "msgspec>=0.21.1; implementation_name == \"cpython\"",
 ]
 tomllib = [
     "tomli>=1.1.0; python_version < '3.11'",
     "tomli-w>=1.1.0",
 ]
-
-[tool.pytest.ini_options]
-addopts = "-l --benchmark-sort=fullname --benchmark-warmup=true --benchmark-warmup-iterations=5  --benchmark-group-by=fullname"
 
 [tool.coverage.run]
 parallel = true
@@ -148,7 +153,7 @@ select = [
     "I",   # isort
 ]
 ignore = [
-    "E501",   # line length is handled by black
+    "E501",   # line length is handled by the formatter
     "RUF001", # leave my smart characters alone
     "S101",   # assert
     "S307",   # hands off my eval
@@ -161,13 +166,18 @@ ignore = [
     "UP006",  # We support old typing constructs at runtime
     "UP007",  # We support old typing constructs at runtime
     "UP035",  # We support old typing constructs at runtime
-    "UP038",  # Dubious rule
     "UP045",  # We support old typing constructs at runtime
 ]
 
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
 
 [tool.hatch.version]
 source = "vcs"

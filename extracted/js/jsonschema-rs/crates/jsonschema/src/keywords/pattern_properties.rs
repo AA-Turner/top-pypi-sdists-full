@@ -4,7 +4,7 @@ use std::{borrow::Cow, sync::Arc};
 use crate::{
     compiler,
     error::ValidationError,
-    evaluation::Annotations,
+    evaluation::{Annotations, ChildList},
     keywords::CompilationResult,
     node::SchemaNode,
     options::PatternEngineOptions,
@@ -85,17 +85,18 @@ impl<F: Json, R: RegexEngine> Validate<F> for PatternPropertiesValidator<R, F> {
     ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
             let mut matched_propnames = Vec::with_capacity(object.len());
-            let mut children = Vec::new();
+            let mut children = ChildList::default();
             for (pattern, node) in &self.patterns {
                 for (key, value) in object.members() {
                     if pattern.is_match(key.as_ref()).unwrap_or(false) {
                         matched_propnames.push(key.as_ref().to_owned());
-                        children.push(node.evaluate_instance_below(
+                        let child = node.evaluate_instance_below(
                             &value,
                             &location.push(key.as_ref()),
                             tracker,
                             ctx,
-                        ));
+                        );
+                        children.push(&mut ctx.arena, child);
                     }
                 }
             }
@@ -180,16 +181,17 @@ impl<F: Json, R: RegexEngine> Validate<F> for SingleValuePatternPropertiesValida
     ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
             let mut matched_propnames = Vec::with_capacity(object.len());
-            let mut children = Vec::new();
+            let mut children = ChildList::default();
             for (key, value) in object.members() {
                 if self.regex.is_match(key.as_ref()).unwrap_or(false) {
                     matched_propnames.push(key.as_ref().to_owned());
-                    children.push(self.node.evaluate_instance_below(
+                    let child = self.node.evaluate_instance_below(
                         &value,
                         &location.push(key.as_ref()),
                         tracker,
                         ctx,
-                    ));
+                    );
+                    children.push(&mut ctx.arena, child);
                 }
             }
             let mut result = EvaluationResult::from_children(children);
@@ -210,7 +212,8 @@ pub(crate) fn compile<'a, F: Json>(
     if matches!(
         parent.get("additionalProperties"),
         Some(Value::Bool(false) | Value::Object(_))
-    ) {
+    ) && !ctx.is_keyword_overridden("additionalProperties")
+    {
         // This type of `additionalProperties` validator handles `patternProperties` logic
         return None;
     }

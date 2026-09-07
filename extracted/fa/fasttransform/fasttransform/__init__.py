@@ -1,4 +1,4 @@
-__version__ = "0.0.2"
+__version__ = "0.0.5"
 
 from .cast import * 
 from .transform import *  

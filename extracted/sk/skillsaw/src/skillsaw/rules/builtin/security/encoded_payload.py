@@ -13,6 +13,7 @@ from typing import Iterator, List, Tuple
 from skillsaw.rule import Rule, RuleViolation, Severity
 from skillsaw.context import RepositoryContext
 from skillsaw.rules.builtin.content_analysis import (
+    iter_frontmatter_strings,
     gather_all_content_blocks,
     FrontmatterField,
 )
@@ -147,7 +148,6 @@ class SecurityEncodedPayloadRule(Rule):
     """Detect long high-entropy base64/hex blobs in agent context"""
 
     repo_types = None
-    formats = None
     since = "0.17.0"
 
     config_schema = {
@@ -333,7 +333,9 @@ class SecurityEncodedPayloadRule(Rule):
                     )
                 )
         for fld in context.lint_tree.find(FrontmatterField):
-            text = str(fld.value) if fld.value is not None else ""
+            # Every embedded string once: str(value) renders a YAML alias DAG as
+            # a tree, 9^levels leaves from a 430-byte frontmatter block.
+            text = "\n".join(iter_frontmatter_strings(fld.value))
             if len(text) < min_length:
                 continue
             for _line_num, kind, run, entropy in self._scan_text(

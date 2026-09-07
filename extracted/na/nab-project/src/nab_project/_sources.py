@@ -100,8 +100,14 @@ def _source_for_build(path: Path, persistent_root: Path | None) -> Iterator[Path
                 symlinks=True,
                 copy_function=_CopyWithHardlinks(),
             )
-        except OSError as exc:
-            msg = f"could not copy cached source tree at {persistent_root}: {exc}"
+        except (OSError, RecursionError) as exc:
+            # copytree recurses per directory level, so a deep tree exhausts the stack.
+            detail = (
+                "nested too deeply to copy"
+                if isinstance(exc, RecursionError)
+                else str(exc)
+            )
+            msg = f"could not copy cached source tree at {persistent_root}: {detail}"
             raise _SourceCopyError(msg) from exc
         yield build_root / relative_path
 
@@ -213,7 +219,7 @@ def extract_source_metadata(
     build_config: ResolveInputs | None,
     persistent_root: Path | None = None,
 ) -> WheelMetadata:
-    """Read metadata from a directory; gates the backend path on ``policy``.
+    """Read directory metadata under the backend ``policy``.
 
     ``kind`` is ``"local"`` for :class:`LocalSource` directories (admitted at
     :attr:`BuildPolicy.BUILD_LOCAL` and above); ``"vcs"`` for :class:`VcsSource`

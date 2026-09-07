@@ -43,6 +43,7 @@ __all__ = [
     "make_dict_structure_fn_from_attrs",
     "make_dict_unstructure_fn",
     "make_dict_unstructure_fn_from_attrs",
+    "make_hetero_tuple_structure_fn",
     "make_hetero_tuple_unstructure_fn",
     "make_iterable_unstructure_fn",
     "make_mapping_structure_fn",
@@ -217,11 +218,11 @@ def make_dict_unstructure_fn_from_attrs(
                     internal_arg_parts[def_name] = c(d)
 
             lines.append(f"  if instance.{attr_name} != {def_str}:")
-            lines.append(f"    res['{kn}'] = {invoke}")
+            lines.append(f"    res[{kn!r}] = {invoke}")
 
         else:
             # No default or no override.
-            invocation_lines.append(f"'{kn}': {invoke},")
+            invocation_lines.append(f"{kn!r}: {invoke},")
 
     internal_arg_line = ", ".join([f"{i}={i}" for i in internal_arg_parts])
     if internal_arg_line:
@@ -468,7 +469,7 @@ def make_dict_structure_fn_from_attrs(
 
             if not a.init:
                 if a.default is not NOTHING:
-                    pi_lines.append(f"{i}if '{kn}' in o:")
+                    pi_lines.append(f"{i}if {kn!r} in o:")
                     i = f"{i}  "
                 pi_lines.append(f"{i}try:")
                 i = f"{i}  "
@@ -478,16 +479,16 @@ def make_dict_structure_fn_from_attrs(
                     if handler == converter._structure_call:
                         internal_arg_parts[struct_handler_name] = t
                         pi_lines.append(
-                            f"{i}instance.{an} = {struct_handler_name}(o['{kn}'])"
+                            f"{i}instance.{an} = {struct_handler_name}(o[{kn!r}])"
                         )
                     else:
                         tn = f"__c_type_{an}"
                         internal_arg_parts[tn] = t
                         pi_lines.append(
-                            f"{i}instance.{an} = {struct_handler_name}(o['{kn}'], {tn})"
+                            f"{i}instance.{an} = {struct_handler_name}(o[{kn!r}], {tn})"
                         )
                 else:
-                    pi_lines.append(f"{i}instance.{an} = o['{kn}']")
+                    pi_lines.append(f"{i}instance.{an} = o[{kn!r}]")
                 i = i[:-2]
                 pi_lines.append(f"{i}except Exception as e:")
                 i = f"{i}  "
@@ -498,7 +499,7 @@ def make_dict_structure_fn_from_attrs(
 
             else:
                 if a.default is not NOTHING:
-                    lines.append(f"{i}if '{kn}' in o:")
+                    lines.append(f"{i}if {kn!r} in o:")
                     i = f"{i}  "
                 lines.append(f"{i}try:")
                 i = f"{i}  "
@@ -508,14 +509,14 @@ def make_dict_structure_fn_from_attrs(
                     if handler == converter._structure_call:
                         internal_arg_parts[struct_handler_name] = t
                         lines.append(
-                            f"{i}res['{ian}'] = {struct_handler_name}(o['{kn}'])"
+                            f"{i}res['{ian}'] = {struct_handler_name}(o[{kn!r}])"
                         )
                     else:
                         lines.append(
-                            f"{i}res['{ian}'] = {struct_handler_name}(o['{kn}'], {type_name})"
+                            f"{i}res['{ian}'] = {struct_handler_name}(o[{kn!r}], {type_name})"
                         )
                 else:
-                    lines.append(f"{i}res['{ian}'] = o['{kn}']")
+                    lines.append(f"{i}res['{ian}'] = o[{kn!r}]")
                 i = i[:-2]
                 lines.append(f"{i}except Exception as e:")
                 i = f"{i}  "
@@ -609,15 +610,15 @@ def make_dict_structure_fn_from_attrs(
                     internal_arg_parts[struct_handler_name] = handler
                     if handler == converter._structure_call:
                         internal_arg_parts[struct_handler_name] = t
-                        pi_line = f"  instance.{an} = {struct_handler_name}(o['{kn}'])"
+                        pi_line = f"  instance.{an} = {struct_handler_name}(o[{kn!r}])"
                     else:
                         tn = f"__c_type_{an}"
                         internal_arg_parts[tn] = t
                         pi_line = (
-                            f"  instance.{an} = {struct_handler_name}(o['{kn}'], {tn})"
+                            f"  instance.{an} = {struct_handler_name}(o[{kn!r}], {tn})"
                         )
                 else:
-                    pi_line = f"  instance.{an} = o['{kn}']"
+                    pi_line = f"  instance.{an} = o[{kn!r}]"
 
                 pi_lines.append(pi_line)
             else:
@@ -626,13 +627,13 @@ def make_dict_structure_fn_from_attrs(
                     internal_arg_parts[struct_handler_name] = handler
                     if handler == converter._structure_call:
                         internal_arg_parts[struct_handler_name] = t
-                        invocation_line = f"{struct_handler_name}(o['{kn}']),"
+                        invocation_line = f"{struct_handler_name}(o[{kn!r}]),"
                     else:
                         tn = f"__c_type_{an}"
                         internal_arg_parts[tn] = t
-                        invocation_line = f"{struct_handler_name}(o['{kn}'], {tn}),"
+                        invocation_line = f"{struct_handler_name}(o[{kn!r}], {tn}),"
                 else:
-                    invocation_line = f"o['{kn}'],"
+                    invocation_line = f"o[{kn!r}],"
 
                 if a.kw_only:
                     invocation_line = f"{a.alias}={invocation_line}"
@@ -674,37 +675,37 @@ def make_dict_structure_fn_from_attrs(
                     kn = override.rename
                 allowed_fields.add(kn)
                 if not a.init:
-                    pi_lines.append(f"  if '{kn}' in o:")
+                    pi_lines.append(f"  if {kn!r} in o:")
                     if handler:
                         if handler == converter._structure_call:
                             internal_arg_parts[struct_handler_name] = t
                             pi_lines.append(
-                                f"    instance.{an} = {struct_handler_name}(o['{kn}'])"
+                                f"    instance.{an} = {struct_handler_name}(o[{kn!r}])"
                             )
                         else:
                             tn = f"__c_type_{an}"
                             internal_arg_parts[tn] = t
                             pi_lines.append(
-                                f"    instance.{an} = {struct_handler_name}(o['{kn}'], {tn})"
+                                f"    instance.{an} = {struct_handler_name}(o[{kn!r}], {tn})"
                             )
                     else:
-                        pi_lines.append(f"    instance.{an} = o['{kn}']")
+                        pi_lines.append(f"    instance.{an} = o[{kn!r}]")
                 else:
-                    post_lines.append(f"  if '{kn}' in o:")
+                    post_lines.append(f"  if {kn!r} in o:")
                     if handler:
                         if handler == converter._structure_call:
                             internal_arg_parts[struct_handler_name] = t
                             post_lines.append(
-                                f"    res['{a.alias}'] = {struct_handler_name}(o['{kn}'])"
+                                f"    res['{a.alias}'] = {struct_handler_name}(o[{kn!r}])"
                             )
                         else:
                             tn = f"__c_type_{an}"
                             internal_arg_parts[tn] = t
                             post_lines.append(
-                                f"    res['{a.alias}'] = {struct_handler_name}(o['{kn}'], {tn})"
+                                f"    res['{a.alias}'] = {struct_handler_name}(o[{kn!r}], {tn})"
                             )
                     else:
-                        post_lines.append(f"    res['{a.alias}'] = o['{kn}']")
+                        post_lines.append(f"    res['{a.alias}'] = o[{kn!r}]")
         if not pi_lines:
             instantiation_lines = (
                 ["  return __cl("]
@@ -852,6 +853,107 @@ IterableUnstructureFn = Callable[[Iterable[Any]], Any]
 
 #: A type alias for heterogeneous tuple unstructure hooks.
 HeteroTupleUnstructureFn: TypeAlias = Callable[[tuple[Any, ...]], Any]
+HeteroTupleStructureFn: TypeAlias = Callable[[Iterable[Any], Any], tuple[Any, ...]]
+
+
+def make_hetero_tuple_structure_fn(
+    cl: Any,
+    converter: BaseConverter,
+    detailed_validation: bool | Literal["from_converter"] = "from_converter",
+    use_linecache: bool = True,
+) -> HeteroTupleStructureFn:
+    """Generate a specialized structuring function for a heterogeneous tuple.
+
+    ..  versionadded:: 26.2.0
+    """
+    fn_name = "structure_tuple"
+
+    if detailed_validation == "from_converter":
+        detailed_validation = converter.detailed_validation
+
+    type_args = get_args(cl)
+    globs = {}
+    lines = []
+    internal_arg_parts = {"__cl": cl}
+
+    if detailed_validation:
+        internal_arg_parts["__c_ive"] = IterableValidationError
+        internal_arg_parts["__c_ivn"] = IterableValidationNote
+        lines.extend(["  errors = []", "  res = []"])
+
+        for ix, t in enumerate(type_args):
+            handler = converter.get_structure_hook(t)
+            struct_handler_name = f"__c_structure_{ix}"
+            type_name = f"__c_type_{ix}"
+            internal_arg_parts[struct_handler_name] = handler
+            internal_arg_parts[type_name] = t
+            if handler == converter._structure_call:
+                internal_arg_parts[struct_handler_name] = t
+                invocation = f"{struct_handler_name}(o[{ix}])"
+            else:
+                invocation = f"{struct_handler_name}(o[{ix}], {type_name})"
+            lines.extend(
+                [
+                    f"  if len(o) > {ix}:",
+                    "    try:",
+                    f"      res.append({invocation})",
+                    "    except Exception as e:",
+                    (
+                        f"      e.__notes__ = [*getattr(e, '__notes__', []), "
+                        f"__c_ivn('Structuring {cl} @ index {ix}', {ix}, {type_name})]"
+                    ),
+                    "      errors.append(e)",
+                ]
+            )
+
+        lines.extend(
+            [
+                f"  if len(o) != {len(type_args)}:",
+                (
+                    "    problem = 'Not enough' if len(o) < "
+                    f"{len(type_args)} else 'Too many'"
+                ),
+                '    exc = ValueError(f"{problem} values in {o!r} to structure as {__cl!r}")',
+                "    exc.__notes__ = [f'Structuring {__cl}']",
+                "    errors.append(exc)",
+                "  if errors:",
+                "    raise __c_ive(f'While structuring {__cl!r}', errors, __cl)",
+                "  return tuple(res)",
+            ]
+        )
+    else:
+        for ix, t in enumerate(type_args):
+            handler = converter.get_structure_hook(t)
+            struct_handler_name = f"__c_structure_{ix}"
+            type_name = f"__c_type_{ix}"
+            internal_arg_parts[struct_handler_name] = handler
+            internal_arg_parts[type_name] = t
+            if handler == converter._structure_call:
+                internal_arg_parts[struct_handler_name] = t
+                invocation = f"{struct_handler_name}(o[{ix}])"
+            else:
+                invocation = f"{struct_handler_name}(o[{ix}], {type_name})"
+            lines.append(f"    {invocation},")
+
+        total_len = len(type_args)
+        lines = [
+            f"  if len(o) != {total_len}:",
+            (f"    problem = 'Not enough' if len(o) < {total_len} else 'Too many'"),
+            '    raise ValueError(f"{problem} values in {o!r} to structure as {__cl!r}")',
+            "  return (",
+            *lines,
+            "  )",
+        ]
+
+    internal_arg_line = ", ".join([f"{i}={i}" for i in internal_arg_parts])
+    globs.update(internal_arg_parts)
+    script = "\n".join([f"def {fn_name}(o, _=__cl, {internal_arg_line}):", *lines])
+
+    fname = generate_unique_filename(
+        cl, "structure", lines=script.splitlines() if use_linecache else []
+    )
+    eval(compile(script, fname, "exec"), globs)
+    return globs[fn_name]
 
 
 def make_hetero_tuple_unstructure_fn(
@@ -860,7 +962,7 @@ def make_hetero_tuple_unstructure_fn(
     unstructure_to: Any = None,
     type_args: tuple | None = None,
 ) -> HeteroTupleUnstructureFn:
-    """Generate a specialized unstructure function for a heterogenous tuple.
+    """Generate a specialized unstructure function for a heterogeneous tuple.
 
     :param type_args: If provided, override the type arguments.
     """
@@ -927,7 +1029,7 @@ def mapping_unstructure_factory(
             key_arg, val_arg = args
         else:
             # Probably a Counter
-            key_arg, val_arg = args, Any
+            key_arg, val_arg = args[0], Any
         # We can do the dispatch here and now.
         kh = key_handler or converter.get_unstructure_hook(key_arg, cache_result=False)
         if kh == identity:

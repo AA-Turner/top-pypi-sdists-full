@@ -1,9 +1,8 @@
 """
 Rule: hooks-dangerous
 
-Flags hook commands that match dangerous patterns: executing scripts from
-dotfile directories, download-and-execute, obfuscation, and suspicious
-runtimes or network access.
+Flags hook commands that match dangerous patterns: download-and-execute,
+obfuscation, and suspicious runtimes or network access.
 """
 
 import re
@@ -13,9 +12,11 @@ from typing import Dict, List, Set
 from skillsaw.diagnostics import safe_display
 from skillsaw.rule import Rule, RuleViolation, Severity
 from skillsaw.context import RepositoryContext
+from ._events import unique_hook_events
 from skillsaw.rules.builtin.content_analysis import (
     AgentBlock,
-    CursorHooksBlock,
+    CopilotAgentBlock,
+    DevinSkillBlock,
     HookEventConfig,
     HooksBlock,
     SettingsBlock,
@@ -50,7 +51,6 @@ _ENV_PREFIX = (
 )
 _INTERPRETER_CMD = rf"{_ENV_PREFIX}(?:\S+/)?{_INTERPRETERS}"
 _SUDO = r"(?:sudo\s+)?"
-_DOTFILE_DIRS = r"\.(?:claude|vscode|cursor|codex|github|windsurf)"
 
 # What separates one command from the next. A newline is a separator every
 # shell honours, and hook commands arrive as JSON strings where a multi-line
@@ -77,15 +77,6 @@ _CMD_BOUNDARY = r"(?:^|\n|\r|&&|\|\||;|\||&|(?:\$\(|<\())"
 # the wrapper scan exponential). A target starting with `<`/`>` is a shell
 # syntax error anyway, so refusing it loses nothing real.
 _REDIRECTION = r"(?:\d*(?:>>|<<|[><])\s*(?![<>])\S+\s+|\d*&\d*\s+)*"
-
-_SCRIPT_FROM_DOTFILES_RE = re.compile(
-    rf"""{_CMD_BOUNDARY}\s*{_REDIRECTION}
-        {_SUDO}                              # optional sudo
-        (?:{_INTERPRETER_CMD})\s+(?:run\s+)? # interpreter [run]
-        (?:\S+/)?{_DOTFILE_DIRS}/\S+         # path under dotfile dir
-    """,
-    re.VERBOSE,
-)
 
 # Words that may sit between a command boundary and the executable without
 # changing which program runs: POSIX wrappers (`command`, `exec`, `time`,
@@ -170,6 +161,17 @@ _NETWORK_FETCH_RE = re.compile(
     rf"{_CMD_BOUNDARY}\s*{_REDIRECTION}"
     rf"(?:{_VAR_ASSIGN}\s+)*"  # VAR=value assignment prefixes
     rf"{_CMD_WRAPPERS}{_ENV_PREFIX}(?:\S+/)?(?:curl|wget|nc|ncat)\b"
+)
+
+#: Cheap substring gate for the POSIX patterns above.
+_POSIX_TOKENS = (
+    "curl",
+    "wget",
+    "ncat",
+    "nc ",
+    "eval",
+    "base64",
+    "bun",
 )
 
 
@@ -448,22 +450,7 @@ def _downloads_and_executes(command: str) -> bool:
 def dangerous_command_descriptions(command: str) -> List[str]:
     """Return messages for dangerous patterns in a command."""
     lower_command = command.lower()
-    relevant = (
-        ".claude",
-        ".vscode",
-        ".cursor",
-        ".codex",
-        ".github",
-        ".windsurf",
-        "curl",
-        "wget",
-        "ncat",
-        "nc ",
-        "eval",
-        "base64",
-        "bun",
-    )
-    if not any(token in lower_command for token in relevant):
+    if not any(token in lower_command for token in _POSIX_TOKENS):
         return []
 
     # Quote-aware view: separators inside quotes are argument data, so the
@@ -472,9 +459,6 @@ def dangerous_command_descriptions(command: str) -> List[str]:
     raw_command = command
     command = _mask_quoted_separators(raw_command)
     findings: List[str] = []
-
-    if _SCRIPT_FROM_DOTFILES_RE.search(command):
-        findings.append("executes a script from a dotfile directory")
 
     if ("curl" in lower_command or "wget" in lower_command) and _downloads_and_executes(
         raw_command
@@ -497,12 +481,13 @@ class HooksDangerousRule(Rule):
     """Flag hook commands matching dangerous patterns."""
 
     since = "0.12.0"
+    surface_dependencies = ("copilot-agent-valid",)
 
     config_schema = {
         "allowlist": {
             "type": "list",
             "default": [],
-            "description": "Hook commands to permit (exact match)",
+            "description": "Hook command spellings to permit (exact diagnostic match)",
         },
     }
 
@@ -513,16 +498,15 @@ class HooksDangerousRule(Rule):
     @property
     def description(self) -> str:
         return (
-            "Flags hook commands that execute scripts from dotfile directories, "
-            "download-and-execute chains (curl|sh), obfuscation (eval/base64), "
-            "or perform network requests"
+            "Flags hook commands that chain a download into execution (curl|sh), "
+            "obfuscate their payload (eval/base64), or perform network requests"
         )
 
     def default_severity(self) -> Severity:
         return Severity.ERROR
 
     def _is_allowed(self, command: str) -> bool:
-        allowlist = self.config.get("allowlist", [])
+        allowlist = self.setting("allowlist")
         return any(command == entry for entry in allowlist)
 
     def _check_events(
@@ -535,35 +519,27 @@ class HooksDangerousRule(Rule):
         for event_type, configs in events.items():
             for cfg in configs:
                 for handler in cfg.handlers:
-                    if handler.type != "command" or not handler.command:
+                    if handler.type != "command":
                         continue
-                    # Exec-form hooks split the invocation across command +
-                    # args; scan the joined form so patterns can't hide in args.
-                    command = handler.command
-                    if isinstance(handler.args, list):
-                        command = " ".join([command, *(str(a) for a in handler.args)])
-                    if self._is_allowed(handler.command) or self._is_allowed(command):
-                        continue
-                    for message in dangerous_command_descriptions(command):
-                        violations.append(
-                            self.violation(
-                                f"Hook {safe_display(event_type)}: {message} — "
-                                f"command: {safe_display(command)!r}",
-                                file_path=file_path,
-                                line=line,
+                    for command, source_line in handler.iter_effective_commands():
+                        if self._is_allowed(command):
+                            continue
+                        for message in dangerous_command_descriptions(command):
+                            violations.append(
+                                self.violation(
+                                    f"Hook {safe_display(event_type)}: {message} — "
+                                    f"command: {safe_display(command)!r}",
+                                    file_path=file_path,
+                                    line=source_line or line,
+                                )
                             )
-                        )
         return violations
 
     def check(self, context: RepositoryContext) -> List[RuleViolation]:
         violations = []
 
-        # CursorHooksBlock renders its flatter shape as HookEventConfig too.
-        hook_blocks = context.lint_tree.find(HooksBlock) + context.lint_tree.find(CursorHooksBlock)
-        for block in hook_blocks:
-            if block.parse_error:
-                continue
-            violations.extend(self._check_events(block.events, block.path))
+        for path, events in unique_hook_events(context.lint_tree.find(HooksBlock)):
+            violations.extend(self._check_events(events, path))
 
         for block in context.lint_tree.find(SettingsBlock):
             if block.parse_error:
@@ -572,7 +548,11 @@ class HooksDangerousRule(Rule):
 
         # Skill and agent frontmatter can declare hooks with the same schema —
         # a checked-in, shareable command-execution vector.
-        for block in context.lint_tree.find(SkillBlock) + context.lint_tree.find(AgentBlock):
+        for block in (
+            context.lint_tree.find(SkillBlock)
+            + context.lint_tree.find(DevinSkillBlock)
+            + context.lint_tree.find(AgentBlock)
+        ):
             if block.frontmatter_error:
                 continue
             events = block.hooks_events
@@ -580,5 +560,15 @@ class HooksDangerousRule(Rule):
                 violations.extend(
                     self._check_events(events, block.path, line=block.key_line("hooks"))
                 )
+
+        if self.surface_rule_enabled("copilot-agent-valid"):
+            for block in context.lint_tree.find(CopilotAgentBlock):
+                if block.frontmatter_error:
+                    continue
+                events = block.hooks_events
+                if events:
+                    violations.extend(
+                        self._check_events(events, block.path, line=block.key_line("hooks"))
+                    )
 
         return violations

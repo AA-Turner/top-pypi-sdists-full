@@ -49,6 +49,23 @@ def encode(latitude: float, longitude: float, precision: GeohashPrecision = 12) 
             rejected for all three arguments, even though ``bool`` is a subclass of
             ``int``.
     """
+    # Fast path: the common case (exact-type floats in range, an in-range int
+    # precision) goes straight to the C codec. The ``type(x) is ...`` identity
+    # checks are cheaper than isinstance and naturally reject bool (type(True) is
+    # bool, not int); NaN/inf fail the range comparisons. Anything else (ints,
+    # bools, numeric subclasses, non-finite, out-of-range values) falls through
+    # to the full validation below, which raises exactly the same errors as
+    # before, in the same order.
+    if (
+        type(latitude) is float
+        and type(longitude) is float
+        and -90.0 <= latitude <= 90.0
+        and -180.0 <= longitude <= 180.0
+        and type(precision) is int
+        and MIN_PRECISION <= precision <= MAX_PRECISION
+    ):
+        return c_encode(latitude, longitude, precision)
+
     # bool is a subclass of int, so it has to be rejected explicitly.
     if isinstance(precision, bool) or not isinstance(precision, int):
         raise ValueError(f"Precision must be an integer, but got {type(precision).__name__}.")
@@ -96,6 +113,31 @@ def encode_strictly(latitude: float, longitude: float, precision: GeohashPrecisi
             rejected for all three arguments, even though ``bool`` is a subclass of
             ``int``.
     """
+    # Same fast path as encode(): exact-type floats in range with an in-range int
+    # precision go straight to the C codec; anything else falls through to the
+    # full validation below, which raises exactly the same errors as before. The
+    # error log on a C-level failure is part of this function's contract, so the
+    # fast path keeps it.
+    if (
+        type(latitude) is float
+        and type(longitude) is float
+        and -90.0 <= latitude <= 90.0
+        and -180.0 <= longitude <= 180.0
+        and type(precision) is int
+        and MIN_PRECISION <= precision <= MAX_PRECISION
+    ):
+        try:
+            return c_encode_strictly(latitude, longitude, precision)
+        except ValueError as e:
+            logger.error(
+                "Failed to strictly encode coordinates: lat=%f, lon=%f with precision %d: %s",
+                latitude,
+                longitude,
+                precision,
+                str(e),
+            )
+            raise
+
     # bool is a subclass of int, so it has to be rejected explicitly.
     if isinstance(precision, bool) or not isinstance(precision, int):
         raise ValueError(f"Precision must be an integer, but got {type(precision).__name__}.")
@@ -153,7 +195,7 @@ def decode(geohash: str) -> LatLong:
     # The C extension raises ValueError("Invalid character in geohash") for any
     # non-base32 character, so we let it do the per-character validation instead
     # of paying for a Python-level scan on every call.
-    return LatLong(*c_decode(geohash.lower()))
+    return c_decode(geohash.lower())
 
 
 def decode_exactly(geohash: str) -> ExactLatLong:
@@ -182,8 +224,9 @@ def decode_exactly(geohash: str) -> ExactLatLong:
     if len(geohash) > MAX_PRECISION:
         raise ValueError(f"Geohash must be at most {MAX_PRECISION} characters long.")
 
-    # See decode(): the C extension validates characters and raises on its own.
-    return ExactLatLong(*c_decode_exactly(geohash.lower()))
+    # See decode(): the C extension folds case, validates characters, and
+    # raises on its own.
+    return c_decode_exactly(geohash)
 
 
 __all__ = [

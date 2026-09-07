@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-groups
-Version: 10.8.10
+Version: 10.8.11
 Summary: passagemath: Groups and Invariant Theory
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,16 +28,16 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-categories~=10.8.10.0
-Requires-Dist: passagemath-gap~=10.8.10.0
-Requires-Dist: passagemath-modules~=10.8.10.0
+Requires-Dist: passagemath-categories~=10.8.11.0
+Requires-Dist: passagemath-gap~=10.8.11.0
+Requires-Dist: passagemath-modules~=10.8.11.0
 Provides-Extra: test
-Requires-Dist: passagemath-repl~=10.8.10.0; extra == "test"
+Requires-Dist: passagemath-repl~=10.8.11.0; extra == "test"
 Provides-Extra: coxeter3
-Requires-Dist: passagemath-coxeter3~=10.8.10.0; extra == "coxeter3"
+Requires-Dist: passagemath-coxeter3~=10.8.11.0; extra == "coxeter3"
 Provides-Extra: gap
 Provides-Extra: gap3
-Requires-Dist: passagemath-gap3~=10.8.10.0; extra == "gap3"
+Requires-Dist: passagemath-gap3~=10.8.11.0; extra == "gap3"
 Provides-Extra: additive
 Provides-Extra: affine
 Provides-Extra: lie
@@ -45,9 +45,9 @@ Provides-Extra: matrix
 Provides-Extra: permutation
 Provides-Extra: presentation
 Provides-Extra: representations
-Requires-Dist: passagemath-combinat~=10.8.10.0; extra == "representations"
+Requires-Dist: passagemath-combinat~=10.8.11.0; extra == "representations"
 Provides-Extra: semigroups
-Requires-Dist: passagemath-combinat~=10.8.10.0; extra == "semigroups"
+Requires-Dist: passagemath-combinat~=10.8.11.0; extra == "semigroups"
 Provides-Extra: standard
 Requires-Dist: passagemath-groups[additive,matrix,representations,semigroups]; extra == "standard"
 

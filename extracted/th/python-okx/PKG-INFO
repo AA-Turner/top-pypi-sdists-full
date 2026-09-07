@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-okx
-Version: 0.4.3
+Version: 0.4.4
 Summary: Python SDK for OKX
 Home-page: https://okx.com/docs-v5/
 Author: okxv5api
@@ -51,7 +51,6 @@ Make sure you update often and check the [Changelog](https://www.okx.com/docs-v5
 - Websocket handling with reconnection and multiplexed connections
 
 ### Quick start
-
 #### Prerequisites
 
 `python version：>=3.7`

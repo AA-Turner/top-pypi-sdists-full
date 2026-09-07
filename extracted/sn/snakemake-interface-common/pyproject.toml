@@ -1,10 +1,10 @@
 [project]
 name = "snakemake-interface-common"
-version = "1.23.0"
+version = "1.23.1"
 description = "Common functions and classes for Snakemake and its plugins"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = ["argparse-dataclass>=2.0.0", "ConfigArgParse>=1.7", "packaging >=24.0,<26.0"]
+dependencies = ["argparse-dataclass>=2.0.0", "ConfigArgParse>=1.7", "packaging >=26.1"]
 
 [[project.authors]]
 name = "Johannes Koester"
@@ -79,7 +79,7 @@ qc = { depends-on = ["format", "lint", "type-check"] }
 
 # Publish
 [tool.pixi.feature.publish.pypi-dependencies]
-twine = ">=6.1.0,<7"
+twine = ">=7.0.0,<8"
 build = ">=1.2.2,<2"
 
 [tool.pixi.feature.publish.tasks]

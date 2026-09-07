@@ -3,6 +3,7 @@ import hashlib
 import itertools
 import json
 import logging
+import re
 from collections.abc import Awaitable
 from datetime import datetime
 from functools import partial
@@ -25,6 +26,9 @@ WIR_RESULT_TIMEOUT = 5
 # timeout so a still-dead target only briefly re-pauses the receive loop.
 UNRESPONSIVE_REPROBE_INTERVAL = 2.0
 UNRESPONSIVE_PROBE_TIMEOUT = 1.5
+# How long an in-page key handler's reply may take before the bridge nudges the page (see
+# CdpTarget._evaluate_key_handler). Typical replies arrive within ~10 ms.
+KEY_HANDLER_WAKE_DELAY = 0.05
 
 # A navigation that commits in a new process destroys the target the bridge is talking to, and
 # WebKit never answers what was in flight to it. That is exactly when Chrome's frontend asks for
@@ -239,13 +243,133 @@ DEBUGGER_PAUSED_REASON = {
     "exception": "exception",
     "assert": "assert",
     "CSPViolation": "CSPViolation",
-    "DebuggerStatement": "debugCommand",
-    "Breakpoint": "instrumentation",
-    "PauseOnNextStatement": "instrumentation",
+    # A `debugger;` statement. V8/Chrome report this as "other", and that is what editors treat
+    # as a genuine suspend to hold. "debugCommand" is Chrome's reason for a pause the client
+    # itself requested via Debugger.pause; WebStorm, seeing it without having asked, took the
+    # pause for spurious and resumed on its own - so `debugger` never stopped it on a JSContext.
+    "DebuggerStatement": "other",
+    # A hit on a source breakpoint. V8/Chrome report this as "other" with hitBreakpoints set;
+    # "instrumentation" is Chrome's reason for its instrumentation breakpoints (DOM/event/...),
+    # which carry data an editor looks for and, not finding, discards the pause - so a breakpoint
+    # a user set on a JSContext line was reached but never surfaced.
+    "Breakpoint": "other",
+    # Chrome's reason for its own pause button. "instrumentation" is reserved for the frontend's
+    # instrumentation breakpoints, which carry breakpoint data; without it the frontend drops
+    # the pause silently and stays at "Not paused".
+    "PauseOnNextStatement": "other",
     "Microtask": "other",
     "BlackboxedScript": "other",
     "other": "other",
 }
+
+
+# In-page handler for a keyDown the bridge received (see CdpTarget._editing_key_event). Dispatches
+# the keydown to the focused element and, unless the page prevented its default, performs the key's
+# editing action on a field: select-all (Cmd/Ctrl-A), caret movement by character, word (Alt) or
+# line (Cmd, Home/End) with Shift extending the selection, Backspace and Delete - replacing the
+# selection when there is one, and honouring beforeinput. Up/Down move to the ends of a single-line
+# input only; in a textarea they are left alone. Returns "prevented", "handled" or "none".
+KEY_DOWN_JS = """(function (k) {
+  const el = document.activeElement || document.body;
+  const event = new KeyboardEvent('keydown', {key: k.key, code: k.code, altKey: k.alt, ctrlKey: k.ctrl,
+      metaKey: k.meta, shiftKey: k.shift, repeat: k.repeat, bubbles: true, cancelable: true});
+  if (k.keyCode) {
+    for (const name of ['keyCode', 'which']) { Object.defineProperty(event, name, {get: () => k.keyCode}); }
+  }
+  if (!el.dispatchEvent(event)) { return 'prevented'; }
+  const tag = el.tagName ? el.tagName.toLowerCase() : '';
+  const isField = (tag === 'input' || tag === 'textarea') && !el.disabled && !el.readOnly;
+  if ((k.meta || k.ctrl) && k.key.toLowerCase() === 'a') {
+    if (isField) { el.select(); }
+    else if (el.isContentEditable) { document.execCommand('selectAll'); }
+    else { document.getSelection().selectAllChildren(document.body); }
+    return 'handled';
+  }
+  const fire = (type, inputType) => el.dispatchEvent(
+      new InputEvent(type, {bubbles: true, cancelable: type === 'beforeinput', inputType: inputType}));
+  if (el.isContentEditable) {
+    const selection = document.getSelection();
+    const alter = k.shift ? 'extend' : 'move';
+    switch (k.key) {
+      case 'ArrowLeft': case 'ArrowRight':
+        selection.modify(alter, k.key === 'ArrowLeft' ? 'backward' : 'forward',
+            k.meta ? 'lineboundary' : k.alt ? 'word' : 'character');
+        return 'handled';
+      case 'Home': case 'End':
+        selection.modify(alter, k.key === 'Home' ? 'backward' : 'forward', 'lineboundary');
+        return 'handled';
+      case 'Backspace':
+        if (fire('beforeinput', 'deleteContentBackward')) { document.execCommand('delete'); }
+        return 'handled';
+      case 'Delete':
+        if (fire('beforeinput', 'deleteContentForward')) { document.execCommand('forwardDelete'); }
+        return 'handled';
+    }
+    return 'none';
+  }
+  if (!isField) { return 'none'; }
+  const value = el.value || '';
+  let start = el.selectionStart, end = el.selectionEnd;
+  if (start === null || start === undefined) { start = end = value.length; }
+  const backward = el.selectionDirection === 'backward';
+  const anchor = backward ? end : start, focus = backward ? start : end;
+  const space = (c) => /\\s/.test(c);
+  const wordLeft = (pos) => { while (pos > 0 && space(value[pos - 1])) { pos--; }
+                             while (pos > 0 && !space(value[pos - 1])) { pos--; } return pos; };
+  const wordRight = (pos) => { while (pos < value.length && space(value[pos])) { pos++; }
+                              while (pos < value.length && !space(value[pos])) { pos++; } return pos; };
+  const lineStart = (pos) => value.lastIndexOf('\\n', pos - 1) + 1;
+  const lineEnd = (pos) => { const i = value.indexOf('\\n', pos); return i === -1 ? value.length : i; };
+  const setRange = (a, b, direction) => { try { el.setSelectionRange(a, b, direction); } catch (e) {} };
+  let target = null;
+  switch (k.key) {
+    case 'ArrowLeft':
+      target = k.meta ? lineStart(focus) : k.alt ? wordLeft(focus)
+          : (!k.shift && start !== end) ? start : Math.max(0, focus - 1);
+      break;
+    case 'ArrowRight':
+      target = k.meta ? lineEnd(focus) : k.alt ? wordRight(focus)
+          : (!k.shift && start !== end) ? end : Math.min(value.length, focus + 1);
+      break;
+    case 'Home': target = lineStart(focus); break;
+    case 'End': target = lineEnd(focus); break;
+    case 'ArrowUp': if (tag === 'input') { target = 0; } break;
+    case 'ArrowDown': if (tag === 'input') { target = value.length; } break;
+  }
+  if (target !== null) {
+    if (k.shift) { setRange(Math.min(anchor, target), Math.max(anchor, target), target < anchor ? 'backward' : 'forward'); }
+    else { setRange(target, target, 'none'); }
+    return 'handled';
+  }
+  if (k.key !== 'Backspace' && k.key !== 'Delete') { return 'none'; }
+  let from = start, to = end;
+  if (start === end) {
+    if (k.key === 'Backspace') { from = k.meta ? lineStart(start) : k.alt ? wordLeft(start) : Math.max(0, start - 1); }
+    else { to = k.meta ? lineEnd(end) : k.alt ? wordRight(end) : Math.min(value.length, end + 1); }
+  }
+  if (from === to) { return 'handled'; }
+  const inputType = k.key === 'Backspace' ? 'deleteContentBackward' : 'deleteContentForward';
+  if (!fire('beforeinput', inputType)) { return 'handled'; }
+  const proto = tag === 'textarea' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+  const next = value.slice(0, from) + value.slice(to);
+  if (descriptor && descriptor.set) { descriptor.set.call(el, next); } else { el.value = next; }
+  setRange(from, from, 'none');
+  fire('input', inputType);
+  return 'handled';
+})"""
+
+# In-page handler for a keyUp: the matching keyup event for the page's listeners.
+KEY_UP_JS = """(function (k) {
+  const el = document.activeElement || document.body;
+  const event = new KeyboardEvent('keyup', {key: k.key, code: k.code, altKey: k.alt, ctrlKey: k.ctrl,
+      metaKey: k.meta, shiftKey: k.shift, bubbles: true, cancelable: true});
+  if (k.keyCode) {
+    for (const name of ['keyCode', 'which']) { Object.defineProperty(event, name, {get: () => k.keyCode}); }
+  }
+  el.dispatchEvent(event);
+  return 'handled';
+})"""
 
 
 class CdpTarget:
@@ -337,6 +461,7 @@ class CdpTarget:
             "Emulation.setEmitTouchEventsForMouse": partial(self._simple_response, value=None),
             "Debugger.setAsyncCallStackDepth": partial(self._simple_response, value=True),
             "Debugger.enable": self._debugger_enable,
+            "Debugger.setSkipAllPauses": self._debugger_set_skip_all_pauses,
             "Debugger.setBreakpointsActive": self._debugger_set_breakpoints_active,
             "Debugger.setBlackboxPatterns": self._debugger_set_blackbox_patterns,
             "Debugger.setBreakpointByUrl": self._debugger_set_breakpoint_by_url,
@@ -351,7 +476,7 @@ class CdpTarget:
             # Overlay is absent in WebKit; only highlightNode is worth translating, the rest are
             # acknowledged by the NOOP_ABSENT_DOMAINS fallback in _input_loop.
             "Overlay.highlightNode": self._overlay_highlight_node,
-            "Runtime.runIfWaitingForDebugger": partial(self._simple_response, value=None),
+            "Runtime.runIfWaitingForDebugger": self._runtime_run_if_waiting_for_debugger,
             "Runtime.enable": self._runtime_enable,
             "Runtime.evaluate": self._runtime_evaluate,
             "Runtime.callFunctionOn": self._runtime_call_function_on,
@@ -455,6 +580,10 @@ class CdpTarget:
         # scriptId -> url, from Debugger.scriptParsed; used to fill the `url` WebKit omits from the
         # callFrames of Debugger.paused (Chrome's CallFrame requires it).
         self._script_id_to_url: dict[str, str] = {}
+        # For a flat JSContext: the synthetic URL handed to the frontend for a URL-less script ->
+        # the script's id. Lets a URL breakpoint (how editors set breakpoints) be turned into a
+        # scriptId-location breakpoint, the only kind that binds on a URL-less script.
+        self._flat_script_url_to_id: dict[str, str] = {}
         self._eval_side_effect_id = 0
         self._default_execution_id = 0
         self._last_console_api_call: Optional[dict[str, Any]] = None
@@ -464,6 +593,10 @@ class CdpTarget:
         # Text a keyDown said it would produce, held until it is known whether the client also
         # sends the "char" event that classically carried it (see _input_dispatch_key_event).
         self._pending_key_text: Optional[str] = None
+        # Whether the page's own keydown listener prevented the default of the key currently held,
+        # and the execution context its keydown was dispatched in (see _input_dispatch_key_event).
+        self._key_default_prevented = False
+        self._key_context: Optional[int] = None
         # execution-context uniqueIds already announced to the frontend, to drop duplicate
         # Runtime.executionContextCreated events (WebKit re-announces contexts) that would
         # otherwise corrupt Chrome's RuntimeModel.
@@ -488,6 +621,27 @@ class CdpTarget:
         self._setup_sent_targets: set[str] = {target_id}
         # Targets announced as pages - the only kind this session talks to (see _target_created).
         self._page_targets: set[str] = {target_id}
+        # The debuggable was attached before it ran (an automatic-inspection candidate) and the
+        # application is blocked until the frontend reports itself initialized. Released by the
+        # client's Runtime.runIfWaitingForDebugger, or on close.
+        self.waiting_for_debugger = False
+        # Stop the debuggable on its first statement once attached (Safari's "Automatically
+        # Pause Connecting to JSContexts"). A held JSContext is paused by WebKit itself on
+        # release (the socket was set up with WIRAutomaticallyPause); anything else - a page,
+        # the target a process swap creates - is paused by the bridge as soon as its debugger is
+        # enabled (see _debugger_enable and _target_created).
+        self.pause_on_start = False
+        # Hold the page target a cross-site navigation creates until its debugger setup has been
+        # replayed (WebKit's Target.setPauseOnStart); see hold_new_targets.
+        self.hold_navigations = False
+        # Targets the bridge already asked to pause, so each is stopped once.
+        self._paused_targets: set[str] = set()
+        # What the target emitted while the bridge held it with no frontend attached (see
+        # start_holding): handed to the frontend that adopts it once its debugger is on.
+        self.held_events: list[dict[str, Any]] = []
+        self._holding_task: Optional[asyncio.Task[None]] = None
+        # id of the adopting frontend's Debugger.enable; the held events follow its response.
+        self._replay_after_id: Optional[int] = None
 
     def next_internal_id(self) -> int:
         """
@@ -535,11 +689,15 @@ class CdpTarget:
                     frame_d[key] = self._to_client_frame_id(frame_d[key])
 
     @classmethod
-    async def create(cls, protocol: SessionProtocol) -> "CdpTarget":
+    async def create(cls, protocol: SessionProtocol, automatically_pause: bool = False) -> "CdpTarget":
         """
         :param pymobiledevice3.services.web_protocol.session_protocol.SessionProtocol protocol: Session protocol.
+        :param automatically_pause: Have WebKit pause the debuggable on its next statement once the
+            frontend is initialized (see WebinspectorService.setup_inspector_socket).
         """
-        await protocol.inspector.setup_inspector_socket(protocol.id_, protocol.app.id_, protocol.page.id_)
+        await protocol.inspector.setup_inspector_socket(
+            protocol.id_, protocol.app.id_, protocol.page.id_, automatically_pause=automatically_pause
+        )
         if protocol.page.type_ == WirTypes.JAVASCRIPT:
             # A JSContext debuggable has no Target domain, so it announces nothing on attach and
             # there is only ever the one target - synthesize its id instead of waiting forever.
@@ -560,6 +718,67 @@ class CdpTarget:
         # Chrome's schema requires (type/title/url/attached) and crashes the frontend's SDK.
         return cls(protocol, target_id)
 
+    async def hold_new_targets(self) -> None:
+        """Ask WebKit to hold the page target a cross-site navigation creates until it is resumed.
+
+        The one creation-time hold WebKit offers for pages: a WKWebView's page runs from the
+        moment it exists, but a navigation that swaps processes announces its provisional target
+        first, and with Target.setPauseOnStart that target waits for Target.resume before its
+        load commits. The bridge resumes it right after replaying the frontend's setup (see
+        _target_created), so breakpoints reach the new process ahead of its first script.
+        """
+        if self.hold_navigations:
+            return
+        self.hold_navigations = True
+        if not self._flat:
+            await self.protocol.send_command("Target.setPauseOnStart", pauseOnStart=True)
+
+    async def release_debugger(self) -> None:
+        """Let a debuggable attached before it ran start running.
+
+        WebKit blocks the thread creating an automatic-inspection candidate until the frontend
+        sends Inspector.initialized (or ten seconds pass); Chrome clients express the same step
+        as Runtime.runIfWaitingForDebugger. Nothing to do for a target that was not held.
+        """
+        if not self.waiting_for_debugger:
+            return
+        self.waiting_for_debugger = False
+        await self._send_message_to_target(
+            {"id": self.next_internal_id(), "method": "Inspector.initialized", "params": {}}, record=False
+        )
+
+    async def enable_debugger(self) -> None:
+        """Turn the debugger on on the bridge's own behalf (with the same extras a frontend's
+        Debugger.enable gets), before any frontend is attached."""
+        await self._debugger_enable({"id": self.next_internal_id(), "method": "Debugger.enable", "params": {}})
+
+    def start_holding(self) -> None:
+        """Keep the target alive with no frontend attached: whatever it emits meanwhile - the
+        scripts it parsed, the pause it stopped at - is kept for the frontend that adopts it."""
+
+        async def collect() -> None:
+            while True:
+                self.held_events.append(await self.output_queue.get())
+
+        self._holding_task = asyncio.create_task(collect())
+
+    def adopt(self) -> None:
+        """Hand a held target to a frontend. What it missed is replayed once it enables the
+        debugger (see _debugger_enable): a pause only means something to a debugger that is on,
+        and that is the order a fresh backend would have produced."""
+        if self._holding_task is not None:
+            self._holding_task.cancel()
+            self._holding_task = None
+
+    async def _pause_target(self, target_id: str) -> None:
+        """Stop a target on its next statement, once, if the client's debugger is on."""
+        if target_id in self._paused_targets or "Debugger.enable" not in self._setup_messages:
+            return
+        self._paused_targets.add(target_id)
+        await self._send_message_to_target(
+            {"id": self.next_internal_id(), "method": "Debugger.pause", "params": {}}, target_id=target_id, record=False
+        )
+
     async def close(self) -> None:
         """
         Stop the queue-consumer tasks and any running screencast, and tear down the WIR socket.
@@ -567,6 +786,12 @@ class CdpTarget:
         if self.screencast is not None:
             await self.screencast.stop()
             self.screencast = None
+        # A held debuggable must not outlive its debugger: release it before the socket goes.
+        await self.release_debugger()
+        if self._holding_task is not None:
+            self._holding_task.cancel()
+            await asyncio.gather(self._holding_task, return_exceptions=True)
+            self._holding_task = None
         for task in (self._input_task, self._receiving_task, *self._background_tasks):
             task.cancel()
         await asyncio.gather(self._input_task, self._receiving_task, *self._background_tasks, return_exceptions=True)
@@ -1997,6 +2222,9 @@ class CdpTarget:
         await self._send_message_to_target(message)
 
     async def _debugger_enable(self, message: dict[str, Any]):
+        if self.held_events and self._holding_task is None:
+            # An adopting frontend: what the target emitted while held follows this response.
+            self._replay_after_id = message["id"]
         await self._send_message_to_target(message)
         # Two WebKit quirks conspire to make the debugger never stop, and Chrome's frontend papers
         # over neither because its own backend behaves differently:
@@ -2018,6 +2246,32 @@ class CdpTarget:
             "method": "Debugger.setPauseOnDebuggerStatements",
             "params": {"enabled": True},
         })
+        if self.pause_on_start and not self.waiting_for_debugger:
+            # Pause mode on a debuggable that could not be held before it ran: stop it on its
+            # next statement now that the client's debugger is on. A held one is paused by
+            # WebKit itself when released.
+            await self._pause_target(self.target_id)
+
+    async def _debugger_set_skip_all_pauses(self, message: dict[str, Any]) -> None:
+        # WebKit has no setSkipAllPauses (WebStorm sends it on attach); skipping every pause is
+        # what deactivating breakpoints and debugger statements amounts to, and un-skipping is
+        # the state _debugger_enable establishes. Both are replayed onto new targets.
+        skip = bool(message.get("params", {}).get("skip"))
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Debugger.setBreakpointsActive",
+            "params": {"active": not skip},
+        })
+        await self._send_message_to_target({
+            "id": self.next_internal_id(),
+            "method": "Debugger.setPauseOnDebuggerStatements",
+            "params": {"enabled": not skip},
+        })
+        await self._result_response(message, {})
+
+    async def _runtime_run_if_waiting_for_debugger(self, message: dict[str, Any]) -> None:
+        await self.release_debugger()
+        await self._simple_response(message, None)
 
     async def _debugger_set_breakpoints_active(self, message: dict[str, Any]):
         # Chrome's "Deactivate breakpoints" toggle also suppresses `debugger;` statements; mirror
@@ -2038,10 +2292,46 @@ class CdpTarget:
         await self._simple_response(message, None)
 
     async def _debugger_set_breakpoint_by_url(self, message: dict[str, Any]):
-        condition = message["params"].pop("condition", "")
+        params = message["params"]
+        if self._flat:
+            script_id = self._flat_breakpoint_script(params)
+            if script_id is not None:
+                # A URL breakpoint does not bind on a URL-less JSContext script; set it by the
+                # script's location instead - the only kind that binds - and answer the frontend
+                # in the shape it expects from setBreakpointByUrl.
+                location: dict[str, Any] = {"scriptId": script_id, "lineNumber": params.get("lineNumber", 0)}
+                if "columnNumber" in params:
+                    location["columnNumber"] = params["columnNumber"]
+                set_params: dict[str, Any] = {"location": location}
+                if params.get("condition"):
+                    set_params["options"] = {"condition": params["condition"]}
+                response = await self.send_message_with_result("Debugger.setBreakpoint", set_params)
+                result = response.get("result", {})
+                breakpoint_id = result.get("breakpointId") or f"url:{params.get('url')}"
+                locations = [result["actualLocation"]] if "actualLocation" in result else []
+                await self._result_response(message, {"breakpointId": breakpoint_id, "locations": locations})
+                return
+        condition = params.pop("condition", "")
         if condition:
-            message["params"]["options"]["condition"] = condition
+            params["options"]["condition"] = condition
         await self._send_message_to_target(message)
+
+    def _flat_breakpoint_script(self, params: dict[str, Any]) -> Optional[str]:
+        """The JSContext script a URL breakpoint targets: by exact synthetic URL, or by a urlRegex
+        that matches one. None when it targets no known script (then it is forwarded unchanged)."""
+        url = params.get("url")
+        if url and url in self._flat_script_url_to_id:
+            return self._flat_script_url_to_id[url]
+        url_regex = params.get("urlRegex")
+        if url_regex:
+            try:
+                pattern = re.compile(url_regex)
+            except re.error:
+                return None
+            for known_url, script_id in self._flat_script_url_to_id.items():
+                if pattern.search(known_url):
+                    return script_id
+        return None
 
     async def _domdebugger_get_event_listeners(self, message: dict[str, Any]):
         node = {"nodeId": await self.object_id_to_node_id(message["params"]["objectId"])}
@@ -2427,7 +2717,49 @@ class CdpTarget:
 
     async def _type_text(self, text: str) -> None:
         """Type into whichever document holds the focus (see _focused_context)."""
-        await self._evaluate_json_in(await self._focused_context(), self._insert_text_js(text))
+        await self._type_text_in(await self._focused_context(), text)
+
+    async def _type_text_in(self, context_id: Optional[int], text: str) -> None:
+        await self._evaluate_key_handler(context_id, self._insert_text_js(text))
+
+    async def _evaluate_key_handler(self, context_id: Optional[int], expression: str) -> Optional[Any]:
+        """_evaluate_json_in for the in-page key handlers, nudging the page when its reply is late.
+
+        WebKit on iOS sometimes holds the reply to an evaluation that edits the focused field
+        (a Backspace or a caret move) until the *next* message reaches the page: the handler
+        itself has long finished - the page goes on to emit events - but its result only
+        arrives right after whatever is sent next. Observed on iOS 26 with the very same
+        expression answering instantly most of the time, so it is a wake-up problem on the
+        device, not the script. Left alone, the wait ran out, the target was declared
+        unresponsive and every following key was skipped. Sending a trivial evaluation as
+        soon as the reply is late frees it within milliseconds; nobody waits for the nudge's
+        own reply, and a reply to an internal id nobody waits for is dropped on arrival.
+        """
+        pending = asyncio.ensure_future(self._evaluate_json_in(context_id, expression))
+        done, _ = await asyncio.wait({pending}, timeout=KEY_HANDLER_WAKE_DELAY)
+        if not done:
+            await self._send_message_to_target({
+                "id": self.next_internal_id(),
+                "method": "Runtime.evaluate",
+                "params": {"expression": "0"},
+            })
+        return await pending
+
+    @staticmethod
+    def _key_event_init(params: dict[str, Any]) -> str:
+        """The JSON the in-page key handlers take: the key and its modifiers, decoded from CDP's
+        modifier bitmask (1 Alt, 2 Ctrl, 4 Meta, 8 Shift)."""
+        modifiers = params.get("modifiers") or 0
+        return json.dumps({
+            "key": params.get("key", ""),
+            "code": params.get("code", ""),
+            "alt": bool(modifiers & 1),
+            "ctrl": bool(modifiers & 2),
+            "meta": bool(modifiers & 4),
+            "shift": bool(modifiers & 8),
+            "repeat": bool(params.get("autoRepeat", False)),
+            "keyCode": params.get("windowsVirtualKeyCode") or 0,
+        })
 
     @staticmethod
     def _printable_key_text(params: dict[str, Any]) -> Optional[str]:
@@ -2445,36 +2777,10 @@ class CdpTarget:
         params = message["params"]
         key = params["key"]
         type_ = params["type"]
-        # Typing arrives in two shapes. DevTools sends keyDown, then a "char" event carrying the
-        # character, then keyUp; Playwright never sends "char" at all and puts the character in
-        # keyDown's own text field, which used to type nothing at all - silently, so a filled-in
-        # form stayed empty with every call reporting success. Take the character from whichever
-        # event carries it, and type it exactly once: remember what a keyDown promised, let a
-        # "char" supersede it, and fall back to typing it on keyUp when no "char" follows.
-        if type_ in ("keyDown", "rawKeyDown") and key not in ("Enter", "Backspace"):
-            self._pending_key_text = self._printable_key_text(params)
-            await self._simple_response(message, None)
+        if key != "Enter":
+            await self._editing_key_event(message)
             return
-        if type_ == "keyUp" and key not in ("Enter", "Backspace"):
-            pending, self._pending_key_text = self._pending_key_text, None
-            if pending is not None:
-                await self._type_text(pending)
-            await self._simple_response(message, None)
-            return
-        if type_ == "char" and key not in ("Enter", "Backspace"):
-            self._pending_key_text = None
-            text = self._printable_key_text(params)
-            if text is not None:
-                await self._type_text(text)
-            await self._simple_response(message, None)
-            return
-        if params["type"] == "keyUp" and key == "Backspace":
-            manipulation = (
-                "document.activeElement.value = document.activeElement.value.slice(0, -1);"
-                "document.activeElement.dispatchEvent("
-                "    new InputEvent('input', {bubbles: true, inputType: 'deleteContentBackward'}));"
-            )
-        elif params["type"] == "char" and key == "Enter":
+        if type_ == "char":
             # The page's own Enter handling must run first (e.g. google fires its search from a
             # keydown listener on a <textarea> and prevents the default); only when the page
             # leaves the events unhandled fall back to what a browser would do by default.
@@ -2500,11 +2806,53 @@ class CdpTarget:
                 "    }"
                 "}"
             )
-        else:
-            await self._simple_response(message, None)
-            return
+            await self.evaluate_and_result(self._when_editable_js(manipulation))
+        await self._simple_response(message, None)
 
-        simulate_key_event = (
+    async def _editing_key_event(self, message: dict[str, Any]) -> None:
+        """Every key but Enter, which has its own flow above.
+
+        Each keyDown - including the auto-repeats of a held key - is dispatched to the page as a
+        keydown event first, so the page's own shortcut handlers run and can prevent the default
+        exactly as they would in a browser; when they do not, the bridge performs it in-page,
+        because WebKit has no Input domain: select-all, caret movement (Shift extending the
+        selection), Backspace and Delete (see KEY_DOWN_JS). Backspace used to act on keyUp, so a
+        held Backspace deleted one character.
+
+        Typing arrives in two shapes. DevTools sends keyDown, then a "char" event carrying the
+        character, then keyUp; Playwright never sends "char" at all and puts the character in
+        keyDown's own text field, which used to type nothing at all - silently, so a filled-in
+        form stayed empty with every call reporting success. Take the character from whichever
+        event carries it, and type it exactly once: remember what a keyDown promised, let a
+        "char" supersede it, and fall back to typing it on keyUp when no "char" follows.
+        """
+        params = message["params"]
+        type_ = params["type"]
+        if type_ in ("keyDown", "rawKeyDown"):
+            # The focused document is looked up once per key; its "char" and keyUp reuse it.
+            self._key_context = await self._focused_context()
+            outcome = await self._evaluate_key_handler(
+                self._key_context, f"{KEY_DOWN_JS}({self._key_event_init(params)})"
+            )
+            self._key_default_prevented = outcome == "prevented"
+            self._pending_key_text = None if self._key_default_prevented else self._printable_key_text(params)
+        elif type_ == "char":
+            self._pending_key_text = None
+            text = self._printable_key_text(params)
+            if text is not None and not self._key_default_prevented:
+                await self._type_text_in(self._key_context, text)
+        elif type_ == "keyUp":
+            pending, self._pending_key_text = self._pending_key_text, None
+            if pending is not None:
+                await self._type_text_in(self._key_context, pending)
+            self._key_default_prevented = False
+            await self._evaluate_key_handler(self._key_context, f"{KEY_UP_JS}({self._key_event_init(params)})")
+        await self._simple_response(message, None)
+
+    @staticmethod
+    def _when_editable_js(manipulation: str) -> str:
+        """`manipulation`, run only when the focused element takes keyboard editing."""
+        return (
             "function isEditable(element) {"
             "    if (element.disabled || element.readOnly)"
             "        return false;"
@@ -2525,8 +2873,6 @@ class CdpTarget:
             f"{manipulation}"
             "}"
         )
-        await self.evaluate_and_result(simulate_key_event)
-        await self._simple_response(message, None)
 
     async def _target_created(self, message: dict[str, Any]):
         # These handlers run inside the receive loop; a device round-trip here (the old code
@@ -2556,6 +2902,12 @@ class CdpTarget:
         # Network/Page/Console/Debugger event ever arrives again after a process swap and the
         # session appears dead after a couple of link clicks.
         await self._send_setup_to_target(new_target_id)
+        if target_info.get("isPaused", False):
+            # Held by Target.setPauseOnStart (see hold_new_targets) - its setup is in place now,
+            # so let its load commit; in pause mode, stopped on its first statement.
+            if self.pause_on_start:
+                await self._pause_target(new_target_id)
+            await self.protocol.send_command("Target.resume", targetId=new_target_id)
         await self.output_queue.put({
             "method": "Target.targetInfoChanged",
             "params": {
@@ -2670,11 +3022,33 @@ class CdpTarget:
             # Expected protocol-level errors (e.g. element-only DOM queries on text nodes) are
             # already delivered to the frontend, which copes; don't shout about them here.
             logger.debug(f"Target error response: {message}")
+            data = message["error"].get("data")
+            if data is not None and not isinstance(data, str):
+                # WebKit lists the underlying errors under `data`; Chrome's protocol types it as
+                # a string, and WebStorm's reader gives up on the whole response otherwise
+                # ("Expected a string but was BEGIN_ARRAY") - one per domain a JSContext lacks.
+                entries = cast(list[Any], data) if isinstance(data, list) else []
+                details = [
+                    str(cast(dict[str, Any], entry).get("message", "")) for entry in entries if isinstance(entry, dict)
+                ]
+                message["error"]["data"] = "; ".join(detail for detail in details if detail) or json.dumps(data)
+            if "id" in message and str(message["error"].get("message", "")).endswith("domain already enabled"):
+                # Enabled before the frontend asked - by the bridge holding the target, or by WebKit
+                # itself when it paused a released context. Chrome's backend treats a repeated
+                # enable as a no-op, and the frontend gives up on the domain over an error.
+                message = {"id": message["id"], "result": {}}
         if "id" in message:
             self._pending_requests.pop(message["id"], None)
             if message["id"] < 0:
                 # Response to a bridge-internal request (setup replay or an abandoned wait);
                 # forwarding it would hand the frontend an id it never issued.
+                return
+            if message["id"] == self._replay_after_id:
+                self._replay_after_id = None
+                await self.output_queue.put(message)
+                for event in self.held_events:
+                    await self.output_queue.put(event)
+                self.held_events.clear()
                 return
         method = message.get("method", "")
         if method in WEBKIT_ONLY_EVENTS:
@@ -2710,6 +3084,14 @@ class CdpTarget:
         if any(marker in source for marker in WEBKIT_INTERNAL_SCRIPT_MARKERS):
             return
         script_id = params.get("scriptId")
+        if not source and self._flat and script_id is not None:
+            # A JSContext's own scripts carry no URL (nothing gave them a sourceURL). An editor
+            # sets a breakpoint by URL, which cannot match an empty one, so the breakpoint never
+            # binds. Give the script a stable synthetic URL so it is addressable, and translate
+            # the URL breakpoint back to this script (see _debugger_set_breakpoint_by_url).
+            source = f"jscontext:///{script_id}.js"
+            params["url"] = source
+            self._flat_script_url_to_id[source] = script_id
         if script_id is not None:
             self._script_id_to_url[script_id] = source
         await self.output_queue.put(message)

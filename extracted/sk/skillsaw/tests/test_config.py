@@ -12,8 +12,7 @@ from skillsaw.config import LinterConfig, find_config
 from skillsaw.context import (
     RepositoryContext,
     RepositoryType,
-    HAS_CURSOR,
-    ALL_INSTRUCTION_FORMATS,
+    INSTRUCTION_REPO_TYPES,
 )
 
 
@@ -23,6 +22,7 @@ def test_default_config():
     assert "claude-plugin-json-required" in config.rules
     assert config.rules["claude-plugin-json-required"]["enabled"] == "auto"
     assert config.rules["claude-plugin-json-required"]["severity"] == "error"
+    assert config.lint_external_content is True
 
 
 def test_deeply_nested_config_raises_value_error(tmp_path):
@@ -34,17 +34,12 @@ def test_deeply_nested_config_raises_value_error(tmp_path):
 
 
 def test_default_exclude_patterns():
-    """Test that default config includes sensible exclude patterns for templates"""
+    """Default config excludes templates and generated Python cache files."""
     config = LinterConfig.default()
     assert "**/template/**" in config.exclude_patterns
     assert "**/templates/**" in config.exclude_patterns
     assert "**/_template/**" in config.exclude_patterns
-
-
-def test_default_exclude_patterns_not_empty():
-    """Test that default exclude patterns list is non-empty"""
-    config = LinterConfig.default()
-    assert len(config.exclude_patterns) >= 3
+    assert "**/__pycache__/**" in config.exclude_patterns
 
 
 def test_user_exclude_overrides_defaults(temp_dir):
@@ -65,6 +60,7 @@ def test_for_init_includes_default_excludes():
     config = LinterConfig.for_init()
     assert "**/template/**" in config.exclude_patterns
     assert "**/templates/**" in config.exclude_patterns
+    assert "**/__pycache__/**" in config.exclude_patterns
 
 
 def test_from_file_applies_default_excludes(temp_dir):
@@ -75,6 +71,7 @@ def test_from_file_applies_default_excludes(temp_dir):
     assert "**/template/**" in config.exclude_patterns
     assert "**/templates/**" in config.exclude_patterns
     assert "**/_template/**" in config.exclude_patterns
+    assert "**/__pycache__/**" in config.exclude_patterns
 
 
 def test_empty_exclude_disables_all_defaults(temp_dir):
@@ -246,23 +243,24 @@ def test_auto_without_repo_types_always_enabled(valid_plugin):
     assert config.is_rule_enabled("some-rule", context, None) is True
 
 
-def test_auto_with_formats_enabled_when_format_detected(temp_dir):
-    """Test that auto with formats fires when the format is detected"""
+def test_auto_with_tool_repo_type_enabled_when_tool_detected(temp_dir):
+    """A rule declaring a tool repository type activates where that tool
+    is configured."""
     (temp_dir / ".cursor" / "rules").mkdir(parents=True)
     context = RepositoryContext(temp_dir)
     config = LinterConfig(rules={"test-rule": {"enabled": "auto"}})
-    assert config.is_rule_enabled("test-rule", context, None, {HAS_CURSOR}) is True
+    assert config.is_rule_enabled("test-rule", context, {RepositoryType.CURSOR}) is True
 
 
-def test_auto_with_formats_disabled_when_format_missing(temp_dir):
-    """Test that auto with formats does not fire when format is absent"""
+def test_auto_with_tool_repo_type_disabled_when_tool_missing(temp_dir):
+    """The other half: no `.cursor/`, no activation."""
     context = RepositoryContext(temp_dir)
     config = LinterConfig(rules={"test-rule": {"enabled": "auto"}})
-    assert config.is_rule_enabled("test-rule", context, None, {HAS_CURSOR}) is False
+    assert config.is_rule_enabled("test-rule", context, {RepositoryType.CURSOR}) is False
 
 
-def test_auto_with_formats_or_repo_types(temp_dir):
-    """Test that either repo_types or formats match enables the rule"""
+def test_auto_with_either_declared_repo_type_matching(temp_dir):
+    """Any one of the declared types matching enables the rule."""
     (temp_dir / "CLAUDE.md").write_text("# Instructions")
     context = RepositoryContext(temp_dir)
     config = LinterConfig(rules={"test-rule": {"enabled": "auto"}})
@@ -270,23 +268,21 @@ def test_auto_with_formats_or_repo_types(temp_dir):
         config.is_rule_enabled(
             "test-rule",
             context,
-            {RepositoryType.MARKETPLACE},
-            ALL_INSTRUCTION_FORMATS,
+            {RepositoryType.MARKETPLACE} | INSTRUCTION_REPO_TYPES,
         )
         is True
     )
 
 
-def test_auto_with_formats_and_repo_types_both_miss(temp_dir):
-    """Test that rule is disabled when neither repo_types nor formats match"""
+def test_auto_with_no_declared_repo_type_matching(temp_dir):
+    """No declared type matches, so the rule stays off."""
     context = RepositoryContext(temp_dir)
     config = LinterConfig(rules={"test-rule": {"enabled": "auto"}})
     assert (
         config.is_rule_enabled(
             "test-rule",
             context,
-            {RepositoryType.MARKETPLACE},
-            {HAS_CURSOR},
+            {RepositoryType.MARKETPLACE, RepositoryType.CURSOR},
         )
         is False
     )
@@ -296,10 +292,10 @@ def test_explicit_enabled_overrides_auto_detection(temp_dir):
     """Test that explicit enabled: true/false in config overrides auto"""
     context = RepositoryContext(temp_dir)
     config = LinterConfig(rules={"test-rule": {"enabled": False}})
-    assert config.is_rule_enabled("test-rule", context, None, {HAS_CURSOR}) is False
+    assert config.is_rule_enabled("test-rule", context, {RepositoryType.CURSOR}) is False
 
     config2 = LinterConfig(rules={"test-rule": {"enabled": True}})
-    assert config2.is_rule_enabled("test-rule", context, None, {HAS_CURSOR}) is True
+    assert config2.is_rule_enabled("test-rule", context, {RepositoryType.CURSOR}) is True
 
 
 def test_format_specific_rules_default_to_auto():
@@ -350,8 +346,7 @@ def test_no_config_skips_version_gate(temp_dir):
     assert config.is_rule_enabled(
         "content-weak-language",
         context,
-        repo_types=None,
-        formats=frozenset({"HAS_CLAUDE_MD"}),
+        repo_types=frozenset({RepositoryType.CLAUDE_MD}),
         since_version="0.7.0",
     )
 
@@ -426,14 +421,14 @@ def test_prerelease_version_does_not_crash_version_gate(temp_dir, tmp_path):
     assert config.is_rule_enabled(
         "content-weak-language",
         context,
-        formats=ALL_INSTRUCTION_FORMATS,
+        repo_types=INSTRUCTION_REPO_TYPES,
         since_version="0.7.0",
     )
     assert (
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="99.0.0",
         )
         is False
@@ -450,7 +445,7 @@ def test_v_prefixed_version_does_not_crash_version_gate(temp_dir, tmp_path):
     assert config.is_rule_enabled(
         "content-weak-language",
         context,
-        formats=ALL_INSTRUCTION_FORMATS,
+        repo_types=INSTRUCTION_REPO_TYPES,
         since_version="0.7.0",
     )
 
@@ -465,7 +460,7 @@ def test_version_gates_new_rules(temp_dir):
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="0.7.0",
         )
         is False
@@ -484,7 +479,7 @@ def test_version_allows_matching_rules(temp_dir):
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="0.7.0",
         )
         is True
@@ -502,7 +497,7 @@ def test_explicit_true_overrides_version_gate(temp_dir):
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="0.7.0",
         )
         is True
@@ -520,7 +515,7 @@ def test_explicit_false_overrides_version(temp_dir):
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="0.7.0",
         )
         is False
@@ -539,7 +534,7 @@ def test_no_version_means_all_rules_active(temp_dir):
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="0.7.0",
         )
         is True
@@ -558,7 +553,7 @@ def test_severity_override_bypasses_version_gate(temp_dir):
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="0.7.0",
         )
         is True
@@ -579,7 +574,7 @@ def test_explicit_auto_overrides_version_gate(temp_dir):
         config.is_rule_enabled(
             "content-weak-language",
             context,
-            formats=ALL_INSTRUCTION_FORMATS,
+            repo_types=INSTRUCTION_REPO_TYPES,
             since_version="0.7.0",
         )
         is True
@@ -1168,6 +1163,24 @@ def test_content_paths_string_raises_valueerror(tmp_path):
 def test_content_paths_list_of_strings_ok(tmp_path):
     config = LinterConfig.from_file(_write(tmp_path, 'content-paths:\n  - "docs/*.md"\n'))
     assert config.content_paths == ["docs/*.md"]
+
+
+def test_lint_external_content_defaults_true_and_accepts_false(tmp_path):
+    default = LinterConfig.from_file(_write(tmp_path, 'version: "0.20.0"\n'))
+    assert default.lint_external_content is True
+
+    configured = LinterConfig.from_file(
+        _write(tmp_path, 'version: "0.20.0"\nlint-external-content: false\n')
+    )
+    assert configured.lint_external_content is False
+    assert configured.to_dict()["lint-external-content"] is False
+
+
+def test_lint_external_content_requires_boolean(tmp_path):
+    with pytest.raises(ValueError, match="'lint-external-content' must be a boolean"):
+        LinterConfig.from_file(
+            _write(tmp_path, 'version: "0.20.0"\nlint-external-content: remote-only\n')
+        )
 
 
 def test_exclude_non_string_items_raises_valueerror(tmp_path):

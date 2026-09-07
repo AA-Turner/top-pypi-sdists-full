@@ -1,11 +1,39 @@
 [build-system]
-requires = ["setuptools>=64.0"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name="fasttransform"
-requires-python=">=3.9"
-dynamic = [ "keywords", "description", "version", "dependencies", "optional-dependencies", "readme", "license", "authors", "classifiers", "entry-points", "scripts", "urls"]
+name = "fasttransform"
+dynamic = ["version"]
+description = "Transform is the main building block of data pipelines in fastai. And elsewhere if you want."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [{name = "Jeremy Howard and Rens Dimmendaal and Alexis Gallagher", email = "info@fast.ai"}]
+keywords = ['nbdev', 'jupyter', 'notebook', 'python']
+classifiers = ["Natural Language :: English", "Intended Audience :: Developers", "Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only"]
+dependencies = ['fastcore>=2.2.22', 'plum-dispatch<2.10']
 
-[tool.uv]
-cache-keys = [{ file = "pyproject.toml" }, { file = "settings.ini" }, { file = "setup.py" }]
+[project.urls]
+Repository = "https://github.com/AnswerDotAI/fasttransform"
+Documentation = "https://AnswerDotAI.github.io/fasttransform"
+
+[project.entry-points.nbdev]
+fasttransform = "fasttransform._modidx:d"
+
+[project.optional-dependencies]
+dev = ['matplotlib', 'numpy', 'pandas']
+
+[tool.setuptools.dynamic]
+version = {attr = "fasttransform.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["fasttransform"]
+
+[tool.nbdev]
+allowed_metadata_keys = ['solveit']
+allowed_cell_metadata_keys = ['solveit_ai']
+custom_sidebar = false
+
+[tool.chkstyle]
+skip_paths = ["_modidx.py"]

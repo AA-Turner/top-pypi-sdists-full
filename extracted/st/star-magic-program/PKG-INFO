@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: star-magic-program
-Version: 0.416.0
-Summary: Star-Magic UQFF calculator v0.416.0: THE ORIGIN POINTS SHIP - RULINGS Batches 5-8 + the B57 pointer set: 41 rulings folded, and the recalculate-first method ran the table - GW190425 chain EXACT, exp(-kappa*D/2) aether decay, magnetar three-channel timescales, S330 flavor closures R(D*) = 7/6*R_SM, Cabibbo dual closures at 0.008%, PAPER_1815 g-2 route live-verified, rho_crit forensic closure, eta-prime two-quantity split. Backlog 224 to 191. gate 6,051/0, acceptance 89/89.
+Version: 0.420.0
+Summary: Star-Magic UQFF calculator v0.420.0: THE CODE-TRUTH SHIP - Batches 21-25 (40 rulings): the PAPER_1182 Millennium set canonized with closure equations INDEPENDENTLY VERIFIED (five EXACT; Riemann canon = the true 10,000th zeta zero; BSD = the true Cremona 37a1 value); resonance tables superseded by the operational code chain on three witnesses; the Ubi namespace closes as one law with four faces; H0 = 70 everywhere; registry crosses 7,000 rows. 2,255 papers, gate 6,069/0, acceptance 89/89.
 Author-email: "Daniel T. Murphy" <daniel.murphy00@enrgyone.com>
 License: AGPL-3.0-or-later OR LicenseRef-StarMagic-Commercial
 Project-URL: Homepage, https://github.com/Daniel8Murphy0007/Star-Magic-Program
@@ -41,17 +41,17 @@ Dynamic: license-file
 
 # Star-Magic-Program
 
-[![PyPI version](https://img.shields.io/pypi/v/star-magic-program.svg?cacheBust=0.416.0)](https://pypi.org/project/star-magic-program/)
-[![Python versions](https://img.shields.io/pypi/pyversions/star-magic-program.svg?cacheBust=0.416.0)](https://pypi.org/project/star-magic-program/)
+[![PyPI version](https://img.shields.io/pypi/v/star-magic-program.svg?cacheBust=0.420.0)](https://pypi.org/project/star-magic-program/)
+[![Python versions](https://img.shields.io/pypi/pyversions/star-magic-program.svg?cacheBust=0.420.0)](https://pypi.org/project/star-magic-program/)
 [![Documentation Status](https://readthedocs.org/projects/star-magic-program/badge/?version=latest)](https://star-magic-program.readthedocs.io/en/latest/?badge=latest)
 [![License: AGPL-3.0 + Commercial](https://img.shields.io/badge/License-AGPL--3.0%20%2B%20Commercial-blue.svg)](LICENSE)
-[![Fidelity gate](https://img.shields.io/badge/fidelity_gate-6051%2F0-brightgreen)](uqff_fidelity_tests.py)
+[![Fidelity gate](https://img.shields.io/badge/fidelity_gate-6069%2F0-brightgreen)](uqff_fidelity_tests.py)
 [![Public surfaces](https://img.shields.io/badge/public_surfaces-2310-blue)](uqff_calculator.py)
 [![Whitepapers](https://img.shields.io/badge/whitepapers-2292-orange)](whitepapers/)
 
-**UQFF systematic rebuild — v0.416.0 complete-compile campaign live**
+**UQFF systematic rebuild — v0.420.0 complete-compile campaign live**
 
-**This release (v0.416.0): THE ORIGIN POINTS SHIP — the physics-backlog campaign at full method.** RULINGS Batches 5–8 plus the B57 pointer set: **41 rulings folded**, under Daniel's standing corrections now canonized in the gate — "9 times out of 10 it's not drift when you analyze the documents and run the calculations" and "everything has a derivation; the answers are in the corpus." Highlights: the GW190425 four-mechanism chain EXACT at 0.04% (slight SCm activation at 1e13 G), F_combined = exp(−κ·D/2) aether amplitude decay, the magnetar three-channel timescale split, the (1+F_TRZ²) single/double boost family on component sums, S330's exact-rational flavor closures (R(D*) = 7/6·R_SM at 0.34%), the Cabibbo dual closures at 0.008%/0.025% (PAPER_1800) with the AI-error convergence chain preserved as audit trail, PAPER_1815's g-2 route live-verified from the uqff-5.86.0 wheel, the ρ_crit forensic closure (PAPER_2156's mystery constant identified), the η′ two-quantity resolution from the source grok thread, K_CKM = 13/20 EXACT, and the 844-GeV two-route convergence. PAPER_026c re-ID'd per B52. **Totals: 2,255 wired (2,310 DISPATCH keys) / gate 6,051 green / 4,182 defs / acceptance 89 green / registry 6,856 rows / backlog 191 Daniel-gated + 1 prediction candidate / catalogue 52 public entries + operator tier. Next: Batch 9 (from Q-038).**
+**This release (v0.420.0): THE CODE-TRUTH SHIP — the corpus is measured against its own code and its own mathematics.** Batches 21–25 (40 rulings, B162–B201, + one sweep application). Three headlines: **the Millennium set is equation-verified** — PAPER_1182 canonized as THE canonical set after an independent verification pass: five closures recompute EXACT from primitives (Poincaré 7/12 = 1/2+F_TRZ·Φ_res; NS cap 0.85 = 1−F_TRZ·D_BSFG/D_phys; P≠NP F_TRZ⁹; Hodge D_phys+D_BSFG = SO_5; Riemann suppression ln10/Φ_res), the Riemann canon is the TRUE 10,000th zeta zero and the BSD canon the TRUE Cremona 37a1 L′-value, the K_Mex−1 misprint is corrected to the K_Mex−2 = 1/12 DPM-pair identity, and the four-way YM fork resolves onto 1.736 GeV — confirmed BY 1182's own falsifiable window; **the resonance tables are formally superseded by code truth** — three independent witnesses (unit test, decomposition, running fluid sim) establish 1.773e-9 as the operational value while Term 9 = 3GM²/r³ is canonized as the compressed-table generator (code == table == derived); and **the Ubi namespace closes** — one law with four scoped faces (galactic chain / local compact / DPM-moment / fluid Archimedes). Also: the 2.32 mm wormhole-throat landmark; E_vac,neb = ρ_UA and ρ_A = 1e-23 canonized; the containment doctrine ('UQFF contains DPM-seeded gravity') as the GR-relationship statement; the magnetospheric identification + photon-path scoping; k4 = 2.0 corpus-wide with the k1/k2/k3 source-document provenance canonized (May 2025 Final Equations, PAPER_2152 chain); H0 = 70 = A_5+SO_5 everywhere-standing; the Chandra B anchor for SGR 1745; F_U merger additivity (GW231123); the azeo void as the 2·F_TRZ family's 4th appearance; the 40/60 bridge primitive-locked to (D_phys, D_BSFG)/SO_5; ω_SCm = 1.25 THz as the one THz carrier; and the quasar-unbinding mechanism reconciled with the bound-state doctrine. **Registry crosses 7,000 rows.** Honest opens held; falsified outputs and circularities pinned by name throughout. **Totals: 2,255 wired (2,310 DISPATCH keys) / gate 6,069 green / 4,182 defs / acceptance 89 green / registry 7,000 rows / backlog 55 Daniel-gated + 1 prediction candidate / catalogue 52 public entries + operator tier. Next: Batch 26 (from Q-176).**
 
 Author: Daniel T. Murphy · Star-Magic Research Program
 License: AGPL-3.0-or-later OR Commercial
@@ -101,7 +101,7 @@ Mizuno, Rossi).
 Full framework physics lives in the whitepaper corpus — the physics is the
 whitepapers; the calculator computes what the whitepapers derive.
 
-## What is currently shipped (v0.416.0)
+## What is currently shipped (v0.420.0)
 
 ### Wiring campaign — LIVE (see `CLAUDE.md` charter)
 
@@ -118,7 +118,7 @@ Authorized 2026-07-28: autonomous band sessions, ship per session via
 
 **Flagship UQFF closed forms now individually callable** (v0.342.0–v0.343.0 predecessor mine): cosmological constant Λ = ρ_SCm·26!·25/12 = 5.957e-10 (Planck), proton mass 938.25 MeV and m_p/m_e = 1836 from integers, H₀ = A_5+SO_5 = 70 EXACT, Ω_Λ = 0.684, Universal Inertial Operator U_i = 2.75e-7 (Sun), Higgs vev 246 GeV, fine-structure α, electron g−2 = 0.001159652, Holmlid 630 eV / Coulomb 626 eV LENR chain, and **all 8 Clay Millennium closures** (Riemann, P≠NP, Yang-Mills=1.736, Poincaré=7/12, Navier-Stokes=0.85, Hodge=1.0, BSD, BH-info).
 
-Registry: **6,856 rows**. Fidelity gate: **6,051 assertions**, green. *(v0.285.0/v0.321.0 burned/yanked on PyPI.)*
+Registry: **7,000 rows**. Fidelity gate: **6,069 assertions**, green. *(v0.285.0/v0.321.0 burned/yanked on PyPI.)*
 
 | Paper | Content | Key result |
 |---|---|---|

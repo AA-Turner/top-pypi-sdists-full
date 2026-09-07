@@ -57,7 +57,7 @@ def broadcast_properties(f: "Callable[_P, _T]") -> "Callable[_P, _T]":
                 self._delegate.params,
                 self._delegate.distributions,
                 self._delegate.user_attrs,
-                self._delegate.system_attrs,
+                self._delegate.constraints,
                 self._delegate.datetime_start,
             )
 
@@ -69,7 +69,7 @@ def broadcast_properties(f: "Callable[_P, _T]") -> "Callable[_P, _T]":
                 self._params,
                 self._distributions,
                 self._user_attrs,
-                self._system_attrs,
+                self._constraints,
                 self._datetime_start,
             ) = self._call_and_communicate_obj(fetch_properties)
 
@@ -149,7 +149,7 @@ class TorchDistributedTrial(optuna.trial.BaseTrial):
         self._params = self._broadcast(getattr(self._delegate, "params", None))
         self._distributions = self._broadcast(getattr(self._delegate, "distributions", None))
         self._user_attrs = self._broadcast(getattr(self._delegate, "user_attrs", None))
-        self._system_attrs = self._broadcast(getattr(self._delegate, "system_attrs", None))
+        self._constraints = self._broadcast(getattr(self._delegate, "constraints", None))
         self._datetime_start = self._broadcast(getattr(self._delegate, "datetime_start", None))
 
     @broadcast_properties
@@ -262,16 +262,12 @@ class TorchDistributedTrial(optuna.trial.BaseTrial):
             raise err
 
     @broadcast_properties
-    @deprecated_func("3.1.0", "5.0.0")
-    def set_system_attr(self, key: str, value: Any) -> None:
+    def set_constraint(self, key: str, value: float) -> None:
         err = None
-
         if dist.get_rank(self._group) == 0:
             try:
                 assert self._delegate is not None
-                self._delegate.storage.set_trial_system_attr(  # type: ignore[attr-defined]
-                    self._delegate._trial_id, key, value  # type: ignore[attr-defined]
-                )
+                self._delegate.set_constraint(key, value)
             except Exception as e:
                 err = e
             err = self._broadcast(err)
@@ -298,9 +294,8 @@ class TorchDistributedTrial(optuna.trial.BaseTrial):
         return self._user_attrs
 
     @property
-    @deprecated_func("3.1.0", "5.0.0")
-    def system_attrs(self) -> dict[str, Any]:
-        return self._system_attrs
+    def constraints(self) -> dict[str, float]:
+        return self._constraints
 
     @property
     def datetime_start(self) -> datetime | None:

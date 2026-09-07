@@ -5,8 +5,3 @@ build-backend = "maturin"
 [project]
 name = "piot-fixture-zzz-python"
 dynamic = ["version"]
-
-[tool]
-
-[tool.maturin]
-manifest-path = "packages/python/Cargo.toml"

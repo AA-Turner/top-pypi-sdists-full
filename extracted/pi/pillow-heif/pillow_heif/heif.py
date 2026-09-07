@@ -1,5 +1,6 @@
 """Functions and classes for heif images to read and write."""
 
+from collections.abc import Iterator
 from copy import copy, deepcopy
 from io import SEEK_SET
 from threading import Lock
@@ -185,9 +186,14 @@ class HeifImage(BaseImage):
         pixel_aspect_ratio = c_image.pixel_aspect_ratio
         if pixel_aspect_ratio:
             self.info["pixel_aspect_ratio"] = pixel_aspect_ratio
-        for key in ("content_light_level", "mastering_display_colour_volume", "ambient_viewing_environment"):
+        for key in (
+            "content_light_level",
+            "mastering_display_colour_volume",
+            "ambient_viewing_environment",
+            "nominal_diffuse_white_luminance",  # 0 is a valid value for it
+        ):
             value = getattr(c_image, key)
-            if value:
+            if value is not None:
                 self.info[key] = value
         tiling = c_image.tiling
         if tiling:
@@ -404,18 +410,18 @@ class HeifFile:
     def __repr__(self):
         return f"<{self.__class__.__name__} with {len(self)} images: {[str(i) for i in self]}>"
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._images)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[HeifImage]:
         yield from self._images
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> HeifImage:
         if index < 0 or index >= len(self._images):
             raise IndexError(f"invalid image index: {index}")
         return self._images[index]
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: int) -> None:
         if key < 0 or key >= len(self._images):
             raise IndexError(f"invalid image index: {key}")
         del self._images[key]
@@ -486,6 +492,7 @@ class HeifFile:
             "content_light_level",
             "mastering_display_colour_volume",
             "ambient_viewing_environment",
+            "nominal_diffuse_white_luminance",
         ]:
             if key in image.info:
                 added_image.info[key] = deepcopy(image.info[key])

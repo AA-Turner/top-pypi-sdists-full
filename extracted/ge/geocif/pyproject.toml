@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.982"
+version = "0.4.992"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -27,7 +27,7 @@ dependencies = [
     "fiona",
     # gdal binary now comes from conda-forge (pixi); loose pin so the conda
     # libgdal build satisfies the editable self-dep. Was pinned to the cgohlke
-    # wheel 3.10.2 (win) / system libgdal 3.11.0 (HPC) — both obsolete under pixi.
+    # wheel 3.10.2 (win) / system libgdal 3.11.0 (HPC) â€” both obsolete under pixi.
     "gdal>=3.10",
     # NOTE: pyeogpr was removed as a dependency (2026-08-22). It was never
     # imported anywhere in geocif, AND it was deleted from PyPI (404), which
@@ -39,7 +39,7 @@ dependencies = [
     "shap>=0.48.0",
     # Pin numba >=0.59 (first version to officially support Python
     # 3.12). Without this, uv's resolver can pick numba==0.53.1
-    # through shap's unconstrained numba dep — and 0.53.1 only
+    # through shap's unconstrained numba dep â€” and 0.53.1 only
     # supports Python <3.10, so the install fails with
     # "RuntimeError: Cannot install on Python version 3.12.x".
     "numba>=0.59",
@@ -78,14 +78,14 @@ dependencies = [
     "libpysal>=4.10",         # spatial weights / lattice
     # ML pipeline alternative model backends (geocif/ml/trainers.py):
     "crepes>=0.6",            # conformal prediction wrappers
-    "cubist>=1.0",            # Cubist regression (1.0+ — 0.0.x is a separate pre-1.0 line)
+    "cubist>=1.0",            # Cubist regression (1.0+ â€” 0.0.x is a separate pre-1.0 line)
     "mapie>=0.8",             # prediction intervals
     "merf>=1.0",              # mixed-effects random forests
     "ngboost>=0.5",           # probabilistic gradient boosting
     "PyGRF>=0.0.12",          # Geographical Random Forest (pure-Python sdist;
                               # deps pandas/sklearn/scipy/libpysal/esda all already core)
-    "tabpfn-extensions>=0.4",  # TabPFN extras (0.4+ — stable line; 0.0.x was placeholder releases)
-    # NOTE: ydf + treeple were removed — compiled backends with no aarch64 wheels
+    "tabpfn-extensions>=0.4",  # TabPFN extras (0.4+ â€” stable line; 0.0.x was placeholder releases)
+    # NOTE: ydf + treeple were removed â€” compiled backends with no aarch64 wheels
     # (ydf needs Bazel, unbuildable on ARM). Their model branches in
     # ml/trainers.py ('ydf', 'oblique', 'desreg') raise a clear error if selected.
     # ML feature selection (geocif/ml/feature_selection.py):
@@ -108,7 +108,7 @@ dependencies = [
     # object is assigned into a float64 column (previously silently upcast to
     # object). The detrend / check_yield_trend path stores a statsmodels
     # RegressionResultsWrapper into a per-region column, which 3.0 rejects and
-    # 2.x tolerated — under pandas 3.0.5 EVERY LOOCV model task failed
+    # 2.x tolerated â€” under pandas 3.0.5 EVERY LOOCV model task failed
     # ("Invalid value '<...RegressionResultsWrapper>' for dtype 'float64'").
     # First hit on the gsapp18 pixi env 2026-07-31 when a re-solve pulled
     # pandas 3.0.5. Drop this pin once the object-into-float assignment sites
@@ -150,7 +150,7 @@ shap_fast = [
     # conflicts with shap>=0.48.0 (pins slicer==0.0.8). Users who pick the
     # SHAP selector install this extras group explicitly:
     #     pip install geocif[shap_fast]
-    # (This will downgrade shap to <0.48 in their env — accepted tradeoff
+    # (This will downgrade shap to <0.48 in their env â€” accepted tradeoff
     # for that selector.)
     "fasttreeshap>=0.1",
 ]
@@ -158,11 +158,11 @@ powershap = [
     # Used by ml/feature_selection.py only when
     # [ML] feature_selection = "PowerShap". Cannot ship as a core dep
     # because powershap>=0.0.10 pins shap>=0.45,<0.46 AND
-    # statsmodels>=0.13.2,<0.14.0 — both upper bounds conflict with
+    # statsmodels>=0.13.2,<0.14.0 â€” both upper bounds conflict with
     # geocif's core requirements (shap>=0.48, statsmodels>=0.14.6).
     # Users who pick the PowerShap selector install this group explicitly:
     #     pip install geocif[powershap]
-    # (This will downgrade shap to <0.46 AND statsmodels to <0.14 —
+    # (This will downgrade shap to <0.46 AND statsmodels to <0.14 â€”
     # bigger env tradeoff than shap_fast, hence its own group.)
     "powershap>=0.0.10",
 ]
@@ -183,7 +183,7 @@ geospann = [
 george = [
     # Used by ml/trainers.py only when [DEFAULT] models contains "george"
     # (GP regression via dfm/george). Optional because PyPI ships wheels for
-    # linux x86_64 / win_amd64 / macOS arm64 only — NO linux-aarch64 wheel,
+    # linux x86_64 / win_amd64 / macOS arm64 only â€” NO linux-aarch64 wheel,
     # so a core dep would force an sdist C++ build on ARM hosts (the same
     # failure mode that got ydf/treeple removed). conda-forge has binaries
     # for all our platforms:
@@ -215,7 +215,7 @@ include = ["geocif", "geocif.*"]
 include-package-data = true
 
 # ---------------------------------------------------------------------------
-# pixi (conda-forge) environment management — migrated off uv/PyPI.
+# pixi (conda-forge) environment management â€” migrated off uv/PyPI.
 #
 # Replaces THREE uv hacks that only existed to fight geospatial-on-PyPI:
 #   * [tool.uv.sources] cgohlke win_amd64 wheels  -> conda-forge native win-64
@@ -233,7 +233,7 @@ include-package-data = true
 #   pixi run -e dev pytest ; pixi install -e full   # extras
 #
 # The 4 intentionally-conflicting extras (shap_fast, powershap, geospaNN,
-# desreg) are NOT pixi features — they pin shap<0.46 / statsmodels<0.14 /
+# desreg) are NOT pixi features â€” they pin shap<0.46 / statsmodels<0.14 /
 # broken torch-scatter and need an isolated env. Keep installing those via
 # `pip install geocif[<extra>]` into a throwaway venv.
 # ---------------------------------------------------------------------------
@@ -268,7 +268,7 @@ matplotlib = "<3.11"
 numba = ">=0.59"
 scikit-learn = ">=1.4"
 scikit-image = "*"
-scikit-misc = ">=0.5.2"    # Fortran/C ext — no aarch64 PyPI wheel, so take from conda
+scikit-misc = ">=0.5.2"    # Fortran/C ext â€” no aarch64 PyPI wheel, so take from conda
 bottleneck = ">=1.3"
 catboost = ">=1.2.8"
 statsmodels = ">=0.14.6"
@@ -283,9 +283,9 @@ setuptools = "<81"
 
 [tool.pixi.pypi-dependencies]
 geocif = { path = ".", editable = true }
-# pygeoutil has a broken setup.py and is not on PyPI — install from git.
+# pygeoutil has a broken setup.py and is not on PyPI â€” install from git.
 pygeoutil = { git = "https://github.com/ritviksahajpal/pygeoutil.git" }
-# octvi (geoprepare NDVI/GCVI download) — local sibling checkout w/ GCVI Int32 fix.
+# octvi (geoprepare NDVI/GCVI download) â€” local sibling checkout w/ GCVI Int32 fix.
 octvi = { path = "../octvi", editable = true }
 
 [tool.pixi.environments]

@@ -76,7 +76,7 @@ fn plan_demands(contains: &[ContainsView]) -> Option<Vec<Demand<'_>>> {
     Some(demands)
 }
 
-/// Meet each demand inside the prefix where a position covers or can be narrowed toward it;
+/// Intersect each demand into the prefix where a position covers or can be narrowed toward it;
 /// what remains comes back as element schemas to append.
 fn carry_demands(
     demands: &[Demand<'_>],
@@ -175,7 +175,7 @@ pub(crate) fn draw_array(sampler: &Sampler<'_>, view: ArrayView) -> Option<Value
                 .schema
                 .negate()
                 .ok()
-                .and_then(|complement| narrowed.intersect(&complement).ok())?;
+                .and_then(|negation| narrowed.intersect(&negation).ok())?;
         }
         (narrowed.satisfiability() != Satisfiability::No).then_some(narrowed)
     });
@@ -308,7 +308,7 @@ impl ObjectDraw<'_> {
         if matchers.len() != patterns.len() {
             return None;
         }
-        let complement = additional.negate().ok();
+        let negation = additional.negate().ok();
         let rejects = node_validator(additional)?;
         for _ in 0..MAX_ATTEMPTS {
             let name = self.sampler.tc.draw(gs::text().max_size(5));
@@ -320,8 +320,42 @@ impl ObjectDraw<'_> {
             {
                 continue;
             }
-            let value = if let Some(complement) = &complement {
-                self.sampler.descend(complement)
+            let value = if let Some(negation) = &negation {
+                self.sampler.descend(negation)
+            } else {
+                let candidate = self.sampler.tc.draw(arbitrary_scalar());
+                (!rejects.is_valid(&candidate)).then_some(candidate)
+            };
+            let Some(value) = value else {
+                continue;
+            };
+            object.insert(name, value);
+            return Some(());
+        }
+        None
+    }
+
+    fn inject_pattern_violation(
+        &self,
+        object: &mut serde_json::Map<String, Value>,
+        pattern: &str,
+        schema: &CanonicalSchema,
+    ) -> Option<()> {
+        let names = jsonschema::canonical::options()
+            .with_draft(self.draft)
+            .canonicalize(&json!({"type": "string", "pattern": pattern}))
+            .ok()?;
+        let negation = schema.negate().ok();
+        let rejects = node_validator(schema)?;
+        for _ in 0..MAX_ATTEMPTS {
+            let Some(Value::String(name)) = self.sampler.descend(&names) else {
+                continue;
+            };
+            if object.contains_key(&name) {
+                continue;
+            }
+            let value = if let Some(negation) = &negation {
+                self.sampler.descend(negation)
             } else {
                 let candidate = self.sampler.tc.draw(arbitrary_scalar());
                 (!rejects.is_valid(&candidate)).then_some(candidate)
@@ -448,6 +482,9 @@ pub(crate) fn draw_object(sampler: &Sampler<'_>, draft: Draft, view: &ObjectView
                 additional,
             } => {
                 draw.inject_undeclared_violation(&mut object, names, patterns, additional)?;
+            }
+            ObjectViolationView::PatternValueFails { pattern, schema } => {
+                draw.inject_pattern_violation(&mut object, pattern, schema)?;
             }
         }
     }

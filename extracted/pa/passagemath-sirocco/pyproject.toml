@@ -2,11 +2,11 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.8.10.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.8.10.0',
-    'passagemath-environment ~= 10.8.10.0',
-    'passagemath-modules ~= 10.8.10.0',
-    'cython >=3.1.0,<3.3.0',
+    'passagemath-conf ~= 10.8.11.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.11.0',
+    'passagemath-environment ~= 10.8.11.0',
+    'passagemath-modules ~= 10.8.11.0',
+    'cython >=3.1.0,<3.4.0',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
     'pkgconfig',
 ]
@@ -17,7 +17,7 @@ name = "passagemath-sirocco"
 description = "passagemath: Certified root continuation with sirocco"
 dependencies = [
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
-    'passagemath-modules ~= 10.8.10.0',
+    'passagemath-modules ~= 10.8.11.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"
@@ -59,12 +59,12 @@ content-type = "text/x-rst"
 
 [project.optional-dependencies]
 test = [
-     'passagemath-combinat ~= 10.8.10.0',
-     'passagemath-graphs ~= 10.8.10.0',
-     'passagemath-groups ~= 10.8.10.0',
-     'passagemath-polyhedra ~= 10.8.10.0',
-     'passagemath-repl ~= 10.8.10.0',
-     'passagemath-schemes ~= 10.8.10.0',
+     'passagemath-combinat ~= 10.8.11.0',
+     'passagemath-graphs ~= 10.8.11.0',
+     'passagemath-groups ~= 10.8.11.0',
+     'passagemath-polyhedra ~= 10.8.11.0',
+     'passagemath-repl ~= 10.8.11.0',
+     'passagemath-schemes ~= 10.8.11.0',
 ]
 
 [tool.setuptools]

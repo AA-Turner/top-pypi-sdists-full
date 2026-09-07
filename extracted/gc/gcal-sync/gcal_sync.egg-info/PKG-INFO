@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcal_sync
-Version: 9.1.0
+Version: 9.1.1
 Summary: A python library for syncing Google Calendar to local storage
 Author-email: Allen Porter <allen.porter@gmail.com>
 License-Expression: Apache-2.0

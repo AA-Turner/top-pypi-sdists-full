@@ -431,10 +431,18 @@ class ResponsesOutputMixin:
             )
 
     def _map_response_stop_reason(self, response: Any) -> LlmStopReason:
+        for item in getattr(response, "output", []) or []:
+            if getattr(item, "type", None) == "message" and any(
+                getattr(part, "type", None) == "refusal"
+                for part in getattr(item, "content", []) or []
+            ):
+                return LlmStopReason.SAFETY
         status = getattr(response, "status", None)
         if status == "incomplete":
             details = getattr(response, "incomplete_details", None)
             reason = getattr(details, "reason", None) if details else None
+            if reason == "content_filter":
+                return LlmStopReason.SAFETY
             if reason == "max_output_tokens":
                 return LlmStopReason.MAX_TOKENS
         return LlmStopReason.END_TURN

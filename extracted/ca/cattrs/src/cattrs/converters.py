@@ -15,6 +15,11 @@ from attrs import Attribute, resolve_types
 from attrs import has as attrs_has
 from typing_extensions import Self
 
+try:
+    from annotationlib import ForwardRef as AnnotationForwardRef
+except ImportError:
+    AnnotationForwardRef = None
+
 from ._compat import (
     ANIES,
     FrozenSetSubscriptable,
@@ -79,6 +84,7 @@ from .dispatch import (
 )
 from .enums import enum_structure_factory, enum_unstructure_factory
 from .errors import (
+    CattrsError,
     IterableValidationError,
     IterableValidationNote,
     StructureHandlerNotFoundError,
@@ -86,11 +92,13 @@ from .errors import (
 from .fns import Predicate, identity, raise_error
 from .gen import (
     AttributeOverride,
+    HeteroTupleStructureFn,
     HeteroTupleUnstructureFn,
     IterableUnstructureFn,
     MappingUnstructureFn,
     make_dict_structure_fn,
     make_dict_unstructure_fn,
+    make_hetero_tuple_structure_fn,
     make_hetero_tuple_unstructure_fn,
 )
 from .gen.typeddicts import make_dict_structure_fn as make_typeddict_dict_struct_fn
@@ -435,6 +443,7 @@ class BaseConverter:
                     self._unstructure_func.register_func_list(
                         [(predicate, factory, True)]
                     )
+                return factory
 
             return decorator
 
@@ -573,6 +582,7 @@ class BaseConverter:
                     self._structure_func.register_func_list(
                         [(predicate, factory, True)]
                     )
+                return factory
 
             return decorator
         self._structure_func.register_func_list(
@@ -708,7 +718,7 @@ class BaseConverter:
     @staticmethod
     def _structure_simple_literal(val, type):
         if val not in type.__args__:
-            raise Exception(f"{val} not in literal {type}")
+            raise CattrsError(f"{val} not in literal {type}")
         return val
 
     @staticmethod
@@ -717,7 +727,7 @@ class BaseConverter:
         try:
             return vals[val]
         except KeyError:
-            raise Exception(f"{val} not in literal {type}") from None
+            raise CattrsError(f"{val} not in literal {type}") from None
 
     def _structure_newtype(self, val: UnstructuredValue, type) -> StructuredValue:
         base = get_newtype_base(type)
@@ -896,10 +906,18 @@ class BaseConverter:
     def _structure_optional(self, obj, union):
         if obj is None:
             return None
+        if AnnotationForwardRef is not None and isinstance(union, AnnotationForwardRef):
+            union = union.evaluate()
         union_params = union.__args__
         other = union_params[0] if union_params[1] is NoneType else union_params[1]
         # We can't actually have a Union of a Union, so this is safe.
         return self._structure_func.dispatch(other)(obj, other)
+
+    def gen_structure_hetero_tuple(self, cl: Any) -> HeteroTupleStructureFn:
+        """Generate a heterogeneous tuple structure function."""
+        return make_hetero_tuple_structure_fn(
+            cl, self, detailed_validation=self.detailed_validation
+        )
 
     def _structure_tuple(self, obj: Iterable, tup: type[T]) -> T:
         """Deal with structuring into a tuple."""
@@ -909,7 +927,7 @@ class BaseConverter:
             # Just a Tuple. (No generic information.)
             return tuple(obj)
         if has_ellipsis:
-            # We're dealing with a homogenous tuple, tuple[int, ...]
+            # We're dealing with a homogeneous tuple, tuple[int, ...]
             tup_type = tup_params[0]
             conv = self._structure_func.dispatch(tup_type)
             if self.detailed_validation:
@@ -934,7 +952,7 @@ class BaseConverter:
                 return tuple(res)
             return tuple(conv(e, tup_type) for e in obj)
 
-        # We're dealing with a heterogenous tuple.
+        # We're dealing with a heterogeneous tuple.
         exp_len = len(tup_params)
         if self.detailed_validation:
             errors = []
@@ -1110,7 +1128,7 @@ class Converter(BaseConverter):
             if FrozenSetSubscriptable not in co:
                 co[FrozenSetSubscriptable] = co[OriginAbstractSet]
 
-        # abc.MutableSet overrrides, if defined, apply to sets
+        # abc.MutableSet overrides, if defined, apply to sets
         if OriginMutableSet in co and set not in co:
             co[set] = co[OriginMutableSet]
 
@@ -1170,6 +1188,11 @@ class Converter(BaseConverter):
             is_frozenset,
             lambda cl: self.gen_unstructure_iterable(cl, unstructure_to=frozenset),
         )
+        if AnnotationForwardRef is not None:
+            self.register_unstructure_hook_factory(
+                lambda t: isinstance(t, AnnotationForwardRef),
+                lambda t: self.get_unstructure_hook(t.evaluate()),
+            )
         self.register_unstructure_hook_factory(
             is_optional, self.gen_unstructure_optional
         )
@@ -1182,12 +1205,20 @@ class Converter(BaseConverter):
         )
 
         self.register_structure_hook_factory(is_annotated, self.gen_structure_annotated)
+        self.register_structure_hook_factory(
+            is_hetero_tuple, self.gen_structure_hetero_tuple
+        )
         self.register_structure_hook_factory(is_mapping, self.gen_structure_mapping)
         self.register_structure_hook_factory(is_counter, self.gen_structure_counter)
         self.register_structure_hook_factory(
             is_defaultdict, defaultdict_structure_factory
         )
         self.register_structure_hook_factory(is_typeddict, self.gen_structure_typeddict)
+        if AnnotationForwardRef is not None:
+            self.register_structure_hook_factory(
+                lambda t: isinstance(t, AnnotationForwardRef),
+                lambda t: self.get_structure_hook(t.evaluate()),
+            )
         self.register_structure_hook_factory(
             lambda t: get_newtype_base(t) is not None, self.get_structure_newtype
         )

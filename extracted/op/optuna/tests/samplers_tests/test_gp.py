@@ -16,7 +16,6 @@ import optuna._gp.optim_mixed as optim_mixed
 import optuna._gp.prior as prior
 import optuna._gp.search_space as gp_search_space
 from optuna.samplers import GPSampler
-from optuna.samplers._base import _CONSTRAINTS_KEY
 from optuna.trial import FrozenTrial
 
 
@@ -63,7 +62,7 @@ def test_constraints_func(constraint_value: float, n_objectives: int) -> None:
         return (constraint_value + trial.number,)
 
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", optuna.exceptions.ExperimentalWarning)
+        warnings.simplefilter("ignore", FutureWarning)
         sampler = GPSampler(n_startup_trials=2, constraints_func=constraints_func)
 
     def objective(trial: optuna.Trial) -> float | tuple[float, float]:
@@ -79,7 +78,7 @@ def test_constraints_func(constraint_value: float, n_objectives: int) -> None:
     assert len(study.trials) == n_trials
     assert constraints_func_call_count == n_trials
     for trial in study.trials:
-        for x, y in zip(trial.system_attrs[_CONSTRAINTS_KEY], (constraint_value + trial.number,)):
+        for x, y in zip(trial.constraints.values(), (constraint_value + trial.number,)):
             assert x == y
 
 
@@ -91,7 +90,7 @@ def test_constraints_func_nan(n_objectives: int) -> None:
         return (float("nan"),)
 
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore", optuna.exceptions.ExperimentalWarning)
+        warnings.simplefilter("ignore", FutureWarning)
         sampler = GPSampler(n_startup_trials=2, constraints_func=constraints_func)
 
     def objective(
@@ -111,7 +110,7 @@ def test_constraints_func_nan(n_objectives: int) -> None:
     assert len(trials) == 1  # The error stops optimization, but completed trials are recorded.
     assert all(0 <= x <= 1 for x in trials[0].params.values())  # The params are normal.
     assert trials[0].values == list(objective(trials[0]))  # The values are normal.
-    assert trials[0].system_attrs[_CONSTRAINTS_KEY] is None  # None is set for constraints.
+    assert len(trials[0].constraints) == 0  # No constraints are set.
 
 
 def test_behavior_without_greenlet(monkeypatch: pytest.MonkeyPatch) -> None:

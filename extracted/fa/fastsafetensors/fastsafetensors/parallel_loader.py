@@ -4,7 +4,7 @@ import os
 import queue
 import threading
 import time
-from typing import Any, Callable, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union
 
 try:
     from tqdm.auto import tqdm
@@ -18,7 +18,8 @@ except ImportError:
 
 
 from . import cpp as fstcpp
-from .common import SingleGroup
+from ._planner import plan_chunks
+from .common import SafeTensorsMetadata, SingleGroup
 from .frameworks import FrameworkOpBase
 from .loader import BaseSafeTensorsFileLoader, SafeTensorsFileLoader
 
@@ -135,10 +136,16 @@ class PipelineParallel:
         # queue_size semantics:
         #   -1 : fully serial — copy_files → broadcast → copy_files (1 batch in GPU mem)
         #    0 : unbuffered pipeline — 1 copying + 1 broadcasting concurrently (2 batches)
-        #   >0 : buffered pipeline — up to (queue_size+1) batches in GPU mem
+        #   >0 : buffered pipeline — up to (queue_size+2) batches in GPU mem
+        #        (queue_size queued + 1 being produced + 1 being consumed)
         queue_size: int = 0,
         use_tqdm_on_load: bool = True,
         tensor_filter: Optional[Callable[[str], bool]] = None,
+        max_batch_bytes: Optional[int] = None,
+        use_chunk_budget_as_allocation_size: bool = False,
+        device_memory_budget: Optional[int] = None,
+        accumulate_resident: bool = True,
+        resident_tensor: Optional[Callable[[str], bool]] = None,
         **kwargs,
     ):
 
@@ -168,15 +175,67 @@ class PipelineParallel:
         self.max_concurrent_producers = max_concurrent_producers
         self.queue_size = queue_size
         self.use_tqdm_on_load = use_tqdm_on_load
+        # When set, each shard is loaded in sub-file chunks (span <= this many
+        # bytes) so peak device buffer per rank is bounded regardless of shard
+        # size. See _planner.plan_chunks / CopierInterface.set_chunk.
+        self.max_batch_bytes = max_batch_bytes
+        if use_chunk_budget_as_allocation_size and (
+            max_batch_bytes is None and device_memory_budget is None
+        ):
+            raise ValueError(
+                "use_chunk_budget_as_allocation_size requires max_batch_bytes or "
+                "device_memory_budget"
+            )
+        self.use_chunk_budget_as_allocation_size = use_chunk_budget_as_allocation_size
+        # When set (bytes), bound the load's TOTAL device footprint (resident
+        # tensors + transient buffers) via a static fit plan: whole-file loads
+        # while headroom is ample, per-file chunk budgets declining as the
+        # device fills. The caller picks the number -- it knows what else lives
+        # on the device and, under broadcast loading, must pass the same value
+        # on every rank (e.g. all-reduce(MIN) of each rank's free memory) so
+        # the plan stays identical across ranks. See fastsafetensors._planner.
+        self.device_memory_budget = device_memory_budget
+        # True: the consumer keeps every yielded tensor (resident grows by
+        # cumulative kept bytes). False: tensors are copied into preallocated
+        # destinations (e.g. model params) so resident growth is 0 and the fit
+        # plan degenerates to a uniform per-file budget.
+        self.accumulate_resident = accumulate_resident
+        if resident_tensor is not None and not accumulate_resident:
+            raise ValueError(
+                "resident_tensor requires accumulate_resident=True: "
+                "accumulate_resident=False charges no residency at all, so the "
+                "predicate would be silently discarded"
+            )
+        # Which kept tensors stay on the device after the load. None: all of
+        # them. Must be a pure function of the tensor name and identical on
+        # every rank -- see collect_file_stats.
+        #
+        # The plan reserves one chunk budget for a live non-resident yield, so
+        # the consumer must relocate each such tensor before asking for the
+        # next. Holding several at once overruns that reservation.
+        self.resident_tensor = resident_tensor
 
-        # Batch files
+        # Single-process yields borrow the file buffer and require a clone.
+        self.need_clone = pg.size() == 1
+
+        # Before _create_batches, which reports any queue_size clamp.
+        self.print_log = os.getenv("FASTSAFETENSORS_DEBUG", "false").lower() == "true"
+        self.log_prefix = f"PG{pg.rank() if pg is not None else 0}"
+
+        # Batch files (or, with max_batch_bytes / device_memory_budget,
+        # sub-file chunk-batches)
         self.weight_files_batches = self._create_batches(pg)
 
         # Producer-consumer communication
         # For unbuffered behavior (queue_size=0), we use a maxsize of 1 to ensure synchronization
         # but modify the producer logic to wait for consumer to process before producing next
+        # self.queue_size, not the parameter: _create_batches may have clamped
+        # it, and the runtime handshake paths read the attribute. Sizing these
+        # from the parameter would run the pipeline deeper than it was budgeted
+        # for -- a clamp from 3 to -1 would leave consumer_processed None and
+        # skip the serial handshake entirely.
         self.batch_queue: queue.Queue[Union[FileBatch, Exception, None]] = queue.Queue(
-            maxsize=max(1, queue_size)
+            maxsize=max(1, self.queue_size)
         )  # Ensure at least size 1
         self.stop_event = threading.Event()
         self.error_event = threading.Event()
@@ -184,21 +243,14 @@ class PipelineParallel:
 
         # For unbuffered behavior, we need additional synchronization
         self.consumer_processed: Optional[threading.Event] = (
-            threading.Event() if queue_size <= 0 else None
+            threading.Event() if self.queue_size <= 0 else None
         )
-        if queue_size <= 0 and self.consumer_processed is not None:
+        if self.queue_size <= 0 and self.consumer_processed is not None:
             self.consumer_processed.set()  # Initially set to allow first production
-
-        # Logging setup - get from environment variable, default to False
-        self.print_log = os.getenv("FASTSAFETENSORS_DEBUG", "false").lower() == "true"
-        self.log_prefix = f"PG{pg.rank() if pg is not None else 0}"
-        # When pg.size() == 1, tensors reference the underlying gbuf memory
-        # which will be freed in fb.close(). Clone to ensure data survives.
-        self.need_clone = pg.size() == 1 if pg is not None else True
 
         fstcpp.set_gil_release(True)
 
-    def _create_batches(self, pg) -> List[List[str]]:
+    def _create_batches(self, pg) -> List[List[Any]]:
         """Create file batches based on distributed settings.
 
         In distributed mode, files are grouped by the process group size so that
@@ -212,10 +264,134 @@ class PipelineParallel:
                             files for all processes in the group
         """
         batch_size = pg.size()
-        return [
+        file_batches = [
             self.hf_weights_files[i : i + batch_size]
             for i in range(0, len(self.hf_weights_files), batch_size)
         ]
+        if self.max_batch_bytes is None and self.device_memory_budget is None:
+            return file_batches
+
+        keep = self.loader._tensor_filter
+        fw = self.loader.framework
+
+        # Per-file chunk budget. Uniform (max_batch_bytes) by default; with
+        # device_memory_budget, a static fit plan chooses declining budgets so
+        # resident + transient stays within the budget (see planner module).
+        per_file_budget: Optional[Dict[str, int]] = None
+        meta_by_path: Dict[str, SafeTensorsMetadata] = {}
+        if self.device_memory_budget is not None:
+            from ._planner import (
+                collect_file_stats,
+                fit_queue_size,
+                has_non_resident,
+                load_depth,
+                plan_file_budgets,
+            )
+
+            metas = [
+                (f, SafeTensorsMetadata.from_file(f, fw)) for f in self.hf_weights_files
+            ]
+            stats = collect_file_stats(metas, keep, self.resident_tensor)
+            # A clone of a yielded tensor only needs its own budget when it is
+            # transient. With a residency predicate that is a property of the
+            # plan, not a caller-supplied bool: reserve iff some kept bytes do
+            # not stay resident.
+            account_for_yield_clone = self.need_clone and (
+                not self.accumulate_resident or has_non_resident(stats)
+            )
+            # How much transient device memory a live chunk costs is the
+            # copier's own business (e.g. the unified copier's mmap+pin
+            # fallback pins the chunk's pages alongside the device buffer,
+            # costing 2x span on a shared physical pool), so ask it.
+            copier = self.loader.copier_class
+            multiplier = copier.chunk_transient_multiplier([f for f, _ in metas])
+            # Too small a budget for the requested depth is a reason to load
+            # more shallowly, not to fail: the budget comes from free memory at
+            # load time while queue_size is static, so nobody can pick the right
+            # depth in advance. Inputs are header-derived and the budget is
+            # identical on every rank, so all ranks clamp alike -- the lockstep
+            # broadcast needs no collective to agree.
+            fitted = fit_queue_size(
+                self.queue_size,
+                stats,
+                self.device_memory_budget,
+                max_batch_bytes=self.max_batch_bytes,
+                accumulate_resident=self.accumulate_resident,
+                transient_multiplier=multiplier,
+                group_size=batch_size,
+                account_for_yield_clone=account_for_yield_clone,
+            )
+            if fitted is None:
+                # No depth fits. Plan serially anyway, so the error reports the
+                # smallest shortfall -- the bytes the user must actually free.
+                self.queue_size = -1
+            elif fitted < self.queue_size:
+                self._log_message(
+                    f"device_memory_budget={self.device_memory_budget} does not "
+                    f"fit queue_size={self.queue_size}; loading with "
+                    f"queue_size={fitted} instead. Free device memory or raise "
+                    f"the budget to keep a deeper pipeline.",
+                    is_error=True,  # a silent throughput cut is worse
+                )
+                self.queue_size = fitted
+            # batch_size also sets the group width: those files load together,
+            # one per rank, and every rank keeps all of them.
+            depth = load_depth(self.queue_size, batch_size)
+            budgets = plan_file_budgets(
+                stats,
+                self.device_memory_budget,
+                depth,
+                max_batch_bytes=self.max_batch_bytes,
+                accumulate_resident=self.accumulate_resident,
+                transient_multiplier=multiplier,
+                group_size=batch_size,
+                account_for_yield_clone=account_for_yield_clone,
+            )
+            per_file_budget = {f: b for (f, _), b in zip(metas, budgets)}
+            meta_by_path = dict(metas)
+
+        # Expand each file-batch (one file per rank) into aligned chunk-batches.
+        # Chunk-batch j holds rank r's j-th chunk (or None once that rank's file
+        # runs out), so every rank issues the same broadcast sequence in
+        # lockstep. Header reads are deterministic, so all ranks build identical
+        # batches. Each shard stays owned by one rank and is loaded in chunks
+        # over successive batches -> peak buffer bounded by its budget per rank.
+        def _plan_file(
+            f: str,
+        ) -> Tuple[List[Tuple[Set[str], List[Tuple[int, int]]]], int]:
+            if per_file_budget is not None:
+                budget = per_file_budget[f]
+                return (
+                    plan_chunks(meta_by_path[f], budget, keep_tensor=keep),
+                    budget,
+                )
+            assert self.max_batch_bytes is not None
+            return (
+                plan_chunks(
+                    SafeTensorsMetadata.from_file(f, fw),
+                    self.max_batch_bytes,
+                    keep_tensor=keep,
+                ),
+                self.max_batch_bytes,
+            )
+
+        chunk_batches: List[List[Any]] = []
+        for group in file_batches:
+            planned = [(f, *_plan_file(f)) for f in group]
+            maxn = max((len(chunks) for _, chunks, _ in planned), default=0)
+            for j in range(maxn):
+                spec: List[Any] = []
+                for f, chunks, budget in planned:
+                    if j < len(chunks):
+                        names, ranges = chunks[j]
+                        allocation_size = (
+                            budget if self.use_chunk_budget_as_allocation_size else None
+                        )
+                        spec.append((f, names, ranges, allocation_size))
+                    else:
+                        spec.append(None)
+                chunk_batches.append(spec)
+        return chunk_batches
 
     def _log_message(self, message: str, is_error: bool = False):
         """Unified logging method for conditional print statements.
@@ -229,7 +405,68 @@ class PipelineParallel:
     def _log_error(self, message: str):
         self._log_message(message, is_error=True)
 
-    def _load_single_batch(self, batch_id: int, file_list: List[str]):
+    def _wait_consumer_processed(self) -> bool:
+        """Wait for the consumer to finish the previous batch, cancellable.
+
+        Returns False once cleanup has begun (stop_event set), so the producer
+        abandons the batch instead of blocking forever when the consumer stops
+        iterating mid-batch. The timeout only bounds how long a missed wakeup
+        could linger; cleanup also sets consumer_processed for an instant wakeup.
+        """
+        assert self.consumer_processed is not None
+        while not self.stop_event.is_set():
+            if self.consumer_processed.wait(timeout=0.1):
+                return not self.stop_event.is_set()
+        return False
+
+    def _put_cancellable(self, item: Union[FileBatch, Exception, None]) -> bool:
+        """Queue put that gives up once cleanup has begun.
+
+        A plain put() can block forever when the consumer stopped iterating
+        mid-batch (queue full, nobody left to get). Returns False if the item
+        was not delivered.
+        """
+        while not self.stop_event.is_set():
+            try:
+                self.batch_queue.put(item, timeout=0.1)
+                return True
+            except queue.Full:
+                continue
+        return False
+
+    def _drain_queue(self):
+        """Discard queued items, closing any file buffers the consumer never took."""
+        while True:
+            try:
+                item = self.batch_queue.get_nowait()
+            except queue.Empty:
+                return
+            if isinstance(item, FileBatch):
+                item.fb.close()
+
+    def _spec_to_maps(self, spec: List[Any]):
+        """Turn a batch spec into (rank_file_map, chunk_plan).
+
+        Without sub-file chunking (neither max_batch_bytes nor
+        device_memory_budget set) the spec is a list of files (one per rank).
+        With it, the spec is a chunk-batch: per rank, either
+        (file, names, ranges, allocation_size) or None.
+        """
+        if self.max_batch_bytes is None and self.device_memory_budget is None:
+            return {i: [f] for i, f in enumerate(spec)}, None
+        rank_file_map: Dict[int, List[str]] = {}
+        chunk_plan: Dict[str, Tuple[Set[str], List[Tuple[int, int]], Optional[int]]] = (
+            {}
+        )
+        for r, entry in enumerate(spec):
+            if entry is None:
+                continue
+            f, names, ranges, allocation_size = entry
+            rank_file_map[r] = [f]
+            chunk_plan[f] = (names, ranges, allocation_size)
+        return rank_file_map, chunk_plan
+
+    def _load_single_batch(self, batch_id: int, file_list: List[Any]):
         """Load a single batch into device memory.
 
         This method handles the complete process of loading a batch of files:
@@ -253,19 +490,18 @@ class PipelineParallel:
             return
 
         try:
-            # Prepare file mapping
-            rank_file_map = {i: [f] for i, f in enumerate(file_list)}
+            rank_file_map, chunk_plan = self._spec_to_maps(file_list)
 
             with TimingContext("add_filenames", self._log_message, batch_id) as timer:
                 self.loader.add_filenames(rank_file_map)
+                if chunk_plan is not None:
+                    self.loader._set_chunk_plan(chunk_plan)
             add_filenames_time = timer.elapsed_ms
 
             # For unbuffered behavior, wait for consumer to process previous item
             if self.queue_size <= 0 and self.consumer_processed is not None:
-                if not self.consumer_processed.wait():
-                    raise TimeoutError(
-                        "can not waiting for consumer to process previous batch"
-                    )
+                if not self._wait_consumer_processed():
+                    return  # cleanup began; skip the batch
                 # Clear the event after wait to ensure next wait will block
                 self.consumer_processed.clear()
 
@@ -285,15 +521,17 @@ class PipelineParallel:
             batch.load_time = add_filenames_time + copy_time  # Total load time
 
             # Put into queue for consumer processing
-            if not self.stop_event.is_set():
-                self.batch_queue.put(batch)
+            if self._put_cancellable(batch):
                 with TimingContext("loader.reset", self._log_message, batch_id):
                     self.loader.reset()
+            else:
+                # Consumer is gone; release the batch's device memory.
+                fb.close()
 
         except Exception as e:
             self.error_info = f"Producer batch {batch_id} failed: {e}"
             self.error_event.set()
-            self.batch_queue.put(e)  # Notify consumer of error
+            self._put_cancellable(e)  # Notify consumer of error
 
     def _producer_worker(self):
         """Producer worker thread: responsible for copy_files_to_device operations.
@@ -316,10 +554,10 @@ class PipelineParallel:
             if not self.error_event.is_set():
                 self.error_info = f"Producer future failed: {e}"
                 self.error_event.set()
-                self.batch_queue.put(e)
+                self._put_cancellable(e)
 
         # Signal end of production
-        self.batch_queue.put(None)
+        self._put_cancellable(None)
 
     def _consume_single_batch(self):
         with TimingContext("wait_queue", self._log_message) as timer:
@@ -421,9 +659,20 @@ class PipelineParallel:
         try:
             yield from self._consumer_worker()
         finally:
-            # Cleanup work
+            # Cleanup: the consumer may stop mid-iteration (generator closed,
+            # exception), leaving the producer parked on consumer_processed or
+            # a full queue. Wake both so it observes stop_event and exits.
             self.stop_event.set()
+            if self.consumer_processed is not None:
+                self.consumer_processed.set()
+            self._drain_queue()
             producer_thread.join(timeout=5)
+            if producer_thread.is_alive():
+                self._log_error(
+                    "producer thread still running after close (it exits "
+                    "once any in-flight copy completes)"
+                )
+            self._drain_queue()
 
     def close(self):
         self.loader.close()
@@ -442,7 +691,8 @@ class ParallelLoader(PipelineParallel):
         max_concurrent_producers (int): Maximum number of concurrent producer threads
                                        for file loading. Currently only 1 is supported.
         queue_size (int): Size of the queue for buffering loaded file batches.
-                         Set to 0 for unbuffered behavior.
+                         Set to -1 for serial loading or 0 for an unbuffered
+                         pipeline. Automatically reduced to fit device_memory_budget.
         use_tqdm_on_load (bool): Enable progress bar during loading.
         device (str): Target device for tensor loading (e.g., "cpu", "cuda:0").
         bbuf_size_kb (int): Bounce buffer size for file copies in KB.
@@ -464,8 +714,34 @@ class ParallelLoader(PipelineParallel):
                          broadcast (e.g. expert-parallel slicing). The EP
                          rank/size for the filter come from the real
                          distributed world, independent of the loader's group.
+        max_batch_bytes (Optional[int]): Maximum sub-file chunk span in bytes.
+                         Must fit the largest selected tensor; tensors are not split.
+        use_chunk_budget_as_allocation_size (bool): Allocate chunks at their
+                         planner budget to improve caching-allocator reuse.
+                         Requires max_batch_bytes or device_memory_budget.
+                         Custom copiers must accept allocation_size as the
+                         third set_chunk argument; legacy signatures raise TypeError.
+        device_memory_budget (Optional[int]): Budget for resident tensors and
+                         transient load buffers, in bytes per rank. Broadcast
+                         ranks must pass the same value. Reserve allocator
+                         rounding, copier fixed pools, and external memory separately.
+        accumulate_resident (bool): Whether yielded tensors remain resident
+                         (default True). Set False when copying them into
+                         destinations allocated before loading. With True,
+                         resident_tensor selects which tensors count as resident.
+        resident_tensor (Optional[Callable[[str], bool]]): Identify yielded
+                         tensors retained on the device. None counts all tensors.
+                         Requires accumulate_resident=True. This only controls
+                         accounting; the consumer must relocate and release each
+                         non-resident tensor before requesting the next tensor.
+                         Under broadcast, it must be a pure function of the name
+                         with identical results on every rank.
 
-    Additional GPU memory consumption: (max_concurrent_producers + queue_size) * file_size
+    The pipeline holds up to 1 chunk buffer per rank for queue_size=-1, otherwise
+    queue_size+2. Broadcast receive tensors, yield clones, and copier staging
+    memory require additional space. If even serial loading cannot fit the
+    memory budget, raises BudgetInfeasibleError (a ValueError subclass exported
+    from fastsafetensors).
     To reduce GPU memory consumption, re-accessing tensors that have already been accessed is prohibited.
 
     Examples:
@@ -492,6 +768,11 @@ class ParallelLoader(PipelineParallel):
         framework="pytorch",
         tensor_filter: Optional[Callable[[str], bool]] = None,
         all_local: bool = False,
+        max_batch_bytes: Optional[int] = None,
+        use_chunk_budget_as_allocation_size: bool = False,
+        device_memory_budget: Optional[int] = None,
+        accumulate_resident: bool = True,
+        resident_tensor: Optional[Callable[[str], bool]] = None,
         **kwargs,
     ):
         """Initialize PipelineParallelLoader with a pre-configured SafeTensorsFileLoader.
@@ -535,5 +816,10 @@ class ParallelLoader(PipelineParallel):
             queue_size,
             use_tqdm_on_load,
             tensor_filter=tensor_filter,
+            max_batch_bytes=max_batch_bytes,
+            use_chunk_budget_as_allocation_size=(use_chunk_budget_as_allocation_size),
+            device_memory_budget=device_memory_budget,
+            accumulate_resident=accumulate_resident,
+            resident_tensor=resident_tensor,
             **kwargs,
         )

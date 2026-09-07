@@ -1,14 +1,10 @@
-"""
-Repository context detection and management
-"""
+"""Repository context detection and management."""
 
 from __future__ import annotations
 
-from enum import Enum
 from pathlib import Path
-from typing import Iterator, Optional, List, Dict, Any, Set, Tuple, TYPE_CHECKING
+from typing import Optional, List, Dict, Any, Set, Tuple, TYPE_CHECKING
 import logging
-import os
 
 # Safe to import at module top: discovery and formats.codex pull in nothing
 # from skillsaw.context, so no import cycle while ``context`` is mid-import.
@@ -24,10 +20,24 @@ from .formats.codex import (
 )
 from .discovery import detect as detect_discovery
 from .discovery.excludes import pattern_variants as _pattern_variants
-from .discovery.excludes import path_matches_patterns
+from .discovery.excludes import is_root_or_ancestor_excluded, path_matches_patterns
 from .paths import safe_is_dir, safe_resolve
 from .utils import read_yaml
+from .repository_external_content import RepositoryExternalContentMixin
+from .repository_grok import RepositoryGrokMixin
+from .repository_antigravity import RepositoryAntigravityMixin
+from .repository_mcp_registry import RepositoryMcpRegistryMixin
 from .repository_provenance import PluginProvenance, RepositoryProvenanceMixin
+from .repository_scan import RepositoryScanMixin
+
+# Re-exported here: ``skillsaw.context`` has always been the import site for
+# the repository vocabulary, and rules and plugins read it from there.
+from .repository_types import (  # noqa: F401
+    INSTRUCTION_REPO_TYPES,
+    SKILL_REPO_TYPES,
+    TOOL_REPO_TYPES,
+    RepositoryType,
+)
 
 if TYPE_CHECKING:
     from .lint_target import LintTarget
@@ -35,65 +45,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class RepositoryType(Enum):
-    """Type of repository"""
-
-    SINGLE_PLUGIN = "single-plugin"  # Single plugin at repo root
-    MARKETPLACE = "marketplace"  # Marketplace with multiple plugins
-    AGENTSKILLS = "agentskills"  # agentskills.io skill repo
-    DOT_CLAUDE = "dot-claude"  # .claude/ directory with commands, skills, hooks, etc.
-    CODERABBIT = "coderabbit"  # Repository with .coderabbit.yaml
-    APM = "apm"  # Repository with .apm/ directory (Agent Package Manager)
-    PROMPTFOO = "promptfoo"  # Repository with promptfoo eval configs
-    CODEX_PLUGIN = "codex-plugin"  # OpenAI Codex plugin (.codex-plugin/plugin.json)
-    CODEX_MARKETPLACE = "codex-marketplace"  # .agents/plugins/marketplace.json
-    AGENT_PLUGIN = "agent-plugin"  # Portable Agent Plugins plugin.json
-    UNKNOWN = "unknown"  # Not a recognized repo type
-
-
-# Repository types whose lint tree can hold Agent Skills. One shared set so a
-# newly supported host cannot be wired into some skill rules and forgotten in
-# the rest. The Codex types belong here because Codex plugins ship
-# ``skills/<name>/SKILL.md`` in the same format, and a catalog repository's
-# plugin skills are discovered whether or not CODEX_PLUGIN was also inferred.
-SKILL_REPO_TYPES = {
-    RepositoryType.AGENTSKILLS,
-    RepositoryType.SINGLE_PLUGIN,
-    RepositoryType.MARKETPLACE,
-    RepositoryType.DOT_CLAUDE,
-    RepositoryType.CODEX_PLUGIN,
-    RepositoryType.CODEX_MARKETPLACE,
-    RepositoryType.AGENT_PLUGIN,
-}
-
-
-HAS_CURSOR = "HAS_CURSOR"
-HAS_COPILOT = "HAS_COPILOT"
-HAS_CLINE = "HAS_CLINE"
-HAS_GEMINI = "HAS_GEMINI"
-HAS_QWEN = "HAS_QWEN"
-HAS_AGENTS_MD = "HAS_AGENTS_MD"
-HAS_KIRO = "HAS_KIRO"
-HAS_CLAUDE_MD = "HAS_CLAUDE_MD"
-HAS_CODERABBIT = "HAS_CODERABBIT"
-# Formats whose repositories may hold one of ``INSTRUCTION_FILES``. HAS_CLINE
-# is deliberately absent: the instruction-file rules only ever look at
-# AGENTS.md/CLAUDE.md/GEMINI.md/QWEN.md, so a .clinerules-only repository
-# would auto-enable two rules structurally incapable of finding anything.
-ALL_INSTRUCTION_FORMATS = frozenset(
-    {
-        HAS_CURSOR,
-        HAS_COPILOT,
-        HAS_GEMINI,
-        HAS_QWEN,
-        HAS_AGENTS_MD,
-        HAS_KIRO,
-        HAS_CLAUDE_MD,
-        HAS_CODERABBIT,
-    }
-)
-
-
+# Gates Codex *plugin* discovery under an explicit ``--type``. CODEX_PROJECT
+# is absent on purpose: ``.codex/hooks.json`` and ``.codex/config.toml`` are
+# project configuration, not a plugin claim, so forcing it must not make
+# skillsaw walk catalogs.
 _CODEX_TYPES = {RepositoryType.CODEX_PLUGIN, RepositoryType.CODEX_MARKETPLACE}
 
 # Distinguishes "not computed yet" from a computed ``None`` (the install
@@ -101,12 +56,15 @@ _CODEX_TYPES = {RepositoryType.CODEX_PLUGIN, RepositoryType.CODEX_MARKETPLACE}
 _UNSET = object()
 
 
-class RepositoryContext(RepositoryProvenanceMixin):
-    """
-    Context information about the repository being linted
-
-    Automatically detects repository type and gathers relevant metadata.
-    """
+class RepositoryContext(
+    RepositoryScanMixin,
+    RepositoryMcpRegistryMixin,
+    RepositoryExternalContentMixin,
+    RepositoryGrokMixin,
+    RepositoryAntigravityMixin,
+    RepositoryProvenanceMixin,
+):
+    """Detected repository metadata used during linting."""
 
     _INSTRUCTION_FILENAMES = ("AGENTS.md", "CLAUDE.md", "GEMINI.md", "QWEN.md")
 
@@ -121,10 +79,32 @@ class RepositoryContext(RepositoryProvenanceMixin):
         # convention is a Codex plugin first, not an agentskills.io repo.
         RepositoryType.CODEX_MARKETPLACE,
         RepositoryType.CODEX_PLUGIN,
+        RepositoryType.GROK_MARKETPLACE,
+        RepositoryType.GROK_PLUGIN,
+        RepositoryType.ANTIGRAVITY_PLUGIN,
         RepositoryType.AGENT_PLUGIN,
         RepositoryType.AGENTSKILLS,
+        RepositoryType.MCP_REGISTRY,
         RepositoryType.CODERABBIT,
         RepositoryType.PROMPTFOO,
+        # Tool configuration sorts below everything that describes how the
+        # repository packages its content, so a marketplace that also ships
+        # a `.cursor/` keeps `marketplace` as its primary type.
+        RepositoryType.CODEX_PROJECT,
+        RepositoryType.MUSE,
+        RepositoryType.GROK_PROJECT,
+        RepositoryType.CURSOR,
+        RepositoryType.COPILOT,
+        RepositoryType.CLINE,
+        RepositoryType.DEVIN,
+        RepositoryType.OPENCODE,
+        RepositoryType.ANTIGRAVITY,
+        RepositoryType.KIRO,
+        RepositoryType.SKILLS_LOCK,
+        RepositoryType.CLAUDE_MD,
+        RepositoryType.AGENTS_MD,
+        RepositoryType.GEMINI,
+        RepositoryType.QWEN,
     ]
 
     # Compiled output directories that APM generates from .apm/ sources.
@@ -133,6 +113,10 @@ class RepositoryContext(RepositoryProvenanceMixin):
     # APM only writes a directory when its target is listed, so a project
     # with ``targets: [claude]`` and a hand-authored ``.cursor/`` has
     # authored content there, not generated output.
+    # ``.opencode`` is also a native tool's own directory, and the evidence
+    # that decides between the two readings is APM's rather than OpenCode's:
+    # a repository with no ``.apm/`` and no ``apm.yml`` never consults this
+    # table at all. See docs/repo-types.md, "OpenCode and APM".
     APM_COMPILED_DIR_TARGETS = {
         ".claude": "claude",
         ".cursor": "cursor",
@@ -148,25 +132,33 @@ class RepositoryContext(RepositoryProvenanceMixin):
         repo_types: Optional[Set[RepositoryType]] = None,
         exclude_patterns: Optional[List[str]] = None,
         content_paths: Optional[List[str]] = None,
+        lint_external_content: bool = True,
     ):
         """
         Initialize repository context
 
         Args:
             root_path: Root directory of the repository
-            repo_types: Optional explicit repository type override.
+            repo_types: Optional explicit repository type override. It
+                replaces packaging-type detection; the tool types a checkout
+                configures are still detected and unioned in.
             exclude_patterns: Glob patterns (from config) filtering discovered
                 plugins/skills/instruction files. Prefer passing them here so
                 discovery results are filtered from the start, rather than
                 mutating the attribute and calling :meth:`apply_excludes`.
             content_paths: Extra content glob patterns (from config) picked up
                 by the lint tree.
+            lint_external_content: Whether externally sourced nodes should be
+                attached to the lint tree.
         """
         self.root_path = safe_resolve(root_path) or root_path
         self.content_paths: List[str] = list(content_paths) if content_paths else []
+        self.lint_external_content = lint_external_content
         self.exclude_patterns: List[str] = list(exclude_patterns) if exclude_patterns else []
         self._pattern_variants_cache: Dict[str, Tuple[str, ...]] = {}
-        self.has_apm = self._detect_apm()
+        self._excluded_cache: Dict[Path, bool] = {}
+        self._excluded_cache_patterns: Tuple[str, ...] = ()
+        self.has_apm = detect_discovery.has_apm(self.root_path)
         self._scan: Optional[detect_discovery.RepositoryScan] = None
         self._apm_compiled_roots: Optional[Set[Path]] = None
         self._apm_targets: Any = _UNSET  # frozenset once read; None = unknown
@@ -178,6 +170,7 @@ class RepositoryContext(RepositoryProvenanceMixin):
         self._agent_plugin_roots: Optional[Set[Path]] = None
         self._contained_plugin_roots: Optional[Set[Path]] = None
         self._agent_plugin_claims: Optional[Set[Path]] = None
+        self._init_mcp_registry(repo_types)
         self._provenance_cache: Dict[Path, PluginProvenance] = {}
         # Views over _provenance_cache, invalidated with it: keeping them
         # beside it is what makes their lifetimes match the records they
@@ -214,11 +207,19 @@ class RepositoryContext(RepositoryProvenanceMixin):
         self.agent_plugins: List[Path] = (
             self._discover_agent_plugins() if self._agent_plugin_discovery_enabled else []
         )
+        self._init_grok(repo_types)
+        self._init_antigravity(repo_types)
+        # An explicit ``--type`` answers "how is this content packaged", and
+        # ``_refresh_tool_types()`` keeps it authoritative for that half while
+        # still folding in the tools the checkout configures.
+        self._overridden_types: Optional[Set[RepositoryType]] = (
+            set(repo_types) if repo_types is not None else None
+        )
+        # Types describing how content is packaged. The tool types are folded
+        # in by ``_refresh_tool_types()`` once instruction-file discovery has
+        # run — an AGENTS.md is evidence of a tool, and it is not found yet.
         self.repo_types: Set[RepositoryType] = (
             set(repo_types) if repo_types is not None else self._detect_types()
-        )
-        logger.info(
-            "Detected repo types: %s", ", ".join(t.value for t in self.repo_types) or "none"
         )
         self.marketplace_data = self._load_marketplace() if self.has_marketplace() else None
         self.plugin_metadata: Dict[Path, Dict[str, Any]] = {}
@@ -232,7 +233,6 @@ class RepositoryContext(RepositoryProvenanceMixin):
         self.plugins = self._discover_plugins()
         self.skills: List[Path] = self._discover_skills()
         self.instruction_files: List[Path] = self._discover_instruction_files()
-        self.detected_formats: Set[str] = set()
         # Plugin-contributed extension state, registered by the Linter after
         # plugin loading (see Linter._register_plugin_extensions).
         self.plugin_repo_types: Set[str] = set()
@@ -251,10 +251,13 @@ class RepositoryContext(RepositoryProvenanceMixin):
         # shared context (e.g. two Linters over one context) are no-ops.
         self._plugin_extensions_registered = False
         self._lint_tree: Optional["LintTarget"] = None
-        # Excludes must be applied before format detection so excluded files
-        # (e.g. *.instructions.md under an excluded directory) don't flip
-        # format flags like HAS_COPILOT.
+        # Excludes must be applied before tool detection so excluded files
+        # (e.g. *.instructions.md under an excluded directory) don't add a
+        # repository type like ``copilot``.
         self.apply_excludes()
+        logger.info(
+            "Detected repo types: %s", ", ".join(sorted(t.value for t in self.repo_types)) or "none"
+        )
 
     @property
     def lint_tree(self) -> "LintTarget":
@@ -288,8 +291,21 @@ class RepositoryContext(RepositoryProvenanceMixin):
         return sorted(names)
 
     def is_path_excluded(self, path: Path) -> bool:
-        """Check if a path matches any exclude pattern."""
-        return self.matches_patterns(path, self.exclude_patterns)
+        """Check if a path matches any exclude pattern.
+
+        Results are cached per path since tree construction and violation filtering
+        frequently query the same files. If ``exclude_patterns`` is modified, the cache
+        automatically resets.
+        """
+        patterns = tuple(self.exclude_patterns)
+        if patterns != self._excluded_cache_patterns:
+            self._excluded_cache_patterns = patterns
+            self._excluded_cache = {}
+        verdict = self._excluded_cache.get(path)
+        if verdict is None:
+            verdict = self.matches_patterns(path, self.exclude_patterns)
+            self._excluded_cache[path] = verdict
+        return verdict
 
     def pattern_variants(self, pattern: str) -> Tuple[str, ...]:
         """Expand one pattern once for this repository context."""
@@ -375,7 +391,11 @@ class RepositoryContext(RepositoryProvenanceMixin):
             self.plugins = [p for p in self.plugins if not self.is_path_excluded(p)]
             self.codex_plugins = [p for p in self.codex_plugins if not self.is_path_excluded(p)]
             self.agent_plugins = [p for p in self.agent_plugins if not self.is_path_excluded(p)]
-            self.skills = [p for p in self.skills if not self.is_path_excluded(p)]
+            self.skills = [
+                p
+                for p in self.skills
+                if not is_root_or_ancestor_excluded(p, self.root_path, self.is_path_excluded)
+            ]
             self.instruction_files = [
                 p for p in self.instruction_files if not self.is_path_excluded(p)
             ]
@@ -420,6 +440,8 @@ class RepositoryContext(RepositoryProvenanceMixin):
                 self.skills = [
                     skill for skill in self.skills if not self._under_any(skill, dropped_roots)
                 ]
+        if not self.skills and self._overridden_types is None:
+            self.repo_types.discard(RepositoryType.AGENTSKILLS)
         # The claim set folds in both plugin roots and catalog sources, and
         # excludes can drop either — always recompute on the next consult.
         # The unconditional clear is also load-bearing for __init__ ordering:
@@ -430,86 +452,43 @@ class RepositoryContext(RepositoryProvenanceMixin):
         self._codex_evidence = None
         self._agent_plugin_claims = None
         self._agent_plugin_roots = None
-        self._contained_plugin_roots = None
+        self._reset_grok_caches(filtering=bool(self.exclude_patterns))
+        self._reset_antigravity_caches(filtering=bool(self.exclude_patterns))
+        self._contained_plugin_roots = self._mcp_registry_paths = None
         self._provenance_cache.clear()
         self._format_scope_cache.clear()
-        self.detected_formats = self._detect_formats()
+        self.reset_external_content_provenance()
+        self._refresh_tool_types()
         self._lint_tree = None
 
-    def _discover_instruction_files(self) -> List[Path]:
-        """Discover instruction files at the repo root and named .instructions.md files.
+    def _refresh_tool_types(self) -> None:
+        """Fold committed tool configuration into the detected types.
 
-        Finds:
-        - Root-level AGENTS.md, CLAUDE.md, GEMINI.md, QWEN.md
-        - Any ``*.instructions.md`` files anywhere in the repo tree (Copilot
-          named instruction files such as ``coding.instructions.md``)
+        Runs at the end of ``__init__`` — tool evidence includes AGENTS.md
+        and friends, which are not discovered when the packaging types are
+        worked out — and again whenever a caller mutates
+        ``exclude_patterns``, so an exclude added after construction takes
+        that tool's rules with it.
 
-        Shares one filesystem walk with :meth:`agent_tool_dirs`.
+        An explicit ``--type`` is the operator's answer to how the content is
+        *packaged*, and it stays authoritative for that: every forced type
+        survives, including a tool type the checkout has no marker for, so
+        ``--type muse`` runs the Muse rules on a repository that has yet to
+        commit ``.muse/hooks.json``. It is not an answer to which tools the
+        checkout configures, so the detected tool types are unioned in rather
+        than replaced — otherwise ``--type marketplace`` would quietly switch
+        off every tool-gated rule and leave rules that read
+        ``RepositoryType.X in context.repo_types`` reading a stale set.
         """
-        return list(self._repository_scan().instruction_files)
-
-    def _repository_scan(self) -> detect_discovery.RepositoryScan:
-        """Return the cached single-pass walk of the repository."""
-        if self._scan is None:
-            self._scan = detect_discovery.scan_repository(
-                self.root_path, self._INSTRUCTION_FILENAMES
-            )
-        return self._scan
-
-    def agent_tool_dirs(self, name: str) -> List[Path]:
-        """Return every non-excluded directory called *name* in the repository.
-
-        Cursor (``.cursor``), Copilot/VS Code (``.github``) and Cline
-        (``.clinerules``) all read their customizations from the nearest
-        enclosing directory, so a monorepo package may carry its own
-        alongside the repository root's.
-        """
-        return [
-            path
-            for path in self._repository_scan().tool_dirs.get(name, ())
-            if not self.is_path_excluded(path)
-        ]
-
-    def legacy_editor_files(self, name: str) -> List[Path]:
-        """Every non-excluded *name* file in the repository.
-
-        Cursor and Cline read their pre-directory instruction file from the
-        nearest enclosing directory, exactly as they read `.cursor/` and
-        `.clinerules/`, so a monorepo package carries its own. Detection and
-        attachment both read this, so they cannot disagree about a nested one.
-        """
-        return [
-            path
-            for path in self._repository_scan().legacy_editor_files.get(name, ())
-            if not self.is_path_excluded(path)
-        ]
-
-    def _detect_formats(self) -> Set[str]:
-        return detect_discovery.instruction_formats(
-            self.root_path,
-            self.instruction_files,
-            self.is_path_excluded,
-            self._repository_scan().tool_dirs,
-            self._repository_scan().legacy_editor_files,
-        )
-
-    _WALK_SKIP_DIRS = frozenset(
-        {
-            ".git",
-            ".hg",
-            ".svn",
-            "node_modules",
-            ".venv",
-            "venv",
-            "__pycache__",
-            ".tox",
-            ".mypy_cache",
-        }
-    )
-
-    def _detect_apm(self) -> bool:
-        """Check if this repository uses the APM (Agent Package Manager) format"""
-        return detect_discovery.has_apm(self.root_path)
+        detected = {RepositoryType(value) for value in self._detect_tool_type_values()}
+        if self._overridden_types is not None:
+            self.repo_types = set(self._overridden_types) | detected
+        else:
+            self.repo_types = (self.repo_types - TOOL_REPO_TYPES) | detected
+        if len(self.repo_types) > 1:
+            self.repo_types.discard(RepositoryType.UNKNOWN)
+        elif not self.repo_types:
+            self.repo_types.add(RepositoryType.UNKNOWN)
 
     def _detect_types(self) -> Set[RepositoryType]:
         """Detect all applicable repository types.
@@ -518,13 +497,17 @@ class RepositoryContext(RepositoryProvenanceMixin):
         that also has a .coderabbit.yaml).  SINGLE_PLUGIN and MARKETPLACE are
         mutually exclusive (elif chain), but everything else is independent.
         """
+        scan = self._repository_scan()
         types = {
             RepositoryType(label)
             for label in detect_discovery.marker_types(
                 self.root_path,
                 apm=self.has_apm,
                 should_skip=self._should_skip_dir,
-                walk_files=self._walk_files,
+                promptfoo_named_files=scan.promptfoo_named_files,
+                promptfoo_eval_files=scan.promptfoo_eval_files,
+                tool_dirs=scan.tool_dirs,
+                is_excluded=self.is_path_excluded,
             )
         }
 
@@ -546,6 +529,14 @@ class RepositoryContext(RepositoryProvenanceMixin):
             types.add(RepositoryType.CODEX_PLUGIN)
         if self.agent_plugins:
             types.add(RepositoryType.AGENT_PLUGIN)
+        if self.has_grok_marketplace():
+            types.add(RepositoryType.GROK_MARKETPLACE)
+        if self.grok_plugins:
+            types.add(RepositoryType.GROK_PLUGIN)
+        if self.antigravity_plugin_roots():
+            types.add(RepositoryType.ANTIGRAVITY_PLUGIN)
+        if self.mcp_registry_server_paths():
+            types.add(RepositoryType.MCP_REGISTRY)
 
         if not types:
             types.add(RepositoryType.UNKNOWN)
@@ -577,27 +568,28 @@ class RepositoryContext(RepositoryProvenanceMixin):
             # ecosystem has positive evidence explaining the directory. A
             # portable Agent Plugins claim counts only when it lives under
             # plugins/ itself — a package declared at the repository root
-            # says nothing about why plugins/ exists.
+            # says nothing about why plugins/ exists. Grok's catalog is asked
+            # of the root for the same reason, and Codex's is root-anchored
+            # already: a package's own catalog at
+            # ``packages/foo/.grok-plugin/marketplace.json`` explains that
+            # package's directory, not the repository's.
             resolved_plugins = safe_resolve(plugins_dir)
             agent_plugin_claims_plugins_dir = resolved_plugins is not None and any(
                 claim.is_relative_to(resolved_plugins) for claim in self._agent_plugin_claim_set()
             )
-            return not self.codex_catalog_exists() and not agent_plugin_claims_plugins_dir
+            return (
+                not self.codex_catalog_exists()
+                and not self.grok_root_catalog_exists()
+                and not agent_plugin_claims_plugins_dir
+            )
         return any(
             not (provenance := self.provenance(item)).ecosystems or provenance.claude
             for item in children
         )
 
-    def _walk_files(self, root: Path) -> Iterator[Path]:
-        """Yield all files under *root*, pruning ``_WALK_SKIP_DIRS`` directories."""
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in self._WALK_SKIP_DIRS]
-            for f in filenames:
-                yield Path(dirpath) / f
-
-    def _should_skip_dir(self, item: Path) -> bool:
-        """True if *item* is not a directory worth recursing into."""
-        return not item.is_dir() or item.name.startswith(".") or item.name in self._WALK_SKIP_DIRS
+    #: Filesystem traversal policy lives in discovery; context keeps the
+    #: predicate name used by its stateful orchestration.
+    _should_skip_dir = staticmethod(detect_discovery.should_skip_dir)
 
     def has_marketplace(self) -> bool:
         """Check if repository has a marketplace"""
@@ -712,7 +704,18 @@ class RepositoryContext(RepositoryProvenanceMixin):
         holds only Claude-style directories and reports zero for a
         manifest-only Codex catalog or a portable Agent Plugins collection.
         """
-        return merge_plugin_dirs(self.plugins, self.codex_plugins, self.agent_plugins)
+        return merge_plugin_dirs(
+            self.plugins,
+            self.codex_plugins,
+            self.agent_plugins,
+            self.grok_plugins,
+            # Both spellings: the direct list keeps its unresolved path for
+            # display, and the claim union adds the plugins a
+            # ``plugins.json`` registry names, which are counted nowhere
+            # else. ``merge_plugin_dirs`` dedupes by resolved path.
+            self.antigravity_plugins,
+            self.antigravity_plugin_roots(),
+        )
 
     def codex_marketplace_paths(self) -> List[Path]:
         """Every discovered Codex marketplace manifest."""
@@ -858,37 +861,6 @@ class RepositoryContext(RepositoryProvenanceMixin):
         """Return merged manifest and marketplace plugin metadata."""
         return claude_discovery.plugin_metadata(
             plugin_path, self.plugin_metadata, self.marketplace_entries
-        )
-
-    def _discover_skills(self) -> List[Path]:
-        """Discover Agent Skills through the state-free Claude discovery seam."""
-        recursive_agent_plugins = [
-            plugin
-            for plugin in self.agent_plugin_roots()
-            if (provenance := self.provenance(plugin)).claude or provenance.codex
-        ]
-        return claude_discovery.discover_skills(
-            self.root_path,
-            agentskills=RepositoryType.AGENTSKILLS in self.repo_types,
-            # A plugins/* layout can cause legacy Claude discovery to list an
-            # Agent-only sibling. Only an actual Claude declaration permits
-            # recursive Claude skill discovery for a portable package.
-            plugins=[
-                plugin
-                for plugin in self.plugins
-                if not self.provenance(plugin).agent_plugin or self.provenance(plugin).claude
-            ],
-            codex_plugins=self.codex_plugins,
-            # Declaration-invariant roots keep portable skills visible under
-            # an unrelated ``--type`` override while still enforcing their
-            # fixed immediate-child discovery semantics.
-            agent_plugins=self.agent_plugin_roots(),
-            recursive_agent_plugins=recursive_agent_plugins,
-            in_apm_compiled_dir=self.in_apm_compiled_dir,
-            should_skip=self._should_skip_dir,
-            claim_boundary=self._contained_plugin_claim_boundary,
-            containment_claims_possible=self._contained_plugin_claims_possible,
-            is_containment_plugin=self._is_containment_plugin,
         )
 
     def __str__(self):

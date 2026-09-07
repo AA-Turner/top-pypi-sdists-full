@@ -2,14 +2,14 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.8.10.0',
-    'cython >=3.1.0,<3.3.0',
+    'passagemath-setup ~= 10.8.11.0',
+    'cython >=3.1.0,<3.4.0',
     'pkgconfig',
-    'passagemath-environment ~= 10.8.10.0',
-    'passagemath-categories ~= 10.8.10.0',
-    'passagemath-flint ~= 10.8.10.0',
-    'passagemath-gap ~= 10.8.10.0',
-    'passagemath-modules ~= 10.8.10.0',
+    'passagemath-environment ~= 10.8.11.0',
+    'passagemath-categories ~= 10.8.11.0',
+    'passagemath-flint ~= 10.8.11.0',
+    'passagemath-gap ~= 10.8.11.0',
+    'passagemath-modules ~= 10.8.11.0',
 ]
 build-backend = "setuptools.build_meta"
 
@@ -17,9 +17,9 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-groups"
 description = "passagemath: Groups and Invariant Theory"
 dependencies = [
-    'passagemath-categories ~= 10.8.10.0',
-    'passagemath-gap ~= 10.8.10.0',
-    'passagemath-modules ~= 10.8.10.0',
+    'passagemath-categories ~= 10.8.11.0',
+    'passagemath-gap ~= 10.8.11.0',
+    'passagemath-modules ~= 10.8.11.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"
@@ -60,12 +60,12 @@ file = "README.rst"
 content-type = "text/x-rst"
 
 [project.optional-dependencies]
-test            = ['passagemath-repl ~= 10.8.10.0',]
+test            = ['passagemath-repl ~= 10.8.11.0',]
 
 # extras by packages
-coxeter3        = ['passagemath-coxeter3 ~= 10.8.10.0',]
+coxeter3        = ['passagemath-coxeter3 ~= 10.8.11.0',]
 gap             = []  # no extra needed
-gap3            = ['passagemath-gap3 ~= 10.8.10.0',]
+gap3            = ['passagemath-gap3 ~= 10.8.11.0',]
 
 # extras by groups_catalog
 additive        = []  # no extra needed
@@ -76,8 +76,8 @@ permutation     = []  # no extra needed
 presentation    = []  # no extra needed
 
 # extras by other features
-representations = ['passagemath-combinat ~= 10.8.10.0',]
-semigroups      = ['passagemath-combinat ~= 10.8.10.0',]
+representations = ['passagemath-combinat ~= 10.8.11.0',]
+semigroups      = ['passagemath-combinat ~= 10.8.11.0',]
 
 # the whole package
 standard        = ["passagemath-groups[additive,matrix,representations,semigroups]"]

@@ -1941,6 +1941,7 @@ def _mark_notified_local(
         EVENT_NEEDS_ATTENTION,
         EVENT_PLAN,
         EVENT_REFUSED_POLICY,
+        EVENT_REFUSED_PREMISE,
         EVENT_STALLED,
         EVENT_STUCK,
     )
@@ -1995,6 +1996,16 @@ def _mark_notified_local(
         # #2234's own headline defect one layer further down the stack.
         sql.execute(conn,
             "UPDATE assignments SET status='refused_policy', finished_at=? WHERE assignment_id=?",
+            (now, assignment_id),
+        )
+    elif event == EVENT_REFUSED_PREMISE:
+        # #3164: mirrors the EVENT_REFUSED_POLICY branch immediately above,
+        # for the same reason — without this, the just-posted "Refused —
+        # Issue Premise False Or Unmet" GitHub comment would be followed by
+        # this same call falling into the bare `else` below and overwriting
+        # the classification back to `status='failed'`.
+        sql.execute(conn,
+            "UPDATE assignments SET status='refused_premise', finished_at=? WHERE assignment_id=?",
             (now, assignment_id),
         )
     else:
@@ -2992,6 +3003,12 @@ def update_assignment_cost(assignment_id: str, cost_usd: float) -> None:
     Idempotent: UPDATE fires only when cost_usd is NULL or the stored value
     is lower (first-writer-wins / monotone).  Silently does nothing when the
     row doesn't exist — callers shouldn't have to coordinate.
+
+    #3158: also stamps ``cost_capture_state='captured'`` in the SAME UPDATE
+    — a real, positive cost is definitionally "captured", and doing it here
+    (rather than as a separate write from each of this function's many call
+    sites) means every caller gets the tri-state column right for free, with
+    no chance of the two columns drifting apart.
     """
     if not assignment_id:
         return
@@ -3019,9 +3036,67 @@ def _update_assignment_cost_local(assignment_id: str, cost_usd: float) -> None:
     # collision that a short retry would have ridden out.
     def _write() -> None:
         sql.execute(conn,
-            "UPDATE assignments SET cost_usd=? WHERE assignment_id=? "
-            "AND (cost_usd IS NULL OR cost_usd < ?)",
+            "UPDATE assignments SET cost_usd=?, cost_capture_state='captured' "
+            "WHERE assignment_id=? AND (cost_usd IS NULL OR cost_usd < ?)",
             (cost_usd, assignment_id, cost_usd),
+        )
+        conn.commit()
+
+    retry_on_locked(_write)
+
+
+def mark_cost_unmeasured(assignment_id: str) -> None:
+    """#3158: record that a terminal assignment's log has been fully
+    re-parsed and genuinely carries no cost data — routes to the daemon
+    when set, exactly like :func:`update_assignment_cost`.
+
+    This is the OTHER half of the tri-state: "un-measured" (this) versus
+    "uncaptured" (``cost_usd`` and ``cost_capture_state`` both still NULL —
+    nobody has looked yet). Never overwrites a real captured cost or an
+    already-recorded state — see :func:`_mark_cost_unmeasured_local`'s
+    guard. Silently does nothing when the row doesn't exist.
+    """
+    if not assignment_id:
+        return
+    svc = _board_service()
+    resp = _route_assignment_patch(
+        svc, assignment_id, {"cost_capture_state": "unmeasured"},
+        rpc_endpoint="/assignment-usage",
+    )
+    if resp is not None:
+        return
+    _mark_cost_unmeasured_local(assignment_id)
+
+
+def _mark_cost_unmeasured_local(assignment_id: str) -> None:
+    """Write ``cost_capture_state='unmeasured'`` directly to the local DB.
+
+    Called by the daemon endpoint. Guarded to only fire when ``cost_usd IS
+    NULL OR cost_usd = 0`` (never downgrade a real, positive captured cost)
+    and ``cost_capture_state IS NULL`` (never clobber an already-recorded
+    state, 'captured' or otherwise) — a caller that already parsed a
+    positive cost calls :func:`update_assignment_cost` instead, never both.
+
+    The ``cost_usd = 0`` half of the guard matters for legacy rows that
+    predate the ``cost > 0`` write guard (#1763) and have a literal stored
+    zero rather than NULL: the candidate queries
+    (:func:`load_review_assignments_missing_cost`,
+    :func:`load_terminal_assignments_missing_cost`) treat ``cost_usd = 0``
+    the same as NULL, so without this half the UPDATE below would silently
+    affect 0 rows for such a row, ``cost_capture_state`` would never get
+    set, and it would be re-selected and re-fetched forever — the exact
+    trap the tri-state exists to close (#3158).
+    """
+    if not assignment_id:
+        return
+    conn = get_connection()
+
+    def _write() -> None:
+        sql.execute(conn,
+            "UPDATE assignments SET cost_capture_state='unmeasured' "
+            "WHERE assignment_id=? AND (cost_usd IS NULL OR cost_usd = 0) "
+            "AND cost_capture_state IS NULL",
+            (assignment_id,),
         )
         conn.commit()
 
@@ -3287,6 +3362,30 @@ def mark_refused_policy_settled(assignment_id: str) -> None:
     sql.execute(conn,
         "UPDATE assignments SET status='merged' WHERE assignment_id=? "
         "AND status='refused_policy'",
+        (assignment_id,),
+    )
+    conn.commit()
+
+
+def mark_refused_premise_settled(assignment_id: str) -> None:
+    """#3164: flip a refused_premise row to 'merged' when its issue is terminal.
+
+    Same shape as `mark_refused_policy_settled` above, for the same reason: a
+    `refused_premise` row (a worker's 0-commit clean exit reporting an
+    investigated, refuted issue premise — `coord.agent.REFUSED_PREMISE`) is
+    never touched by the #609 sweep (which only looks at status='done' work
+    rows), so it would otherwise linger on the board forever even after the
+    issue is re-scoped/closed and lands.
+
+    Idempotent: only transitions rows still carrying status='refused_premise'.
+    Silently no-ops when the row doesn't exist or is already settled.
+    """
+    if not assignment_id:
+        return
+    conn = get_connection()
+    sql.execute(conn,
+        "UPDATE assignments SET status='merged' WHERE assignment_id=? "
+        "AND status='refused_premise'",
         (assignment_id,),
     )
     conn.commit()
@@ -3820,7 +3919,7 @@ def load_done_reviews_needing_post(repo_name: str | None = None) -> list[dict]:
                         "review_target": a.get("review_target"),
                         "status": a.get("status"),
                         # #2476: threaded through to
-                        # coord.notify._capture_cost_and_tokens_for_review so
+                        # coord.notify.capture_cost_and_tokens_for_assignment so
                         # post_orphaned_review_findings' cost/token capture
                         # resolves the right Provider instead of always
                         # assuming claude (mirrors the #1710 provider_name
@@ -3873,7 +3972,13 @@ def load_review_assignments_missing_cost(repo_name: str | None = None) -> list[d
 
     Optionally filtered to a single repo by *repo_name*. Returns dicts in
     the same shape as :func:`load_done_reviews_needing_post` (including
-    ``provider_name`` for :func:`coord.notify._capture_cost_and_tokens_for_review`).
+    ``provider_name`` for :func:`coord.notify.capture_cost_and_tokens_for_assignment`).
+
+    Also excludes rows already marked ``cost_capture_state='unmeasured'``
+    (#3158) — a row a previous backfill run already examined and confirmed
+    has NO cost in its log is not re-fetched and re-parsed on every
+    subsequent run forever. See :func:`load_terminal_assignments_missing_cost`,
+    whose otherwise-identical query added this filter first.
 
     **Daemon-aware:** mirrors :func:`load_done_reviews_needing_post` — reads
     the ``GET /board`` payload when a ``board_service`` is configured so a
@@ -3891,6 +3996,7 @@ def load_review_assignments_missing_cost(repo_name: str | None = None) -> list[d
                     a.get("type") == "review"
                     and a.get("status") not in ("running", "pending", "finalizing")
                     and not (a.get("cost_usd") or 0)
+                    and a.get("cost_capture_state") is None
                     and (repo_name is None or a.get("repo_name") == repo_name)
                 ):
                     results.append({
@@ -3914,7 +4020,86 @@ def _load_review_assignments_missing_cost_local(repo_name: str | None = None) ->
     conn = get_connection()
     where = (
         "type='review' AND status NOT IN ('running', 'pending', 'finalizing') "
-        "AND (cost_usd IS NULL OR cost_usd = 0)"
+        "AND (cost_usd IS NULL OR cost_usd = 0) AND cost_capture_state IS NULL"
+    )
+    if repo_name:
+        rows = sql.execute(conn,
+            f"SELECT * FROM assignments WHERE {where} AND repo_name=? "
+            "ORDER BY finished_at",
+            (repo_name,),
+        ).fetchall()
+    else:
+        rows = sql.execute(conn,
+            f"SELECT * FROM assignments WHERE {where} ORDER BY finished_at",
+        ).fetchall()
+    return [_row_to_dispatched_dict(row) for row in rows]
+
+
+def load_terminal_assignments_missing_cost(repo_name: str | None = None) -> list[dict]:
+    """#3158: return terminal assignments of ANY type whose cost was never
+    captured AND never conclusively determined to be un-measured.
+
+    Generalizes :func:`load_review_assignments_missing_cost` (#2476), which
+    stayed scoped to ``type='review'`` because that was the only population
+    the capture gap it fixed touched. #3158 found the SAME gap — the
+    daemon's passive reconcile tick capturing cost only opportunistically,
+    from an agent-side entry that can evaporate before the tick observes it
+    — hits every type: 102 of the 133 affected legs in the reference
+    investigation were ``type='work'`` rows that had already **merged**.
+
+    Filtered the same way as the review-only query — excludes
+    ``running``/``pending``/``finalizing`` (nothing final to recover yet) —
+    plus ``AND cost_capture_state IS NULL`` so a row a previous backfill run
+    already examined and confirmed has NO cost in its log (marked
+    ``'unmeasured'`` by :func:`coord.state.mark_cost_unmeasured`) is not
+    re-fetched and re-parsed on every subsequent run forever.
+
+    Optionally filtered to a single repo by *repo_name*. Returns dicts in
+    the same shape as :func:`load_review_assignments_missing_cost`
+    (including ``provider_name``, needed to resolve the right log parser).
+
+    **Daemon-aware:** mirrors :func:`load_review_assignments_missing_cost`
+    — reads the ``GET /board`` payload when a ``board_service`` is
+    configured so a thin client sees the real candidates instead of an
+    empty local table.
+    """
+    svc = _board_service()
+    if svc is not None:
+        try:
+            from coord.client import fetch_board_payload  # noqa: PLC0415
+
+            payload = fetch_board_payload(svc)
+            results: list[dict] = []
+            for a in payload.get("assignments", []):
+                if (
+                    a.get("status") not in ("running", "pending", "finalizing")
+                    and not (a.get("cost_usd") or 0)
+                    and a.get("cost_capture_state") is None
+                    and (repo_name is None or a.get("repo_name") == repo_name)
+                ):
+                    results.append({
+                        "assignment_id": a.get("assignment_id"),
+                        "machine_name": a.get("machine_name", ""),
+                        "repo_name": a.get("repo_name", ""),
+                        "repo_github": a.get("repo_github"),
+                        "issue_number": a.get("issue_number", 0),
+                        "issue_title": a.get("issue_title", ""),
+                        "type": a.get("type", "work"),
+                        "status": a.get("status"),
+                        "provider_name": a.get("provider_name"),
+                    })
+            return results
+        except Exception:  # noqa: BLE001 — daemon unreachable → local fallback
+            pass
+    return _load_terminal_assignments_missing_cost_local(repo_name=repo_name)
+
+
+def _load_terminal_assignments_missing_cost_local(repo_name: str | None = None) -> list[dict]:
+    """Local-DB read for :func:`load_terminal_assignments_missing_cost`."""
+    conn = get_connection()
+    where = (
+        "status NOT IN ('running', 'pending', 'finalizing') "
+        "AND (cost_usd IS NULL OR cost_usd = 0) AND cost_capture_state IS NULL"
     )
     if repo_name:
         rows = sql.execute(conn,
@@ -7412,6 +7597,48 @@ def _list_drive_queue_local(repo_name: str | None = None) -> list[dict]:
             "ORDER BY position, id"
         ).fetchall()
     return [_decode_drive_queue_row(r) for r in rows]
+
+
+def get_issue_titles(keys: Iterable[tuple[str, int]]) -> dict[str, str]:
+    """Best-effort issue titles for ``(repo_name, issue_number)`` pairs, keyed
+    ``"repo_name#N"`` — backs ``GET /api/drive-queue``'s ``titles`` sibling
+    field (#3160).
+
+    Routes to the daemon when ``board_service`` is set — one ``GET
+    /issue/{repo}/{n}`` per unique key via :func:`coord.client.fetch_issue`,
+    the same routed single-issue read ``coord.reconcile`` already relies on —
+    else reads the local ``issues`` table directly. This split matters: a
+    thin client (``coord web`` pointed at a remote daemon) has no local
+    ``issues`` table, so a bare local SELECT here would silently return an
+    empty map and reintroduce the exact bug this function exists to fix.
+
+    Best-effort like ``coord.reports._lookup_titles``: an issue absent from
+    the ``issues`` table (not yet synced) is simply missing from the returned
+    map — never an empty string, never a raised error.
+    """
+    unique = sorted({(repo, int(number)) for repo, number in keys})
+    if not unique:
+        return {}
+    out: dict[str, str] = {}
+    svc = _board_service()
+    if svc is not None:
+        from coord.client import fetch_issue  # noqa: PLC0415
+
+        for repo, number in unique:
+            row = fetch_issue(svc, repo, number)
+            if row is not None and row.get("title"):
+                out[f"{repo}#{number}"] = row["title"]
+        return out
+    conn = get_connection()
+    for repo, number in unique:
+        row = sql.execute(
+            conn,
+            "SELECT title FROM issues WHERE repo_name = ? AND number = ?",
+            (repo, number),
+        ).fetchone()
+        if row is not None and row["title"]:
+            out[f"{repo}#{number}"] = row["title"]
+    return out
 
 
 def leg_counts() -> dict[str, dict[str, int]]:

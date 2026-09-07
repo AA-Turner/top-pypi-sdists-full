@@ -234,8 +234,6 @@ class AsyncioExecutor(Executor):
                 timeout = self.config.timeout_seconds.total_seconds()
                 async with asyncio.timeout(timeout):
                     return await self._run_task_once(task, kwargs)
-        except asyncio.CancelledError:
-            raise
         except Exception as e:
             return e
 

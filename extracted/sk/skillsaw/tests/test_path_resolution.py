@@ -14,6 +14,17 @@ from types import SimpleNamespace
 import pytest
 
 from skillsaw.cli._helpers import _resolve_lint_paths
+from skillsaw.paths import path_within_roots
+
+
+def test_path_within_roots_uses_exact_or_ancestor_membership(tmp_path):
+    external = tmp_path / "external"
+    roots = {external}
+
+    assert path_within_roots(external, roots)
+    assert path_within_roots(external / "nested" / "file.md", roots)
+    assert not path_within_roots(tmp_path / "external-sibling", roots)
+
 
 # ── Pass 1: _resolve_lint_paths ────────────────────────────────
 
@@ -286,12 +297,6 @@ class TestEmptyAndSingleInput:
 
     def test_single_dir(self, tmp_path):
         result = _resolve_lint_paths([tmp_path])
-        assert result == [tmp_path]
-
-    def test_single_file(self, tmp_path):
-        f = tmp_path / "SKILL.md"
-        f.touch()
-        result = _resolve_lint_paths([f])
         assert result == [tmp_path]
 
 

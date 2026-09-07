@@ -4065,7 +4065,7 @@ class LinterConfiguration:
     def __init__(
         self,
         *,
-        domains: typing.Optional[typing.Mapping[builtins.str, "RuleDomainValue"]] = None,
+        domains: typing.Optional[typing.Union["RuleDomains", typing.Dict[builtins.str, typing.Any]]] = None,
         enabled: typing.Optional[builtins.bool] = None,
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         rules: typing.Optional[typing.Union["Rules", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4079,6 +4079,8 @@ class LinterConfiguration:
         :stability: experimental
         :schema: LinterConfiguration
         '''
+        if isinstance(domains, dict):
+            domains = RuleDomains(**domains)
         if isinstance(rules, dict):
             rules = Rules(**rules)
         if __debug__:
@@ -4098,16 +4100,14 @@ class LinterConfiguration:
             self._values["rules"] = rules
 
     @builtins.property
-    def domains(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "RuleDomainValue"]]:
+    def domains(self) -> typing.Optional["RuleDomains"]:
         '''(experimental) An object where the keys are the names of the domains, and the values are ``all``, ``recommended``, or ``none``.
 
         :stability: experimental
         :schema: LinterConfiguration#domains
         '''
         result = self._values.get("domains")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "RuleDomainValue"]], result)
+        return typing.cast(typing.Optional["RuleDomains"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -4581,7 +4581,7 @@ class OverrideLinterConfiguration:
     def __init__(
         self,
         *,
-        domains: typing.Optional[typing.Mapping[builtins.str, "RuleDomainValue"]] = None,
+        domains: typing.Optional[typing.Union["RuleDomains", typing.Dict[builtins.str, typing.Any]]] = None,
         enabled: typing.Optional[builtins.bool] = None,
         rules: typing.Optional[typing.Union["Rules", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -4593,6 +4593,8 @@ class OverrideLinterConfiguration:
         :stability: experimental
         :schema: OverrideLinterConfiguration
         '''
+        if isinstance(domains, dict):
+            domains = RuleDomains(**domains)
         if isinstance(rules, dict):
             rules = Rules(**rules)
         if __debug__:
@@ -4609,16 +4611,14 @@ class OverrideLinterConfiguration:
             self._values["rules"] = rules
 
     @builtins.property
-    def domains(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, "RuleDomainValue"]]:
+    def domains(self) -> typing.Optional["RuleDomains"]:
         '''(experimental) List of rules.
 
         :stability: experimental
         :schema: OverrideLinterConfiguration#domains
         '''
         result = self._values.get("domains")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "RuleDomainValue"]], result)
+        return typing.cast(typing.Optional["RuleDomains"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -4986,6 +4986,263 @@ class RuleDomainValue(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.RuleDomains",
+    jsii_struct_bases=[],
+    name_mapping={
+        "astro": "astro",
+        "drizzle": "drizzle",
+        "next": "next",
+        "playwright": "playwright",
+        "project": "project",
+        "qwik": "qwik",
+        "react": "react",
+        "react_native": "reactNative",
+        "solid": "solid",
+        "svelte": "svelte",
+        "tailwind": "tailwind",
+        "test": "test",
+        "turborepo": "turborepo",
+        "types": "types",
+        "vue": "vue",
+    },
+)
+class RuleDomains:
+    def __init__(
+        self,
+        *,
+        astro: typing.Optional["RuleDomainValue"] = None,
+        drizzle: typing.Optional["RuleDomainValue"] = None,
+        next: typing.Optional["RuleDomainValue"] = None,
+        playwright: typing.Optional["RuleDomainValue"] = None,
+        project: typing.Optional["RuleDomainValue"] = None,
+        qwik: typing.Optional["RuleDomainValue"] = None,
+        react: typing.Optional["RuleDomainValue"] = None,
+        react_native: typing.Optional["RuleDomainValue"] = None,
+        solid: typing.Optional["RuleDomainValue"] = None,
+        svelte: typing.Optional["RuleDomainValue"] = None,
+        tailwind: typing.Optional["RuleDomainValue"] = None,
+        test: typing.Optional["RuleDomainValue"] = None,
+        turborepo: typing.Optional["RuleDomainValue"] = None,
+        types: typing.Optional["RuleDomainValue"] = None,
+        vue: typing.Optional["RuleDomainValue"] = None,
+    ) -> None:
+        '''
+        :param astro: 
+        :param drizzle: 
+        :param next: 
+        :param playwright: 
+        :param project: 
+        :param qwik: 
+        :param react: 
+        :param react_native: 
+        :param solid: 
+        :param svelte: 
+        :param tailwind: 
+        :param test: 
+        :param turborepo: 
+        :param types: 
+        :param vue: 
+
+        :stability: experimental
+        :schema: RuleDomains
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d48381bffa9c2b0ef8e9116898fdc56e984cd30d1a51b6e379dc5c999a8b5336)
+            check_type(argname="argument astro", value=astro, expected_type=type_hints["astro"])
+            check_type(argname="argument drizzle", value=drizzle, expected_type=type_hints["drizzle"])
+            check_type(argname="argument next", value=next, expected_type=type_hints["next"])
+            check_type(argname="argument playwright", value=playwright, expected_type=type_hints["playwright"])
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument qwik", value=qwik, expected_type=type_hints["qwik"])
+            check_type(argname="argument react", value=react, expected_type=type_hints["react"])
+            check_type(argname="argument react_native", value=react_native, expected_type=type_hints["react_native"])
+            check_type(argname="argument solid", value=solid, expected_type=type_hints["solid"])
+            check_type(argname="argument svelte", value=svelte, expected_type=type_hints["svelte"])
+            check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
+            check_type(argname="argument test", value=test, expected_type=type_hints["test"])
+            check_type(argname="argument turborepo", value=turborepo, expected_type=type_hints["turborepo"])
+            check_type(argname="argument types", value=types, expected_type=type_hints["types"])
+            check_type(argname="argument vue", value=vue, expected_type=type_hints["vue"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if astro is not None:
+            self._values["astro"] = astro
+        if drizzle is not None:
+            self._values["drizzle"] = drizzle
+        if next is not None:
+            self._values["next"] = next
+        if playwright is not None:
+            self._values["playwright"] = playwright
+        if project is not None:
+            self._values["project"] = project
+        if qwik is not None:
+            self._values["qwik"] = qwik
+        if react is not None:
+            self._values["react"] = react
+        if react_native is not None:
+            self._values["react_native"] = react_native
+        if solid is not None:
+            self._values["solid"] = solid
+        if svelte is not None:
+            self._values["svelte"] = svelte
+        if tailwind is not None:
+            self._values["tailwind"] = tailwind
+        if test is not None:
+            self._values["test"] = test
+        if turborepo is not None:
+            self._values["turborepo"] = turborepo
+        if types is not None:
+            self._values["types"] = types
+        if vue is not None:
+            self._values["vue"] = vue
+
+    @builtins.property
+    def astro(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#astro
+        '''
+        result = self._values.get("astro")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def drizzle(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#drizzle
+        '''
+        result = self._values.get("drizzle")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def next(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#next
+        '''
+        result = self._values.get("next")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def playwright(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#playwright
+        '''
+        result = self._values.get("playwright")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def project(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#project
+        '''
+        result = self._values.get("project")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def qwik(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#qwik
+        '''
+        result = self._values.get("qwik")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def react(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#react
+        '''
+        result = self._values.get("react")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def react_native(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#reactNative
+        '''
+        result = self._values.get("react_native")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def solid(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#solid
+        '''
+        result = self._values.get("solid")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def svelte(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#svelte
+        '''
+        result = self._values.get("svelte")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def tailwind(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#tailwind
+        '''
+        result = self._values.get("tailwind")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def test(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#test
+        '''
+        result = self._values.get("test")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def turborepo(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#turborepo
+        '''
+        result = self._values.get("turborepo")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def types(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#types
+        '''
+        result = self._values.get("types")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    @builtins.property
+    def vue(self) -> typing.Optional["RuleDomainValue"]:
+        '''
+        :stability: experimental
+        :schema: RuleDomains#vue
+        '''
+        result = self._values.get("vue")
+        return typing.cast(typing.Optional["RuleDomainValue"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RuleDomains(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -5706,6 +5963,7 @@ __all__ = [
     "QuoteProperties",
     "QuoteStyle",
     "RuleDomainValue",
+    "RuleDomains",
     "Rules",
     "SelfCloseVoidElements",
     "Semicolons",
@@ -6075,7 +6333,7 @@ def _typecheckingstub__0ced0fa0672bed168a8348653ba985dd1a20d26c25f814d1492bdc2bb
 
 def _typecheckingstub__65dab822a12255f6f845b9299f073f8d1333a90456c41e244f29210e8ad1de68(
     *,
-    domains: typing.Optional[typing.Mapping[builtins.str, RuleDomainValue]] = None,
+    domains: typing.Optional[typing.Union[RuleDomains, typing.Dict[builtins.str, typing.Any]]] = None,
     enabled: typing.Optional[builtins.bool] = None,
     includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     rules: typing.Optional[typing.Union[Rules, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6120,7 +6378,7 @@ def _typecheckingstub__3602eb22e2d33d64a65f4ebb15f534391f93d1e72546965c7be88c0c1
 
 def _typecheckingstub__4b923acd3721838353ddf97d9a992327d3607a622afc36e911bc3eb842adb709(
     *,
-    domains: typing.Optional[typing.Mapping[builtins.str, RuleDomainValue]] = None,
+    domains: typing.Optional[typing.Union[RuleDomains, typing.Dict[builtins.str, typing.Any]]] = None,
     enabled: typing.Optional[builtins.bool] = None,
     rules: typing.Optional[typing.Union[Rules, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -6141,6 +6399,27 @@ def _typecheckingstub__15d4ec259e2481f14109da78900e918d2d10bde9b57b737b5c0ac7d4d
     json: typing.Optional[typing.Union[JsonConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     linter: typing.Optional[typing.Union[OverrideLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d48381bffa9c2b0ef8e9116898fdc56e984cd30d1a51b6e379dc5c999a8b5336(
+    *,
+    astro: typing.Optional[RuleDomainValue] = None,
+    drizzle: typing.Optional[RuleDomainValue] = None,
+    next: typing.Optional[RuleDomainValue] = None,
+    playwright: typing.Optional[RuleDomainValue] = None,
+    project: typing.Optional[RuleDomainValue] = None,
+    qwik: typing.Optional[RuleDomainValue] = None,
+    react: typing.Optional[RuleDomainValue] = None,
+    react_native: typing.Optional[RuleDomainValue] = None,
+    solid: typing.Optional[RuleDomainValue] = None,
+    svelte: typing.Optional[RuleDomainValue] = None,
+    tailwind: typing.Optional[RuleDomainValue] = None,
+    test: typing.Optional[RuleDomainValue] = None,
+    turborepo: typing.Optional[RuleDomainValue] = None,
+    types: typing.Optional[RuleDomainValue] = None,
+    vue: typing.Optional[RuleDomainValue] = None,
 ) -> None:
     """Type checking stubs"""
     pass

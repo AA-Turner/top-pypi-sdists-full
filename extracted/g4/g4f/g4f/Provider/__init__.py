@@ -8,7 +8,6 @@ from ..providers.create_images import CreateImagesProvider
 
 class ProviderLoader:
     names = [
-        "AnyProvider",
         "AIBadgr",
         "Anthropic",
         "Antigravity",
@@ -34,7 +33,6 @@ class ProviderLoader:
         "EdgeTTS",
         "ElevenLabs",
         "FenayAI",
-        "G4FSpace",
         "GLM",
         "Gemini",
         "GeminiCLI",
@@ -203,6 +201,10 @@ class ProviderLoader:
             from g4f.Provider.needs_auth.DeepSeek import DeepSeek
 
             return DeepSeek
+        elif name == "Default":
+            from g4f.providers.any_provider import DefaultProvider
+
+            return DefaultProvider
         elif name == "EdgeTTS":
             from g4f.Provider.audio.EdgeTTS import EdgeTTS
 
@@ -256,7 +258,7 @@ class ProviderLoader:
 
             return GlhfChat
         elif name == "GoogleAiMode":
-            from g4f.Provider.needs_auth.GoogleAiMode import GoogleAiMode
+            from g4f.Provider.search.GoogleAiMode import GoogleAiMode
 
             return GoogleAiMode
         elif name == "GoogleSearch":
@@ -384,6 +386,7 @@ class ProviderLoader:
             )
             cls.loaded[name].__name__ = name
             cls.loaded[name].active_by_default = True
+            cls.loaded[name].supports_native_tools = True
             return cls.loaded[name]
         elif name == "OpenaiAPI":
             from g4f.Provider.needs_auth.OpenaiAPI import OpenaiAPI
@@ -502,6 +505,7 @@ class ProviderLoader:
 
 
 __all__ = [
+    "AnyProvider",
     "BaseProvider",
     "ProviderType",
     "RetryProvider",
@@ -511,6 +515,7 @@ __all__ = [
     "AsyncGeneratorProvider",
     "CreateImagesProvider",
     "ProviderUtils",
+    "G4FSpace",
     "__providers__",
     "__map__",
 ] + ProviderLoader.names

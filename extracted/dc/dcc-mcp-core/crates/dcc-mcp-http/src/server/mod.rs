@@ -1,12 +1,14 @@
 //! The main `McpHttpServer` type.
 
-use axum::{Json, Router, routing};
+use axum::middleware::Next;
+use axum::{Json, Router, middleware, routing};
 use http::{Method, Request, Response, StatusCode};
 use parking_lot::RwLock;
 use serde_json::json;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::{net::TcpListener, sync::watch, task::JoinHandle};
 use tower_http::classify::{
     ClassifiedResponse, ClassifyResponse, MakeClassifier, NeverClassifyEos, ServerErrorsAsFailures,
@@ -83,6 +85,24 @@ fn http_trace_layer() -> TraceLayer<HttpTraceClassifier, HttpTraceMakeSpan> {
     TraceLayer::new(HttpTraceClassifier).make_span_with(HttpTraceMakeSpan)
 }
 
+/// Echo a caller-supplied request id on every HTTP response.
+///
+/// The CLI sends `X-Request-ID` and validates the value before accepting a
+/// response.  Keeping the header at the HTTP boundary makes stale or
+/// mis-correlated responses observable for both REST and MCP transports,
+/// including handler-generated errors.
+async fn echo_request_id(
+    request: Request<axum::body::Body>,
+    next: Next,
+) -> Response<axum::body::Body> {
+    let request_id = request.headers().get("x-request-id").cloned();
+    let mut response = next.run(request).await;
+    if let Some(request_id) = request_id {
+        response.headers_mut().insert("x-request-id", request_id);
+    }
+    response
+}
+
 impl ClassifyResponse for HttpResponseClassifier {
     type FailureClass = ServerErrorsFailureClass;
     type ClassifyEos = NeverClassifyEos<ServerErrorsFailureClass>;
@@ -146,6 +166,7 @@ pub type LiveMeta = Arc<RwLock<LiveMetaInner>>;
 /// listener's accept loop from being starved under PyO3-embedded hosts.
 pub struct McpServerHandle {
     shutdown_tx: watch::Sender<bool>,
+    jobs: Arc<crate::job::JobManager>,
     /// JoinHandle for the serve task when running in
     /// [`ServerSpawnMode::Ambient`] mode.
     join: Option<JoinHandle<()>>,
@@ -173,9 +194,32 @@ pub struct McpServerHandle {
     _gateway: Option<dcc_mcp_gateway::GatewayHandle>,
 }
 
+const PERSISTENCE_SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(250);
+
 impl McpServerHandle {
     /// Gracefully shut down the server and wait for it to stop.
     pub async fn shutdown(mut self) {
+        // Stop persistence before dropping the listener. Async job tasks can
+        // outlive the HTTP server and must not retain the SQLite ownership
+        // lease into the next process incarnation.
+        let jobs = Arc::clone(&self.jobs);
+        let shutdown = tokio::task::spawn_blocking(move || {
+            jobs.shutdown_persistence(PERSISTENCE_SHUTDOWN_TIMEOUT)
+        });
+        match tokio::time::timeout(PERSISTENCE_SHUTDOWN_TIMEOUT, shutdown).await {
+            Ok(Ok(true)) => {}
+            Ok(Ok(false)) => tracing::warn!(
+                timeout_ms = PERSISTENCE_SHUTDOWN_TIMEOUT.as_millis(),
+                "job persistence ownership did not close within the bounded shutdown window"
+            ),
+            Ok(Err(error)) => {
+                tracing::warn!(error = %error, "job persistence shutdown task failed")
+            }
+            Err(_) => tracing::warn!(
+                timeout_ms = PERSISTENCE_SHUTDOWN_TIMEOUT.as_millis(),
+                "job persistence shutdown task exceeded the bounded shutdown window"
+            ),
+        }
         // Issue #718: deregister from FileRegistry *before* waiting for
         // the serve loop to finish. Peers reading `services.json` should
         // see the row disappear as soon as `shutdown()` is invoked rather
@@ -572,11 +616,15 @@ impl McpHttpServer {
                     policy = self.config.job.job_recovery.as_str(),
                     "JobManager storage recovery found no in-flight rows"
                 ),
-                Err(e) => tracing::error!(
-                    error = %e,
-                    policy = self.config.job.job_recovery.as_str(),
-                    "JobManager storage recovery failed — in-process map stays empty"
-                ),
+                Err(e) => {
+                    jobs.disable_persistence_for_storage_error(&e);
+                    tracing::error!(
+                        error = %e,
+                        error_kind = ?jobs.persistence_status().last_error_kind,
+                        policy = self.config.job.job_recovery.as_str(),
+                        "JobManager storage recovery failed — persistence marked unavailable"
+                    );
+                }
             }
         }
 
@@ -670,11 +718,12 @@ impl McpHttpServer {
 
         let app_state_for_rmcp = state.clone();
 
+        let health_jobs = jobs.clone();
         let mut router = Router::new()
             .route(
                 "/health",
                 routing::get(move || {
-                    let jobs = jobs.clone();
+                    let jobs = health_jobs.clone();
                     async move { Json(health_payload(&jobs)) }
                 }),
             )
@@ -701,6 +750,10 @@ impl McpHttpServer {
 
         // MCP endpoint — speaks MCP 2025-11-25 via the official rmcp SDK.
         router = crate::handler::rmcp_mount::attach_rmcp_endpoint(router, &app_state_for_rmcp);
+
+        // Apply correlation after mounting `/mcp` so the middleware wraps both
+        // the existing REST routes and the nested MCP service.
+        router = router.layer(middleware::from_fn(echo_request_id));
 
         if self.config.server.enable_cors {
             router = router.layer(
@@ -788,6 +841,7 @@ impl McpHttpServer {
 
         Ok(McpServerHandle {
             shutdown_tx,
+            jobs,
             join,
             serve_thread,
             port,
@@ -834,9 +888,26 @@ fn build_job_manager(config: &McpHttpConfig) -> HttpResult<Arc<crate::job::JobMa
                         path.display()
                     ))
                 })?;
-                Ok(Arc::new(crate::job::JobManager::with_offloaded_storage(
-                    Arc::new(storage),
-                )))
+                let jobs = Arc::new(crate::job::JobManager::with_offloaded_storage(Arc::new(
+                    storage,
+                )));
+                if let Some(retention_hours) = config.job.job_retention_hours {
+                    let hours = retention_hours.min(24 * 365 * 1000) as i64;
+                    let cutoff = chrono::Utc::now() - chrono::Duration::hours(hours);
+                    if let Err(error) = jobs
+                        .storage()
+                        .expect("SQLite JobManager always has storage")
+                        .delete_older_than(cutoff)
+                    {
+                        tracing::warn!(
+                            error = %error,
+                            retention_hours,
+                            "startup job retention failed; persistence disabled and data left unchanged"
+                        );
+                        jobs.disable_persistence("retention_prune_failed");
+                    }
+                }
+                Ok(jobs)
             }
             #[cfg(not(feature = "job-persist-sqlite"))]
             {

@@ -7,6 +7,7 @@ from typing import Dict, List
 from skillsaw.rule import Rule, RuleViolation, Severity
 from skillsaw.context import RepositoryContext
 from skillsaw.rules.builtin.content_analysis import (
+    blank_long_tokens,
     gather_all_content_blocks,
 )
 
@@ -14,7 +15,6 @@ from skillsaw.rules.builtin.content_analysis import (
 class ContentActionabilityScoreRule(Rule):
     """Compute an actionability score for instruction files"""
 
-    formats = None
     since = "0.7.0"
     # Subjective prose scoring that rarely drove a useful edit; newer models
     # don't need instruction density policed.
@@ -92,7 +92,9 @@ class ContentActionabilityScoreRule(Rule):
             # needs a dot or a backtick — most prose lines have neither.
             cmd_lines = sum(1 for line in lines if "`" in line and self._COMMAND_RE.search(line))
             path_lines = sum(
-                1 for line in lines if ("." in line or "`" in line) and self._PATH_RE.search(line)
+                1
+                for line in lines
+                if ("." in line or "`" in line) and self._PATH_RE.search(blank_long_tokens(line))
             )
 
             verb_ratio = verb_lines / total

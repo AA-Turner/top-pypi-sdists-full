@@ -5,7 +5,7 @@ from attrs import NOTHING, NothingType
 
 from .. import BaseConverter
 from .._compat import get_newtype_base, is_literal, is_subclass, is_union_type
-from ..typealiases import is_type_alias
+from ..typealiases import get_type_alias_base, is_type_alias
 
 __all__ = [
     "configure_tagged_union",
@@ -173,8 +173,14 @@ def configure_union_passthrough(
     .. versionadded:: 23.2.0
     .. versionchanged:: 25.2.0
         Introduced the `accept_ints_as_floats` parameter.
+    .. versionchanged:: 26.2.0
+        PEP 695 type aliases are now supported as union members.
     """
-    args = set(union.__args__)
+
+    def get_passthrough_base(type: Any) -> Any:
+        return get_type_alias_base(type) if is_type_alias(type) else type
+
+    args = {get_passthrough_base(type) for type in union.__args__}
 
     def make_structure_native_union(exact_type: Any) -> Callable:
         # `exact_type` is likely to be a subset of the entire configured union (`args`).
@@ -194,9 +200,10 @@ def configure_union_passthrough(
         }
 
         non_literal_classes = {
-            get_newtype_base(t) or t
+            get_newtype_base(t) or get_passthrough_base(t)
             for t in exact_type.__args__
-            if not is_literal(t) and ((get_newtype_base(t) or t) in args)
+            if not is_literal(t)
+            and ((get_newtype_base(t) or get_passthrough_base(t)) in args)
         }
 
         # We augment the set of allowed classes with any configured subclasses of
@@ -211,7 +218,8 @@ def configure_union_passthrough(
         spillover = {
             a
             for a in exact_type.__args__
-            if (get_newtype_base(a) or a) not in non_literal_classes
+            if (get_newtype_base(a) or get_passthrough_base(a))
+            not in non_literal_classes
             and not is_literal(a)
         }
 
@@ -273,7 +281,9 @@ def configure_union_passthrough(
                 for lit_arg in t.__args__
             }
             non_literal_types = {
-                get_newtype_base(t) or t for t in type_args if not is_literal(t)
+                get_newtype_base(t) or get_passthrough_base(t)
+                for t in type_args
+                if not is_literal(t)
             }
 
             return (literal_classes | non_literal_types) & args

@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from nab_index.parsed_listing import ParsedListing
+    from nab_provider.overrides import IndexOverride, PackageOverride
 
 __all__ = [
     "DEFAULT_INDEX_NAME",
@@ -174,7 +175,10 @@ def _builds_remote_sdists(inputs: ResolveInputs | None) -> bool:
         return False
     if inputs.build_policy is BuildPolicy.BUILD_REMOTE:
         return True
-    overrides = (*inputs.package_overrides, *inputs.index_overrides.values())
+    overrides: tuple[PackageOverride | IndexOverride, ...] = (
+        *inputs.package_overrides,
+        *inputs.index_overrides.values(),
+    )
     return any(o.build_policy is BuildPolicy.BUILD_REMOTE for o in overrides)
 
 
@@ -247,30 +251,24 @@ class FetchCoordinator:
     ) -> None:
         """Create a coordinator that wraps ``transport``.
 
-        ``indexes`` is the ordered list of :class:`IndexConfig` records;
-        order is significant (presence-based first-index walks them
-        left-to-right).  When omitted, defaults to
-        ``[IndexConfig("pypi", "https://pypi.org/simple/")]``.  Each
-        index name must be unique across the list.
+        ``indexes`` is ordered and its names must be unique. It defaults to
+        PyPI when omitted.
 
-        ``index_routes`` adds per-package routing rules; an entry's
-        ``index`` field names one of the configured indexes and pins that
-        package's listing fetch to it.
+        ``index_routes`` pins package listings to named indexes.
+        ``index_cache_floors`` maps index names to read-time freshness floors
+        in seconds. Local ``file:`` indexes do not use a cache or floor.
 
-        ``index_cache_floors`` maps an index name to a read-time
-        freshness floor in seconds, passed to that index's cached client
-        as ``min_fresh_seconds``.  Indexes absent from the map, and the
-        ``file://`` local client, get no floor.
+        ``cache_dir`` builds a cache for each async index client. Without it,
+        ``cache_backend`` supplies the single-index cache.
+
+        If both are passed, ``cache_backend`` may serve synchronous warm hits
+        while async fetches use ``cache_dir``. Pass only one.
+
+        An explicit backend cannot partition several indexes or a pinned
+        serialization.
 
         ``build_config`` is the settings a :pep:`517` build runs under;
         a caller that resolves without building leaves it ``None``.
-
-        ``cache_backend`` wins over ``cache_dir`` if both are given;
-        otherwise ``cache_dir`` enables a per-index :class:`OnDiskCache`
-        and ``None`` falls back to a :class:`NullCache`.  Passing an
-        explicit ``cache_backend`` together with more than one entry in
-        ``indexes``, or with an index that pins its ``serialization``, is
-        rejected: each of those needs its own cache.
         """
         if indexes is None:
             indexes = [IndexConfig(DEFAULT_INDEX_NAME, DEFAULT_INDEX_URL)]
@@ -816,7 +814,7 @@ class FetchCoordinator:
     ) -> CachedAsyncSimpleClient | LocalIndexClient:
         """Build a single index client for ``cfg``.
 
-        A ``file:`` URL in either RFC 8089 spelling goes to
+        Either RFC 8089 form of a ``file:`` URL goes to
         :class:`LocalIndexClient` (no caching; the filesystem is the
         cache).  Everything else goes to :class:`CachedAsyncSimpleClient`
         with a per-URL :class:`OnDiskCache` when ``cache_dir`` is set.
@@ -846,6 +844,7 @@ class FetchCoordinator:
         )
 
     async def _async_fetcher(self) -> None:
+        """Own one fetch run's queue and clients; normal shutdown drains tasks."""
         # Fresh per-run memo, owned on this single loop thread, injected into
         # every client _build_client constructs below.
         self._range_memo = RangeCapabilityMemo()
@@ -862,7 +861,7 @@ class FetchCoordinator:
 
         queue: asyncio.Queue[_QueueItem] = asyncio.Queue()
         sem = asyncio.Semaphore(self._max_concurrency)
-        tasks: set[asyncio.Task] = set()
+        tasks: set[asyncio.Task[None]] = set()
 
         try:
             client = self._build_client()
@@ -917,7 +916,7 @@ class FetchCoordinator:
         item: FetchRequest | list[FetchRequest],
         client: CachedAsyncSimpleClient | LocalIndexClient | MultiIndexClient,
         sem: asyncio.Semaphore,
-        tasks: set[asyncio.Task],
+        tasks: set[asyncio.Task[None]],
     ) -> None:
         """Create async tasks for a single request or a batch."""
         if isinstance(item, list):
@@ -936,6 +935,7 @@ class FetchCoordinator:
         req: FetchRequest,
         sem: asyncio.Semaphore,
     ) -> None:
+        """Run one limited request and record fetch failures for its waiter."""
         async with sem:
             try:
                 if req.kind is FetchKind.LISTING:
@@ -1087,6 +1087,10 @@ class FetchCoordinator:
         One wheel per version: the first with a sidecar is the one the provider
         picks for that version's metadata. The backwards walk assigns
         unconditionally, so that first wheel is the one left in place.
+
+        The resolver thread filters these same records while this walk
+        runs, so a wheel it releases mid-walk answers no metadata URL and
+        is skipped (:func:`~nab_provider.records.release_wheel_payload`).
         """
         wanted = self.PREFETCH_METADATA_COUNT
         newest: dict[str, WheelFile] = {}
@@ -1098,9 +1102,14 @@ class FetchCoordinator:
             newest[f.version] = f
 
         for w in reversed(newest.values()):
+            # A release clears the URL first, so a URL read after the hash
+            # means the release had not begun when the hash was read.
+            metadata_hash = w.metadata_hash
             url = w.metadata_url
-            assert url is not None
-            self.request_metadata(package, w.version, url, w.metadata_hash)
+            if url is None:
+                continue
+
+            self.request_metadata(package, w.version, url, metadata_hash)
 
     def _run_listing_tail(
         self, package: str, records: Sequence[WheelFile | SdistFile]

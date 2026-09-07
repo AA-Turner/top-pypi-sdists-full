@@ -9,6 +9,7 @@ from ._parser import _build_parser
 _SUBCOMMANDS = {
     "lint",
     "init",
+    "feedback",
     "list-rules",
     "docs",
     "add",
@@ -21,11 +22,45 @@ _SUBCOMMANDS = {
     "port",
 }
 
+_DEPRECATED_COMMANDS = frozenset({"add", "docs"})
+
+
+def _warn_deprecated_command(command: str) -> None:
+    print(
+        f"Warning: 'skillsaw {command}' is deprecated and will be removed "
+        "in an upcoming release.",
+        file=sys.stderr,
+    )
+
+
+def _tolerate_unencodable_output() -> None:
+    """Never let a report die on a codepoint the console cannot encode.
+
+    A report quotes whatever the repository holds — an em dash, a check
+    mark, a lone surrogate escape — and a redirected Windows console or a
+    ``PYTHONIOENCODING=cp1252`` environment cannot encode all of it. With
+    the default ``strict`` handler the whole run ends in a traceback and no
+    ``--output`` file is written. Replacing the unencodable character keeps
+    the report and its exit code; the character shows as ``?``.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (ValueError, OSError):
+            pass
+
 
 def main():
     from ._helpers import install_warning_display
 
+    _tolerate_unencodable_output()
     install_warning_display()
+
+    if len(sys.argv) > 1 and sys.argv[1] in _DEPRECATED_COMMANDS:
+        _warn_deprecated_command(sys.argv[1])
 
     # When no subcommand is given (or the first arg looks like a path/flag),
     # default to "lint" so bare `skillsaw` and `skillsaw /path` keep working.
@@ -62,6 +97,10 @@ def main():
         from ._simple import _run_init
 
         _run_init(args)
+    elif args.command == "feedback":
+        from ._feedback import _run_feedback
+
+        _run_feedback(args)
     elif args.command == "list-rules":
         from ._simple import _run_list_rules
 

@@ -3,6 +3,7 @@ Tests for the autofix framework infrastructure
 """
 
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import List
@@ -281,6 +282,28 @@ class TestViolationFixability:
         assert v.fix_confidence is None
 
 
+class InfoFixRule(SafeFixRule):
+    """SafeFixRule at info severity."""
+
+    @property
+    def rule_id(self) -> str:
+        return "test-info-fix"
+
+    def default_severity(self) -> Severity:
+        return Severity.INFO
+
+
+class WarningFixRule(SafeFixRule):
+    """SafeFixRule at warning severity."""
+
+    @property
+    def rule_id(self) -> str:
+        return "test-warning-fix"
+
+    def default_severity(self) -> Severity:
+        return Severity.WARNING
+
+
 class TestLinterFix:
     def test_fix_with_no_violations(self, valid_plugin):
         context = RepositoryContext(valid_plugin)
@@ -288,6 +311,47 @@ class TestLinterFix:
         linter = Linter(context, config)
         _violations, fixes = linter.fix()
         assert fixes == []
+
+    def test_fix_default_none_threshold_fixes_every_severity(self, temp_dir):
+        """Library back-compat: no severity_threshold means fix everything."""
+        (temp_dir / "fixme.txt").write_text("This is BAD content")
+        linter = Linter(RepositoryContext(temp_dir), LinterConfig.default())
+        linter.rules = [InfoFixRule()]
+
+        _violations, fixes = linter.fix()
+
+        assert len(fixes) == 1
+
+    def test_fix_warning_threshold_excludes_info(self, temp_dir):
+        (temp_dir / "fixme.txt").write_text("This is BAD content")
+        linter = Linter(RepositoryContext(temp_dir), LinterConfig.default())
+        linter.rules = [InfoFixRule()]
+
+        _violations, fixes = linter.fix(severity_threshold="warning")
+
+        assert fixes == []
+
+    def test_fix_error_threshold_excludes_warnings(self, temp_dir):
+        (temp_dir / "fixme.txt").write_text("This is BAD content")
+        linter = Linter(RepositoryContext(temp_dir), LinterConfig.default())
+        linter.rules = [WarningFixRule()]
+
+        assert linter.fix(severity_threshold="error")[1] == []
+        assert len(linter.fix(severity_threshold="warning")[1]) == 1
+
+    def test_fix_rejects_unknown_severity_threshold(self, valid_plugin):
+        context = RepositoryContext(valid_plugin)
+        linter = Linter(context, LinterConfig.default())
+        with pytest.raises(ValueError, match="Unknown severity threshold"):
+            linter.fix(severity_threshold="critical")
+
+    def test_fix_rejects_empty_severity_threshold(self, valid_plugin):
+        # "" must not silently select the broadest (info) scope — only an
+        # explicit None keeps the historical fix-everything library default.
+        context = RepositoryContext(valid_plugin)
+        linter = Linter(context, LinterConfig.default())
+        with pytest.raises(ValueError, match="Unknown severity threshold"):
+            linter.fix(severity_threshold="")
 
     def test_fix_applies_safe_fixes(self, temp_dir):
         target = temp_dir / "fixme.txt"
@@ -343,22 +407,35 @@ class TestLinterFix:
 
 
 class TestApplyFixes:
-    def test_apply_safe_fixes(self, temp_dir):
-        target = temp_dir / "test.txt"
-        target.write_text("original")
+    def test_callback_failure_retains_applied_edits_and_reports_partial_failure(self, temp_dir):
+        target = temp_dir / "first.txt"
+        other = temp_dir / "second.txt"
+        target.write_text("first original")
+        other.write_text("second original")
 
-        fix = AutofixResult(
-            rule_id="test",
-            file_path=target,
-            confidence=AutofixConfidence.SAFE,
-            original_content="original",
-            fixed_content="fixed",
-            description="test fix",
-        )
+        def refuse_metadata():
+            raise OSError("Metadata write refused")
 
-        applied = Linter.apply_fixes([fix])
-        assert len(applied) == 1
-        assert target.read_text() == "fixed"
+        fixes = [
+            AutofixResult(
+                rule_id="test",
+                file_path=path,
+                confidence=AutofixConfidence.SAFE,
+                original_content=path.read_text(),
+                fixed_content="updated",
+                description="Update note",
+                on_apply=refuse_metadata if path == target else None,
+            )
+            for path in (target, other)
+        ]
+        failures = []
+        applied = Linter.apply_fixes(fixes, root_path=temp_dir, failures=failures)
+
+        assert applied == fixes
+        assert target.read_text() == other.read_text() == "updated"
+        assert failures == [
+            (fixes[0], "File edit applied, but follow-up failed: Metadata write refused")
+        ]
 
     def test_apply_refuses_symlink_target(self, temp_dir, caplog):
         victim = temp_dir / "victim.txt"
@@ -891,10 +968,9 @@ class TestCommandRenameFix:
         assert fix.rename_from is None
 
     def test_case_only_rename(self, temp_dir):
-        """Case-only rename (e.g. MyCommand.md -> mycommand.md) must work
-        on both case-sensitive and case-insensitive filesystems."""
+        """A letter-case-only rename must leave one correctly named file."""
         content = "---\ndescription: test\n---\n"
-        plugin_dir = _make_plugin(temp_dir, "my-plugin", {"MyCommand.md": content})
+        plugin_dir = _make_plugin(temp_dir, "my-plugin", {"Deploy.md": content})
         context = RepositoryContext(plugin_dir)
         rule = CommandNamingRule()
 
@@ -909,9 +985,40 @@ class TestCommandRenameFix:
         assert len(applied) == 1
 
         commands_dir = plugin_dir / "commands"
-        # The kebab-case file must exist with correct content
-        assert (commands_dir / "my-command.md").exists()
-        assert (commands_dir / "my-command.md").read_text() == content
+        # Enumerate actual spelling: exists() alone can accept the old name
+        # on a case-insensitive filesystem.
+        assert [path.name for path in commands_dir.iterdir()] == ["deploy.md"]
+        assert (commands_dir / "deploy.md").read_text() == content
+
+    @pytest.mark.parametrize(
+        "old_name,new_name", [("MyCommand", "my-command"), ("Deploy", "deploy")]
+    )
+    def test_distinct_hardlink_destination_is_not_a_case_alias(self, temp_dir, old_name, new_name):
+        content = "---\ndescription: Review deployment configuration.\n---\n"
+        plugin_dir = _make_plugin(temp_dir, "my-plugin", {f"{old_name}.md": content})
+        source = plugin_dir / "commands" / f"{old_name}.md"
+        destination = source.with_name(f"{new_name}.md")
+        if destination.exists():
+            pytest.skip("Filesystem cannot hold distinct case-only directory entries")
+        os.link(source, destination)
+        context = RepositoryContext(plugin_dir)
+        rule = CommandNamingRule()
+        assert rule.fix(context, rule.check(context)) == []
+
+        fix = AutofixResult(
+            rule_id=rule.rule_id,
+            file_path=destination,
+            rename_from=source,
+            confidence=AutofixConfidence.SUGGEST,
+            original_content=content,
+            fixed_content=content,
+            description="Rename command",
+        )
+        assert Linter.apply_fixes([fix], confidence=AutofixConfidence.SUGGEST) == []
+        assert sorted(path.name for path in source.parent.iterdir()) == sorted(
+            [source.name, destination.name]
+        )
+        assert source.read_text() == destination.read_text() == content
 
     def test_apply_fix_isolates_oserror(self, temp_dir):
         """One fix raising OSError must not prevent subsequent fixes."""
@@ -946,6 +1053,55 @@ class TestCommandRenameFix:
         assert len(applied) == 1
         assert applied[0].rule_id == "b"
         assert good_target.read_text() == "fixed"
+
+
+class TestRenameManifest:
+    def test_metadata_merge_uses_anchored_writer_and_retains_json_bytes(
+        self, tmp_path, monkeypatch
+    ):
+        from skillsaw.rules.builtin.agentskills import _helpers
+
+        path = tmp_path / _helpers.RENAMES_MANIFEST
+        retained = {"old": "earlier", "new": "current", "note": "retain this"}
+        path.write_text(json.dumps({"renames": [retained, {"old": "before", "new": "stale"}]}))
+        calls = []
+        original = _helpers.write_bytes_atomic
+
+        def record(destination, data, *, root):
+            calls.append((destination, data, root))
+            original(destination, data, root=root)
+
+        monkeypatch.setattr(_helpers, "write_bytes_atomic", record)
+        _helpers._add_rename(tmp_path, "before", "after")
+        expected = (
+            json.dumps({"renames": [retained, {"old": "before", "new": "after"}]}, indent=2) + "\n"
+        ).encode("utf-8")
+        assert calls == [(path, expected, tmp_path)]
+        assert path.read_bytes() == expected
+        _helpers._add_rename(tmp_path, "before", "after")
+        assert path.read_bytes() == expected
+        assert len(calls) == 2
+        _helpers._write_renames_manifest(tmp_path, [])
+        assert not path.exists()
+
+    @pytest.mark.skipif(os.name == "nt", reason="Requires ordinary POSIX symlinks")
+    @pytest.mark.parametrize(
+        "renames", [[{"old": "before", "new": "after"}], []], ids=["update", "cleanup"]
+    )
+    def test_metadata_alias_is_refused_after_guard(self, tmp_path, renames):
+        from skillsaw.rules.builtin.agentskills import _helpers
+
+        original = b'{"renames": []}\n'
+        regular = tmp_path / "saved-renames.json"
+        regular.write_bytes(original)
+        path = tmp_path / _helpers.RENAMES_MANIFEST
+        path.symlink_to(regular.name)
+
+        with pytest.raises(OSError, match="Refusing to write through symlink"):
+            _helpers._write_renames_manifest(tmp_path, renames)
+
+        assert path.is_symlink()
+        assert regular.read_bytes() == original
 
 
 class TestSkillRenameRefsEndToEnd:
@@ -1181,6 +1337,23 @@ class TestFixCliOutput:
         assert "? [.claude/commands/deploy.md]" in out
         assert str(repo) not in out, "fix output leaked absolute paths"
         assert "Run `skillsaw lint` to see remaining issues." in out
+
+    def test_demoted_rule_leaves_default_fix_scope(self, tmp_path, monkeypatch, capsys):
+        """A rule demoted to info drops out of what plain fix repairs, just
+        as it drops out of what plain lint shows."""
+        repo = self._make_repo(tmp_path, "repo")
+        (repo / ".skillsaw.yaml").write_text(
+            'version: "99.0.0"\n'
+            "rules:\n"
+            "  content-broken-internal-reference:\n"
+            "    severity: info\n"
+        )
+        invalidate_read_caches()
+
+        out = self._run_cli(monkeypatch, capsys, repo)
+
+        assert "✓ [.claude/commands/deploy.md]" in out
+        assert "? [" not in out
 
     def test_multi_root_keeps_absolute_paths(self, tmp_path, monkeypatch, capsys):
         repo1 = self._make_repo(tmp_path, "repo-one")

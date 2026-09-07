@@ -40,7 +40,6 @@ from installer import install as installer_install
 from installer.destinations import SchemeDictionaryDestination
 from installer.sources import WheelFile
 from installer.utils import get_launcher_kind
-
 from nab_index.client import extract_sdist_archive
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
 from nab_provider._vendor.packaging.requirements import InvalidRequirement
@@ -61,6 +60,7 @@ from nab_provider.requirements_file import InvalidProjectRequirementError
 from nab_provider.target import ResolveTarget, host_environment
 from nab_provider.vcs_admission import UnsupportedVcsError
 
+from .._compat import override
 from ..download import DownloadError, download_lock
 from ..inputs import ResolveInputs
 from ..lockfile import IndexPin, strip_userinfo
@@ -106,11 +106,13 @@ class _FastSchemeDictionaryDestination(SchemeDictionaryDestination):
         default_factory=list, init=False, repr=False
     )
 
+    @override
     def _compile_bytecode(self, scheme: Scheme, record: RecordEntry) -> None:
         if not self.bytecode_optimization_levels:
             return
         super()._compile_bytecode(scheme, record)
 
+    @override
     def finalize_installation(
         self,
         scheme: Scheme,
@@ -199,7 +201,7 @@ and a repeated entry is a cycle.
 
 
 def chain_label(name: str, version: str) -> str:
-    """Return the chain entry for one build, canonical so two spellings match."""
+    """Return a build's chain entry with a canonical package name."""
     return f"{canonicalize_name(name)} {version}"
 
 
@@ -221,15 +223,12 @@ class NabBuildEnv:
     """An isolated PEP 518 build environment driven by nab.
 
     Implements ``build.env.IsolatedEnv`` so it can be passed to
-    ``build.ProjectBuilder.from_isolated_env``. The runtime cost
-    is one venv creation, one inner resolve over
-    ``[build-system].requires``, one wheel download per dep, and
-    one ``installer.install`` per wheel.
+    ``build.ProjectBuilder.from_isolated_env``.
 
     ``requires`` is the PEP 508 string list from
-    ``[build-system].requires``.  ``config`` carries the outer resolve's
-    settings, pruned of declared sources, constraints and group selection
-    so the build env resolves against the configured indexes alone.
+    ``[build-system].requires``.  ``config`` is the outer resolve's
+    settings unchanged; :func:`_inner_resolve_inputs` narrows them for
+    the build-requires resolve.
 
     ``offline`` refuses to populate the env when a build requirement
     would have to come off the network.  A ``requires`` that is empty,
@@ -392,11 +391,10 @@ class NabBuildEnv:
         """Install additional requirements into the live env.
 
         Used for ``get_requires_for_build_wheel`` follow-up requests
-        (the backend asks for additional deps after the env is
-        already up).  The inner resolve runs over ``requires`` and
-        ``requirements`` together, so its result is the whole build
-        env rather than an addition to it: it can pin a different
-        version of something already installed, or drop it.
+        after the environment is ready. The inner resolve combines
+        ``requires`` and ``requirements``. Its result replaces the
+        resolved build dependencies, so it can pin a different version
+        of an installed dependency or drop it.
         """
         if self._venv_path is None or self._python_executable is None:
             msg = "NabBuildEnv used outside its context-manager scope"
@@ -480,8 +478,8 @@ class NabBuildEnv:
                 targets=(ResolveTarget.for_host(),),
                 inputs=inner_inputs,
             )
-            # The build env resolves for the host alone, so its one
-            # target's failure is the whole resolve's.
+            # The build env has one host target; its failure fails the
+            # resolve.
             result.raise_for_failure()
         except (
             UnsupportedVcsError,
@@ -681,9 +679,9 @@ def _wheel_barring_dist_policy(
     """Return the ``dist-policy`` in force for ``pin`` when it bars wheels.
 
     ``None`` when neither a per-package nor a per-index override sets
-    ``sdist-only`` or ``sdist-install``: those two are the whole of what
-    can bar a wheel here, because the build env's own resolve runs at
-    ``wheel-or-sdist``.  Whether the index published a wheel to bar is
+    ``sdist-only`` or ``sdist-install``. Only those policies bar wheels
+    here because the build env's own resolve runs at ``wheel-or-sdist``.
+    Whether the index published a wheel to bar is
     not known here, so a returned policy says the env would have refused
     one, not that one existed.
 
@@ -754,7 +752,7 @@ def _without_build_permission(override: _OverrideT) -> _OverrideT:
     """
     if override.build_policy in (None, BuildPolicy.NEVER):
         return override
-    return replace(override, build_policy=None)
+    return override.replace(build_policy=None)
 
 
 def _inner_resolve_inputs(inputs: ResolveInputs) -> ResolveInputs:
@@ -834,7 +832,7 @@ def _venv_scheme_paths(python_executable: Path) -> dict[str, str]:
     Subprocessing the venv guarantees the returned paths reflect the
     venv's layout (``site-packages`` under the venv root, scripts in
     its ``bin``/``Scripts`` dir, etc.) regardless of how nab itself
-    was installed.  One subprocess per env construction; negligible.
+    was installed.
 
     ``sysconfig`` has no ``headers`` scheme, and its ``include`` names
     the base interpreter rather than the venv, so the header root comes

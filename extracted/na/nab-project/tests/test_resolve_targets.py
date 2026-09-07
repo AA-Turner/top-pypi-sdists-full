@@ -61,12 +61,14 @@ from nab_project.resolve import (
     resolve_with_coordinator,
 )
 from nab_provider._provider import listing as listing_mod
+from nab_provider._provider import metadata_resolver
 from nab_provider._vendor.packaging.markers import Marker
 from nab_provider._vendor.packaging.ranges import VersionRange
 from nab_provider._vendor.packaging.requirements import Requirement
 from nab_provider._vendor.packaging.version import Version
 from nab_provider.errors import ConfigError
 from nab_provider.marker_holds import dependency_marker_holds
+from nab_provider.metadata import WheelMetadata
 from nab_provider.overrides import IndexOverride, PackageOverride
 from nab_provider.provider import (
     ArchiveSource,
@@ -241,7 +243,7 @@ class TestConflictForks:
         assert [f.active_groups for f in forks] == [(), ("dev",)]
 
     def test_single_selected_member_does_not_engage(self) -> None:
-        # Only cpu selected, gpu absent: no conflict, no fork.
+        # Selecting cpu alone triggers neither a conflict nor a fork.
         forks = conflict_forks(("cpu",), (), (_extra_set("cpu", "gpu"),))
         assert len(forks) == 1
         assert forks[0].selection == ()
@@ -690,8 +692,8 @@ class TestTwoConflictSetsPartialInstall:
 
     ``at-most-one`` lets an install pick no member of a set, so the lock of a
     four-fork resolve has to install the a1 packages for ``--extra a1`` alone,
-    not only for a full ``(a, b)`` pair. The resolve runs through the engine so
-    the gates come from the resolved graph rather than a hand-written
+    even without a full ``(a, b)`` pair. The resolve runs through the engine so
+    the selection conditions come from the graph rather than a hand-written
     ``package_gates``.
     """
 
@@ -1079,14 +1081,7 @@ class TestMatrixPerTargetWheelDivergence:
 
 
 class TestMatrixMetadataReadGranularity:
-    """Which metadata a matrix reads per wheel, and which per version.
-
-    A wheel's metadata comes from its own sidecar, so a matrix asks for one
-    URL per wheel its targets pick between them.  An sdist's ``PKG-INFO``
-    stands for the version, so one read serves the whole matrix.  Collapsing
-    repeat requests for one URL is the coordinator's job, covered by
-    ``property_python/test_fetch_coordinator.py``.
-    """
+    """Metadata is fetched per wheel URL and per sdist version."""
 
     def _wheel(self, tag: str) -> WheelFile:
         """A ``pkg`` 1.0 wheel tagged ``tag``, advertising a sidecar."""
@@ -1147,6 +1142,53 @@ class TestMatrixMetadataReadGranularity:
         self._resolve_three_targets(coordinator)
 
         assert len(coordinator.calls_to("request_sdist")) == 1
+
+    def test_a_wheel_text_is_parsed_once_across_pythons(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Parse each platform's wheel text once across Python targets."""
+        linux = self._wheel("py3-none-manylinux_2_17_x86_64")
+        windows = self._wheel("py3-none-win_amd64")
+        assert linux.metadata_url is not None
+        assert windows.metadata_url is not None
+
+        coordinator = make_coordinator(
+            listings={"pkg": [linux, windows]},
+            metadata_by_url={
+                linux.metadata_url: "Metadata-Version: 2.1\nName: pkg\nVersion: 1.0\n",
+                windows.metadata_url: (
+                    "Metadata-Version: 2.1\nName: pkg\nVersion: 1.0\n"
+                    "Requires-Python: >=3.8\n"
+                ),
+            },
+        )
+
+        parsed: list[str] = []
+        real_parse = metadata_resolver.parse_metadata
+
+        def counting_parse(text: str) -> WheelMetadata:
+            parsed.append(text)
+            return real_parse(text)
+
+        monkeypatch.setattr(metadata_resolver, "parse_metadata", counting_parse)
+
+        targets = Matrix(
+            python=">=3.11,<3.13",
+            platforms=(PlatformSpec("linux_x86_64"), PlatformSpec("windows_amd64")),
+        ).expand()
+        assert [t.label for t in targets] == [
+            "py311-linux_x86_64",
+            "py311-windows_amd64",
+            "py312-linux_x86_64",
+            "py312-windows_amd64",
+        ]
+
+        result = resolve_with_coordinator(
+            coordinator, targets, _reqs("pkg"), inputs=_no_build()
+        )
+
+        assert result.success
+        assert len(parsed) == len(set(parsed)) == 2
 
 
 _FORTY_SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -1632,7 +1674,7 @@ class TestVcsConfigPlumbing:
         assert tr.pins == {"other": Version("1.0")}
 
     def test_source_root_required_for_vcs_materialize(self) -> None:
-        """Without a source root, vcs materialisation raises cleanly.
+        """Without a source root, VCS materialisation raises its config error.
 
         When the resolver requests the VCS-backed package the provider
         raises ``UnsupportedSdistError`` mentioning ``vcs_cache_dir``.
@@ -1914,7 +1956,7 @@ class TestRunPassSerial:
 
 
 class TestRunPassConflict:
-    """A contradictory root requirement fails each target cleanly."""
+    """A contradictory root requirement returns a failure for each target."""
 
     def test_conflicting_requirements_fail_the_target(self) -> None:
         """Pinned-but-different reqs surface as a failed TargetResult.
@@ -1936,10 +1978,10 @@ class TestRunPassConflict:
 
 
 class TestRunPassConstraintMarker:
-    """A constraint's marker gates it per target, not across the matrix."""
+    """A constraint marker applies independently to each target."""
 
     def test_marker_gated_constraint_binds_only_matching_targets(self) -> None:
-        """A win32-gated ``pkg<2.0`` pins 1.0 on Windows, leaves Linux at 2.0.
+        """A win32-conditioned ``pkg<2.0`` pins 1.0 only on Windows.
 
         Each target evaluates the constraint marker against its own
         environment, so the constraint binds only the Windows target.
@@ -2116,7 +2158,7 @@ class TestBuildLockInput:
     def test_a_double_quote_in_a_consulted_marker_value_still_locks(self) -> None:
         """A marker value carrying a double quote still locks.
 
-        urllib3 1.11 gates a dependency on
+        urllib3 1.11 conditions a dependency on
         ``extra == 'secure;python_version>"2.7"'``, and the lock's
         ``environments`` come from re-parsing the markers the resolve read,
         so the value has to survive that round trip.
@@ -2824,12 +2866,7 @@ class TestSharedListingFilter:
         return calls, counting
 
     def _record_parse_passes(self) -> tuple[list[bool], object]:
-        """Return each parse pass's ``target_drops``, and the patch that records them.
-
-        False is the pass a matrix's Pythons share; True is the pass that
-        carries the drops, which a resolve with nothing to share runs per
-        Python.
-        """
+        """Return recorded ``target_drops`` values and their patch."""
         passes: list[bool] = []
         real = listing_mod._prepare_listing
 
@@ -2855,6 +2892,27 @@ class TestSharedListingFilter:
         assert result.success
         assert len(result.target_results) == 2
         assert calls == ["pkg@3.11.0"]
+
+    def test_platform_targets_share_one_wheel_artifact(self) -> None:
+        """Two targets pinning the same wheel hold one lock artifact between them."""
+        result = resolve_with_coordinator(
+            self._coordinator([self._wheel("1.0"), self._wheel("2.0")]),
+            self._targets("==3.11"),
+            _reqs("pkg"),
+            inputs=_no_build(),
+        )
+
+        assert result.success
+        first, second = (tr.lock for tr in result.target_results)
+        assert first is not None
+        assert second is not None
+
+        first_pin, second_pin = first.pins["pkg"], second.pins["pkg"]
+        assert isinstance(first_pin, IndexPin)
+        assert isinstance(second_pin, IndexPin)
+
+        assert first_pin.version == "2.0"
+        assert second_pin.wheels[0] is first_pin.wheels[0]
 
     def test_shared_filter_runs_before_the_wheel_tag_pass(self) -> None:
         """Only the pre-tag list is shared: a linux-only wheel stays off Windows."""
@@ -3067,8 +3125,8 @@ class TestMicroBoundaryNarrowing:
     )
     def test_a_quote_in_a_marker_value_does_not_cut_the_minor(self, value: str) -> None:
         """A single-quoted value is consumed whole by the micro scanner, so
-        the clause inside it neither splits 3.10 at a boundary no dependency
-        gates on nor trips the splitter on an operator it cannot tile."""
+        the clause inside it neither splits 3.10 at an unused boundary nor
+        trips the splitter on an operator it cannot tile."""
         coordinator = self._coordinator(
             {
                 "1.0": self._meta("foo", "1.0", f"mid ; platform_release == '{value}'"),
@@ -3145,7 +3203,7 @@ class TestMicroBoundaryNarrowing:
     def test_an_epoch_tagged_marker_leaves_the_minor_whole(self) -> None:
         """``>= "1!3.10.4"`` is False on every interpreter, since none reports
         an epoch. Cutting the minor there would resolve a slice at
-        ``1!3.10.4`` and gate ``mid`` behind a row nothing matches.
+        ``1!3.10.4`` and place ``mid`` behind a row nothing matches.
         """
         coordinator = self._coordinator(
             {
@@ -3334,9 +3392,8 @@ class TestMicroSliceAlignmentDirection:
     def _coordinator(cls, *split_markers: str) -> FakeFetchPort:
         """A graph whose ``foo`` splits every minor ``split_markers`` cuts.
 
-        ``bar`` is the package under test: nothing in the split concerns it,
-        and both its versions resolve everywhere, so whichever one a slice
-        pins came from that slice's preferences.
+        ``bar`` is unaffected by the split, and both versions resolve
+        everywhere. Its selected version reflects each slice's preferences.
         """
         requires = {"foo": [f"mid ; {marker}" for marker in split_markers]}
         listings = {

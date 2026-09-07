@@ -2,11 +2,14 @@
 
 import json
 import os
-import pytest
-from pathlib import Path
-import tempfile
+import re
 import shutil
+import tempfile
+from pathlib import Path
 
+import pytest
+
+from skillsaw.config import LinterConfig
 from skillsaw.context import RepositoryContext
 from skillsaw.rule import AutofixConfidence, Severity
 from skillsaw.rules.builtin.content_rules import (
@@ -30,6 +33,7 @@ from skillsaw.rules.builtin.content_rules import (
     ContentPlaceholderTextRule,
 )
 from skillsaw.rules.builtin.content import (
+    ContentMcpToolNameRule,
     ContentUnclosedFenceRule,
     ContentRepeatedDirectiveRule,
     ContentEmphasisDensityRule,
@@ -37,10 +41,15 @@ from skillsaw.rules.builtin.content import (
     ContentInlineToolExamplesRule,
     ContentProgressiveDisclosureRule,
 )
+import skillsaw.rules.builtin.content.embedded_secrets as embedded_secrets_module
 
 # Stripe test keys built from parts to avoid triggering GitHub push protection
 _STRIPE_SK = "sk" + "_live_" + "TESTFAKEKEYDONOTUSE00000"
 _STRIPE_RK = "rk" + "_live_" + "TESTFAKEKEYDONOTUSE00000"
+_RSA_HEADER = "-----BEGIN RSA PRIVATE KEY-----"
+_PEM_MATERIAL = "MIIEowIBAAKCAQEA7vYp3uF6hQ9wK2mN5rT8xZ1cV4bG0sLd"
+_PEM_ENCRYPTED_MATERIAL = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8w"
+_PEM_IV = "0123456789ABCDEF0123456789ABCDEF"
 
 
 @pytest.fixture
@@ -652,11 +661,377 @@ class TestContentEmbeddedSecretsRule:
         violations = ContentEmbeddedSecretsRule().check(context)
         assert len(violations) >= 1
 
-    def test_detects_aws_key(self, temp_dir):
+    def test_canonical_aws_documentation_key_is_exempt(self, temp_dir):
         (temp_dir / "CLAUDE.md").write_text("AWS key: AKIAIOSFODNN7EXAMPLE\n")  # notsecret
         context = RepositoryContext(temp_dir)
         violations = ContentEmbeddedSecretsRule().check(context)
-        assert len(violations) >= 1
+        assert violations == []
+
+    def test_detects_aws_key(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text("AWS key: AKIAQ3F7J2K9L1M4N8P6\n")  # notsecret
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+
+    def test_canonical_aws_documentation_key_allows_assignment_delimiter(self, temp_dir):
+        documentation_key = "".join(("AKIAIOSF", "ODNN7EXAMPLE"))
+        (temp_dir / "CLAUDE.md").write_text(f"AWS_ACCESS_KEY_ID={documentation_key}\n")
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_extended_aws_documentation_key_still_fires(self, temp_dir):
+        extended_key = "".join(("AKIAIOSF", "ODNN7EXAMPLE", "1"))
+        (temp_dir / "CLAUDE.md").write_text(f"AWS key: {extended_key}\n")
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert "AWS access key ID" in violations[0].message
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            'password = " hunter2"',
+            'const API_KEY = "sk_live_abc123xyz789";',
+            "const API_KEY = 'sk_live_abc123def456';",
+            "SECRET_KEY = 'django-insecure-...'",
+            f'private_key = "{_RSA_HEADER}"',
+            f"|{_RSA_HEADER}|",
+            f"~~{_RSA_HEADER}~~",
+        ],
+        ids=[
+            "hunter2-trimmed",
+            "stripe-xyz789",
+            "stripe-def456",
+            "django-insecure",
+            "rsa-header-only",
+            "rsa-header-table-cell",
+            "rsa-header-strikethrough",
+        ],
+    )
+    def test_known_documentation_examples_are_exempt(self, temp_dir, line):
+        """Exact literals audited from issue #532's pinned corpus are not leaks."""
+        (temp_dir / "CLAUDE.md").write_text(f"{line}\n")
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    @pytest.mark.parametrize(
+        "line,expected_desc",
+        [
+            ('password = "hunter2x"', "Hardcoded password"),
+            ('const API_KEY = "sk_live_abc123xyz790";', "Hardcoded API key"),
+            ("const API_KEY = 'sk_live_abc123def457';", "Hardcoded API key"),
+            ("SECRET_KEY = 'django-insecure-..x'", "Hardcoded secret key"),
+            ('private_key = "-----BEGIN RSA PRIVATE KEY-----X"', "Private key"),
+            (f'private_key = "{_RSA_HEADER}-"', "Private key"),
+            (f'private_key = "-{_RSA_HEADER}"', "Private key"),
+            (f'private_key = "{_RSA_HEADER}_"', "Private key"),
+            (f'private_key = "_{_RSA_HEADER}"', "Private key"),
+        ],
+        ids=[
+            "hunter2-near-miss",
+            "stripe-xyz789-near-miss",
+            "stripe-def456-near-miss",
+            "django-insecure-near-miss",
+            "rsa-header-near-miss",
+            "rsa-extra-trailing-hyphen",
+            "rsa-extra-leading-hyphen",
+            "rsa-trailing-underscore",
+            "rsa-leading-underscore",
+        ],
+    )
+    def test_known_example_close_variants_still_fire(self, temp_dir, line, expected_desc):
+        (temp_dir / "CLAUDE.md").write_text(f"{line}\n")
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert expected_desc in violations[0].message
+
+    def test_aws_documentation_key_close_variant_still_fires(self, temp_dir):
+        # Keep the synthetic provider-shaped near miss out of push protection.
+        near_miss = "".join(("AKIAIOSF", "ODNN7EXAMPLF"))
+        (temp_dir / "CLAUDE.md").write_text(f'AWS key: "{near_miss}"\n')
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert "AWS access key ID" in violations[0].message
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            (
+                f"{_RSA_HEADER}\n"
+                "Proc-Type: 4,ENCRYPTED\n"
+                f"DEK-Info: AES-256-CBC,{_PEM_IV}\n\n"
+                f"{_PEM_MATERIAL}\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                "Proc-Type: 4,ENCRYPTED\n"
+                f"DEK-Info: AES-256-CBC,{_PEM_IV}\n\n"
+                f"{_PEM_ENCRYPTED_MATERIAL}\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                "private_key: [\n"
+                f'  "{_RSA_HEADER}",\n'
+                f'  "{_PEM_MATERIAL}",\n'
+                '  "-----END RSA PRIVATE KEY-----"\n'
+                "]\n"
+            ),
+            f"> {_RSA_HEADER}\n> {_PEM_MATERIAL}\n> -----END RSA PRIVATE KEY-----\n",
+            f"- {_RSA_HEADER}\n  {_PEM_MATERIAL}\n  -----END RSA PRIVATE KEY-----\n",
+            f"{_RSA_HEADER} {_PEM_MATERIAL} -----END RSA PRIVATE KEY-----\n",
+            f'private_key = "{_RSA_HEADER}\\n{_PEM_MATERIAL}\\n-----END RSA PRIVATE KEY-----"\n',
+            f'private_key = "{_RSA_HEADER}\\\\n{_PEM_MATERIAL}\\\\n-----END RSA PRIVATE KEY-----"\n',
+            f'private_key = "{_RSA_HEADER}\\r\\n{_PEM_MATERIAL}\\r\\n-----END RSA PRIVATE KEY-----"\n',
+            f'private_key = "{_RSA_HEADER}\\u000a{_PEM_MATERIAL}\\u000a'
+            '-----END RSA PRIVATE KEY-----"\n',
+            (
+                f"{_RSA_HEADER} Proc-Type: 4,ENCRYPTED "
+                f"DEK-Info: AES-256-CBC,{_PEM_IV} {_PEM_MATERIAL} "
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f'private_key = "{_RSA_HEADER}\\nProc-Type: 4,ENCRYPTED'
+                f"\\nDEK-Info: AES-256-CBC,{_PEM_IV}\\n{_PEM_MATERIAL}"
+                '\\n-----END RSA PRIVATE KEY-----"\n'
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                "<!-- leaked key -->\n"
+                f"{_PEM_MATERIAL}\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f'private_key = "{_RSA_HEADER}\\n<!-- leaked key -->'
+                f'\\n{_PEM_MATERIAL}\\n-----END RSA PRIVATE KEY-----"\n'
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                + " ".join(
+                    _PEM_MATERIAL[index : index + 3] for index in range(0, len(_PEM_MATERIAL), 3)
+                )
+                + "\n-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f'private_key = "{_RSA_HEADER}\\n'
+                + " ".join(
+                    _PEM_MATERIAL[index : index + 3] for index in range(0, len(_PEM_MATERIAL), 3)
+                )
+                + '\\n-----END RSA PRIVATE KEY-----"\n'
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                "M\n"
+                "II EowI BAAK CAQEA7 vYp3uF6h Q9wK2mN5rT8xZ1cV4bG0sLd\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                + (" " * 200).join(_PEM_MATERIAL)
+                + "\n-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f"{_RSA_HEADER} "
+                + (" " * 200).join(_PEM_MATERIAL)
+                + " -----END RSA PRIVATE KEY-----\n"
+            ),
+            (f"7. {_RSA_HEADER}\n" f"18. {_PEM_MATERIAL}\n" "302. -----END RSA PRIVATE KEY-----\n"),
+        ],
+        ids=[
+            "encrypted-metadata",
+            "encrypted-ciphertext",
+            "quoted-array",
+            "blockquoted",
+            "list-item",
+            "same-line",
+            "escaped-newline",
+            "double-escaped-newline",
+            "escaped-crlf",
+            "unicode-escaped-newline",
+            "same-line-encrypted-metadata",
+            "escaped-encrypted-metadata",
+            "markdown-comment-before-material",
+            "escaped-comment-before-material",
+            "intraline-whitespace",
+            "escaped-intraline-whitespace",
+            "irregular-whitespace-after-one-char-prefix",
+            "truncated-whitespace-heavy-line",
+            "truncated-whitespace-heavy-remainder",
+            "ordered-list",
+        ],
+    )
+    def test_pem_block_with_key_material_still_fires(self, temp_dir, content):
+        (temp_dir / "CLAUDE.md").write_text(content)
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert "Private key" in violations[0].message
+
+    @pytest.mark.parametrize(
+        "serialized_material",
+        [
+            _PEM_MATERIAL[:24] + r"\/" + _PEM_MATERIAL[25:],
+            _PEM_MATERIAL[:24] + r"\u002f" + _PEM_MATERIAL[25:],
+            _PEM_MATERIAL[:24] + r"\t" + _PEM_MATERIAL[24:],
+            _PEM_MATERIAL[:24] + r"\u0020" + _PEM_MATERIAL[24:],
+        ],
+        ids=["solidus", "unicode-solidus", "tab", "unicode-space"],
+    )
+    def test_serialized_pem_payload_escapes_still_fire(self, temp_dir, serialized_material):
+        (temp_dir / "CLAUDE.md").write_text(
+            f'private_key = "{_RSA_HEADER}\\n{serialized_material}'
+            '\\n-----END RSA PRIVATE KEY-----"\n'
+        )
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert "Private key" in violations[0].message
+
+    @pytest.mark.parametrize("width", [15, 12, 8, 4, 3, 2, 1])
+    def test_pem_short_wrapped_key_material_still_fires(self, temp_dir, width):
+        wrapped_material = "\n".join(
+            _PEM_MATERIAL[index : index + width] for index in range(0, len(_PEM_MATERIAL), width)
+        )
+        (temp_dir / "CLAUDE.md").write_text(
+            f"{_RSA_HEADER}\n{wrapped_material}\n-----END RSA PRIVATE KEY-----\n"
+        )
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert "Private key" in violations[0].message
+
+    def test_encrypted_pem_one_char_wrapping_still_fires(self, temp_dir):
+        wrapped_material = "\n".join(_PEM_ENCRYPTED_MATERIAL)
+        (temp_dir / "CLAUDE.md").write_text(
+            f"{_RSA_HEADER}\n"
+            "Proc-Type: 4,ENCRYPTED\n"
+            f"DEK-Info: AES-256-CBC,{_PEM_IV}\n\n"
+            f"{wrapped_material}\n"
+            "-----END RSA PRIVATE KEY-----\n"
+        )
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert "Private key" in violations[0].message
+
+    def test_prose_after_pem_teaching_header_is_exempt(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            f"{_RSA_HEADER}\n"
+            "See PrivateKeyDocumentation and EncryptionTroubleshooting for details\n"
+            "-----END RSA PRIVATE KEY-----\n"
+        )
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_standalone_headings_after_pem_teaching_header_are_exempt(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            f"{_RSA_HEADER}\nConfiguration\nDocumentation\nTroubleshooting\n"
+        )
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_ordered_list_pem_in_frontmatter_still_fires(self, temp_dir):
+        (temp_dir / "SKILL.md").write_text(
+            "---\n"
+            "name: pem-example\n"
+            "description: |\n"
+            f"  7. {_RSA_HEADER}\n"
+            f"  18. {_PEM_MATERIAL}\n"
+            "  302. -----END RSA PRIVATE KEY-----\n"
+            "---\n"
+            "# PEM example\n"
+        )
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+        assert "frontmatter field 'description': Private key" in violations[0].message
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            (
+                f'private_key = "{_RSA_HEADER}\\n-----END RSA PRIVATE KEY-----'
+                '\\napplicationConfigurationDocumentation"\n'
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                "-----END RSA PRIVATE KEY-----\n"
+                "applicationConfigurationDocumentation\n"
+            ),
+        ],
+        ids=["serialized", "physical"],
+    )
+    def test_text_after_pem_end_marker_is_not_key_material(self, temp_dir, content):
+        (temp_dir / "CLAUDE.md").write_text(content)
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            (
+                f"{_RSA_HEADER}\n"
+                "Proc-Type: 4,ENCRYPTED\n"
+                f"DEK-Info: AES-256-CBC,{_PEM_IV}\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f"{_RSA_HEADER} Proc-Type: 4,ENCRYPTED "
+                f"DEK-Info: AES-256-CBC,{_PEM_IV} "
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f'private_key = "{_RSA_HEADER}\\nProc-Type: 4,ENCRYPTED'
+                f"\\nDEK-Info: AES-256-CBC,{_PEM_IV}"
+                '\\n-----END RSA PRIVATE KEY-----"\n'
+            ),
+            (
+                f'private_key = "{_RSA_HEADER}\\\\nProc-Type: 4,ENCRYPTED'
+                f"\\\\nDEK-Info: AES-256-CBC,{_PEM_IV}"
+                '\\\\n-----END RSA PRIVATE KEY-----"\n'
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                "Proc-Type: 4,ENCRYPTED\n"
+                f"DEK-Info: AES-256-CBC,{_PEM_IV}\n\n"
+                "Configuration\nDocumentation\nTroubleshooting\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            (
+                f"{_RSA_HEADER}\n"
+                "Proc-Type: 4,ENCRYPTED\n"
+                f"DEK-Info: AES-256-CBC,{_PEM_IV}\n\n"
+                "Configuration\nDocumentation\nTroubleshooting\n"
+                "Configuration\nDocumentation\nTroubleshooting\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+        ],
+        ids=[
+            "multiline",
+            "same-line",
+            "escaped",
+            "double-escaped",
+            "standalone-headings",
+            "repeated-standalone-headings",
+        ],
+    )
+    def test_pem_metadata_without_key_material_is_exempt(self, temp_dir, content):
+        (temp_dir / "CLAUDE.md").write_text(content)
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_pem_lookahead_is_bounded_by_physical_lines(self):
+        max_index = embedded_secrets_module._PEM_LOOKAHEAD_PHYSICAL_LINES
+
+        class GuardedLines(list):
+            def __getitem__(self, index):
+                if isinstance(index, int) and index > max_index:
+                    raise AssertionError("PEM lookahead exceeded its physical-line bound")
+                return super().__getitem__(index)
+
+        lines = GuardedLines([_RSA_HEADER, *([""] * (max_index + 10))])
+        match = re.search(re.escape(_RSA_HEADER), lines[0])
+        assert match is not None
+        assert not ContentEmbeddedSecretsRule._pem_key_material_follows(lines, 0, match)
+
+    def test_pem_scan_budget_is_shared_and_fails_secure(self, monkeypatch):
+        monkeypatch.setattr(embedded_secrets_module, "_PEM_SCAN_MAX_CHARS_PER_BLOB", 192)
+        rule = ContentEmbeddedSecretsRule()
+        findings = list(
+            rule._scan_text(
+                f"{_RSA_HEADER}\n{_RSA_HEADER}\n",
+                rule._entropy_threshold(),
+                rule._placeholder_markers(),
+            )
+        )
+        assert findings == [(2, "Private key")]
 
     def test_clean_file_passes(self, temp_dir):
         (temp_dir / "CLAUDE.md").write_text(
@@ -684,8 +1059,8 @@ class TestContentEmbeddedSecretsRule:
             ("xoxr-123456789012-abcdefghij", "Slack refresh token"),
             (_STRIPE_SK, "Stripe secret key"),
             (_STRIPE_RK, "Stripe restricted key"),
-            ("AIzaSyATESTFAKEKEYDONOTUSE0000000000000", "Google API key"),  # notsecret
-            ("SK00000000000000000000000000000000", "Twilio API key"),  # notsecret
+            ("AIzaSyD4k9Lm2Qp7Rt8Vw3Xy6Zb1Cd5Ef0Gh2Jk", "Google API key"),  # notsecret
+            ("SK" + "3f7a9c2e" * 4, "Twilio API key"),
             (
                 "SG.abcdefghijklmnopqrstuv.abcdefghijklmnopqrstuvwxyz0123456789abcdefghijk",  # notsecret
                 "SendGrid API key",
@@ -693,11 +1068,25 @@ class TestContentEmbeddedSecretsRule:
             ("npm_abcdefghijklmnopqrstuvwxyz1234567890", "npm access token"),  # notsecret
             ("pypi-abcdefghijklmnopqrstuvwxyz", "PyPI API token"),
             (
-                "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456",
+                "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456",  # notsecret
                 "JSON Web Token",
             ),
-            ("-----BEGIN RSA PRIVATE KEY-----", "Private key"),
-            ("-----BEGIN OPENSSH PRIVATE KEY-----", "Private key"),
+            (
+                "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7",
+                "Private key",
+            ),
+            (
+                "-----BEGIN EC PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7",
+                "Private key",
+            ),
+            (
+                "-----BEGIN DSA PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7",
+                "Private key",
+            ),
+            (
+                "-----BEGIN OPENSSH PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7",
+                "Private key",
+            ),
             ("secret_key = 'abcdefghijklmnopqrstuvwxyz'", "Hardcoded secret key"),
             ("access_token = 'abcdefghijklmnopqrstuvwxyz'", "Hardcoded access token"),
         ],
@@ -715,7 +1104,9 @@ class TestContentEmbeddedSecretsRule:
             "npm",
             "pypi",
             "jwt",
-            "rsa-private-key",
+            "pkcs8-private-key",
+            "ec-private-key",
+            "dsa-private-key",
             "openssh-private-key",
             "generic-secret-key",
             "generic-access-token",
@@ -862,11 +1253,107 @@ class TestContentEmbeddedSecretsRule:
 
     def test_structured_tokens_not_entropy_gated(self, temp_dir):
         """High-confidence token formats fire even for low-entropy bodies."""
-        (temp_dir / "CLAUDE.md").write_text("Use token ghp_" + "a" * 40 + "\n")  # notsecret
+        (temp_dir / "CLAUDE.md").write_text("Use token ghp_" + "abcd" * 10 + "\n")  # notsecret
         context = RepositoryContext(temp_dir)
         violations = ContentEmbeddedSecretsRule().check(context)
         assert len(violations) >= 1
         assert "GitHub personal access token" in violations[0].message
+
+    @pytest.mark.parametrize(
+        "token",
+        [
+            "ghp_" + "x" * 36,
+            "sk_live_" + "x" * 24,
+            "AIzaSy" + "X" * 33,
+            "xoxb-" + "0" * 10 + "-" + "X" * 12,
+            "sk-ant-api03-" + "x" * 20,
+        ],
+        ids=["github", "stripe", "google", "slack", "anthropic"],
+    )
+    def test_repeated_character_placeholder_tokens_are_exempt(self, temp_dir, token):
+        """`ghp_xxxx…` is the documentation idiom for a token, not a token."""
+        (temp_dir / "CLAUDE.md").write_text(f"Export the token: {token}\n")
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_structured_token_with_placeholder_word_still_fires(self, temp_dir):
+        """Substring markers never exempt a structured token: a real token can
+        contain ``test`` by chance, and this detector is the one that finds
+        real leaks."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "Use ghp_testAbCdEfGhIjKlMnOpQrStUvWxYz0123456789\n"  # notsecret
+        )
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert [v.message for v in violations] == [
+            "Potential secret detected: GitHub personal access token"
+        ]
+
+    def test_jwt_io_example_token_is_exempt(self, temp_dir):
+        example = (
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+            "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ."
+            "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        )
+        (temp_dir / "CLAUDE.md").write_text(f"A JWT looks like {example}\n")
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_generic_assignment_inside_fenced_code_is_not_reported(self, temp_dir):
+        """A ``password:`` line in a code sample is a teaching example."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "Configure the database:\n\n" "```yaml\n" 'password: "SecurePass123!"\n' "```\n"
+        )
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_generic_assignment_in_prose_is_still_reported(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text('Log in with password = "SecurePass123!"\n')
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert [v.message for v in violations] == ["Potential secret detected: Hardcoded password"]
+
+    def test_structured_token_inside_fenced_code_is_still_reported(self, temp_dir):
+        """A real token in a fence is a real leak; only generic patterns read prose."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "```bash\n"
+            "export GITHUB_TOKEN=ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789\n"  # notsecret
+            "```\n"
+        )
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert [(v.line, v.message) for v in violations] == [
+            (2, "Potential secret detected: GitHub personal access token")
+        ]
+
+    def test_shell_substitution_is_not_a_literal(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            'Create the user with --password="$(openssl rand -base64 24)"\n'
+        )
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    @pytest.mark.parametrize(
+        "header",
+        [
+            "-----BEGIN PRIVATE KEY-----",
+            "-----BEGIN EC PRIVATE KEY-----",
+            "-----BEGIN OPENSSH PRIVATE KEY-----",
+        ],
+    )
+    def test_pem_header_without_material_is_documentation(self, temp_dir, header):
+        """A security skill listing the headers it scans for leaks nothing."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "Patterns to detect:\n\n"
+            f'- regex: "{header}"\n'
+            '- regex: "-----BEGIN RSA PRIVATE KEY-----"\n'
+            '- regex: "AKIA[0-9A-Z]{16}"\n'
+        )
+        assert ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_pem_header_followed_by_material_is_reported(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "-----BEGIN OPENSSH PRIVATE KEY-----\n"
+            "b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\n"
+            "-----END OPENSSH PRIVATE KEY-----\n"
+        )
+        violations = ContentEmbeddedSecretsRule().check(RepositoryContext(temp_dir))
+        assert [(v.line, v.message) for v in violations] == [
+            (1, "Potential secret detected: Private key")
+        ]
 
     def test_entropy_threshold_configurable(self, temp_dir):
         # Distinct repo dirs: the utils read cache is keyed by path, so
@@ -1005,6 +1492,107 @@ class TestContentBannedReferencesRule:
         assert elapsed < 5.0
         assert any("Skipped banned pattern" in v.message for v in violations)
 
+    def _messages(self, temp_dir, body, config=None):
+        (temp_dir / "CLAUDE.md").write_text(body)
+        rule = ContentBannedReferencesRule(config or {})
+        return [v.message for v in rule.check(RepositoryContext(temp_dir))]
+
+    def test_mapping_entry_retiring_a_name_is_not_reported(self, temp_dir):
+        body = (
+            "```python\n" "MODEL_MIGRATIONS = {\n" '    "claude-2": "claude-sonnet-5",\n' "}\n```\n"
+        )
+        assert self._messages(temp_dir, body) == []
+
+    def test_table_row_retiring_a_name_is_not_reported(self, temp_dir):
+        body = (
+            "| Retired id | Retired on | Replacement |\n"
+            "| --- | --- | --- |\n"
+            "| `claude-3-opus-20240229` | 2026-01-05 | `claude-opus-4-8` |\n"
+        )
+        assert self._messages(temp_dir, body) == []
+
+    def test_arrow_retiring_a_name_is_not_reported(self, temp_dir):
+        body = "Rewrite `gpt-3.5-turbo` -> `gpt-5-mini` before the cutover.\n"
+        assert self._messages(temp_dir, body) == []
+
+    def test_pinned_id_in_a_fenced_config_is_reported(self, temp_dir):
+        body = "```yaml\nservice: summarizer\nmodel: claude-2\n```\n"
+        assert self._messages(temp_dir, body) == ["Banned reference: claude-2 is deprecated"]
+
+    def test_replacement_side_is_still_reported(self, temp_dir):
+        """Migrating onto a deprecated id reports the id being adopted."""
+        body = '    "claude-2": "claude-3-haiku",\n'
+        assert sorted(self._messages(temp_dir, body)) == [
+            "Banned reference: claude-2 is deprecated",
+            "Banned reference: claude-3-haiku is deprecated",
+        ]
+
+    def test_recommendation_table_is_not_a_migration(self, temp_dir):
+        """A table pairing two retired ids recommends both — report both."""
+        body = (
+            "| Request kind | Model | Fallback |\n"
+            "| --- | --- | --- |\n"
+            "| Short answers | `claude-3-haiku` | `claude-3-opus` |\n"
+        )
+        assert sorted(self._messages(temp_dir, body)) == [
+            "Banned reference: claude-3-haiku is deprecated",
+            "Banned reference: claude-3-opus is deprecated",
+        ]
+
+    def test_hyphenated_prose_is_not_a_replacement(self, temp_dir):
+        """A cell of ordinary hyphenated English must not pass for a model id."""
+        body = "| Model | Notes |\n| --- | --- |\n| `claude-3-opus` | best-in-class reasoning |\n"
+        assert self._messages(temp_dir, body) == ["Banned reference: claude-3-opus is deprecated"]
+
+    def test_return_annotation_is_not_a_migration(self, temp_dir):
+        body = "```python\n" 'def call(model: str = "gpt-3.5-turbo") -> str:\n' "    ...\n```\n"
+        assert self._messages(temp_dir, body) == ["Banned reference: gpt-3.5 is deprecated"]
+
+    def test_report_migrations_restores_the_finding(self, temp_dir):
+        body = "```python\n" '    "claude-2": "claude-sonnet-5",\n' "```\n"
+        assert self._messages(temp_dir, body, {"report-migrations": True}) == [
+            "Banned reference: claude-2 is deprecated"
+        ]
+
+    def test_configured_ban_is_never_treated_as_a_migration(self, temp_dir):
+        """A custom pattern is project policy, not deprecation knowledge:
+        mapping the forbidden name onto a current model is still a use."""
+        body = "forbidden-mode: gpt-5-mini\n"
+        config = {"banned": [{"pattern": "forbidden-mode", "message": "forbidden-mode is banned"}]}
+        assert self._messages(temp_dir, body, config) == [
+            "Banned reference: forbidden-mode is banned"
+        ]
+
+    def test_pipe_row_without_outer_delimiters_is_a_migration(self, temp_dir):
+        body = "`claude-2` | `claude-sonnet-5`\n"
+        assert self._messages(temp_dir, body) == []
+
+    def test_markdown_formatted_mapping_keys_are_migrations(self, temp_dir):
+        """A bold key or an ordered-list prefix is still a key/value mapping."""
+        body = "- **claude-2**: **gpt-5-mini**\n\n1. claude-2: gpt-5-mini\n"
+        assert self._messages(temp_dir, body) == []
+
+    def test_shell_pipeline_is_not_a_migration_row(self, temp_dir):
+        """Two cells split on a pipe are a row only when each is one token."""
+        body = "Run `grep claude-2 | grep o3` to find stale configs.\n"
+        assert self._messages(temp_dir, body) != []
+
+    def test_long_digit_free_operand_is_linear(self):
+        """The replacement lookahead must not rescan a long operand from
+        every position: one such line would stall the whole lint."""
+        import time
+
+        rule = ContentBannedReferencesRule()
+        deprecated = rule._builtin_patterns()
+        for line in ("claude-2 -> " + "a" * 80_000, "claude-2 -> 1" + "a" * 80_000):
+            started = time.perf_counter()
+            assert rule._migration_cutoff(line, deprecated) == -1
+            assert time.perf_counter() - started < 1.0
+
+    def test_single_token_replacement_is_a_current_model(self, temp_dir):
+        body = "claude-2 -> o3\n"
+        assert self._messages(temp_dir, body) == []
+
     def test_timeout_is_clamped_and_zero_disables(self, temp_dir):
         rule = ContentBannedReferencesRule({"regex-timeout": 999})
         assert rule._regex_timeout() == 10.0
@@ -1060,10 +1648,10 @@ class TestContentInconsistentTerminologyRule:
     def test_disabled_group_accepts_off_spellings(self, temp_dir, setting):
         """YAML 1.1 loaders parse a bare ``off`` as boolean False; quoted
         strings and casing variants must behave the same."""
-        (temp_dir / "CLAUDE.md").write_text("Write a helper function.\n")
-        (temp_dir / "AGENTS.md").write_text("Write a helper method.\n")
+        (temp_dir / "CLAUDE.md").write_text("Use the output directory.\n")
+        (temp_dir / "AGENTS.md").write_text("Use the output folder.\n")
         context = RepositoryContext(temp_dir)
-        rule = ContentInconsistentTerminologyRule({"groups": {"function/method": setting}})
+        rule = ContentInconsistentTerminologyRule({"groups": {"directory/folder": setting}})
         assert rule.check(context) == []
 
     def test_group_severity_is_case_insensitive(self):
@@ -1100,8 +1688,8 @@ class TestContentInconsistentTerminologyRule:
 
     def test_groups_null_treated_as_absent(self, temp_dir):
         """``groups:`` with no value parses as None and must not raise."""
-        (temp_dir / "CLAUDE.md").write_text("Write a helper function.\n")
-        (temp_dir / "AGENTS.md").write_text("Write a helper method.\n")
+        (temp_dir / "CLAUDE.md").write_text("Use the output directory.\n")
+        (temp_dir / "AGENTS.md").write_text("Use the output folder.\n")
         context = RepositoryContext(temp_dir)
         rule = ContentInconsistentTerminologyRule({"groups": None})
         assert rule._group_overrides == {}
@@ -1454,6 +2042,23 @@ scenario touches in the fixture header comment block.
 
 
 class TestContentBrokenInternalReferenceRule:
+    @pytest.mark.skipif(os.name == "nt", reason="Windows disallows '?' in filenames")
+    @pytest.mark.parametrize("target", ["guide.md?variant=notes", "guide.md%3Fvariant%3Dnotes"])
+    def test_literal_question_mark_filename_still_resolves(self, temp_dir, target):
+        (temp_dir / "guide.md?variant=notes").write_text("# Variant notes\n")
+        (temp_dir / "AGENTS.md").write_text(f"Read [the variant notes]({target}).\n")
+        assert ContentBrokenInternalReferenceRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_query_does_not_change_repository_containment(self, temp_dir):
+        repo = temp_dir / "repo"
+        repo.mkdir()
+        (temp_dir / "outside.md").write_text("# Outside\n")
+        (repo / "AGENTS.md").write_text("Read [the notes](../outside.md?plain=1).\n")
+        found = ContentBrokenInternalReferenceRule().check(RepositoryContext(repo))
+        assert len(found) == 1
+        assert "outside repository" in found[0].message
+        assert found[0].fixable is False
+
     def test_rule_metadata(self):
         rule = ContentBrokenInternalReferenceRule()
         assert rule.rule_id == "content-broken-internal-reference"
@@ -1811,6 +2416,8 @@ class TestContentUnlinkedInternalReferenceRule:
         assert rule.default_severity() == Severity.INFO
 
     def test_bare_path_violation(self, temp_dir):
+        (temp_dir / "src" / "config").mkdir(parents=True)
+        (temp_dir / "src" / "config" / "settings.yaml").write_text("theme: dark\n")
         (temp_dir / "CLAUDE.md").write_text(
             "Check the file at src/config/settings.yaml for defaults.\n"
         )
@@ -1828,14 +2435,16 @@ class TestContentUnlinkedInternalReferenceRule:
         assert len(violations) == 0
 
     def test_dot_slash_path(self, temp_dir):
+        (temp_dir / "scripts").mkdir()
+        (temp_dir / "scripts" / "build.sh").write_text("#!/bin/sh\n")
         (temp_dir / "CLAUDE.md").write_text("Run ./scripts/build.sh to build.\n")
         context = RepositoryContext(temp_dir)
         violations = ContentUnlinkedInternalReferenceRule().check(context)
         assert len(violations) == 1
         assert "./scripts/build.sh" in violations[0].message
 
-    def test_resolution_failure_is_not_autofixable(self, temp_dir, monkeypatch):
-        """An unresolvable bare path must not be statted or offered for autofix."""
+    def test_resolution_failure_is_not_reported(self, temp_dir, monkeypatch):
+        """An unresolvable bare path must not be statted or reported."""
         from skillsaw.rules.builtin.content import unlinked_internal_reference as rule_module
 
         (temp_dir / "CLAUDE.md").write_text("See docs/hostile.md for details.\n")
@@ -1860,8 +2469,18 @@ class TestContentUnlinkedInternalReferenceRule:
         monkeypatch.setattr(Path, "exists", hostile_exists)
 
         violations = ContentUnlinkedInternalReferenceRule().check(context)
-        assert len(violations) == 1
-        assert violations[0].fixable is False
+        assert violations == []
+
+    def test_nonexistent_path_shaped_prose_not_reported(self, temp_dir):
+        """Technology names and illustrative paths are not actionable local links."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "Use JavaScript/Node.js for the worker.\n"
+            "Examples may refer to examples/service/config.yaml.\n"
+        )
+
+        violations = ContentUnlinkedInternalReferenceRule().check(RepositoryContext(temp_dir))
+
+        assert violations == []
 
     def test_path_abutting_close_paren_not_flagged(self, temp_dir):
         """Regression for #321: `scripts/test.pyc)` must not backtrack to a
@@ -1886,6 +2505,8 @@ class TestContentUnlinkedInternalReferenceRule:
     def test_dot_slash_path_does_not_swallow_sentence_period(self, temp_dir):
         """Regression for #321: `./docs/guide.md.` at the end of a sentence
         must match `./docs/guide.md`, not include the period."""
+        (temp_dir / "docs").mkdir()
+        (temp_dir / "docs" / "guide.md").write_text("# Guide\n")
         (temp_dir / "CLAUDE.md").write_text("See ./docs/guide.md. Then continue.\n")
         context = RepositoryContext(temp_dir)
         violations = ContentUnlinkedInternalReferenceRule().check(context)
@@ -1909,6 +2530,10 @@ class TestContentUnlinkedInternalReferenceRule:
 
     def test_custom_patterns_config(self, temp_dir):
         """Test that custom patterns config filters which paths are flagged."""
+        (temp_dir / "docs").mkdir()
+        (temp_dir / "docs" / "guide.md").write_text("# Guide\n")
+        (temp_dir / "src" / "config").mkdir(parents=True)
+        (temp_dir / "src" / "config" / "settings.yaml").write_text("theme: dark\n")
         (temp_dir / "CLAUDE.md").write_text(
             "See docs/guide.md for info.\nAlso check src/config/settings.yaml.\n"
         )
@@ -1935,6 +2560,8 @@ class TestContentUnlinkedInternalReferenceRule:
         assert len(violations) == 0
 
     def test_reports_line_number(self, temp_dir):
+        (temp_dir / "docs").mkdir()
+        (temp_dir / "docs" / "guide.md").write_text("# Guide\n")
         content = "Line 1\nLine 2\nSee docs/guide.md for info.\nLine 4\n"
         (temp_dir / "CLAUDE.md").write_text(content)
         context = RepositoryContext(temp_dir)
@@ -1960,6 +2587,8 @@ class TestContentUnlinkedInternalReferenceRule:
 
     def test_double_backtick_exact_path_flagged(self, temp_dir):
         """A path that is the entire content of a double-backtick span should still be flagged."""
+        (temp_dir / "prompts").mkdir()
+        (temp_dir / "prompts" / "analyze-skill.md").write_text("# Analysis prompt\n")
         (temp_dir / "CLAUDE.md").write_text(
             "You can also reference ``prompts/analyze-skill.md`` with double backticks.\n"
         )
@@ -2139,7 +2768,7 @@ class TestContentUnlinkedInternalReferenceAutofix:
         rule = ContentUnlinkedInternalReferenceRule()
         violations = rule.check(context)
         assert len(violations) == 1
-        assert "autofixable" in violations[0].message
+        assert violations[0].fixable is True
         fixes = rule.fix(context, violations)
         assert len(fixes) == 1
         assert fixes[0].confidence == AutofixConfidence.SAFE
@@ -2167,16 +2796,15 @@ class TestContentUnlinkedInternalReferenceAutofix:
         assert "run [scripts/test.py](scripts/test.py) to validate" in fixed
         assert len(fixed.splitlines()) == 2
 
-    def test_no_autofix_for_nonexistent_path(self, temp_dir):
-        """Bare paths to nonexistent files should not be autofixed."""
+    def test_no_violation_or_autofix_for_nonexistent_path(self, temp_dir):
+        """Bare paths to nonexistent files are neither reported nor autofixed."""
         (temp_dir / "CLAUDE.md").write_text("See docs/guide.md for info.\n")
         context = RepositoryContext(temp_dir)
         rule = ContentUnlinkedInternalReferenceRule()
         violations = rule.check(context)
-        assert len(violations) == 1
-        assert "autofixable" not in violations[0].message
+        assert violations == []
         fixes = rule.fix(context, violations)
-        assert len(fixes) == 0
+        assert fixes == []
 
     def test_autofix_duplicate_paths_no_double_wrap(self, temp_dir):
         """When the same path appears multiple times, each should be wrapped independently."""
@@ -2242,7 +2870,7 @@ class TestContentUnlinkedInternalReferenceAutofix:
         assert fixed.count("[[") == 0
 
     def test_autofix_mixed_autofixable_and_nonexistent(self, temp_dir):
-        """Only existing paths should be fixed; nonexistent paths left alone."""
+        """Only existing paths should be reported and fixed."""
         (temp_dir / "src").mkdir()
         (temp_dir / "src" / "real.py").write_text("# real\n")
         (temp_dir / "CLAUDE.md").write_text(
@@ -2251,9 +2879,9 @@ class TestContentUnlinkedInternalReferenceAutofix:
         context = RepositoryContext(temp_dir)
         rule = ContentUnlinkedInternalReferenceRule()
         violations = rule.check(context)
-        assert len(violations) == 2
-        autofixable = [v for v in violations if "autofixable" in v.message]
-        assert len(autofixable) == 1
+        assert len(violations) == 1
+        assert "src/real.py" in violations[0].message
+        assert violations[0].fixable is True
         fixes = rule.fix(context, violations)
         assert len(fixes) == 1
         fixed = fixes[0].fixed_content
@@ -2333,6 +2961,26 @@ class TestContentUnlinkedInternalReferenceAutofix:
 
 
 class TestContentBrokenInternalReferenceAutofix:
+    @pytest.mark.parametrize("change", ["diagnostic", "file"])
+    def test_fix_uses_original_destination_evidence(self, temp_dir, change):
+        (temp_dir / "docs").mkdir()
+        (temp_dir / "docs/setup(v2).md").write_text("# Setup\n")
+        path = temp_dir / "AGENTS.md"
+        path.write_text("Read [the guide](docs/setup(v1).md).\n")
+        context = RepositoryContext(temp_dir)
+        rule = ContentBrokenInternalReferenceRule()
+        found = rule.check(context)
+        assert len(found) == 1 and found[0].fixable
+        if change == "diagnostic":
+            found[0].message = "The user-facing wording can change independently."
+            fixes = rule.fix(context, found)
+            assert len(fixes) == 1
+            assert fixes[0].fixed_content == "Read [the guide](docs/setup%28v2%29.md).\n"
+        else:
+            path.write_text("Read [the guide](docs/new-user-link.md).\n")
+            assert rule.fix(context, found) == []
+            assert path.read_text() == "Read [the guide](docs/new-user-link.md).\n"
+
     def test_suggests_similar_filename(self, temp_dir):
         """Broken link should suggest a similar existing file."""
         (temp_dir / "docs").mkdir()
@@ -2574,7 +3222,8 @@ class TestContentRepeatedDirectiveRule:
     def test_rule_metadata(self):
         rule = ContentRepeatedDirectiveRule()
         assert rule.rule_id == "content-repeated-directive"
-        assert rule.default_severity() == Severity.WARNING
+        # Advice, not correctness — it must not redden a default CI run.
+        assert rule.default_severity() == Severity.INFO
 
     def test_detects_exact_duplicate_directive(self, temp_dir):
         (temp_dir / "CLAUDE.md").write_text(
@@ -4484,13 +5133,6 @@ class TestContentProgressiveDisclosureRule:
         )
         return skill
 
-    def test_rule_metadata(self):
-        rule = ContentProgressiveDisclosureRule()
-        assert rule.rule_id == "content-progressive-disclosure"
-        assert rule.default_severity() == Severity.WARNING
-        assert rule.default_enabled == "auto"
-        assert "progressive disclosure" in rule.description
-
     def test_default_limits_over_budget_fires(self, temp_dir):
         self._write_claude(temp_dir, repeats=200)  # ~6.5k tokens
         violations = ContentProgressiveDisclosureRule().check(RepositoryContext(temp_dir))
@@ -4548,6 +5190,13 @@ class TestContentProgressiveDisclosureRule:
         (temp_dir / "docs").mkdir()
         (temp_dir / "docs" / "testing.md").write_text("# Testing\n")
         self._write_claude(temp_dir, extra="\n@docs/testing.md\n")
+        rule = ContentProgressiveDisclosureRule({"limits": {"claude-md": 100}})
+        assert rule.check(RepositoryContext(temp_dir)) == []
+
+    def test_emphasized_import_counts(self, temp_dir):
+        (temp_dir / "docs").mkdir()
+        (temp_dir / "docs" / "testing.md").write_text("# Testing\n")
+        self._write_claude(temp_dir, extra="\nRead **@docs/testing.md** first.\n")
         rule = ContentProgressiveDisclosureRule({"limits": {"claude-md": 100}})
         assert rule.check(RepositoryContext(temp_dir)) == []
 
@@ -5016,3 +5665,492 @@ class TestContentProgressiveDisclosureRule:
         assert len(violations) == 2
         metrics = [v.metric for v in violations]
         assert metrics[0] != metrics[1], "same-file blocks need distinct metrics"
+
+
+class TestContentMcpToolNameRule:
+    def _check(self, temp_dir):
+        return ContentMcpToolNameRule().check(RepositoryContext(temp_dir))
+
+    def test_rule_metadata(self):
+        rule = ContentMcpToolNameRule()
+        assert rule.rule_id == "content-mcp-tool-name"
+        assert rule.default_severity() == Severity.WARNING
+        assert rule.default_enabled is False
+        assert rule.autofix_confidence == AutofixConfidence.SUGGEST
+        assert rule.supports_autofix
+        assert rule.since == "0.20.0"
+
+    def test_rule_requires_opt_in(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text("# Rules\n\nUse `mcp__jira__getJiraIssue`.\n")
+        context = RepositoryContext(temp_dir)
+        rule = ContentMcpToolNameRule()
+        for version in ("0.19.0", "0.20.0"):
+            config = LinterConfig(version=version, rules={})
+            enabled = config.is_rule_enabled(
+                rule.rule_id,
+                context,
+                repo_types=rule.repo_types,
+                since_version=rule.since,
+            )
+            assert enabled is False
+
+        config = LinterConfig(
+            version="0.20.0",
+            rules={rule.rule_id: {"enabled": True}},
+        )
+        assert config.is_rule_enabled(
+            rule.rule_id,
+            context,
+            repo_types=rule.repo_types,
+            since_version=rule.since,
+        )
+
+    def test_detects_name_in_plain_prose(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n"
+            "Find the ticket with mcp__plugin_jira_atlassian__searchJiraIssuesUsingJql\n"
+            "before opening a new one.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 1
+        assert violations[0].line == 3
+        assert "mcp__plugin_jira_atlassian__searchJiraIssuesUsingJql" in violations[0].message
+        assert "'searchJiraIssuesUsingJql'" in violations[0].message
+
+    def test_detects_name_inside_inline_code_span(self, temp_dir):
+        """Most real occurrences sit inside backticks, and
+        read_body(strip_code_blocks=True) blanks code spans — so the rule
+        must scan them itself or it misses the common case."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nFetch files with `mcp__plugin_github_github__get_file_contents`.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 1
+        assert violations[0].line == 3
+        assert "'get_file_contents'" in violations[0].message
+
+    def test_fenced_code_block_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n"
+            "Grant the tool in settings:\n\n"
+            "```json\n"
+            '{"permissions": {"allow": ["mcp__plugin_github_github__get_file_contents"]}}\n'
+            "```\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_indented_code_block_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nGrant the tool:\n\n"
+            "    allow: mcp__plugin_github_github__get_file_contents\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_server_without_tool_segment_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nThe mcp__atlassian server backs every ticket lookup.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_empty_tool_segment_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nA truncated identifier like mcp__atlassian__ names no tool.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_empty_server_segment_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nA malformed identifier like mcp____tool names no tool.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_double_underscore_tool_name_keeps_full_name(self, temp_dir):
+        """Only the server prefix is stripped: a tool whose own name
+        contains ``__`` must keep every segment of its name."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nFetch files with `mcp__server__get_file__contents`.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 1
+        assert "'get_file__contents'" in violations[0].message
+
+    def test_tool_name_inside_url_or_path_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n"
+            "See https://registry.example.com/tools/mcp__jira__getIssue for the\n"
+            "schema, or <https://x.com/t/mcp__jira__getIssue>. Fixtures live in\n"
+            "tools/mcp__jira__getIssue.json.\n\n"
+            "The catalog is queried as\n"
+            "https://registry.example.com/api?tool=mcp__jira__getIssue and the\n"
+            "export downloads as mcp__jira__getIssue.json. Windows agents read\n"
+            "C:\\tools\\mcp__jira__getIssue instead, and versioned exports use\n"
+            "the v2.mcp__jira__getIssue naming.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_selector_wildcard_and_path_continuation_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n"
+            "Load `select:mcp__playwright__browser_navigate` with ToolSearch.\n"
+            "Load `select:mcp__playwright__browser_navigate,"
+            "mcp__playwright__browser_snapshot,mcp__playwright__browser_close` "
+            "for a complete browser pass.\n"
+            'Call `ToolSearch(query="select:mcp__jira__getIssue,'
+            'mcp__jira__searchIssues")` before triage.\n'
+            "Mix `select:Read,mcp__jira__getIssue,mcp__jira__searchIssues` "
+            "with a built-in first.\n"
+            "Mix `select:mcp__jira__getIssue,Read,mcp__jira__searchIssues` "
+            "with a built-in between MCP tools.\n"
+            "Allow `select:mcp__server__memory_*` for the memory tools.\n"
+            "Read `mcp__jira__getIssue/examples/output.txt` as fixture data.\n"
+            "Keep `mcp__jira__getIssue\\examples\\output.txt` on Windows.\n"
+            "Read `mcp__jira__getIssue`/examples/output.txt across markup.\n"
+            "Read `mcp__jira__getIssue`.json across markup.\n"
+            "Read ` mcp__jira__getIssue `/examples/output.txt with padding.\n"
+            "Match *mcp__server__tool or [ab]mcp__server__tool patterns.\n"
+            "Match mcp__server__tool@(One|Two) as an extended glob.\n"
+        )
+
+        assert self._check(temp_dir) == []
+
+    def test_comma_separated_names_without_select_are_still_prose(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n" "Compare mcp__server__first,mcp__server__second before choosing.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 2
+
+    def test_terminated_selector_does_not_hide_later_prose(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n"
+            "Broken `select:mcp__server__first,,mcp__server__after_gap`.\n"
+            "Broken `select:mcp__server__first, mcp__server__after_space`.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 2
+        assert "mcp__server__after_gap" in violations[0].message
+        assert "mcp__server__after_space" in violations[1].message
+
+    def test_arbitrary_colon_prefix_is_not_treated_as_a_selector(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nThe exact tool:mcp__server__lookup form is client-specific.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 1
+        assert "'lookup'" in violations[0].message
+
+    def test_question_and_markdown_emphasis_remain_prose(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n"
+            "Can we call mcp__server__tool?\n"
+            "Can we call `mcp__server__tool`?\n"
+            "Call *mcp__server__tool* now.\n"
+        )
+
+        violations = self._check(temp_dir)
+
+        assert len(violations) == 3
+        assert all("'tool'" in violation.message for violation in violations)
+
+    def test_link_text_not_flagged(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nSee [mcp__jira__getIssue](https://example.com/schema) for details.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_config_instructing_prose_is_flagged(self, temp_dir):
+        """Deliberate: config-instructing prose is flagged like any other
+        prose — the mcp__<server>__ half is non-deterministic there too.
+        The rule doc steers the author to the placeholder form or a fenced
+        example, and the SUGGEST tier keeps the strip from applying
+        unattended."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nAdd `mcp__jira__getIssue` to your allowed-tools list first.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 1
+        assert violations[0].fix_confidence == AutofixConfidence.SUGGEST
+
+    def test_lookbehind_rejects_prefixed_identifiers(self, temp_dir):
+        """An identifier character before mcp__ means the token is part of
+        a longer name, never a tool reference."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\n"
+            "The legacy-mcp__jira__getIssue alias and the v2mcp__jira__getIssue\n"
+            "build target are internal names.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_multiline_code_span_not_flagged(self, temp_dir):
+        """A code span wrapped across a line break is skipped by design —
+        its columns cannot be mapped to a single splice.  The fragment
+        before the wrap is itself a complete FQ name, so only the
+        multiline skip keeps it clean."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nFetch files with `mcp__github__get\nfile_contents`.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_same_line_violations_get_distinct_fingerprints(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nCall `mcp__jira__getIssue` then mcp__jira__getIssue again.\n"
+        )
+        violations = self._check(temp_dir)
+        assert len(violations) == 2
+        discriminators = {v.fingerprint_discriminator for v in violations}
+        assert len(discriminators) == 2
+
+    def test_short_name_alone_passes(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nFetch files with `get_file_contents` rather than raw HTTP.\n"
+        )
+        assert self._check(temp_dir) == []
+
+    def test_allow_config_exempts_listed_name(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nRun `mcp__internal__report__generate` for the weekly digest.\n"
+        )
+        assert len(self._check(temp_dir)) == 1
+
+        rule = ContentMcpToolNameRule({"allow": ["mcp__internal__report__generate"]})
+        assert rule.check(RepositoryContext(temp_dir)) == []
+
+    def test_non_string_allow_entries_do_not_crash(self, temp_dir):
+        """Config validation only guarantees `allow` is a list — a mapping
+        inside it must be ignored, not hashed into a TypeError that takes
+        every real finding down with it."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "# Rules\n\nRun `mcp__internal__report__generate` for the weekly digest.\n"
+        )
+        rule = ContentMcpToolNameRule(
+            {"allow": [{"name": "mcp__internal__report__generate"}, ["nested"]]}
+        )
+        violations = rule.check(RepositoryContext(temp_dir))
+        assert len(violations) == 1
+
+        rule = ContentMcpToolNameRule(
+            {"allow": [{"bad": "entry"}, "mcp__internal__report__generate"]}
+        )
+        assert rule.check(RepositoryContext(temp_dir)) == []
+
+    def test_diagnostic_only_body_reported_not_fixable(self, temp_dir):
+        """A Cursor prompt hook's body is decoded out of a JSON string
+        literal, so a fix computed against it has no honest span in the
+        file that holds it.  check() must not advertise a fix that fix()
+        always skips."""
+        repo = copy_content_fixture("mcp-tool-name-hook-prompt", temp_dir)
+        violations = ContentMcpToolNameRule().check(RepositoryContext(repo))
+        by_name = {v.file_path.name: v for v in violations}
+        assert set(by_name) == {"hooks.json", "AGENTS.md"}
+        assert by_name["hooks.json"].fixable is False
+        assert by_name["hooks.json"].fix_confidence is None
+        assert by_name["AGENTS.md"].fixable is True
+        assert by_name["AGENTS.md"].fix_confidence == AutofixConfidence.SUGGEST
+
+    def test_yaml_embedded_body_fixable_only_when_span_verifies(self, temp_dir):
+        """A literal (``|``) YAML block scalar keeps real file lines, so
+        file_span() can translate its indented columns and the fix is
+        honest.  A folded (``>``) scalar reflows body lines, the span never
+        verifies, and check() must not advertise a fix that fix() would
+        silently drop."""
+        repo = copy_content_fixture("mcp-tool-name-coderabbit", temp_dir)
+        violations = ContentMcpToolNameRule().check(RepositoryContext(repo))
+        assert {v.file_path.name for v in violations} == {".coderabbit.yaml", "CLAUDE.md"}
+
+        yaml_violations = [v for v in violations if v.file_path.name == ".coderabbit.yaml"]
+        assert sorted(v.fixable for v in yaml_violations) == [False, True]
+        folded = next(v for v in yaml_violations if not v.fixable)
+        assert folded.fix_confidence is None
+
+        claude = next(v for v in violations if v.file_path.name == "CLAUDE.md")
+        assert claude.fixable is True
+
+    def test_no_files_no_violations(self, temp_dir):
+        assert self._check(temp_dir) == []
+
+
+class TestContentMcpToolNameAutofix:
+    CONTENT = (
+        "# Rules\n\n"
+        "Search with mcp__plugin_jira_atlassian__searchJiraIssuesUsingJql first.\n\n"
+        "Fetch files with `mcp__plugin_github_github__get_file_contents`.\n\n"
+        "The mcp__atlassian server needs no rewrite.\n\n"
+        "```json\n"
+        '{"allow": ["mcp__plugin_github_github__get_file_contents"]}\n'
+        "```\n"
+    )
+
+    def _fix(self, temp_dir):
+        context = RepositoryContext(temp_dir)
+        rule = ContentMcpToolNameRule()
+        return rule.fix(context, rule.check(context))
+
+    def test_fix_strips_prefix_in_text_and_code_span(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(self.CONTENT)
+        fixes = self._fix(temp_dir)
+        assert len(fixes) == 1
+        assert fixes[0].confidence == AutofixConfidence.SUGGEST
+        fixed = fixes[0].fixed_content
+        assert "Search with searchJiraIssuesUsingJql first." in fixed
+        assert "Fetch files with `get_file_contents`." in fixed
+        # Untouched: the bare server name and the fenced config example.
+        assert "The mcp__atlassian server needs no rewrite." in fixed
+        assert '{"allow": ["mcp__plugin_github_github__get_file_contents"]}' in fixed
+
+    def test_fix_preserves_line_count(self, temp_dir):
+        (temp_dir / "CLAUDE.md").write_text(self.CONTENT)
+        fixes = self._fix(temp_dir)
+        assert len(fixes) == 1
+        assert fixes[0].fixed_content.count("\n") == self.CONTENT.count("\n")
+
+    def test_fix_handles_repeated_name_on_one_line(self, temp_dir):
+        from skillsaw.utils import invalidate_read_caches
+
+        content = (
+            "# Rules\n\n" "Call `mcp__jira__getJiraIssue` then mcp__jira__getJiraIssue again.\n"
+        )
+        (temp_dir / "CLAUDE.md").write_text(content)
+        fixes = self._fix(temp_dir)
+        assert len(fixes) == 1
+        assert fixes[0].fixed_content == (
+            "# Rules\n\nCall `getJiraIssue` then getJiraIssue again.\n"
+        )
+
+        (temp_dir / "CLAUDE.md").write_text(fixes[0].fixed_content)
+        invalidate_read_caches()
+        assert ContentMcpToolNameRule().check(RepositoryContext(temp_dir)) == []
+
+    def test_fix_is_idempotent_and_lints_clean(self, temp_dir):
+        from skillsaw.utils import invalidate_read_caches
+
+        (temp_dir / "CLAUDE.md").write_text(self.CONTENT)
+        fixes = self._fix(temp_dir)
+        assert len(fixes) == 1
+
+        (temp_dir / "CLAUDE.md").write_text(fixes[0].fixed_content)
+        invalidate_read_caches()
+        assert ContentMcpToolNameRule().check(RepositoryContext(temp_dir)) == []
+        assert self._fix(temp_dir) == []
+
+    def test_fix_preserves_selectors_wildcards_and_paths_byte_for_byte(self, temp_dir):
+        from skillsaw.utils import invalidate_read_caches
+
+        content = (
+            "# Rules\n\n"
+            "Call mcp__jira__getIssue in prose.\n"
+            "Load `select:mcp__playwright__browser_navigate` with ToolSearch.\n"
+            "Load `select:mcp__playwright__browser_navigate,"
+            "mcp__playwright__browser_snapshot,mcp__playwright__browser_close` "
+            "for a complete browser pass.\n"
+            'Call `ToolSearch(query="select:mcp__jira__getIssue,'
+            'mcp__jira__searchIssues")` before triage.\n'
+            "Mix `select:Read,mcp__jira__getIssue,mcp__jira__searchIssues` "
+            "with a built-in first.\n"
+            "Mix `select:mcp__jira__getIssue,Read,mcp__jira__searchIssues` "
+            "with a built-in between MCP tools.\n"
+            "Allow `select:mcp__server__memory_*` for the memory tools.\n"
+            "Read `mcp__jira__getIssue/examples/output.txt` as fixture data.\n"
+            "Read `mcp__jira__getIssue`/examples/output.txt across markup.\n"
+            "Read `mcp__jira__getIssue`.json across markup.\n"
+            "Read ` mcp__jira__getIssue `/examples/output.txt with padding.\n"
+            "Match *mcp__server__tool or [ab]mcp__server__tool patterns.\n"
+            "Match mcp__server__tool@(One|Two) as an extended glob.\n"
+        )
+        (temp_dir / "CLAUDE.md").write_text(content)
+
+        fixes = self._fix(temp_dir)
+
+        assert len(fixes) == 1
+        expected = content.replace("Call mcp__jira__getIssue", "Call getIssue")
+        assert fixes[0].fixed_content == expected
+        (temp_dir / "CLAUDE.md").write_text(fixes[0].fixed_content)
+        invalidate_read_caches()
+        assert ContentMcpToolNameRule().check(RepositoryContext(temp_dir)) == []
+        assert self._fix(temp_dir) == []
+
+    def test_fix_splices_indented_yaml_embedded_body(self, temp_dir):
+        """The YAML block scalar is indented in the file; file_span() must
+        translate the body-relative column so the splice lands on the tool
+        name and nothing else on the line moves."""
+        from skillsaw.utils import invalidate_read_caches
+
+        repo = copy_content_fixture("mcp-tool-name-coderabbit", temp_dir)
+        fixes = self._fix(repo)
+        by_name = {f.file_path.name: f for f in fixes}
+        assert set(by_name) == {"CLAUDE.md", ".coderabbit.yaml"}
+
+        yaml_fix = by_name[".coderabbit.yaml"]
+        token = "mcp__plugin_jira_atlassian__getJiraIssue"  # notsecret
+        before = yaml_fix.original_content.split("\n")
+        after = yaml_fix.fixed_content.split("\n")
+        assert len(after) == len(before)
+        # Exactly one line changes — the literal-scalar line holding the
+        # token — and only the token moves on it.  The folded (>) scalar's
+        # token is not fixable and its lines are untouched.
+        changed = [i for i, (b, a) in enumerate(zip(before, after)) if b != a]
+        assert len(changed) == 1
+        line_idx = changed[0]
+        assert before[line_idx] == f"        {token}."
+        assert after[line_idx] == "        getJiraIssue."
+
+        for fix in fixes:
+            fix.file_path.write_text(fix.fixed_content)
+        invalidate_read_caches()
+        remaining = ContentMcpToolNameRule().check(RepositoryContext(repo))
+        assert [(v.file_path.name, v.fixable) for v in remaining] == [(".coderabbit.yaml", False)]
+        assert self._fix(repo) == []
+
+    def test_fix_targets_reported_occurrence(self, temp_dir):
+        """With one of two same-token occurrences suppressed (a baseline
+        holding back ordinal :0), fix() must rewrite the occurrence the
+        surviving violation reports, not the first unused one."""
+        content = "# Rules\n\nCall `mcp__jira__getJiraIssue` then mcp__jira__getJiraIssue again.\n"
+        (temp_dir / "CLAUDE.md").write_text(content)
+        context = RepositoryContext(temp_dir)
+        rule = ContentMcpToolNameRule()
+        violations = rule.check(context)
+        assert [v.fingerprint_discriminator for v in violations] == [
+            "mcp__jira__getJiraIssue:0",
+            "mcp__jira__getJiraIssue:1",
+        ]
+
+        fixes = rule.fix(context, [violations[1]])
+        assert len(fixes) == 1
+        assert fixes[0].fixed_content == (
+            "# Rules\n\nCall `mcp__jira__getJiraIssue` then getJiraIssue again.\n"
+        )
+
+    def test_fix_splices_frontmattered_host(self, temp_dir):
+        """A command body sits below its frontmatter (line_offset > 0); a
+        wrong body-to-file translation degrades to file_span() returning
+        None and a silent no-fix, so the splice is asserted on the real
+        file line."""
+        from skillsaw.utils import invalidate_read_caches
+
+        cmd_dir = temp_dir / ".claude" / "commands"
+        cmd_dir.mkdir(parents=True)
+        content = (
+            "---\n"
+            "description: Deploy the service to staging\n"
+            "allowed-tools: mcp__plugin_jira_atlassian__getJiraIssue\n"
+            "---\n"
+            "\n"
+            "# Deploy\n"
+            "\n"
+            "Check the ticket with `mcp__plugin_jira_atlassian__getJiraIssue` first.\n"
+        )
+        (cmd_dir / "deploy.md").write_text(content)
+
+        fixes = self._fix(temp_dir)
+        assert len(fixes) == 1
+        original_lines = content.split("\n")
+        fixed_lines = fixes[0].fixed_content.split("\n")
+        assert len(fixed_lines) == len(original_lines)
+        assert fixed_lines[7] == "Check the ticket with `getJiraIssue` first."
+        # Frontmatter — including the allowed-tools FQ name it must keep —
+        # is byte-identical.
+        assert fixed_lines[:7] == original_lines[:7]
+
+        (cmd_dir / "deploy.md").write_text(fixes[0].fixed_content)
+        invalidate_read_caches()
+        assert ContentMcpToolNameRule().check(RepositoryContext(temp_dir)) == []

@@ -4,7 +4,8 @@ from collections.abc import Container
 from collections.abc import Iterable
 from collections.abc import Sequence
 import copy
-import datetime
+from datetime import datetime
+from datetime import timezone
 import enum
 import pickle
 import threading
@@ -48,6 +49,7 @@ class JournalOperation(enum.IntEnum):
     SET_TRIAL_INTERMEDIATE_VALUE = 7
     SET_TRIAL_USER_ATTR = 8
     SET_TRIAL_SYSTEM_ATTR = 9
+    DISCARD_TRIALS = 10
 
 
 class JournalStorage(BaseStorage):
@@ -151,7 +153,8 @@ class JournalStorage(BaseStorage):
     def create_new_study(
         self, directions: Sequence[StudyDirection], study_name: str | None = None
     ) -> int:
-        study_name = study_name or DEFAULT_STUDY_NAME_PREFIX + str(uuid.uuid4())
+        if study_name is None:
+            study_name = DEFAULT_STUDY_NAME_PREFIX + str(uuid.uuid4())
 
         with self._thread_lock:
             self._write_log(
@@ -229,9 +232,10 @@ class JournalStorage(BaseStorage):
 
     # Basic trial manipulation
     def create_new_trial(self, study_id: int, template_trial: FrozenTrial | None = None) -> int:
+        datetime_start = datetime.now(tz=timezone.utc)
         log: dict[str, Any] = {
             "study_id": study_id,
-            "datetime_start": datetime.datetime.now().isoformat(timespec="microseconds"),
+            "datetime_start": datetime_start.isoformat(timespec="microseconds"),
         }
 
         if template_trial:
@@ -243,15 +247,13 @@ class JournalStorage(BaseStorage):
                 log["value"] = template_trial.value
                 log["values"] = None
             if template_trial.datetime_start:
-                log["datetime_start"] = template_trial.datetime_start.isoformat(
-                    timespec="microseconds"
-                )
+                datetime_start = template_trial.datetime_start.astimezone(timezone.utc)
+                log["datetime_start"] = datetime_start.isoformat(timespec="microseconds")
             else:
                 log["datetime_start"] = None
             if template_trial.datetime_complete:
-                log["datetime_complete"] = template_trial.datetime_complete.isoformat(
-                    timespec="microseconds"
-                )
+                datetime_complete = template_trial.datetime_complete.astimezone(timezone.utc)
+                log["datetime_complete"] = datetime_complete.isoformat(timespec="microseconds")
 
             log["distributions"] = {
                 k: distribution_to_json(dist) for k, dist in template_trial.distributions.items()
@@ -313,9 +315,13 @@ class JournalStorage(BaseStorage):
         }
 
         if state == TrialState.RUNNING:
-            log["datetime_start"] = datetime.datetime.now().isoformat(timespec="microseconds")
+            log["datetime_start"] = datetime.now(tz=timezone.utc).isoformat(
+                timespec="microseconds"
+            )
         elif state.is_finished():
-            log["datetime_complete"] = datetime.datetime.now().isoformat(timespec="microseconds")
+            log["datetime_complete"] = datetime.now(tz=timezone.utc).isoformat(
+                timespec="microseconds"
+            )
 
         with self._thread_lock:
             if state == TrialState.RUNNING:
@@ -435,6 +441,9 @@ class JournalStorageReplayResult:
                 self._apply_set_trial_user_attr(log)
             elif op == JournalOperation.SET_TRIAL_SYSTEM_ATTR:
                 self._apply_set_trial_system_attr(log)
+            elif op == JournalOperation.DISCARD_TRIALS:
+                # This operation is only supported by Rustuna.
+                continue
             else:
                 assert False, "Should not reach."
 
@@ -488,12 +497,7 @@ class JournalStorageReplayResult:
 
         if study_name in [s.study_name for s in self._studies.values()]:
             if self._is_issued_by_this_worker(log):
-                raise DuplicatedStudyError(
-                    f"Another study with name {study_name} already exists. "
-                    "Please specify a different name, or reuse the existing one "
-                    "by setting `load_if_exists` (for Python API) or "
-                    "`--skip-if-exists` flag (for CLI)."
-                )
+                raise DuplicatedStudyError
             return
 
         study_id = self._next_study_id
@@ -521,14 +525,18 @@ class JournalStorageReplayResult:
 
         if self._study_exists(study_id, log):
             assert len(log["user_attr"]) == 1
-            self._studies[study_id].user_attrs.update(log["user_attr"])
+            user_attrs = copy.copy(self._studies[study_id].user_attrs)
+            user_attrs.update(log["user_attr"])
+            self._studies[study_id].user_attrs = user_attrs
 
     def _apply_set_study_system_attr(self, log: dict[str, Any]) -> None:
         study_id = log["study_id"]
 
         if self._study_exists(study_id, log):
             assert len(log["system_attr"]) == 1
-            self._studies[study_id].system_attrs.update(log["system_attr"])
+            system_attrs = copy.copy(self._studies[study_id].system_attrs)
+            system_attrs.update(log["system_attr"])
+            self._studies[study_id].system_attrs = system_attrs
 
     def _apply_create_trial(self, log: dict[str, Any]) -> None:
         study_id = log["study_id"]
@@ -544,11 +552,15 @@ class JournalStorageReplayResult:
         if "params" in log:
             params = {k: distributions[k].to_external_repr(p) for k, p in log["params"].items()}
         if log["datetime_start"] is not None:
-            datetime_start = datetime.datetime.fromisoformat(log["datetime_start"])
+            datetime_start = (
+                datetime.fromisoformat(log["datetime_start"]).astimezone().replace(tzinfo=None)
+            )
         else:
             datetime_start = None
         if "datetime_complete" in log:
-            datetime_complete = datetime.datetime.fromisoformat(log["datetime_complete"])
+            datetime_complete = (
+                datetime.fromisoformat(log["datetime_complete"]).astimezone().replace(tzinfo=None)
+            )
         else:
             datetime_complete = None
 
@@ -621,11 +633,15 @@ class JournalStorageReplayResult:
 
         trial = copy.copy(self._trials[trial_id])
         if state == TrialState.RUNNING:
-            trial.datetime_start = datetime.datetime.fromisoformat(log["datetime_start"])
+            trial.datetime_start = (
+                datetime.fromisoformat(log["datetime_start"]).astimezone().replace(tzinfo=None)
+            )
             if self._is_issued_by_this_worker(log):
                 self._worker_id_to_owned_trial_id[self.worker_id] = trial_id
         if state.is_finished():
-            trial.datetime_complete = datetime.datetime.fromisoformat(log["datetime_complete"])
+            trial.datetime_complete = (
+                datetime.fromisoformat(log["datetime_complete"]).astimezone().replace(tzinfo=None)
+            )
         trial.state = state
         if log["values"] is not None:
             trial.values = log["values"]

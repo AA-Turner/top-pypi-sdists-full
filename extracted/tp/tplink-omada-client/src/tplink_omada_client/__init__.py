@@ -3,15 +3,19 @@
 from . import clients, definitions, exceptions
 from .definitions import (
     OmadaControllerInfo,
+    OmadaControllerStatus,
+    OmadaControllerType,
     OmadaControllerUpdateInfo,
     OmadaHardwareUpdateInfo,
     OmadaHardwareUpgradeStatus,
     OmadaSoftwareUpdateInfo,
 )
 from .devices import OmadaSwitchPortDetails
+from .networks import DhcpReservation
 from .omadaclient import OmadaClient, OmadaSite
 from .omadasiteclient import (
     AccessPointPortSettings,
+    AccessPointRadioSettings,
     GatewayPortSettings,
     OmadaClientFixedAddress,
     OmadaClientSettings,
@@ -23,11 +27,15 @@ from .vpn import OmadaVpnCategory, OmadaVpnPolicy, OmadaVpnType
 
 __all__ = [
     "AccessPointPortSettings",
+    "AccessPointRadioSettings",
+    "DhcpReservation",
     "GatewayPortSettings",
     "OmadaClient",
     "OmadaClientFixedAddress",
     "OmadaClientSettings",
     "OmadaControllerInfo",
+    "OmadaControllerStatus",
+    "OmadaControllerType",
     "OmadaControllerUpdateInfo",
     "OmadaHardwareUpdateInfo",
     "OmadaHardwareUpgradeStatus",

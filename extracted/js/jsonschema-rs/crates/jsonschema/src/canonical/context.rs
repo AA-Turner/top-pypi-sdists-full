@@ -41,8 +41,8 @@ pub(crate) struct CanonicalizationContext {
     validate_formats: bool,
     /// `None` caches a rejected pattern so callers don't recompile it.
     regex_cache: RefCell<AHashMap<Arc<str>, Option<Arc<CompiledMatcher>>>>,
-    /// A conjunction over unions takes the product of their branches, which reaches the same pair
-    /// of nodes over and over - on a schema of five such conjunctions, 431 times per distinct pair.
+    /// An `allOf` over unions takes the product of their branches, which reaches the same pair
+    /// of nodes over and over - on a schema of five such `allOf`s, 431 times per distinct pair.
     intersections: RefCell<AHashMap<(Schema, Schema), Remembered>>,
     /// An intersection reached during this run that the canonical form cannot express exactly.
     /// Nodes built around it may already be wrong, so the whole run is discarded rather than the site.
@@ -53,14 +53,20 @@ pub(crate) struct CanonicalizationContext {
     /// The targets that lie on a reference cycle, which no walk reads through: it would not
     /// terminate. Every other target of the same map is read through as usual.
     cyclic: BTreeSet<Arc<str>>,
-    /// Intersections this run may still take before giving up. A conjunction over unions multiplies them.
+    /// Intersections this run may still take before giving up. An `allOf` over unions multiplies them.
     intersections_left: Cell<u64>,
+    /// Variants the conditional splits of this run may still produce. Nesting multiplies them.
+    variants_left: Cell<u64>,
 }
 
 /// Intersections one run may take before giving up and leaving the document `Raw`. Above what the
-/// most demanding document written in earnest needs; a row of conjunctions over unions passes it in
+/// most demanding document written in earnest needs; a row of `allOf`s over unions passes it in
 /// a fraction of a second.
 const INTERSECTION_BUDGET: u64 = 1_000_000;
+
+/// Variants the conditional splits of one run may produce before the document stays `Raw`. Two
+/// nested nodes at the per-node cap fit; a third would spend 4096 more.
+const VARIANT_BUDGET: u64 = 4096;
 
 impl CanonicalizationContext {
     pub(crate) fn new(
@@ -76,6 +82,7 @@ impl CanonicalizationContext {
             intersections: RefCell::new(AHashMap::new()),
             inexact_intersection: Cell::new(false),
             intersections_left: Cell::new(INTERSECTION_BUDGET),
+            variants_left: Cell::new(VARIANT_BUDGET),
             definitions: None,
             cyclic: BTreeSet::new(),
         }
@@ -99,10 +106,31 @@ impl CanonicalizationContext {
         self
     }
 
-    /// Point this run at a map a settling pass has moved on. What it already remembers stays: a
-    /// pass settling a body only after every body it reads met those bodies in their final form.
-    pub(crate) fn read_targets(&mut self, definitions: Arc<DefinitionMap>) {
-        self.definitions = Some(definitions);
+    /// The targets this run reads through.
+    pub(crate) fn targets(&self) -> &DefinitionMap {
+        self.definitions
+            .as_deref()
+            .expect("a settling run reads targets")
+    }
+
+    /// The targets, for a settling pass to move on. What the run already remembers stays: a pass
+    /// settles a body only after every body it reads met those bodies in their final form.
+    pub(crate) fn targets_mut(&mut self) -> &mut DefinitionMap {
+        let definitions = self
+            .definitions
+            .as_mut()
+            .expect("a settling run reads targets");
+        // Held here alone, so the edit lands in place instead of copying the map per body.
+        debug_assert_eq!(
+            Arc::strong_count(definitions),
+            1,
+            "a settling run holds its targets alone"
+        );
+        Arc::make_mut(definitions)
+    }
+
+    pub(crate) fn into_targets(self) -> DefinitionMap {
+        Arc::unwrap_or_clone(self.definitions.expect("a settling run reads targets"))
     }
 
     pub(crate) fn pattern_options(&self) -> PatternEngineOptions {
@@ -149,6 +177,17 @@ impl CanonicalizationContext {
             return false;
         }
         self.intersections_left.set(left - 1);
+        true
+    }
+
+    /// Take `count` conditional-split variants from what this run may still spend, reporting
+    /// whether it had them.
+    pub(crate) fn take_variants(&self, count: u64) -> bool {
+        let left = self.variants_left.get();
+        if left < count {
+            return false;
+        }
+        self.variants_left.set(left - count);
         true
     }
 

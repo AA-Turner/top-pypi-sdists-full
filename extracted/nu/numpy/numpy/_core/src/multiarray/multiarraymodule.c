@@ -589,14 +589,18 @@ PyArray_ConcatenateFlattenedArrays(int narrays, PyArrayObject **arrays,
 
         stride = descr->elsize;
 
-        /* Allocate the array for the result. This steals the 'dtype' reference. */
+        /*
+         * Allocate the array for the result. This steals the `descr`
+         * reference and may replace the descriptor via `finalize_descr`,
+         * so `descr` must not be used from here on.
+         */
         ret = (PyArrayObject *)PyArray_NewFromDescr_int(
                 subtype, descr,  1, &shape, &stride, NULL, 0, NULL,
                 NULL, _NPY_ARRAY_ALLOW_EMPTY_STRING);
+        descr = NULL;
         if (ret == NULL) {
             return NULL;
         }
-        assert(PyArray_DESCR(ret) == descr);
     }
 
     /*
@@ -5128,7 +5132,6 @@ _multiarray_umath_exec(PyObject *m) {
     PyArrayIter_Type.tp_iter = PyObject_SelfIter;
     NpyIter_Type.tp_iter = PyObject_SelfIter;
     PyArrayMultiIter_Type.tp_iter = PyObject_SelfIter;
-    PyArrayMultiIter_Type.tp_free = PyArray_free;
     if (PyType_Ready(&PyArrayIter_Type) < 0) {
         return -1;
     }

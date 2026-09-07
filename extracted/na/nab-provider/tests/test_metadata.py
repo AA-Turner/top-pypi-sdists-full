@@ -14,6 +14,7 @@ from nab_provider.metadata import (
     _read_header_fields,
     metadata_deps_are_static,
     metadata_header_block,
+    metadata_without_description,
     parse_metadata,
     validate_specifier_versions,
 )
@@ -238,6 +239,53 @@ class TestMetadataHeaderBlock:
         assert parse_metadata(cut) == parse_metadata(text)
 
 
+_FOLDED_DESCRIPTION = (
+    "Metadata-Version: 1.1\nName: foo\nVersion: 1.0\n"
+    "Description: Foo\n        ===\n        \n        A long description.\n"
+    "Classifier: Programming Language :: Python\nRequires-Python: >=3.9\n"
+)
+
+
+class TestMetadataWithoutDescription:
+    """Remove a folded ``Description:`` field from a header block."""
+
+    def test_folded_field_goes_and_the_fields_after_it_stay(self) -> None:
+        assert metadata_without_description(_FOLDED_DESCRIPTION) == (
+            "Metadata-Version: 1.1\nName: foo\nVersion: 1.0\n"
+            "Classifier: Programming Language :: Python\nRequires-Python: >=3.9\n"
+        )
+
+    def test_document_without_the_field_comes_back_whole(self) -> None:
+        text = "Name: foo\nVersion: 1.0\nDescription-Content-Type: text/x-rst\n"
+        assert metadata_without_description(text) is text
+
+    def test_a_continuation_line_is_not_the_field(self) -> None:
+        text = "Summary: foo\n Description: still the summary\nVersion: 1.0\n"
+        assert metadata_without_description(text) is text
+
+    def test_field_opening_the_document(self) -> None:
+        text = "Description: Foo\n        more\nName: foo\nVersion: 1.0\n"
+        assert metadata_without_description(text) == "Name: foo\nVersion: 1.0\n"
+
+    def test_field_closing_the_document_without_a_line_ending(self) -> None:
+        text = "Name: foo\nVersion: 1.0\nDescription: Foo\n        more"
+        assert metadata_without_description(text) == "Name: foo\nVersion: 1.0\n"
+
+    def test_crlf_folds(self) -> None:
+        text = "Name: foo\r\nDescription: Foo\r\n\tmore\r\nVersion: 1.0\r\n\r\n"
+        assert metadata_without_description(text) == "Name: foo\r\nVersion: 1.0\r\n\r\n"
+
+    def test_bare_cr_line_ending_closes_the_field(self) -> None:
+        text = "Name: foo\nDescription: Foo\r  more\rVersion: 1.0\n"
+        assert metadata_without_description(text) == "Name: foo\nVersion: 1.0\n"
+
+    @pytest.mark.parametrize("text", [*_HEADER_BLOCK_DOCUMENTS, _FOLDED_DESCRIPTION])
+    def test_the_cut_parses_the_same(self, text: str) -> None:
+        """The description holds no field :func:`parse_metadata` reads."""
+        cut = metadata_without_description(metadata_header_block(text))
+        assert parse_metadata(cut) == parse_metadata(text)
+
+
 class TestMetadataDepsAreStatic:
     def test_2_2_without_dynamic_is_static(self) -> None:
         md = parse_metadata("Metadata-Version: 2.2\nName: foo\nVersion: 1.0\n")
@@ -362,7 +410,7 @@ class TestOversizedClauseVersions:
 
 
 class TestReadHeaderFields:
-    """``_read_header_fields``: folding, envelope lines, and where headers stop."""
+    """Header folding and boundaries in ``_read_header_fields``."""
 
     def test_repeated_fields_keep_file_order(self) -> None:
         """Repeats stack in order, and a re-declared single field keeps the first."""

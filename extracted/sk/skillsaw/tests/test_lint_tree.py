@@ -6,15 +6,26 @@ import json
 from pathlib import Path
 
 from skillsaw.blocks import (
+    AgentBlock,
     BodyContent,
+    ChatmodeBlock,
     ClineWorkflowBlock,
+    ContextFileBlock,
     CopilotAgentBlock,
     CopilotPromptBlock,
     CursorCommandBlock,
     CursorPromptHookBlock,
     CursorRuleBlock,
+    ClaudeHooksBlock,
+    CodexConfigBlock,
+    CodexConfigHooksBlock,
+    HooksBlock,
     InstructionBlock,
+    PromptBlock,
     QwenMdBlock,
+    SettingsBlock,
+    SkillBlock,
+    SkillRefBlock,
     VsCodeMcpBlock,
 )
 from skillsaw.config import LinterConfig
@@ -30,7 +41,7 @@ from skillsaw.lint_target import (
     PluginNode,
     SkillNode,
 )
-from skillsaw.context import RepositoryContext
+from skillsaw.context import RepositoryContext, RepositoryType
 from skillsaw.linter import Linter
 from skillsaw.rules.builtin.cursor import CursorRulesValidRule
 
@@ -149,6 +160,19 @@ def test_find_parent_skips_non_ancestors():
     assert parent is p2
 
 
+def test_external_source_provenance_is_inherited():
+    root = LintTarget(path=Path("/root"))
+    external = SkillNode(path=Path("/root/external"), externally_sourced=True)
+    leaf = LintTarget(path=Path("/root/external/SKILL.md"))
+    external.children = [leaf]
+    root.children = [external]
+    root.set_parents()
+
+    assert not root.in_external_source
+    assert external.in_external_source
+    assert leaf.in_external_source
+
+
 # --- Tree labels ---
 
 
@@ -166,6 +190,8 @@ def test_tree_labels():
     assert ApmConfigNode(path=Path("/apm.yml")).tree_label() == "apm.yml"
     assert ApmNode(path=Path("/.apm")).tree_label() == ".apm/"
     assert CodeRabbitNode(path=Path("/.coderabbit.yaml")).tree_label() == ".coderabbit.yaml"
+    assert CodexConfigBlock(path=Path("/.codex/config.toml")).tree_label() == "config.toml [codex]"
+    assert CodexConfigHooksBlock(path=Path("/.codex/config.toml")).tree_label() == "[hooks]"
 
 
 # --- print_tree ---
@@ -231,6 +257,51 @@ def test_tree_contains_apm_nodes(temp_dir):
     assert len(tree.find(ApmNode)) == 1
 
 
+def test_tree_preserves_apm_primitive_types_and_order(temp_dir):
+    """APM primitives keep their semantic roles and deterministic order."""
+    (temp_dir / "apm.yml").write_text("name: test\nversion: 1.0.0\ndescription: Test\n")
+    apm_dir = temp_dir / ".apm"
+    files = (
+        ("instructions/coding.instructions.md", "# Coding\n"),
+        ("agents/reviewer.agent.md", "# Reviewer\n"),
+        ("prompts/review.md", "# Review\n"),
+        ("chatmodes/planning.md", "# Planning\n"),
+        ("context/project.md", "# Project\n"),
+        ("hooks/hooks.json", "{}\n"),
+        ("settings.json", "{}\n"),
+        ("settings.local.json", "{}\n"),
+        (
+            "skills/release/SKILL.md",
+            "---\nname: release\ndescription: Use when preparing a release.\n---\n\n# Release\n",
+        ),
+        ("skills/release/references/checklist.md", "# Checklist\n"),
+    )
+    for relative_path, content in files:
+        path = apm_dir / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+
+    apm_node = RepositoryContext(temp_dir).lint_tree.find(ApmNode)[0]
+    assert [
+        (type(child), child.path.relative_to(apm_dir).as_posix()) for child in apm_node.children
+    ] == [
+        (InstructionBlock, "instructions/coding.instructions.md"),
+        (AgentBlock, "agents/reviewer.agent.md"),
+        (PromptBlock, "prompts/review.md"),
+        (ChatmodeBlock, "chatmodes/planning.md"),
+        (ContextFileBlock, "context/project.md"),
+        (ClaudeHooksBlock, "hooks/hooks.json"),
+        (SettingsBlock, "settings.json"),
+        (SettingsBlock, "settings.local.json"),
+        (SkillNode, "skills/release"),
+    ]
+    skill_node = apm_node.children[-1]
+    assert [(type(child), child.path.name) for child in skill_node.children] == [
+        (SkillBlock, "SKILL.md"),
+        (SkillRefBlock, "checklist.md"),
+    ]
+
+
 def test_tree_contains_coderabbit_node(temp_dir):
     """A repo with .coderabbit.yaml should produce a CodeRabbitNode."""
     (temp_dir / ".coderabbit.yaml").write_text("reviews:\n  instructions: Be thorough\n")
@@ -282,6 +353,92 @@ def test_tree_contains_editor_tool_blocks(temp_dir):
     # Exact, not a subset: if the dedup regressed, release.md would land in
     # both sets and be double-budgeted as always-on system-prompt text.
     assert names(InstructionBlock) == {"style.md", "policy.txt"}
+
+
+def test_tree_contains_nested_devin_content_without_duplicates(temp_dir):
+    from skillsaw.blocks import (
+        AgentsMdBlock,
+        DevinGlobalRuleBlock,
+        DevinRuleBlock,
+        DevinSkillBlock,
+        SkillBlock,
+    )
+
+    root_rule = temp_dir / ".devin" / "rules" / "api.md"
+    root_rule.parent.mkdir(parents=True)
+    root_rule.write_text("---\ntrigger: always_on\n---\nUse JSON responses.\n")
+    global_rule = temp_dir / ".devin" / "global_rules.md"
+    global_rule.write_text("Keep changes focused.\n")
+    nested_rule = temp_dir / "apps" / "web" / ".windsurf" / "rules" / "ui.md"
+    nested_rule.parent.mkdir(parents=True)
+    nested_rule.write_text("---\ntrigger: glob\nglobs: src/**/*.tsx\n---\nUse hooks.\n")
+    nested_agents = temp_dir / "apps" / "web" / "agents.md"
+    nested_agents.write_text("Use the package test command.\n")
+    native = temp_dir / "apps" / "web" / ".devin" / "skills" / "team" / "review"
+    native.mkdir(parents=True)
+    (native / "SKILL.md").write_text("Review the current changes.\n")
+    windsurf = temp_dir / "apps" / "web" / ".windsurf" / "skills" / "deploy"
+    windsurf.mkdir(parents=True)
+    (windsurf / "SKILL.md").write_text(
+        "---\nname: deploy\ndescription: Deploy a reviewed release.\n"
+        "allowed-tools: Read Bash\n---\nDeploy safely.\n"
+    )
+    portable = temp_dir / ".agents" / "skills" / "portable"
+    portable.mkdir(parents=True)
+    (portable / "SKILL.md").write_text(
+        "---\nname: portable\ndescription: Run a portable workflow.\n---\nDo the work.\n"
+    )
+
+    tree = RepositoryContext(temp_dir).lint_tree
+
+    assert {block.path for block in tree.find(DevinRuleBlock)} == {root_rule, nested_rule}
+    assert [block.path for block in tree.find(DevinSkillBlock)] == [native / "SKILL.md"]
+    assert {block.path for block in tree.find(SkillBlock)} == {
+        portable / "SKILL.md",
+        windsurf / "SKILL.md",
+    }
+    assert [block.path for block in tree.find(AgentsMdBlock)] == [nested_agents]
+    assert [block.path for block in tree.find(DevinGlobalRuleBlock)] == [global_rule]
+    assert [block.path for block in tree.find(InstructionBlock)].count(global_rule) == 1
+
+
+def test_lowercase_agents_md_is_a_documentation_page_without_devin_evidence(temp_dir):
+    """Only Devin Desktop reads ``agents.md`` case-insensitively. A repository
+    with a root CLAUDE.md and a ``docs/agents.md`` documenting its SDK agent
+    classes has no instruction file at that path."""
+    from skillsaw.blocks import AgentsMdBlock, ClaudeMdBlock
+
+    (temp_dir / "CLAUDE.md").write_text("# Project\n\nRun `make test` before pushing.\n")
+    docs_page = temp_dir / "docs" / "agents.md"
+    docs_page.parent.mkdir()
+    docs_page.write_text("# Agents\n\nThe `Agent` class wraps a model and its tools.\n")
+
+    context = RepositoryContext(temp_dir)
+    tree = context.lint_tree
+
+    assert RepositoryType.DEVIN not in context.repo_types
+    assert RepositoryType.AGENTS_MD not in context.repo_types
+    assert [block.path for block in tree.find(ClaudeMdBlock)] == [temp_dir / "CLAUDE.md"]
+    assert tree.find(AgentsMdBlock) == []
+
+    # The same page is an instruction file once the repository is a Devin one.
+    (temp_dir / ".devin" / "rules").mkdir(parents=True)
+    tree = RepositoryContext(temp_dir).lint_tree
+    assert [block.path for block in tree.find(AgentsMdBlock)] == [docs_page]
+
+
+def test_nearest_tool_root_determines_nested_skill_dialect(temp_dir):
+    from skillsaw.blocks import DevinSkillBlock, SkillBlock
+
+    windsurf = temp_dir / ".devin" / "skills" / "outer" / ".windsurf" / "skills" / "inner"
+    windsurf.mkdir(parents=True)
+    skill_file = windsurf / "SKILL.md"
+    skill_file.write_text("---\nname: inner\ndescription: Run the nested workflow.\n---\nRun it.\n")
+
+    tree = RepositoryContext(temp_dir).lint_tree
+
+    assert skill_file in {block.path for block in tree.find(SkillBlock)}
+    assert skill_file not in {block.path for block in tree.find(DevinSkillBlock)}
 
 
 def test_setext_underline_is_not_read_as_mdc_frontmatter(temp_dir):
@@ -617,7 +774,7 @@ def test_a_nested_clinerules_file_is_linted(temp_dir):
     paths = {b.path for b in context.lint_tree.find(InstructionBlock)}
 
     assert nested / ".clinerules" in paths
-    assert "HAS_CLINE" in context.detected_formats
+    assert RepositoryType.CLINE in context.repo_types
 
 
 def test_prompt_identity_is_injective_across_the_separator():
@@ -684,7 +841,7 @@ def test_a_nested_cursorrules_is_linted(temp_dir):
     assert nested / ".cursorrules" in paths
     assert temp_dir / ".cursorrules" in paths
     # Detection must agree with attachment, or the Cursor rules never run.
-    assert "HAS_CURSOR" in context.detected_formats
+    assert RepositoryType.CURSOR in context.repo_types
 
 
 def test_a_nested_cursorrules_alone_activates_cursor(temp_dir):
@@ -693,7 +850,7 @@ def test_a_nested_cursorrules_alone_activates_cursor(temp_dir):
     nested.mkdir(parents=True)
     (nested / ".cursorrules").write_text("Prefer the shared HTTP client.\n")
 
-    assert "HAS_CURSOR" in RepositoryContext(temp_dir).detected_formats
+    assert RepositoryType.CURSOR in RepositoryContext(temp_dir).repo_types
 
 
 def test_an_excluded_editor_subdirectory_is_not_walked(temp_dir):

@@ -205,16 +205,29 @@ class GetTrainingRunResponse(_message.Message):
     training_run: TrainingRun
     def __init__(self, training_run: _Optional[_Union[TrainingRun, _Mapping]] = ...) -> None: ...
 
+class ListTrainingRunsFilters(_message.Message):
+    __slots__ = ("name", "statuses")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    statuses: _containers.RepeatedScalarFieldContainer[TrainingRunStatus]
+    def __init__(
+        self, name: _Optional[str] = ..., statuses: _Optional[_Iterable[_Union[TrainingRunStatus, str]]] = ...
+    ) -> None: ...
+
 class ListTrainingRunsRequest(_message.Message):
-    __slots__ = ("limit", "cursor", "name")
+    __slots__ = ("limit", "cursor", "filters")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
-    name: str
+    filters: ListTrainingRunsFilters
     def __init__(
-        self, limit: _Optional[int] = ..., cursor: _Optional[str] = ..., name: _Optional[str] = ...
+        self,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        filters: _Optional[_Union[ListTrainingRunsFilters, _Mapping]] = ...,
     ) -> None: ...
 
 class ListTrainingRunsResponse(_message.Message):
@@ -357,21 +370,32 @@ class ListCheckpointsResponse(_message.Message):
     ) -> None: ...
 
 class TrainingMetric(_message.Message):
-    __slots__ = ("name", "value", "step", "timestamp")
+    __slots__ = ("name", "value", "step", "timestamp", "tags")
+    class TagsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     STEP_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
     name: str
     value: float
     step: int
     timestamp: _timestamp_pb2.Timestamp
+    tags: _containers.ScalarMap[str, str]
     def __init__(
         self,
         name: _Optional[str] = ...,
         value: _Optional[float] = ...,
         step: _Optional[int] = ...,
         timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        tags: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class ReportTrainingMetricsRequest(_message.Message):

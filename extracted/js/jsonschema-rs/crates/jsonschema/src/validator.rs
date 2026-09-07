@@ -5,7 +5,9 @@ use std::collections::hash_map::Entry;
 
 use crate::{
     error::ErrorIterator,
-    evaluation::{Annotations, ErrorDescription, Evaluation, EvaluationNode},
+    evaluation::{
+        Annotations, ChildList, ErrorDescription, Evaluation, EvaluationArena, EvaluationNode,
+    },
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
     Draft, Json, NodeIdentity, SerdeJson, ValidationError, ValidationOptions,
@@ -73,6 +75,8 @@ pub struct ValidationContext {
     evaluation_path_calls: u32,
     /// Instance location of the node being evaluated; only the `evaluate` path sets it.
     instance_location: Option<Location>,
+    /// Holds every node of the tree the `evaluate` path builds.
+    pub(crate) arena: EvaluationArena,
 }
 
 /// Evaluation paths are only cached once this many have been built.
@@ -318,13 +322,13 @@ pub(crate) enum EvaluationResult {
         /// Annotations produced by this validator
         annotations: Option<Annotations>,
         /// Children evaluation nodes
-        children: Vec<EvaluationNode>,
+        children: ChildList,
     },
     Invalid {
         /// Errors which caused this schema to be invalid
         errors: Vec<ErrorDescription>,
         /// Children evaluation nodes
-        children: Vec<EvaluationNode>,
+        children: ChildList,
         /// Potential annotations that should be reported as dropped on failure
         annotations: Option<Annotations>,
     },
@@ -335,7 +339,7 @@ impl EvaluationResult {
     pub(crate) fn valid_empty() -> EvaluationResult {
         EvaluationResult::Valid {
             annotations: None,
-            children: Vec::new(),
+            children: ChildList::default(),
         }
     }
 
@@ -343,7 +347,7 @@ impl EvaluationResult {
     pub(crate) fn invalid_empty(errors: Vec<ErrorDescription>) -> EvaluationResult {
         EvaluationResult::Invalid {
             errors,
-            children: Vec::new(),
+            children: ChildList::default(),
             annotations: None,
         }
     }
@@ -377,33 +381,35 @@ impl EvaluationResult {
         }
     }
 
-    pub(crate) fn from_children(children: Vec<EvaluationNode>) -> EvaluationResult {
-        if children.iter().any(|node| !node.valid) {
+    pub(crate) fn from_children(children: ChildList) -> EvaluationResult {
+        if children.all_valid() {
+            EvaluationResult::Valid {
+                annotations: None,
+                children,
+            }
+        } else {
             EvaluationResult::Invalid {
                 errors: Vec::new(),
                 children,
                 annotations: None,
-            }
-        } else {
-            EvaluationResult::Valid {
-                annotations: None,
-                children,
             }
         }
     }
 }
 
-impl From<EvaluationNode> for EvaluationResult {
-    fn from(node: EvaluationNode) -> Self {
-        if node.valid {
+impl EvaluationResult {
+    pub(crate) fn from_node(arena: &mut EvaluationArena, node: EvaluationNode) -> Self {
+        let valid = node.valid;
+        let children = ChildList::of(arena, node);
+        if valid {
             EvaluationResult::Valid {
                 annotations: None,
-                children: vec![node],
+                children,
             }
         } else {
             EvaluationResult::Invalid {
                 errors: Vec::new(),
-                children: vec![node],
+                children,
                 annotations: None,
             }
         }
@@ -547,7 +553,8 @@ impl<F: Json> Validator<F> {
         let root = self
             .root
             .evaluate_instance(&instance, &LazyLocation::new(), None, &mut ctx);
-        Evaluation::new(root)
+        let root = ctx.arena.push(root);
+        Evaluation::new(std::mem::take(&mut ctx.arena), root)
     }
     /// The [`Draft`] which was used to build this validator.
     #[must_use]
@@ -628,6 +635,7 @@ mod tests {
     use num_cmp::NumCmp;
     use serde_json::{json, Map, Value};
     use std::sync::LazyLock;
+    use test_case::test_case;
 
     #[cfg(not(target_arch = "wasm32"))]
     fn load(path: &str, idx: usize) -> Value {
@@ -1092,6 +1100,76 @@ mod tests {
             .expect_err("Should fail");
         assert_eq!(error.to_string(), "invalid schema value");
         assert_eq!(error.schema_path().as_str(), "/properties/field/myKeyword");
+    }
+    struct AcceptAny;
+
+    impl<'i> Keyword<'i> for AcceptAny {
+        fn validate(&self, _: &'i Value) -> Result<(), ValidationError<'i>> {
+            Ok(())
+        }
+
+        fn is_valid(&self, _: &'i Value) -> bool {
+            true
+        }
+    }
+
+    const ARRAY_SHAPE: &str =
+        r#"{"type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "number"}}"#;
+    const LENGTH_RANGE: &str = r#"{"minLength": 2, "maxLength": 3}"#;
+    const PROPERTIES_REQUIRED_2: &str =
+        r#"{"properties": {"a": {"type": "integer"}}, "required": ["a", "b"]}"#;
+    const PROPERTIES_CLOSED_REQUIRED_1: &str = r#"{"properties": {"a": {"type": "integer"}}, "additionalProperties": false, "required": ["a"]}"#;
+    const PROPERTIES_ADDITIONAL_SCHEMA: &str =
+        r#"{"properties": {"a": {"type": "integer"}}, "additionalProperties": {"type": "string"}}"#;
+    const PATTERN_PROPERTIES_CLOSED: &str =
+        r#"{"patternProperties": {"^a": {"type": "integer"}}, "additionalProperties": false}"#;
+
+    #[test_case(ARRAY_SHAPE, "type", &json!("abc"), true; "array shape: custom type replaces the type check")]
+    #[test_case(ARRAY_SHAPE, "minItems", &json!([1]), true; "array shape: custom minItems replaces the lower bound")]
+    #[test_case(ARRAY_SHAPE, "maxItems", &json!([1, 2, 3, 4]), true; "array shape: custom maxItems replaces the upper bound")]
+    #[test_case(ARRAY_SHAPE, "items", &json!(["a", "b"]), true; "array shape: custom items replaces the element check")]
+    #[test_case(ARRAY_SHAPE, "items", &json!("abc"), false; "array shape: custom items keeps type")]
+    #[test_case(ARRAY_SHAPE, "items", &json!([1]), false; "array shape: custom items keeps minItems")]
+    #[test_case(ARRAY_SHAPE, "items", &json!([1, 2, 3, 4]), false; "array shape: custom items keeps maxItems")]
+    #[test_case(LENGTH_RANGE, "minLength", &json!("a"), true; "length range: custom minLength replaces the lower bound")]
+    #[test_case(LENGTH_RANGE, "minLength", &json!("abcd"), false; "length range: custom minLength keeps maxLength")]
+    #[test_case(LENGTH_RANGE, "maxLength", &json!("abcd"), true; "length range: custom maxLength replaces the upper bound")]
+    #[test_case(LENGTH_RANGE, "maxLength", &json!("a"), false; "length range: custom maxLength keeps minLength")]
+    #[test_case(PROPERTIES_REQUIRED_2, "required", &json!({}), true; "properties with required: custom required replaces the presence check")]
+    #[test_case(PROPERTIES_REQUIRED_2, "required", &json!({"a": "x", "b": 1}), false; "properties with required: custom required keeps properties")]
+    #[test_case(PROPERTIES_REQUIRED_2, "properties", &json!({"a": "x", "b": 1}), true; "properties with required: custom properties replaces the value check")]
+    #[test_case(PROPERTIES_REQUIRED_2, "properties", &json!({}), false; "properties with required: custom properties keeps required")]
+    #[test_case(PROPERTIES_CLOSED_REQUIRED_1, "required", &json!({}), true; "closed object: custom required replaces the presence check")]
+    #[test_case(PROPERTIES_CLOSED_REQUIRED_1, "additionalProperties", &json!({"a": 1, "z": 2}), true; "closed object: custom additionalProperties accepts extra keys")]
+    #[test_case(PROPERTIES_CLOSED_REQUIRED_1, "additionalProperties", &json!({}), false; "closed object: custom additionalProperties keeps required")]
+    #[test_case(PROPERTIES_CLOSED_REQUIRED_1, "additionalProperties", &json!({"a": "x"}), false; "closed object: custom additionalProperties keeps properties")]
+    #[test_case(PROPERTIES_ADDITIONAL_SCHEMA, "additionalProperties", &json!({"a": "x"}), false; "additionalProperties schema: custom additionalProperties keeps properties")]
+    #[test_case(PATTERN_PROPERTIES_CLOSED, "additionalProperties", &json!({"zz": 1}), true; "closed patterns: custom additionalProperties accepts unmatched keys")]
+    #[test_case(PATTERN_PROPERTIES_CLOSED, "additionalProperties", &json!({"ab": "x"}), false; "closed patterns: custom additionalProperties keeps patternProperties")]
+    fn fused_validators_yield_to_custom_keywords(
+        schema: &str,
+        keyword: &str,
+        instance: &Value,
+        expected: bool,
+    ) {
+        let schema: Value = serde_json::from_str(schema).expect("Invalid JSON");
+        let validator = crate::options()
+            .with_keyword(keyword, |_, _, _| Ok(Box::new(AcceptAny)))
+            .build(&schema)
+            .expect("Invalid schema");
+        assert_eq!(validator.is_valid(instance), expected);
+        assert_eq!(validator.validate(instance).is_ok(), expected);
+        assert_eq!(validator.iter_errors(instance).count() == 0, expected);
+    }
+
+    #[test]
+    fn custom_additional_properties_does_not_duplicate_required() {
+        let schema = json!({"properties": {"a": {"type": "integer"}}, "additionalProperties": false, "required": ["a", "b"]});
+        let validator = crate::options()
+            .with_keyword("additionalProperties", |_, _, _| Ok(Box::new(AcceptAny)))
+            .build(&schema)
+            .expect("Invalid schema");
+        assert_eq!(validator.iter_errors(&json!({})).count(), 2);
     }
 
     #[test]

@@ -36,6 +36,7 @@ from coord.comments import (
     EVENT_NEEDS_ATTENTION,
     EVENT_PLAN,
     EVENT_REFUSED_POLICY,
+    EVENT_REFUSED_PREMISE,
     EVENT_STALLED,
     EVENT_STUCK,
     format_liveness_stall,
@@ -52,6 +53,7 @@ from coord.dispatch import (
     post_completion,
     post_failure,
     post_refused_policy,
+    post_refused_premise,
 )
 from coord.progress import parse_progress
 
@@ -1696,6 +1698,15 @@ def detect_transitions(config: Config) -> list[tuple[Transition, dict, dict]]:
                 # review of an undecided outcome; the worker already found
                 # the answer.
                 event = EVENT_REFUSED_POLICY
+            elif entry_status == "refused_premise":
+                # #3164: sibling of the refused_policy arm above — the
+                # worker exited cleanly, pushed 0 commits, and its own final
+                # message reported an investigated, refuted issue premise
+                # (`coord.agent.REFUSED_PREMISE`) rather than a repo-rule
+                # citation. Same "post so GitHub-only readers see it"
+                # reasoning, distinct event so the comment prints the
+                # re-scope/close remedy rather than the title-retarget one.
+                event = EVENT_REFUSED_PREMISE
             else:
                 continue
             transitions.append(
@@ -2715,39 +2726,54 @@ def _fetch_raw_log_text(transition: Transition, entry: dict) -> str | None:
     return _fetch_raw_log_text_by_id(transition.assignment_id, log_path, host)
 
 
-def _capture_cost_and_tokens_for_review(
+def capture_cost_and_tokens_for_assignment(
     assignment_id: str,
     *,
     log_path: str | None,
     host: str | None,
     provider_name: str | None = None,
 ) -> bool:
-    """#2476: best-effort cost/token capture for a review row, local-log-
-    first with a remote-agent-fetch fallback.
+    """#2476/#3158: best-effort cost/token capture for ANY terminal
+    assignment, local-log-first with a remote-agent-fetch fallback.
 
-    ``post_transition``'s ``_capture_cost`` is the ONLY place cost/tokens get
-    captured for a review that completes through the direct
-    ``detect_transitions`` path — but investigation of #2476 found the
-    majority of review completions actually get their GitHub comment posted
-    later, by :func:`post_orphaned_review_findings` (run_drain's step 5,
-    which runs on every ~60s drain tick, not just as manual cleanup): that
-    function does its own independent ``/status`` poll and local-then-remote
-    log fallback to recover the VERDICT, but until now never captured
-    cost/tokens at all. Once that row is marked ``notified``/
-    ``review_posted_at``, nothing ever revisits it — so a review rescued by
-    the orphaned-findings path was permanently stuck at ``cost_usd IS NULL``
-    even though the exact same log :func:`post_orphaned_review_findings`
-    just successfully parsed the verdict from also has a perfectly good
-    ``total_cost_usd`` in it.
+    Originally #2476's review-only repair (``_capture_cost_and_tokens_for_
+    review``): ``post_transition``'s ``_capture_cost`` is the ONLY place
+    cost/tokens get captured for a review that completes through the direct
+    ``detect_transitions`` path, but the majority of review completions
+    actually get their GitHub comment posted later, by
+    :func:`post_orphaned_review_findings` (run_drain's step 5, which runs on
+    every ~60s drain tick, not just as manual cleanup) — that function
+    recovers the VERDICT but, until #2476, never captured cost/tokens, and
+    once a row is marked ``notified``/``review_posted_at`` nothing ever
+    revisits it.
+
+    #3158 generalized it: the SAME gap — the daemon's passive reconcile tick
+    capturing cost only opportunistically, from an agent-side entry that can
+    evaporate before the tick observes it (``coord.reconcile._capture_cost_
+    from_entry_best_effort``) — hits every assignment type, not just
+    reviews; nothing here was actually review-specific. This is now also the
+    engine behind ``coord backfill-cost`` (coord/commands/merge.py), the
+    fleet-wide repair for that population.
 
     Mirrors :func:`_capture_cost`'s log-parse-then-persist logic (same
     :func:`coord.usage.parse_usage_from_log`, same
     ``update_assignment_cost``/``update_assignment_tokens`` writers) so this
-    is not a new capture mechanism — just the existing one, reachable from a
-    second call site. Never raises; returns True iff something was
-    persisted.
+    is not a new capture mechanism — just the existing one, reachable from
+    more call sites. When a log is fully parsed (locally or via the agent's
+    ``/logs/<id>``) and genuinely carries no cost, stamps
+    ``cost_capture_state='unmeasured'`` via
+    :func:`coord.state.mark_cost_unmeasured` (#3158's #1763-shaped tri-state:
+    "un-measured" must stay distinguishable from "uncaptured", i.e. not yet
+    even looked at) rather than leaving the row silently indistinguishable
+    from one nobody has ever examined. Never raises; returns True iff
+    something was persisted (a positive cost or tokens — NOT the unmeasured
+    stamp alone, which callers don't need to react to).
     """
-    from coord.state import update_assignment_cost, update_assignment_tokens  # noqa: PLC0415
+    from coord.state import (  # noqa: PLC0415
+        mark_cost_unmeasured,
+        update_assignment_cost,
+        update_assignment_tokens,
+    )
     from coord.usage import parse_usage_from_log  # noqa: PLC0415
 
     parsed = None
@@ -2756,7 +2782,7 @@ def _capture_cost_and_tokens_for_review(
             parsed = parse_usage_from_log(Path(log_path), provider_name=provider_name)
         except Exception as exc:  # noqa: BLE001
             log.debug(
-                "_capture_cost_and_tokens_for_review: local parse failed for %s: %s",
+                "capture_cost_and_tokens_for_assignment: local parse failed for %s: %s",
                 assignment_id, exc,
             )
             parsed = None
@@ -2777,7 +2803,7 @@ def _capture_cost_and_tokens_for_review(
                     )
             except Exception as exc:  # noqa: BLE001
                 log.debug(
-                    "_capture_cost_and_tokens_for_review: remote parse failed "
+                    "capture_cost_and_tokens_for_assignment: remote parse failed "
                     "for %s: %s", assignment_id, exc,
                 )
                 parsed = None
@@ -2792,8 +2818,21 @@ def _capture_cost_and_tokens_for_review(
             wrote = True
         except Exception as exc:  # noqa: BLE001
             log.warning(
-                "_capture_cost_and_tokens_for_review: failed to persist cost "
+                "capture_cost_and_tokens_for_assignment: failed to persist cost "
                 "for %s: %s", assignment_id, exc,
+            )
+    else:
+        # #3158: `parsed` is non-None only when a FULL log parse actually
+        # completed (parse_usage_from_log returns None on a missing file,
+        # a non-stream-json log, or an OSError) — so a zero cost here is a
+        # genuine "nothing to capture", not "didn't look". Best-effort: a
+        # failure here must not affect the token capture below.
+        try:
+            mark_cost_unmeasured(assignment_id)
+        except Exception as exc:  # noqa: BLE001
+            log.debug(
+                "capture_cost_and_tokens_for_assignment: failed to mark "
+                "unmeasured for %s: %s", assignment_id, exc,
             )
 
     token_total = (
@@ -2813,7 +2852,7 @@ def _capture_cost_and_tokens_for_review(
             wrote = True
         except Exception as exc:  # noqa: BLE001
             log.warning(
-                "_capture_cost_and_tokens_for_review: failed to persist "
+                "capture_cost_and_tokens_for_assignment: failed to persist "
                 "tokens for %s: %s", assignment_id, exc,
             )
 
@@ -3504,6 +3543,21 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
             transition.event,
             branch=entry.get("branch"),
         )
+    elif transition.event == EVENT_REFUSED_PREMISE:
+        # #3164: sibling of the refused_policy arm above — 0-commit clean
+        # exit whose worker investigated the issue and found its premise
+        # false or its prerequisite unmet, rather than citing a repo-rule
+        # prohibition. Same reasoning for why this needs its own arm (the
+        # catch-all `else` below would silently drop it).
+        post_refused_premise(
+            reason=entry.get("premise_refusal_reason") or "",
+            **common,
+        )
+        mark_notified(
+            transition.assignment_id,
+            transition.event,
+            branch=entry.get("branch"),
+        )
     else:
         # #1605/#1797: carry the agent's own diagnostic (a usage-limit kill,
         # a terminal API-error classification, or an auth-shaped push
@@ -3625,7 +3679,7 @@ def post_orphaned_review_findings(
             # lands, nothing ever revisits this row. Independent of whether
             # findings parsing succeeds: a row whose body can't be recovered
             # can still have its cost recovered from the same log.
-            _capture_cost_and_tokens_for_review(
+            capture_cost_and_tokens_for_assignment(
                 aid, log_path=log_path, host=machine.host,
                 provider_name=row.get("provider_name"),
             )

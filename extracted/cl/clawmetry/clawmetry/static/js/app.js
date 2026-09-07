@@ -2134,7 +2134,6 @@ function switchTab(name) {
   if (name === 'evals') { if (typeof loadEvalsTab === 'function') loadEvalsTab(); }
   if (name === 'bench') { if (typeof loadBenchTab === 'function') loadBenchTab(); }
   if (name === 'logs') loadLogs();
-  if (name === 'dives') { if (typeof loadDivesPage === 'function') loadDivesPage(); }
   if (name === 'actions') loadQAHistory();
   if (name === 'models') loadModelAttribution();
   if (name === 'nemoclaw') { loadNemoClaw(); _startNcApprovalsAutoRefresh(); }
@@ -3608,107 +3607,11 @@ async function loadSkillFile(skillName, filePath) {
   }
 }
 
-var _sunSVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-var _moonSVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-
-function toggleTheme() {
-  const body = document.body;
-  const toggle = document.getElementById('theme-toggle-btn');
-  const isLight = !body.hasAttribute('data-theme') || body.getAttribute('data-theme') !== 'dark';
-  
-  if (isLight) {
-    body.setAttribute('data-theme', 'dark');
-    toggle.innerHTML = _sunSVG;
-    toggle.title = 'Switch to light theme';
-    localStorage.setItem('openclaw-theme', 'dark');
-  } else {
-    body.removeAttribute('data-theme');
-    toggle.innerHTML = _moonSVG;
-    toggle.title = 'Switch to dark theme';
-    localStorage.setItem('openclaw-theme', 'light');
-  }
-}
-
-function initTheme() {
-  // Dark is the default, but a saved light preference is honoured again
-  // now that the light palette is first-class (UI reskin, 2026-09).
-  let savedTheme = 'dark';
-  try { savedTheme = localStorage.getItem('openclaw-theme') || 'dark'; } catch (e) {}
-  const body = document.body;
-  const toggle = document.getElementById('theme-toggle-btn');
-  
-  if (savedTheme === 'dark') {
-    body.setAttribute('data-theme', 'dark');
-    if (toggle) { toggle.innerHTML = _sunSVG; toggle.title = 'Switch to light theme'; }
-  } else {
-    body.removeAttribute('data-theme');
-    if (toggle) { toggle.innerHTML = _moonSVG; toggle.title = 'Switch to dark theme'; }
-  }
-}
-
-// === Zoom Controls ===
-let currentZoom = 1.0;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 2.0;
-const ZOOM_STEP = 0.1;
-
-function initZoom() {
-  const savedZoom = localStorage.getItem('openclaw-zoom');
-  if (savedZoom) {
-    currentZoom = parseFloat(savedZoom);
-  }
-  applyZoom();
-}
-
-function applyZoom() {
-  const wrapper = document.getElementById('zoom-wrapper');
-  const levelDisplay = document.getElementById('zoom-level');
-  
-  if (wrapper) {
-    wrapper.style.transform = `scale(${currentZoom})`;
-  }
-  if (levelDisplay) {
-    levelDisplay.textContent = Math.round(currentZoom * 100) + '%';
-  }
-  
-  // Save to localStorage
-  localStorage.setItem('openclaw-zoom', currentZoom.toString());
-}
-
-function zoomIn() {
-  if (currentZoom < MAX_ZOOM) {
-    currentZoom = Math.min(MAX_ZOOM, currentZoom + ZOOM_STEP);
-    applyZoom();
-  }
-}
-
-function zoomOut() {
-  if (currentZoom > MIN_ZOOM) {
-    currentZoom = Math.max(MIN_ZOOM, currentZoom - ZOOM_STEP);
-    applyZoom();
-  }
-}
-
-function resetZoom() {
-  currentZoom = 1.0;
-  applyZoom();
-}
-
-// Keyboard shortcuts for zoom
-document.addEventListener('keydown', function(e) {
-  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-    if (e.key === '=' || e.key === '+') {
-      e.preventDefault();
-      zoomIn();
-    } else if (e.key === '-') {
-      e.preventDefault();
-      zoomOut();
-    } else if (e.key === '0') {
-      e.preventDefault();
-      resetZoom();
-    }
-  }
-});
+// Theme toggle and in-page zoom controls were removed in the 2026-09 header
+// cleanup. The dashboard is dark-only (<body data-theme="dark"> in the
+// template), and page zoom is the browser's job -- applyZoom() used to set a
+// `transform: scale()` on #zoom-wrapper even at 100%, which turned the wrapper
+// into a containing block for every `position: fixed` descendant (issue #1717).
 
 function timeAgo(ms) {
   if (!ms) return 'never';
@@ -11593,14 +11496,51 @@ async function saveRetentionSetting(usePlanDefault) {
   }
 }
 
+// Hosted dashboard: show only the parts of this tab that have real data.
+//
+// The cloud container has no ~/.openclaw config and no local DuckDB, so the
+// posture scan, the live signature scan, the policy/PII scan, the credential
+// scan and the recorded-findings feed have nothing to read. What a trial user
+// saw instead was a full Security page made of dashes, 0/0/0/0 tiles under a
+// heading promising threat detection, severity filters that filtered nothing,
+// and two panels stuck on "Scanning..." forever. That reads as broken
+// software, and the reading is fair: a control that claims a capability it
+// does not have costs more trust than the capability would have earned.
+// So on cloud those panels are removed outright, and #security-cloud-note
+// says in one line where those scans actually run. What survives is what the
+// snapshot really carries: the tamper-evident log, the plan's retention, and
+// governance activity when there is any (loadSecurityAudit hides its own
+// panel when there is none).
+var _CM_SECURITY_CLOUD_HIDDEN = [
+  'security-scan-btn',
+  'security-posture-panel',
+  'security-threat-heading',
+  'security-allclear',
+  'security-summary',
+  'security-filter-pills',
+  'security-threat-panel',
+  'security-findings-panel',
+  'policy-events-panel',
+  'credential-scan-panel',
+  'security-catalog-panel'
+];
+
+function _cmSecurityCloudTrim() {
+  if (!window.CLOUD_MODE) return;
+  _CM_SECURITY_CLOUD_HIDDEN.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  var note = document.getElementById('security-cloud-note');
+  if (note) note.style.display = '';
+}
+
 async function loadSecurityPosture() {
   if (window.CLOUD_MODE) {
-    // Trial-bug fix #23: posture scans the local OpenClaw config (no DuckDB in
-    // cloud) so it errored on the hosted dashboard. Show an honest state.
-    var _pb = document.getElementById('posture-score-badge');
-    if (_pb) _pb.textContent = '--';
-    var _pl = document.getElementById('posture-score-label');
-    if (_pl) _pl.textContent = t('app.local_dashboard_only', null, 'Local dashboard only');
+    // Posture scans the machine's agent config, which the cloud container does
+    // not have. It used to paint '--' + "Local dashboard only" into the panel,
+    // which is an empty score card claiming a scan happened. The panel goes.
+    _cmSecurityCloudTrim();
     return;
   }
   try {
@@ -11692,17 +11632,12 @@ async function loadSecurityPosture() {
 
 async function loadSecurityPage(silent) {
   if (window.CLOUD_MODE) {
-    // Trial-bug fix #24: threat scanning runs on the local node (no DuckDB in
-    // cloud); the early-return left "Scanning..." spinning forever. Render an
-    // honest state instead.
-    var _tl = document.getElementById('security-threat-list');
-    if (_tl) _tl.innerHTML = '<div style="color:var(--text-muted);padding:20px;font-size:13px;">' + t('app.security_threats_local_only', null, 'Threat detection runs on your local node. Open the local dashboard to scan for misconfigurations.') + '</div>';
-    // Integrity + audit DO ship in the snapshot; a cm-cloud interceptor will
-    // serve them. Until then these render an honest "local node" state rather
-    // than a silent blank (and become live once the interceptor lands).
+    // Threat/policy/credential scans read this machine's event history, which
+    // the cloud container does not have. Their panels go; integrity and the
+    // audit log DO ship in the snapshot (cm-cloud-security), so those load.
+    _cmSecurityCloudTrim();
     loadSecurityIntegrity();
     loadSecurityAudit();
-    loadSecurityFindings();
     return;
   }
   // The durable findings feed is loaded FIRST so the tiles and the all-clear
@@ -11873,14 +11808,12 @@ async function loadSecurityFindings() {
   var listEl = document.getElementById('security-findings-list');
   var countEl = document.getElementById('security-findings-count');
   if (!listEl) return;
-  // Cloud parity (FLYWHEEL gate 1): security_events is not in the snapshot,
-  // so the hosted dashboard has nothing to read. Say that plainly instead of
-  // leaving "Loading findings..." spinning forever, which is how a trial user
-  // learns to distrust the product.
+  // Cloud parity: security_events is not in the snapshot, so the hosted
+  // dashboard has nothing to read. An empty findings panel is a panel that
+  // says "we record findings" while showing none, so it is removed there
+  // rather than filled with an apology.
   if (window.CLOUD_MODE) {
-    listEl.innerHTML = '<div style="color:var(--text-muted);padding:12px;font-size:12px;">'
-      + t('security.findings_local_only', null, 'Findings are recorded on the machine your agent runs on. Open the dashboard there to read them.')
-      + '</div>';
+    _cmSecurityCloudTrim();
     if (countEl) countEl.textContent = '';
     return null;
   }
@@ -12022,7 +11955,11 @@ async function loadSecurityAudit() {
     if (countEl) countEl.textContent = rows.length ? (rows.length + (rows.length === 1 ? ' event' : ' events')) : '';
     if (!rows.length) {
       if (window.CLOUD_MODE) {
-        listEl.innerHTML = '<div style="color:var(--text-muted);padding:12px;">' + t('app.audit_local_only', null, 'Governance activity is recorded on your local node. Open the local dashboard to review it.') + '</div>';
+        // The snapshot's auditLog slice is real, so "no rows" here means there
+        // has been no governance activity to record -- nothing to show, and no
+        // reason to keep an empty box on the page.
+        var _ap = document.getElementById('security-audit-panel');
+        if (_ap) _ap.style.display = 'none';
       } else {
         listEl.innerHTML = '<div style="color:var(--text-muted);padding:12px;" data-i18n="security.audit_empty">' + t('security.audit_empty', null, 'No recorded activity yet. Approval decisions, budget changes, and pauses appear here.') + '</div>';
       }
@@ -12069,8 +12006,16 @@ async function loadSecurityAudit() {
       html += escHtml(when) + '</div>';
       html += '</div></div>';
     });
+    var _ap2 = document.getElementById('security-audit-panel');
+    if (_ap2) _ap2.style.display = '';
     listEl.innerHTML = html;
   } catch (e) {
+    if (window.CLOUD_MODE) {
+      // Same reasoning as the empty case: no feed, no box.
+      var _ap3 = document.getElementById('security-audit-panel');
+      if (_ap3) _ap3.style.display = 'none';
+      return;
+    }
     listEl.innerHTML = '<div style="color:var(--text-muted);padding:12px;font-size:11px;">' + t('app.audit_unavailable', null, 'Activity feed unavailable.') + '</div>';
   }
 }
@@ -12392,7 +12337,7 @@ var _CM_RT_NODEWIDE = {
   // tabs scope for real off the global switcher. Calling them node-wide was
   // what pushed a redundant per-tab runtime picker into the page.
   crons: 1, security: 1, selfevolve: 1,
-  policy: 1, nemoclaw: 1, notifications: 1, dives: 1,
+  policy: 1, nemoclaw: 1, notifications: 1,
   clusters: 1, actions: 1,
   // logs + version-impact are NOT node-wide: logs stream a specific runtime's
   // log source (LOGS capability), version-impact correlates OpenClaw releases.
@@ -12460,7 +12405,7 @@ var _CM_RT_CAPS = {
 // Capability -> the sidebar tabs it enables. A tab shows iff the runtime
 // declares (at least) one capability that enables it.
 var _CM_CAP_TABS = {
-  SESSIONS:    ['overview','dives'],
+  SESSIONS:    ['overview'],
   // context-economics moved COST → EVENTS with the LLM Context merge: the
   // utilization gauge reads per-turn usage tokens (an EVENTS concern), so
   // no-cost runtimes (Cursor/PicoClaw/NanoClaw) keep a context surface.
@@ -12500,7 +12445,7 @@ var _CM_NODE_TABS = ['alerts','notifications','security','approvals','guard','me
 // Every togglable sidebar tab (so switching runtimes RE-SHOWS what a prior one
 // hid). overview is never togglable.
 var _CM_RT_ALL_TABS = ['flow','brain','models','tracing','turn-anatomy',
-  'context-economics','approvals','guard','signals','alerts','usage','dives','crons','memory',
+  'context-economics','approvals','guard','signals','alerts','usage','crons','memory',
   'notifications','security','policy','skills','selfevolve','subagents',
   'nemoclaw','logs','version-impact','agents'];
 // Foreign OTLP apps only emit spans/traces (events + maybe cost). They get the
@@ -12553,10 +12498,10 @@ function _cmApplyRuntimeScopeNote(name) {
   // it the app's data), state plainly that this app is observed via OTLP traces
   // and its scoped views live where the data actually is (the Inventory roster
   // row + cost/tokens). The Inventory tab keeps its own roster note below.
-  // 'inventory' has its own roster note; 'dives' (transcripts) has its own
+  // 'inventory' has its own roster note; transcripts has its own
   // scoped empty-state ("no <app> sessions have a transcript yet"), so skip both
   // to avoid a conflicting double-note.
-  if (_cmIsOtlpRuntime(rt) && name !== 'inventory' && name !== 'dives') {
+  if (_cmIsOtlpRuntime(rt) && name !== 'inventory') {
     var _otl = _cmRuntimeLabel(rt);
     var _otmsg = '<strong>' + escHtml(_otl) + '</strong> is observed via OpenLLMetry / OTLP traces. '
       + 'This view shows <strong>all runtimes</strong>; its scoped tokens, cost and sessions are on the '
@@ -28784,8 +28729,6 @@ function _hideCloudIrrelevantNav() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  initTheme();
-  initZoom();
   // Overview is the default tab
   initOverviewFlow();
   initOverviewCompClickHandlers();

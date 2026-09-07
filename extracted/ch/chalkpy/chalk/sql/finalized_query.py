@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import dataclasses
-import warnings
 from collections import defaultdict
 from enum import Enum
 from typing import (
@@ -283,21 +282,6 @@ class FinalizedChalkQuery:
 
         return col_to_features
 
-    def _check_incremental_settings(self):
-        if self.incremental_settings is not None:
-            # FIXME: Move the incrementalization logic here, so then the `execute` and `execute_to_dataframe`
-            # methods can take the hwm timestamp as a parameter, to allow for direct execution
-            warnings.warn(
-                (
-                    "This query specified an incremental configuration, which has not been applied. "
-                    "This is likely because the resolver is being executed directly. "
-                    "The query will be attempted without any high-water-mark timestamp. "
-                    "This will attempt to select all data, "
-                    "or if the filters depend on the incremental timestamp, "
-                    "will result in a query execution error. "
-                )
-            )
-
     def execute_to_pyarrow(
         self,
         expected_features: Optional[Sequence[Feature]] = None,
@@ -367,7 +351,6 @@ class FinalizedChalkQuery:
         from chalk.sql._internal.sql_source import BaseSQLSource
         from chalk.sql._internal.sql_source_group import SQLSourceGroup
 
-        self._check_incremental_settings()
         col_to_features = self._get_col_to_feature(expected_features)
         assert isinstance(self.source, (BaseSQLSource, SQLSourceGroup)), f"Expected BaseSQLSource, got {self.source}"
 
@@ -470,7 +453,6 @@ class FinalizedChalkQuery:
         if query_execution_parameters is None:
             query_execution_parameters = query_execution_parameters_from_env_vars()
 
-        self._check_incremental_settings()
         col_to_features = self._get_col_to_feature(expected_features)
         assert isinstance(self.source, BaseSQLSource)
 

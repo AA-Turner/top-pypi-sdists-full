@@ -1,5 +1,6 @@
 """Shared utilities for builtin rules."""
 
+import codecs
 import json
 import math
 import os
@@ -7,14 +8,25 @@ import re
 import secrets
 import stat
 import threading
+from io import StringIO
 from pathlib import Path
 from typing import Any, Callable, Dict, List, NoReturn, Optional, Tuple
 
 import yaml
+
+try:  # Python 3.11+
+    import tomllib as _tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised on the 3.9/3.10 floor
+    import tomli as _tomllib  # type: ignore[no-redef]
+
 from ruamel.yaml import YAML as _RuamelYAML
 from ruamel.yaml import YAMLError as _RuamelYAMLError
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from skillsaw.paths import safe_is_symlink, safe_resolve
+
+# Use the fast C-based LibYAML loader (CSafeLoader) when available, falling
+# back to PyYAML's pure-Python SafeLoader. Both share the same safe loader semantics.
+_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 
 def _atomic_destination(path: Path, root: Path) -> Tuple[Path, Path]:
@@ -325,13 +337,41 @@ class FileCache:
     ``invalidate(file_path)`` is O(1) -- it pops the entire inner dict
     for that path.  A global ``maxsize`` caps the total number of entries
     across all registered functions to prevent unbounded memory growth.
+
+    Keys use resolved paths so different aliases for the same file (such as
+    symlinks or relative ``..`` segments) share cache entries and are invalidated
+    together. Because ``Path.resolve()`` performs filesystem lookups on every call,
+    path resolutions are memoized here and cleared when ``invalidate()`` is called.
     """
 
-    def __init__(self, maxsize: int = 2048):
+    def __init__(self, maxsize: int = 65536):
         self._lock = threading.Lock()
         self._stores: List[Dict[Path, Dict[tuple, Any]]] = []
+        self._resolved: Dict[Path, Path] = {}
         self._maxsize = maxsize
         self._total_entries = 0
+
+    def _key(self, file_path: Any) -> Any:
+        """Resolved cache key for *file_path*, memoized."""
+        if not isinstance(file_path, Path):
+            return None
+        resolved = self._resolved.get(file_path)
+        if resolved is None:
+            try:
+                resolved = safe_resolve(file_path) or file_path
+            except (OSError, RuntimeError, ValueError):
+                # If path resolution fails (e.g. symlink loop or invalid path),
+                # fall back to the unresolved path so caching can proceed without
+                # raising during key lookup.
+                resolved = file_path
+            # Aliases can grow independently of the cached-result count.
+            # Bound their memo separately without discarding parsed values.
+            if self._maxsize > 0:
+                with self._lock:
+                    if len(self._resolved) >= self._maxsize:
+                        self._resolved.clear()
+                    self._resolved[file_path] = resolved
+        return resolved
 
     def cached(self, func: Callable) -> Callable:
         """Decorator -- equivalent to ``@lru_cache`` but with per-key eviction."""
@@ -340,17 +380,7 @@ class FileCache:
 
         def wrapper(*args, **kwargs):
             # The first positional arg is always the file path.
-            file_path = args[0] if args else None
-            try:
-                resolved = (
-                    (safe_resolve(file_path) or file_path) if isinstance(file_path, Path) else None
-                )
-            except (OSError, RuntimeError, ValueError):
-                # Symlink loop or embedded NUL: raising here aborts the
-                # whole lint from a cache key lookup, while the wrapped
-                # reader already diagnoses unreadable input. Key on the
-                # unresolved path — that only loses alias deduplication.
-                resolved = file_path
+            resolved = self._key(args[0] if args else None)
             sub_key = (args[1:], tuple(sorted(kwargs.items())))
             with self._lock:
                 bucket = store.get(resolved)
@@ -409,8 +439,11 @@ class FileCache:
             if file_path is None:
                 for store in self._stores:
                     store.clear()
+                self._resolved.clear()
                 self._total_entries = 0
             else:
+                # Re-resolve the path on next access in case symlink targets changed.
+                self._resolved.pop(file_path, None)
                 resolved = safe_resolve(file_path) or file_path
                 for store in self._stores:
                     bucket = store.pop(resolved, None)
@@ -420,6 +453,15 @@ class FileCache:
 
 # Singleton cache used by all utility functions.
 _file_cache = FileCache()
+
+
+def cached_file_read(func: Callable) -> Callable:
+    """Cache a reader whose first positional argument is its file path.
+
+    Results share the bounded file cache and its per-file invalidation.
+    """
+    return _file_cache.cached(func)
+
 
 _extra_caches: list = []
 
@@ -533,11 +575,15 @@ def read_json(file_path: Path) -> Tuple[Optional[object], Optional[str]]:
 
 
 # A compiled output carries a stamp saying so. Matched forms: the generic
-# "generated by ... do not edit" wording, and APM's actual header, which is
-# only '<!-- Generated by APM CLI from .apm/ primitives -->' — no "do not
+# "generated by ... do not edit" wording in either order — a banner that
+# leads with "AUTO-GENERATED — DO NOT EDIT. Built by ..." is the common
+# spelling — and APM's actual header, which is only
+# '<!-- Generated by APM CLI from .apm/ primitives -->' with no "do not
 # edit" text anywhere in the file.
 _GENERATED_MARKER = re.compile(
-    r"generated by .*(?:do not edit|don't edit)|do not edit manually|generated by apm cli",
+    r"(?:auto-?generated|generated by|generated file)[^\n]*(?:do not edit|don't edit)"
+    r"|(?:do not edit|don't edit)[^\n]*(?:auto-?generated|generated by|generated file)"
+    r"|do not edit manually|generated by apm cli",
     re.IGNORECASE,
 )
 
@@ -611,14 +657,89 @@ def _reject_non_finite(token: str) -> NoReturn:
     raise ValueError(f"{token} is not valid JSON")
 
 
+def _bounded_json_string(value: str, max_length: int = 120) -> str:
+    """Render a complete, ASCII-safe JSON string within *max_length*."""
+    fragments: List[str] = []
+    rendered_length = 2  # Opening and closing quotes.
+    for index, character in enumerate(value):
+        fragment = json.dumps(character, ensure_ascii=True)[1:-1]
+        suffix_length = 3 if index < len(value) - 1 else 0
+        if rendered_length + len(fragment) + suffix_length > max_length:
+            return f'"{"".join(fragments)}..."'
+        fragments.append(fragment)
+        rendered_length += len(fragment)
+    return f'"{"".join(fragments)}"'
+
+
+def has_utf8_bom(file_path: Path) -> bool:
+    """Inspect the prefix before ``read_text`` strips a UTF-8 byte-order mark."""
+    try:
+        with open(file_path, "rb") as handle:
+            return handle.read(3) == codecs.BOM_UTF8
+    except OSError:
+        return False
+
+
+def reject_duplicate_json_keys(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    """Build a JSON object while rejecting keys a normal decoder collapses."""
+    result: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON object key: {_bounded_json_string(key)}")
+        result[key] = value
+    return result
+
+
+class _JsonObjectPairs(list):
+    """Preserve repeated object keys without confusing objects with arrays."""
+
+
+def _merge_duplicate_json_fields(
+    value: Any, paths: Tuple[Tuple[str, ...], ...], path: Tuple[str, ...] = ()
+) -> Any:
+    """Materialize objects, merging only at selected paths (``*`` is one key)."""
+    if isinstance(value, _JsonObjectPairs):
+        result: Dict[str, Any] = {}
+        for key, child in value:
+            child_path = (*path, key)
+            decoded = _merge_duplicate_json_fields(child, paths, child_path)
+            previous = result.get(key)
+            merge = any(
+                len(pattern) == len(child_path)
+                and all(p == "*" or p == actual for p, actual in zip(pattern, child_path))
+                for pattern in paths
+            )
+            if merge and isinstance(previous, dict) and isinstance(decoded, dict):
+                previous.update(decoded)
+            else:
+                result[key] = decoded
+        return result
+    if isinstance(value, list):
+        return [
+            _merge_duplicate_json_fields(child, paths, (*path, str(index)))
+            for index, child in enumerate(value)
+        ]
+    return value
+
+
 @_file_cache.cached
-def read_json_strict(file_path: Path) -> Tuple[Optional[object], Optional[str]]:
-    """Like :func:`read_json`, but rejecting Python's non-finite extension.
+def read_json_strict(
+    file_path: Path,
+    *,
+    allow_duplicate_keys: bool = False,
+    merge_duplicate_fields: Tuple[Tuple[str, ...], ...] = (),
+) -> Tuple[Optional[object], Optional[str]]:
+    """Like :func:`read_json`, but rejecting duplicate keys and non-finite numbers.
 
     ``json.loads`` accepts the bare tokens ``NaN``, ``Infinity`` and
     ``-Infinity`` anywhere a number is allowed. No JSON host does: Node
     throws on the whole document, so a config carrying one is dead on
     arrival for the tool that reads it while skillsaw reports it clean.
+
+    *allow_duplicate_keys* accepts repeated keys with the last value winning.
+    *merge_duplicate_fields* selects paths whose object members merge;
+    ``*`` matches one key, and scalars/null still replace the previous value. Hosts opt in
+    after verifying their decoder's behavior. Non-finite tokens stay fatal.
 
     Kept separate from :func:`read_json` rather than folded into it because
     discovery reads manifests through that function — tightening it there
@@ -630,8 +751,154 @@ def read_json_strict(file_path: Path) -> Tuple[Optional[object], Optional[str]]:
     content = read_text(file_path)
     if content is None:
         return None, f"Failed to read {file_path.name}"
+    pairs_hook = None if allow_duplicate_keys else reject_duplicate_json_keys
+    if allow_duplicate_keys and merge_duplicate_fields:
+        pairs_hook = _JsonObjectPairs
     try:
-        return json.loads(content, parse_constant=_reject_non_finite), None
+        data = json.loads(
+            content,
+            parse_constant=_reject_non_finite,
+            object_pairs_hook=pairs_hook,
+        )
+        if pairs_hook is _JsonObjectPairs:
+            data = _merge_duplicate_json_fields(data, merge_duplicate_fields)
+        return data, None
+    except ValueError as e:
+        # Same rationale as read_json: bare ValueError, not just the
+        # JSONDecodeError subclass.
+        return None, str(e)
+    except RecursionError:
+        return None, _TOO_DEEP
+
+
+def strip_jsonc(content: str) -> str:
+    """Blank out JSONC comments and trailing commas, preserving every offset.
+
+    ``.jsonc`` — and, for the hosts that accept it, a plain ``.json`` — adds
+    ``//`` and ``/* */`` comments and a comma before a closing brace or
+    bracket. ``json.loads`` rejects all three, so a config written the way
+    its own host documents would otherwise be reported as unparseable.
+
+    Removed characters are replaced with spaces rather than deleted, and
+    newlines inside a block comment are kept. ``json.loads`` reports a parse
+    error by line, column and character position, so a stripper that shifted
+    the text would point the author at the wrong place in a file that really
+    is broken.
+
+    Strings are tracked, so ``{"url": "https://x"}`` keeps its ``//`` and
+    ``{"a": "x,"}`` keeps its comma.
+    The transform is a no-op on any valid JSON document: every branch that
+    blanks a character needs a ``/`` or a ``,`` in a position plain JSON
+    does not allow. :func:`read_jsonc` relies on that to keep this scan off
+    the common path entirely.
+    """
+    # Use a character buffer rather than a Python list entry per character.
+    # Seeking uses character offsets, including for non-ASCII source text.
+    out = StringIO(content)
+    length = len(content)
+    index = 0
+    in_string = False
+    # Index of the most recent comma, and of the last character that was
+    # neither whitespace nor blanked. A comma is trailing exactly when the
+    # two are the same at the moment a closer arrives.
+    last_comma = -1
+    last_significant = -1
+    while index < length:
+        char = content[index]
+        if in_string:
+            if char == "\\":
+                index += 2
+                continue
+            if char == '"':
+                in_string = False
+                last_significant = index
+            index += 1
+            continue
+        if char == '"':
+            in_string = True
+            last_significant = index
+            index += 1
+            continue
+        if char == "/" and index + 1 < length:
+            following = content[index + 1]
+            if following == "/":
+                end = content.find("\n", index)
+                end = length if end == -1 else end
+                out.seek(index)
+                out.write(" " * (end - index))
+                index = end
+                continue
+            if following == "*":
+                end = content.find("*/", index + 2)
+                # An unterminated block comment runs to end of file, which is
+                # what every JSONC reader does with one.
+                end = length if end == -1 else end + 2
+                while index < end:
+                    newline = content.find("\n", index, end)
+                    stop = end if newline == -1 else newline
+                    out.seek(index)
+                    out.write(" " * (stop - index))
+                    index = stop + 1
+                index = end
+                continue
+        if char in "}]":
+            if last_comma != -1 and last_significant == last_comma:
+                out.seek(last_comma)
+                out.write(" ")
+            last_comma = -1
+            last_significant = index
+        elif char == ",":
+            last_comma = index
+            last_significant = index
+        elif not char.isspace():
+            last_significant = index
+        index += 1
+    return out.getvalue()
+
+
+@_file_cache.cached
+def read_jsonc(
+    file_path: Path, *, allow_duplicate_keys: bool = False
+) -> Tuple[Optional[object], Optional[str]]:
+    """Read a JSON file that may carry comments and trailing commas.
+
+    Non-finite tokens are always rejected. Duplicate keys are rejected by
+    default; a host whose decoder takes the last value can explicitly set
+    *allow_duplicate_keys*, as with :func:`read_json_strict`.
+
+    Parsed as-is first, and stripped only if that fails. Most files at these
+    locations are plain JSON, so this avoids an unnecessary scan and copy.
+    The fallback uses a character buffer and writes comment spans in batches;
+    it does not allocate a Python list slot per source character. Both paths
+    still read whole files (THREAT_MODEL T11 tracks a separate byte budget).
+    Stripping is a no-op on every document the first parse accepts. Errors
+    come from the stripped parse, preserving source line, column and offset.
+    """
+    content = read_text(file_path)
+    if content is None:
+        return None, f"Failed to read {file_path.name}"
+    try:
+        return (
+            json.loads(
+                content,
+                parse_constant=_reject_non_finite,
+                object_pairs_hook=None if allow_duplicate_keys else reject_duplicate_json_keys,
+            ),
+            None,
+        )
+    except RecursionError:
+        return None, _TOO_DEEP
+    except ValueError:
+        pass  # May be JSONC. Fall through to the stripped parse.
+    try:
+        return (
+            json.loads(
+                strip_jsonc(content),
+                parse_constant=_reject_non_finite,
+                object_pairs_hook=None if allow_duplicate_keys else reject_duplicate_json_keys,
+            ),
+            None,
+        )
     except ValueError as e:
         # Same rationale as read_json: bare ValueError, not just the
         # JSONDecodeError subclass.
@@ -647,13 +914,54 @@ def read_yaml(file_path: Path) -> Tuple[Optional[object], Optional[str]]:
     if content is None:
         return None, f"Failed to read {file_path.name}"
     try:
-        return yaml.safe_load(content), None
+        return yaml.load(content, Loader=_SAFE_LOADER), None
     except yaml.YAMLError as e:
         return None, str(e)
     except ValueError as e:
         # PyYAML can surface parser-adjacent failures as a bare ValueError;
         # Python's integer-string digit limit is one example. Treat it like
         # every other invalid document instead of aborting tree construction.
+        return None, str(e)
+    except RecursionError:
+        # Same hazard as read_json — see the note there.
+        return None, _TOO_DEEP
+
+
+@_file_cache.cached
+def read_toml(file_path: Path) -> Tuple[Optional[dict], Optional[str]]:
+    """Cached TOML file read. Returns ``(data, error)``.
+
+    ``tomllib`` on Python 3.11+ and its ``tomli`` predecessor below that —
+    the same parser either way, since CPython vendored ``tomli`` as
+    ``tomllib``.
+
+    Two elements, not three: no position is available on every supported
+    interpreter. Stdlib ``tomllib`` gained ``TOMLDecodeError.lineno`` only
+    in 3.14, so 3.11 through 3.13 carry none, while the 3.9/3.10 floor's
+    ``tomli`` 2.2.1 does expose it — and one contract across both parsers
+    is worth more than a line number on some legs. A caller reports at file
+    level the way the JSON readers do; the parser's own message usually
+    carries the position
+    ("Cannot overwrite a value (at line 2, column 6)"), which is what an
+    author needs from a field this contract cannot fill.
+
+    The BOM and position contracts are this reader's, not any one caller's:
+    a leading UTF-8 BOM is stripped by :func:`read_text` before the parser
+    sees it, where ``tomllib`` would refuse one. Whether the host reading a
+    given file refuses it is that host's question — Grok Build's Rust reader
+    is unmeasured — so this accepts the file rather than inventing a
+    verdict, and a rule that knows better may say so.
+    """
+    content = read_text(file_path)
+    if content is None:
+        return None, f"Failed to read {file_path.name}"
+    try:
+        return _tomllib.loads(content), None
+    except _tomllib.TOMLDecodeError as e:
+        return None, str(e)
+    except ValueError as e:
+        # The digit-limit hazard read_json documents: an integer literal past
+        # the interpreter's limit raises bare ValueError, not the decode error.
         return None, str(e)
     except RecursionError:
         # Same hazard as read_json — see the note there.
@@ -689,7 +997,41 @@ def read_yaml_commented(
         return None, _TOO_DEEP, None
 
 
-def commented_key_line(node: Any, key: str) -> Optional[int]:
+@_file_cache.cached
+def read_frontmatter_commented(
+    file_path: Path,
+) -> Tuple[Any, Optional[str], Optional[int]]:
+    """Read Markdown frontmatter as line-preserving YAML.
+
+    Returns the same ``(data, error, error_line)`` contract as
+    :func:`read_yaml_commented`, but parses only the YAML between the opening
+    and closing ``---`` delimiters. Reported parse-error lines are translated
+    to file-absolute lines; successful ruamel nodes retain frontmatter-relative
+    positions, so callers add the opening-delimiter offset when using
+    :func:`commented_key_line` or :func:`commented_item_line`.
+    """
+    content = read_text(file_path)
+    if content is None:
+        return None, f"Failed to read {file_path.name}", None
+    frontmatter, offset = _extract_frontmatter_text(content)
+    if frontmatter is None:
+        return None, None, None
+    ry = _RuamelYAML()
+    ry.preserve_quotes = True
+    try:
+        return ry.load(frontmatter), None, None
+    except _RuamelYAMLError as error:
+        line = None
+        if hasattr(error, "problem_mark") and error.problem_mark is not None:
+            line = error.problem_mark.line + 1 + offset
+        return None, str(error), line
+    except ValueError as error:
+        return None, str(error), None
+    except RecursionError:
+        return None, _TOO_DEEP, None
+
+
+def commented_key_line(node: Any, key: Any) -> Optional[int]:
     """Get the 1-based line number of *key* in a ruamel ``CommentedMap``."""
     if isinstance(node, CommentedMap) and key in node:
         try:
@@ -739,9 +1081,8 @@ def _fast_top_level_key_nodes(
     behavior: parse errors, non-string keys, or duplicate keys (which
     ruamel rejects).
     """
-    loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
     try:
-        node = yaml.compose(text, Loader=loader)
+        node = yaml.compose(text, Loader=_SAFE_LOADER)
     except yaml.YAMLError:
         return None
     if node is None or not isinstance(node, yaml.MappingNode):
@@ -791,7 +1132,16 @@ def frontmatter_line_map_top_level(file_path: Path) -> Dict[str, int]:
     data = _ruamel_load(fm_text)
     if not isinstance(data, CommentedMap):
         return {}
-    return {key: data.lc.key(key)[0] + 1 + offset for key in data}
+    lines = {}
+    for key in data:
+        # A merge-resolved key is visible while iterating the map but has no
+        # position at this level. Keep the field in the parsed tree and omit
+        # only its line; the anchor's nested nodes still retain their own
+        # source positions for rules that inspect the value.
+        line = commented_key_line(data, key)
+        if line is not None:
+            lines[key] = line + offset
+    return lines
 
 
 def frontmatter_key_line(file_path: Path, key: str) -> Optional[int]:
@@ -952,7 +1302,7 @@ def parse_frontmatter(content: str) -> Tuple[Optional[Dict[str, Any]], str, Opti
     if not m:
         return None, content, None
     try:
-        data = yaml.safe_load(m.group(1))
+        data = yaml.load(m.group(1), Loader=_SAFE_LOADER)
     except (yaml.YAMLError, ValueError, RecursionError) as e:
         error_line = None
         if hasattr(e, "problem_mark") and e.problem_mark is not None:
@@ -1021,7 +1371,7 @@ def _ruamel_load(text: str) -> Any:
     ry.preserve_quotes = True
     try:
         return ry.load(text)
-    except _RuamelYAMLError:
+    except (_RuamelYAMLError, ValueError, RecursionError):
         return None
 
 

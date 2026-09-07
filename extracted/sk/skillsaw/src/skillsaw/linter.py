@@ -4,21 +4,53 @@ Main linter orchestration
 
 from __future__ import annotations
 
+import contextlib
 import difflib
+import gc
 import hashlib
 import importlib.util
 import inspect
 import logging
+import os
 import re
 import sys
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING
-from skillsaw.paths import safe_is_symlink, safe_resolve
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, TYPE_CHECKING
+from skillsaw.paths import is_case_only_alias, path_within_roots, safe_is_symlink, safe_resolve
 
 logger = logging.getLogger(__name__)
 
-from .rule import Rule, RuleViolation, Severity, AutofixResult, AutofixConfidence
+
+@contextlib.contextmanager
+def _cyclic_gc_paused():
+    """Temporarily pause Python's cyclic garbage collector during rule execution.
+
+    Large repositories place many long-lived objects in memory (e.g., the lint tree
+    and markdown token streams). Automatic GC cycles repeatedly traverse these objects,
+    adding significant overhead while recovering very little memory since most rule
+    temporaries are freed immediately via reference counting.
+
+    The previous GC state is restored on exit so callers embedding the linter retain
+    their configuration.
+    """
+    was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        yield
+    finally:
+        if was_enabled:
+            gc.enable()
+
+
+from .rule import (
+    Rule,
+    RuleViolation,
+    Severity,
+    AutofixResult,
+    AutofixConfidence,
+    severities_at_or_above,
+)
 from .context import RepositoryContext
 from .config import LinterConfig
 from .suppression import build_suppression_map_for_file, SuppressionMap
@@ -45,6 +77,7 @@ ADVISORY_RULE_IDS = frozenset({"deprecated-rule"})
 # forms and bare all-rules directives are the same blanket this set
 # exists to close.
 _UNEXCLUDABLE_RULE_IDS = frozenset({"invalid-config"})
+
 
 # Config keys every rule accepts regardless of its config_schema. `enabled`
 # is validated at config load, `severity` at rule construction, and `exclude`
@@ -138,6 +171,12 @@ def _node_content_suppressed(block) -> bool:
     return False
 
 
+def _node_externally_sourced(block) -> bool:
+    """Whether *block* or any ancestor is externally sourced."""
+    getter = getattr(block, "in_external_source", None)
+    return bool(getter) if getter is not None else False
+
+
 class CustomRuleWarning(UserWarning):
     """Emitted just before skillsaw executes a custom rule file from the repo.
 
@@ -173,19 +212,23 @@ class Linter:
         # Legacy rule names keep working on the CLI: resolve --rule /
         # --skip-rule arguments to canonical IDs before any matching.
         self._rule_ids = {canonical_rule_id(r) for r in rule_ids} if rule_ids else rule_ids
+        self._explicit_rule_ids = frozenset(self._rule_ids or ())
+        self._dependency_target_scopes: Dict[str, tuple[Type, ...]] = {}
         self._skip_rule_ids = {canonical_rule_id(r) for r in (skip_rule_ids or set())}
         self._baseline = baseline
         self._no_custom_rules = no_custom_rules
         self._no_plugins = no_plugins
         self._plugin_load_violations: List[RuleViolation] = []
         self._vendor_managed_cache: Dict[Path, bool] = {}
+        self._external_source_path_cache: Dict[Path, bool] = {}
         self._stale_baseline_entries: List["BaselineEntry"] = []
         self._baseline_suppressed_count: int = 0
         # Prefer contexts constructed with the config's filters (see
         # RepositoryContext.__init__); only reconfigure when a legacy caller
         # passed a bare context that disagrees with the config.
-        # apply_excludes() refreshes derived state (detected_formats, cached
-        # lint tree), so this path cannot leave the context stale — but it
+        # apply_excludes() refreshes derived state (the tool repository
+        # types, cached lint tree), so this path cannot leave the context
+        # stale — but it
         # only narrows: it won't rediscover paths an earlier filter removed.
         if (
             self.context.content_paths != self.config.content_paths
@@ -194,8 +237,15 @@ class Linter:
             self.context.content_paths = self.config.content_paths
             self.context.exclude_patterns = self.config.exclude_patterns
             self.context.apply_excludes()
+        if self.context.lint_external_content != self.config.lint_external_content:
+            self.context.lint_external_content = self.config.lint_external_content
+            self.context.rebuild_lint_tree()
         self.rules: List[Rule] = []
         self._load_rules()
+        enabled_surfaces = self._enabled_builtin_surfaces()
+        for rule in self.rules:
+            rule._enabled_surface_rule_ids = enabled_surfaces
+            rule._explicit_severity = self.config.has_explicit_rule_severity(rule.rule_id)
 
         if self._rule_ids:
             unknown = self._rule_ids - self._known_rule_ids
@@ -209,6 +259,73 @@ class Linter:
             if unknown:
                 formatted = ", ".join(sorted(unknown))
                 raise ValueError(f"Unknown rule(s) in --skip-rule: {formatted}")
+
+    def _enabled_builtin_surfaces(self) -> frozenset:
+        """Builtin format surfaces available independently of CLI selection.
+
+        ``--rule`` narrows which checks execute, not which repository syntax
+        those checks may inspect. Version/config/skip gates still preserve the
+        rule surface users opted into; explicitly targeting the owning rule
+        bypasses normal enablement just as it does during rule loading.
+        """
+        from .rules.builtin import BUILTIN_RULE_REGISTRY
+
+        enabled = set()
+        known_surfaces = set(BUILTIN_RULE_REGISTRY)
+        requested = set()
+        retained_rules = []
+        for rule in self.rules:
+            try:
+                dependencies = rule.surface_dependencies
+                if isinstance(dependencies, str) or not isinstance(
+                    dependencies, (tuple, list, set, frozenset)
+                ):
+                    raise TypeError("surface_dependencies must be a collection of rule IDs")
+                if not all(isinstance(dependency, str) for dependency in dependencies):
+                    raise TypeError("surface_dependencies must contain only string rule IDs")
+                unknown = set(dependencies) - known_surfaces
+                if unknown:
+                    raise ValueError(
+                        "unknown builtin surface dependency: " + ", ".join(sorted(unknown))
+                    )
+            except Exception as error:
+                source = getattr(rule, "_source", "builtin")
+                if not source.startswith("plugin:"):
+                    raise ValueError(
+                        f"Rule '{rule.rule_id}' has invalid surface_dependencies: {error}"
+                    ) from error
+                plugin_name = source.removeprefix("plugin:")
+                self._plugin_load_violations.append(
+                    RuleViolation(
+                        rule_id="plugin-load-error",
+                        severity=Severity.ERROR,
+                        message=(
+                            f"Plugin '{plugin_name}': rule '{rule.rule_id}' has invalid "
+                            f"surface dependencies and was skipped: {error}"
+                        ),
+                    )
+                )
+                continue
+            retained_rules.append(rule)
+            requested.update(dependencies)
+        self.rules = retained_rules
+        for rule_id in requested:
+            rule_class = BUILTIN_RULE_REGISTRY[rule_id]
+            instance = rule_class()
+            if rule_id in self._skip_rule_ids:
+                continue
+            if self._rule_ids and rule_id in self._rule_ids:
+                enabled.add(rule_id)
+                continue
+            if self.config.is_rule_enabled(
+                rule_id,
+                self.context,
+                instance.repo_types,
+                since_version=instance.since,
+                deprecated=instance.deprecated,
+            ):
+                enabled.add(rule_id)
+        return frozenset(enabled)
 
     def _load_rules(self):
         """Load all enabled rules"""
@@ -234,7 +351,40 @@ class Linter:
 
     def _load_builtin_rules(self):
         """Load builtin rules from skillsaw.rules.builtin"""
-        from .rules.builtin import BUILTIN_RULES
+        from .rules.builtin import BUILTIN_RULE_REGISTRY, BUILTIN_RULES, canonical_rule_id
+
+        # ``--rule`` bypasses normal enablement so one validator can be run in
+        # isolation. Some validators intentionally leave a prerequisite
+        # diagnostic to another builtin rule, though; expand those declared
+        # dependencies before filtering or a targeted run can falsely pass.
+        if self._rule_ids:
+            pending = list(self._rule_ids)
+            dependency_scopes: Dict[str, Set[Type]] = {}
+            while pending:
+                selected = pending.pop()
+                rule_class = BUILTIN_RULE_REGISTRY.get(selected)
+                if rule_class is None:
+                    continue
+                if selected not in self._explicit_rule_ids and rule_class.target_dependencies:
+                    raise ValueError(
+                        f"Rule '{selected}' is itself a targeted validation dependency and "
+                        "cannot declare another target dependency"
+                    )
+                for dependency in rule_class.target_dependencies:
+                    dependency = canonical_rule_id(dependency)
+                    if dependency not in self._explicit_rule_ids:
+                        dependency_scopes.setdefault(dependency, set()).update(
+                            rule_class.target_dependency_scopes[dependency]
+                        )
+                    if dependency not in self._rule_ids:
+                        self._rule_ids.add(dependency)
+                        pending.append(dependency)
+            self._dependency_target_scopes = {
+                rule_id: tuple(
+                    sorted(types, key=lambda target: (target.__module__, target.__qualname__))
+                )
+                for rule_id, types in dependency_scopes.items()
+            }
 
         for rule_class in BUILTIN_RULES:
             rule_instance = rule_class()
@@ -250,12 +400,14 @@ class Linter:
             config = self.config.get_rule_config(rule_instance.rule_id)
             if config:
                 rule_instance = rule_class(config)
+            dependency_scope = self._dependency_target_scopes.get(rid)
+            if dependency_scope is not None:
+                rule_instance._dependency_target_types = dependency_scope
 
             if self._rule_ids or self.config.is_rule_enabled(
                 rule_instance.rule_id,
                 self.context,
                 rule_instance.repo_types,
-                rule_instance.formats,
                 since_version=rule_instance.since,
                 deprecated=rule_instance.deprecated,
             ):
@@ -392,16 +544,15 @@ class Linter:
                 # LinterConfig.default() is generated from, so their
                 # class-level default (Rule.default_enabled — True, False,
                 # or "auto") is supplied directly. Semantics match builtins:
-                # "auto" follows repo_types/formats detection, False is
+                # "auto" follows repo_types detection, False is
                 # opt-in via config.
                 try:
-                    # repo_types/formats/since/default_enabled are read from
+                    # repo_types/since/default_enabled are read from
                     # the plugin's class here — same fault isolation as above.
                     enabled = bool(self._rule_ids) or self.config.is_rule_enabled(
                         rid,
                         self.context,
                         rule_instance.repo_types,
-                        rule_instance.formats,
                         since_version=rule_instance.since,
                         default_enabled=rule_instance.default_enabled,
                         deprecated=rule_instance.deprecated,
@@ -588,7 +739,6 @@ class Linter:
                         rule_instance.rule_id,
                         self.context,
                         rule_instance.repo_types,
-                        rule_instance.formats,
                         since_version=rule_instance.since,
                         deprecated=rule_instance.deprecated,
                     ):
@@ -940,6 +1090,41 @@ class Linter:
         resolved = safe_resolve(path) or path
         return resolved in self._compiled_copy_paths()
 
+    def _is_external_source_path(self, path: Optional[Path]) -> bool:
+        """Whether *path* sits inside an externally sourced tree root."""
+        if path is None:
+            return False
+        # Cache results per path to avoid repeatedly resolving and walking parent
+        # directories when multiple violations occur in the same file.
+        verdict = self._external_source_path_cache.get(path)
+        if verdict is None:
+            candidate = path if path.is_absolute() else self.context.root_path / path
+            resolved = safe_resolve(candidate) or candidate
+            verdict = path_within_roots(
+                resolved, self._external_source_roots()
+            ) or self.context.is_externally_sourced(resolved)
+            self._external_source_path_cache[path] = verdict
+        return verdict
+
+    def _external_source_roots(self) -> Set[Path]:
+        """External roots from repository provenance and contributed tree tags."""
+        cached = getattr(self, "_external_source_root_cache", None)
+        if cached is None:
+            cached = set(self.context.externally_sourced_roots())
+            cached.update(
+                node.resolved_path
+                for node in self.context.lint_tree.walk()
+                if node.externally_sourced
+            )
+            self._external_source_root_cache = cached
+        return cached
+
+    def _is_on_external_source(self, violation: RuleViolation) -> bool:
+        """Whether *violation* belongs to externally sourced content."""
+        if violation.block is not None and _node_externally_sourced(violation.block):
+            return True
+        return self._is_external_source_path(violation.file_path)
+
     def _is_vendor_managed(self, file_path: Optional[Path]) -> bool:
         """Whether *file_path* belongs to a plugin installed into this checkout.
 
@@ -959,8 +1144,27 @@ class Linter:
             self._vendor_managed_cache[file_path] = cached
         return cached
 
+    @staticmethod
+    def _symlink_skip(
+        file_path: Optional[Path], rename_from: Optional[Path] = None
+    ) -> Optional[Tuple[Path, str]]:
+        """Fresh leaf-only refusal, retaining the selected path for reporting."""
+        for path in (file_path, rename_from):
+            if path is not None and safe_is_symlink(path):
+                remedy = (
+                    "remove, replace, or rename the symbolic link manually"
+                    if rename_from is not None
+                    else "edit its target directly"
+                )
+                return Path(os.path.abspath(path)), f"symbolic link; {remedy}"
+        return None
+
     def _filter_violations(
-        self, violations: List[RuleViolation], record_baseline: bool = True
+        self,
+        violations: List[RuleViolation],
+        record_baseline: bool = True,
+        *,
+        preserve_symlink_fixability: bool = False,
     ) -> List[RuleViolation]:
         """Filter violations by global excludes, per-rule excludes, and inline suppression.
 
@@ -968,8 +1172,17 @@ class Linter:
         but stale/suppressed accounting is left untouched — used for the
         per-rule calls in :meth:`fix`, which would otherwise overwrite the
         accounting with only the last rule's view of the baseline.
+        ``preserve_symlink_fixability`` is private to proposal generation;
+        fix() masks that metadata before returning it to callers.
         """
         kept: List[RuleViolation] = []
+        symlink_status: Dict[Optional[Path], bool] = {}
+
+        def _is_symlink(file_path: Optional[Path]) -> bool:
+            if file_path not in symlink_status:
+                symlink_status[file_path] = self._symlink_skip(file_path) is not None
+            return symlink_status[file_path]
+
         for v in violations:
             if self._is_excluded(v):
                 logger.info(
@@ -990,6 +1203,12 @@ class Linter:
                     v.file_path or "(no file)",
                     v.file_line or "?",
                 )
+            elif not self.config.lint_external_content and self._is_on_external_source(v):
+                logger.info(
+                    "Suppressed %-30s %s (externally sourced content)",
+                    v.rule_id,
+                    v.file_path or "(no file)",
+                )
             elif _is_prose_duplicate_rule(v.rule_id) and self._is_on_compiled_copy(v):
                 # A compiled copy of a source read elsewhere: its prose-quality
                 # and budget findings would double the source's, so drop them.
@@ -1002,10 +1221,13 @@ class Linter:
                     v.rule_id,
                     v.file_path or "(no file)",
                 )
-            elif self._is_vendor_managed(v.file_path) or (
-                v.block is not None and v.block.diagnostic_only
+            elif (
+                self._is_on_external_source(v)
+                or self._is_vendor_managed(v.file_path)
+                or (v.block is not None and v.block.diagnostic_only)
+                or (not preserve_symlink_fixability and v.fixable and _is_symlink(v.file_path))
             ):
-                # Still reported — a hostile third-party skill is worth
+                # Still reported — hostile third-party content is worth
                 # knowing about — but never advertised as fixable, because
                 # fix() is about to stand down on it. Confidence goes with
                 # fixability, or JSON/SARIF would still claim SAFE/SUGGEST.
@@ -1073,27 +1295,28 @@ class Linter:
 
         logger.info("Running %d enabled rules", len(self.rules))
         total = len(self.rules)
-        for index, rule in enumerate(self.rules, 1):
-            if progress is not None:
-                progress(index, total, rule.rule_id)
-            try:
-                rule_violations = rule.check(self.context)
-                if rule_violations:
-                    logger.info(
-                        "Rule %-30s found %d violation(s)", rule.rule_id, len(rule_violations)
-                    )
-                violations.extend(rule_violations)
-            except Exception as e:
-                print(f"Error running rule {rule.rule_id}: {e}", file=sys.stderr)
-                violations.append(self._crash_violation(rule, e))
+        with _cyclic_gc_paused():
+            for index, rule in enumerate(self.rules, 1):
+                if progress is not None:
+                    progress(index, total, rule.rule_id)
+                try:
+                    rule_violations = rule.check(self.context)
+                    if rule_violations:
+                        logger.info(
+                            "Rule %-30s found %d violation(s)", rule.rule_id, len(rule_violations)
+                        )
+                    violations.extend(rule_violations)
+                except Exception as e:
+                    print(f"Error running rule {rule.rule_id}: {e}", file=sys.stderr)
+                    violations.append(self._crash_violation(rule, e))
 
-        # Tree contributors run lazily inside build_lint_tree (triggered by
-        # the rule checks above), so their failures are only known now.
-        _ = self.context.lint_tree
-        violations.extend(self._lint_tree_error_violations())
-        violations.extend(self._plugin_extension_error_violations())
+            # Tree contributors run lazily inside build_lint_tree (triggered by
+            # the rule checks above), so their failures are only known now.
+            _ = self.context.lint_tree
+            violations.extend(self._lint_tree_error_violations())
+            violations.extend(self._plugin_extension_error_violations())
 
-        return self._filter_violations(violations)
+            return self._filter_violations(violations)
 
     @staticmethod
     def _crash_violation(rule: Rule, exc: Exception, action: str = "check") -> RuleViolation:
@@ -1108,7 +1331,9 @@ class Linter:
         )
 
     def fix(
-        self, progress: Optional[Callable[[int, int, str], None]] = None
+        self,
+        progress: Optional[Callable[[int, int, str], None]] = None,
+        severity_threshold: Optional[str] = None,
     ) -> tuple[List[RuleViolation], List[AutofixResult]]:
         """
         Run all enabled rules and attempt to fix violations.
@@ -1116,10 +1341,17 @@ class Linter:
         Args:
             progress: Optional callback invoked before each rule check with
                 ``(rule_number, total_rules, rule_id)``.
+            severity_threshold: Generate fixes at this severity or above.
+                ``None`` preserves the historical library behavior of
+                generating fixes at every severity; the CLI always passes
+                its resolved threshold explicitly.
 
         Returns:
             Tuple of (remaining violations, autofix results)
         """
+        threshold = "info" if severity_threshold is None else severity_threshold
+        allowed_severities = severities_at_or_above(threshold)
+
         # Config warnings go through the same filter pipeline run() uses
         # (inline suppression, excludes, baseline) — but `checked` keeps the
         # raw list so the final accounting pass sees everything, exactly
@@ -1130,46 +1362,75 @@ class Linter:
         checked: List[RuleViolation] = list(config_violations)
 
         total = len(self.rules)
-        for index, rule in enumerate(self.rules, 1):
-            if progress is not None:
-                progress(index, total, rule.rule_id)
-            try:
-                rule_violations = rule.check(self.context)
-            except Exception as e:
-                print(f"Error running rule {rule.rule_id}: {e}", file=sys.stderr)
-                all_violations.append(self._crash_violation(rule, e))
-                continue
-
-            checked.extend(rule_violations)
-            visible = self._filter_violations(rule_violations, record_baseline=False)
-
-            # Diagnostic-only blocks never reach a fixer at all. Clearing
-            # their fixability metadata is presentation; a third-party rule's
-            # ``fix()`` does not read it, so handing the violation over would
-            # still invite a rewrite of text that has no honest span in the
-            # file that holds it (a prompt decoded out of JSON, say).
-            fixable_input = [v for v in visible if v.block is None or not v.block.diagnostic_only]
-            if fixable_input and rule.supports_autofix:
+        with _cyclic_gc_paused():
+            for index, rule in enumerate(self.rules, 1):
+                if progress is not None:
+                    progress(index, total, rule.rule_id)
                 try:
-                    fixes = [
-                        f
-                        for f in rule.fix(self.context, fixable_input)
-                        if not self._is_vendor_managed(f.file_path)
-                    ]
-                    all_fixes.extend(fixes)
-                    fixed_violations = {id(v) for fix in fixes for v in fix.violations_fixed}
-                    remaining = [v for v in visible if id(v) not in fixed_violations]
-                    all_violations.extend(remaining)
+                    rule_violations = rule.check(self.context)
                 except Exception as e:
-                    print(f"Error fixing rule {rule.rule_id}: {e}", file=sys.stderr)
-                    all_violations.append(self._crash_violation(rule, e, action="fix"))
-                    all_violations.extend(visible)
-            else:
-                all_violations.extend(visible)
+                    print(f"Error running rule {rule.rule_id}: {e}", file=sys.stderr)
+                    all_violations.append(self._crash_violation(rule, e))
+                    continue
 
-        _ = self.context.lint_tree
-        all_violations.extend(self._lint_tree_error_violations())
-        all_violations.extend(self._plugin_extension_error_violations())
+                checked.extend(rule_violations)
+                # Some fixers use declared fixability to form their proposal.
+                # Keep it privately until the proposal supplies its confidence;
+                # public findings are masked again below.
+                visible = self._filter_violations(
+                    rule_violations,
+                    record_baseline=False,
+                    preserve_symlink_fixability=True,
+                )
+
+                # Diagnostic-only blocks never reach a fixer at all. Clearing
+                # their fixability metadata is presentation; a third-party rule's
+                # ``fix()`` does not read it, so handing the violation over would
+                # still invite a rewrite of text that has no honest span in the
+                # file that holds it (a prompt decoded out of JSON, say).
+                fixable_input = [
+                    v
+                    for v in visible
+                    if (v.block is None or not v.block.diagnostic_only)
+                    and not self._is_on_external_source(v)
+                    and v.severity in allowed_severities
+                ]
+                if fixable_input and rule.supports_autofix:
+                    try:
+                        fixes = [
+                            f
+                            for f in rule.fix(self.context, fixable_input)
+                            if not self._is_vendor_managed(f.file_path)
+                            and not self._is_external_source_path(f.file_path)
+                            and (
+                                f.rename_from is None
+                                or not self._is_external_source_path(f.rename_from)
+                            )
+                        ]
+                        for fix in fixes:
+                            if self._symlink_skip(fix.file_path, fix.rename_from) is not None:
+                                for violation in fix.violations_fixed:
+                                    violation.fixable = False
+                                    violation.fix_confidence = None
+                        all_fixes.extend(fixes)
+                        fixed_violations = {id(v) for fix in fixes for v in fix.violations_fixed}
+                        remaining = [v for v in visible if id(v) not in fixed_violations]
+                        all_violations.extend(remaining)
+                    except Exception as e:
+                        print(f"Error fixing rule {rule.rule_id}: {e}", file=sys.stderr)
+                        all_violations.append(self._crash_violation(rule, e, action="fix"))
+                        all_violations.extend(visible)
+                else:
+                    all_violations.extend(visible)
+
+                for violation in visible:
+                    if violation.fixable and self._symlink_skip(violation.file_path) is not None:
+                        violation.fixable = False
+                        violation.fix_confidence = None
+
+            _ = self.context.lint_tree
+            all_violations.extend(self._lint_tree_error_violations())
+            all_violations.extend(self._plugin_extension_error_violations())
 
         # Baseline stale/suppressed accounting must consider all rules'
         # violations together, exactly as run() does — the per-rule calls
@@ -1210,6 +1471,7 @@ class Linter:
         max_passes: int = 10,
         dry_run: bool = False,
         progress: Optional[Callable[[int, int, str], None]] = None,
+        severity_threshold: Optional[str] = None,
     ) -> tuple[List[AutofixResult], List[AutofixResult]]:
         """Fixed-point iteration over autofix passes with snapshot isolation.
 
@@ -1229,10 +1491,21 @@ class Linter:
         Args:
             confidence: Minimum confidence level to apply.
             max_passes: Safety cap on iterations.
+            dry_run: Return the first independent set without writing it.
+            progress: Optional callback passed to each rule check.
+            severity_threshold: Generate fixes at this severity or above.
+                ``None`` preserves the historical library behavior of
+                generating fixes at every severity; the CLI always passes
+                its resolved threshold explicitly.
 
         Returns:
             Tuple of (applied fixes, suggested-but-not-applied fixes).
         """
+        #: (fix, error) for every write or follow-up that failed in this run; the CLI
+        #: reports them and exits non-zero rather than claiming success.
+        self.fix_failures: List[Tuple[AutofixResult, str]] = []
+        #: Selected paths refused by policy, separate from failed writes.
+        self.fix_skips: List[Tuple[Path, str]] = []
         from .rules.builtin.utils import invalidate_read_caches
 
         all_applied: List[AutofixResult] = []
@@ -1243,13 +1516,20 @@ class Linter:
             allowed.add(AutofixConfidence.SUGGEST)
 
         for _ in range(max_passes):
-            _violations, fixes = self.fix(progress=progress)
+            _violations, fixes = self.fix(progress=progress, severity_threshold=severity_threshold)
             if not fixes:
                 break
 
-            applicable = [f for f in fixes if f.confidence in allowed]
-            suggested = [f for f in fixes if f.confidence not in allowed]
-            all_suggested.extend(suggested)
+            applicable = []
+            for fix in fixes:
+                skip = self._symlink_skip(fix.file_path, fix.rename_from)
+                if skip is not None:
+                    if fix.confidence in allowed:
+                        self.fix_skips.append(skip)
+                elif fix.confidence in allowed:
+                    applicable.append(fix)
+                else:
+                    all_suggested.append(fix)
 
             if not applicable:
                 break
@@ -1264,6 +1544,8 @@ class Linter:
                 independent,
                 confidence,
                 root_path=self.context.root_path,
+                failures=self.fix_failures,
+                skips=self.fix_skips,
             )
             all_applied.extend(applied)
 
@@ -1271,14 +1553,23 @@ class Linter:
             # manifest) can unlock new violations for other rules, so a
             # further pass is needed even without file-level conflicts.
             state_changed = any(f.on_apply is not None for f in applied)
-            if not applied or not (has_conflicts or state_changed):
+            if not applied:
                 break
 
+            # Successful writes must be visible even on the final pass, or
+            # when max_passes prevents another pass through this loop.
             invalidate_read_caches()
             self.context.rebuild_lint_tree()
             if hasattr(self, "_suppression_cache"):
                 self._suppression_cache.clear()
+            if hasattr(self, "_external_source_root_cache"):
+                del self._external_source_root_cache
+            self._external_source_path_cache.clear()
 
+            if not (has_conflicts or state_changed):
+                break
+
+        self.fix_skips = list(dict.fromkeys(self.fix_skips))
         return all_applied, all_suggested
 
     @staticmethod
@@ -1286,6 +1577,8 @@ class Linter:
         fixes: List[AutofixResult],
         confidence: AutofixConfidence = AutofixConfidence.SAFE,
         root_path: Optional[Path] = None,
+        failures: Optional[List[Tuple[AutofixResult, str]]] = None,
+        skips: Optional[List[Tuple[Path, str]]] = None,
     ) -> List[AutofixResult]:
         """
         Write fix results to disk.
@@ -1296,6 +1589,11 @@ class Linter:
                         (SAFE = only safe,
                          SUGGEST = safe + suggest)
             root_path: Trusted repository boundary for atomic writes
+            failures: When given, every fix whose write or post-apply step
+                      failed is appended with the OS error text. A primary edit
+                      whose follow-up failed remains in the applied results,
+                      with an explicit partial-failure message here.
+            skips: Optional collector for selected path/policy refusals
 
         Returns:
             List of fixes that were actually applied
@@ -1312,10 +1610,11 @@ class Linter:
             # A target may be swapped for a symlink after discovery or
             # between fixed-point passes. Re-check at the write boundary so
             # autofix never follows it outside the repository.
-            if safe_is_symlink(fix.file_path) or (
-                fix.rename_from is not None and safe_is_symlink(fix.rename_from)
-            ):
-                logger.warning("Skipping autofix for symlinked path: %s", fix.file_path)
+            skip = Linter._symlink_skip(fix.file_path, fix.rename_from)
+            if skip is not None:
+                logger.warning("Skipping autofix for symlinked path: %s", skip[0])
+                if skips is not None:
+                    skips.append(skip)
                 continue
 
             try:
@@ -1336,8 +1635,7 @@ class Linter:
                     # the same inode even when their names differ in casing.
                     # Path.rename() handles this correctly, but we must not skip
                     # a case-only rename via the ``dst.exists()`` guard.
-                    same_file = (safe_resolve(src) or src) == (safe_resolve(dst) or dst)
-                    if dst.exists() and not same_file:
+                    if dst.exists() and not is_case_only_alias(src, dst):
                         continue
                     if root_path is None:
                         src.rename(dst)
@@ -1362,6 +1660,8 @@ class Linter:
                     fix.file_path,
                     exc,
                 )
+                if failures is not None:
+                    failures.append((fix, str(exc)))
                 continue
 
             if fix.on_apply is not None:
@@ -1374,6 +1674,8 @@ class Linter:
                         fix.file_path,
                         exc,
                     )
+                    if failures is not None:
+                        failures.append((fix, f"File edit applied, but follow-up failed: {exc}"))
 
             applied.append(fix)
 

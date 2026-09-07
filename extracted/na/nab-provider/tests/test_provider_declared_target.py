@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import random
 import threading
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
@@ -23,6 +23,7 @@ from nab_provider._provider import listing as listing_mod
 from nab_provider._vendor.packaging.ranges import VersionRange
 from nab_provider._vendor.packaging.requirements import Requirement
 from nab_provider._vendor.packaging.version import Version
+from nab_provider.overrides import IndexOverride
 from nab_provider.provider import (
     BuildPolicy,
     DistPolicy,
@@ -43,6 +44,8 @@ from nab_resolver.resolver import Resolver
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from nab_provider.overrides import PackageOverride
 
 
 def _done_event() -> threading.Event:
@@ -118,7 +121,7 @@ class TestPerTupleRequiresPythonOverride:
 
 
 class TestProvidesExtraDependenciesOverride:
-    """A dependencies + provides-extra override gates deps behind the extra."""
+    """A dependencies + provides-extra override conditions deps on the extra."""
 
     def _provider(self) -> Provider:
         coordinator = make_coordinator(
@@ -330,7 +333,7 @@ class TestExtrasProxyPreference:
 
 
 class TestExtrasProxyPreferenceAdmission:
-    """A preferred pre-release survives the extras-proxy preference gate."""
+    """A preferred pre-release passes the extras-proxy preference check."""
 
     _WITH_EXTRA = (
         "Metadata-Version: 2.1\nName: foo\nVersion: {ver}\n"
@@ -661,12 +664,10 @@ class TestWheelTagFiltering:
         assert provider.stats.excluded_versions_no_compatible_wheel == 0
 
     def test_fetch_versions_applies_wheel_tag_filter(self) -> None:
-        """The resolver path runs the filter, not just a direct call.
+        """The resolver path runs the distribution filter.
 
-        ``versions_cache`` is the single funnel: candidate selection,
-        metadata sourcing, every prefetch path, look-ahead, and the
-        emitted wheel list all read what ``fetch_versions`` stored.  The
-        unit tests above call ``filter_distributions`` directly, so this
+        Candidate selection and metadata paths all read ``versions_cache``.
+        The unit tests above call ``filter_distributions`` directly, so this
         one pins the path production takes.
         """
         files: list[WheelFile | SdistFile] = [
@@ -853,6 +854,8 @@ class TestListingFilterSharedAcrossPythons:
         files: Sequence[WheelFile | SdistFile] | None = None,
         uploaded_prior_to: datetime | None = None,
         dist_policy: DistPolicy = DistPolicy.WHEEL_OR_SDIST,
+        package_overrides: Sequence[PackageOverride] = (),
+        index_overrides: Mapping[str, IndexOverride] | None = None,
     ) -> tuple[Provider, Provider]:
         """A 3.11 and a 3.12 provider over one listing, sharing ``cache``."""
         coordinator = _index_with_files(self._files() if files is None else files)
@@ -865,6 +868,8 @@ class TestListingFilterSharedAcrossPythons:
                 ),
                 uploaded_prior_to=uploaded_prior_to,
                 dist_policy=dist_policy,
+                package_overrides=package_overrides,
+                index_overrides=index_overrides,
                 listing_filter_cache=cache,
             )
 
@@ -958,6 +963,170 @@ class TestListingFilterSharedAcrossPythons:
 
         assert py311.stats.excluded_by_dist_policy == 1
         assert py312.stats.excluded_by_dist_policy == 1
+
+    @staticmethod
+    def _dated_files() -> list[WheelFile | SdistFile]:
+        """Three releases both Pythons admit, the newest of them after the cutoff."""
+        return [
+            _make_wheel("1.0", upload_time="2026-01-01T00:00:00Z"),
+            _make_wheel("2.0", upload_time="2026-02-01T00:00:00Z"),
+            _make_wheel("3.0", upload_time="2026-06-01T00:00:00Z"),
+        ]
+
+    def _cutoff_verdicts(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        cache: ListingFilterCache,
+        files: Sequence[WheelFile | SdistFile] | None = None,
+    ) -> int:
+        """Count the upload-time verdicts both Pythons take over ``cache``."""
+        verdicts = 0
+        real = listing_mod.upload_time_cause
+
+        def counting(*args: Any, **kwargs: Any) -> Any:
+            nonlocal verdicts
+            verdicts += 1
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(listing_mod, "upload_time_cause", counting)
+        for provider in self._providers(
+            cache,
+            files=self._dated_files() if files is None else files,
+            uploaded_prior_to=datetime(2026, 3, 1, tzinfo=timezone.utc),
+        ):
+            provider.fetch_versions("pkg")
+        return verdicts
+
+    def test_the_matrix_takes_each_cutoff_verdict_once(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """One verdict per file answers both Pythons: the stamp is parsed once."""
+        assert self._cutoff_verdicts(monkeypatch, ListingFilterCache(2)) == 3
+
+    def test_without_sharing_each_python_takes_the_cutoff_verdicts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A one-Python cache keeps the cutoff in the pass, so it runs per Python."""
+        assert self._cutoff_verdicts(monkeypatch, ListingFilterCache()) == 6
+
+    def test_the_matrix_leaves_a_file_no_python_admits_undated(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """4.0 needs 3.99, so neither Python reaches the cutoff over it."""
+        files: list[WheelFile | SdistFile] = [
+            *self._dated_files(),
+            _make_wheel(
+                "4.0", requires_python=">=3.99", upload_time="2026-01-01T00:00:00Z"
+            ),
+        ]
+        assert self._cutoff_verdicts(monkeypatch, ListingFilterCache(2), files) == 3
+
+    def test_the_shared_verdict_keeps_the_cutoff_behind_requires_python(self) -> None:
+        """A naive stamp refuses only the Python that admits the file carrying it.
+
+        2.0 needs 3.12, so 3.11 drops it before the cutoff is consulted
+        and resolves; 3.12 admits it, dates it, and refuses.
+        """
+        files: list[WheelFile | SdistFile] = [
+            _make_wheel("1.0", upload_time="2026-01-01T00:00:00Z"),
+            _make_wheel(
+                "2.0", requires_python=">=3.12", upload_time="2026-01-01T00:00:00"
+            ),
+        ]
+        py311, py312 = self._providers(
+            ListingFilterCache(2),
+            files=files,
+            uploaded_prior_to=datetime(2026, 3, 1, tzinfo=timezone.utc),
+        )
+
+        assert [str(v) for v, _ in py311.fetch_versions("pkg")] == ["1.0"]
+        assert py311.stats.excluded_by_python == 1
+
+        with pytest.raises(
+            InvalidUploadTimeError, match="pkg 2.0 has a timezone-naive"
+        ):
+            py312.fetch_versions("pkg")
+
+    def test_an_override_cutoff_is_read_per_version(self) -> None:
+        """The shared verdict follows the override that dates 2.0 out.
+
+        The override cuts ``pkg<3`` off in mid-January, so 2.0's February
+        stamp goes; 3.0 falls outside it and stays under the global
+        cutoff.  Both Pythons see the same thing.
+        """
+        files: list[WheelFile | SdistFile] = [
+            _make_wheel("1.0", upload_time="2026-01-01T00:00:00Z"),
+            _make_wheel("2.0", upload_time="2026-02-01T00:00:00Z"),
+            _make_wheel("3.0", upload_time="2026-02-15T00:00:00Z"),
+        ]
+        overrides = (
+            pkg_override(
+                "pkg<3", uploaded_prior_to=datetime(2026, 1, 15, tzinfo=timezone.utc)
+            ),
+        )
+
+        def providers(cache: ListingFilterCache) -> tuple[Provider, Provider]:
+            return self._providers(
+                cache,
+                files=files,
+                uploaded_prior_to=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                package_overrides=overrides,
+            )
+
+        for one, other in zip(
+            providers(ListingFilterCache(2)),
+            providers(ListingFilterCache()),
+            strict=True,
+        ):
+            assert [str(v) for v, _ in one.fetch_versions("pkg")] == ["3.0", "1.0"]
+            assert one.fetch_versions("pkg") == other.fetch_versions("pkg")
+            assert one.stats == other.stats
+            assert one.stats.excluded_by_time == 1
+
+    def test_conflicting_cutoff_overrides_are_never_consulted(self) -> None:
+        """A version every Python's Requires-Python refuses is never given a cutoff.
+
+        A package override and an index override both set
+        ``uploaded-prior-to`` for 2.0, which conflicts for anything that
+        asks its cutoff.  Nothing asks, since 2.0 needs 3.99, and the
+        index override still dates 3.0 out ahead of the global cutoff.
+        """
+        files: list[WheelFile | SdistFile] = [
+            _make_wheel("1.0", upload_time="2026-01-01T00:00:00Z"),
+            _make_wheel(
+                "2.0", requires_python=">=3.99", upload_time="2026-01-01T00:00:00Z"
+            ),
+            _make_wheel("3.0", upload_time="2026-02-15T00:00:00Z"),
+        ]
+        overrides = (
+            pkg_override(
+                "pkg==2.0", uploaded_prior_to=datetime(2026, 1, 15, tzinfo=timezone.utc)
+            ),
+        )
+
+        def providers(cache: ListingFilterCache) -> tuple[Provider, Provider]:
+            return self._providers(
+                cache,
+                files=files,
+                uploaded_prior_to=datetime(2026, 3, 1, tzinfo=timezone.utc),
+                package_overrides=overrides,
+                index_overrides={
+                    "pypi": IndexOverride(
+                        uploaded_prior_to=datetime(2026, 2, 1, tzinfo=timezone.utc)
+                    )
+                },
+            )
+
+        for one, other in zip(
+            providers(ListingFilterCache(2)),
+            providers(ListingFilterCache()),
+            strict=True,
+        ):
+            assert [str(v) for v, _ in one.fetch_versions("pkg")] == ["1.0"]
+            assert one.fetch_versions("pkg") == other.fetch_versions("pkg")
+            assert one.stats == other.stats
+            assert one.stats.excluded_by_python == 1
+            assert one.stats.excluded_by_time == 1
 
     def test_every_python_reports_the_files_it_walked(self) -> None:
         """The memo replays its counters, so the second Python still sees three."""
@@ -1261,7 +1430,7 @@ _WHEEL_METADATA = (
 )
 
 # Metadata-Version 2.1 predates PEP 643, so this text read as an sdist's
-# PKG-INFO fails the static gate and its deps are treated as dynamic.
+# PKG-INFO fails the static metadata check and its deps are treated as dynamic.
 _LEGACY_WHEEL_METADATA = (
     "Metadata-Version: 2.1\nName: pkg\nVersion: 1.0\nRequires-Dist: dep-from-wheel\n\n"
 )
@@ -1350,7 +1519,7 @@ class TestSharedMetadataSlot:
         so the sidecar can land on the shared slot between the sdist write and
         the waiter's read.  The waiter reads the slot, not its own result, so
         assuming the sdist still owns it puts a wheel's METADATA through the
-        PEP 643 gate, where a Metadata-Version 2.1 wheel is judged dynamic and
+        PEP 643 check, where a Metadata-Version 2.1 wheel is judged dynamic and
         its deps are replaced by the sdist's pyproject.
         """
         coordinator, macos, _linux = _wheel_and_sdist_targets(

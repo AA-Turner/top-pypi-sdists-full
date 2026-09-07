@@ -44,7 +44,7 @@ def build_remote_sdist(
     rejected, since the Simple-API listing filter only sees the listing's own
     (possibly absent) Requires-Python, not the value the build produces.  A
     per-package ``requires-python`` metadata override substitutes for the built
-    value here, matching the listing gate.  A built sdist whose declared name
+    value here, matching the listing filter. A built sdist whose name
     or version disagrees with the requested candidate is rejected too.
     """
     canonical = canonicalize_name(package)
@@ -64,7 +64,9 @@ def build_remote_sdist(
     event.wait()
 
     # The port raises on failure, so a request that returned left the metadata.
-    built = provider.coordinator.index.get_built_metadata(canonical, ver_str)
+    built: WheelMetadata | None = provider.coordinator.index.get_built_metadata(
+        canonical, ver_str
+    )
     assert built is not None
 
     target = provider.target

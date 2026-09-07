@@ -394,7 +394,7 @@ impl PyCanonicalSchema {
                         .collect::<PyResult<_>>()?,
                     additional_properties: view
                         .additional_properties
-                        .map(|shield| Py::new(py, PyCanonicalSchema { inner: shield }))
+                        .map(|additional| Py::new(py, PyCanonicalSchema { inner: additional }))
                         .transpose()?,
                     violations: view
                         .violations
@@ -760,6 +760,27 @@ impl UndeclaredValueFailsView {
     }
 }
 
+/// A demand that some key matching `pattern` has a value failing `schema`.
+#[pyclass(
+    frozen,
+    name = "PatternValueFailsView",
+    module = "jsonschema_rs.canonical"
+)]
+pub(crate) struct PatternValueFailsView {
+    #[pyo3(get)]
+    pattern: String,
+    #[pyo3(get)]
+    schema: Py<PyCanonicalSchema>,
+}
+
+#[pymethods]
+impl PatternValueFailsView {
+    #[classattr]
+    fn __match_args__() -> (&'static str, &'static str) {
+        ("pattern", "schema")
+    }
+}
+
 /// A number value within a real interval.
 #[pyclass(frozen, name = "NumberView", module = "jsonschema_rs.canonical")]
 pub(crate) struct NumberView {
@@ -869,7 +890,7 @@ impl AllOfView {
     }
 }
 
-/// The complement of `schema`, preserving a symbolic ref under ``not``, conditionals, and ``oneOf``.
+/// The negation of `schema`, preserving a symbolic ref under ``not``, conditionals, and ``oneOf``.
 #[pyclass(frozen, name = "NotView", module = "jsonschema_rs.canonical")]
 pub(crate) struct NotView {
     #[pyo3(get)]
@@ -1039,6 +1060,7 @@ pub(crate) fn init_module(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyRes
     canonical_module.add_class::<ObjectView>()?;
     canonical_module.add_class::<NameFailsView>()?;
     canonical_module.add_class::<UndeclaredValueFailsView>()?;
+    canonical_module.add_class::<PatternValueFailsView>()?;
     canonical_module.add_class::<NumberView>()?;
     canonical_module.add_class::<NotView>()?;
     canonical_module.add_class::<AllOfView>()?;
@@ -1103,6 +1125,14 @@ fn object_violation_to_python(
                 names,
                 patterns,
                 additional: Py::new(py, PyCanonicalSchema { inner: additional })?,
+            },
+        )?
+        .into_any(),
+        ObjectViolationView::PatternValueFails { pattern, schema } => Py::new(
+            py,
+            PatternValueFailsView {
+                pattern,
+                schema: Py::new(py, PyCanonicalSchema { inner: schema })?,
             },
         )?
         .into_any(),

@@ -1,0 +1,158 @@
+"""#56: on Antigravity the hook's cwd is NOT the workspace.
+
+Antigravity's own docs, verbatim: "The working directory is set to the directory
+containing `hooks.json`." Our hooks.json lives in the plugin, so a hook runs with
+cwd = `<repo>/.agents/plugins/agentbus/`.
+
+WHY THIS FILE IS THE DECISIVE ONE. Every other test here passes against a
+cwd-based implementation, because the plugin sits INSIDE the repo and
+`_resolve_agent()`'s walk up from cwd still happens to reach `.agentbus/agent`.
+The implementation only diverges when cwd and the workspace genuinely disagree —
+a plugin installed globally, or registered from a shared path via `plugins.json`,
+both of which Antigravity supports. So the regression is written the only way it
+can go red: cwd pointed somewhere with no identity at all, and the real workspace
+named only in the payload.
+
+Also pinned here: the traversal guard. `.agentbus/agent` is attacker-controllable
+in this repo's threat model, and the Antigravity lane adopts a credential from a
+name read out of it.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import sys
+from contextlib import redirect_stdout
+
+import pytest
+
+from agentbus_client.hooks import _antigravity
+from agentbus_client.onboarding import _paths
+
+
+def _agent_seen(payload: dict, monkeypatch) -> str | None:
+    """Run the Stop hook and report which agent it polled as."""
+    seen: list[str] = []
+    import agentbus_client.rewake as rewake
+
+    monkeypatch.setattr(
+        rewake, "poll_for_fresh_mail", lambda agent, **k: seen.append(agent) or None
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    with redirect_stdout(io.StringIO()):
+        _antigravity.agy_stop(None)
+    return seen[0] if seen else None
+
+
+@pytest.fixture
+def repo(tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    (repo / ".agentbus").mkdir(parents=True)
+    (repo / ".agentbus" / "agent").write_text("alpha\n")
+    monkeypatch.setenv("AGENTBUS_CONFIG_DIR", str(tmp_path / "cfg"))
+    _paths.agy_mark_wired(repo)
+    # cwd is the PLUGIN directory, as agy sets it — and deliberately somewhere
+    # that carries no identity of its own.
+    elsewhere = tmp_path / "not-the-repo"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.setenv("AGENTBUS_API_KEY", "ab_sk_test_key")
+    monkeypatch.delenv("AGENTBUS_AGENT", raising=False)
+    return repo
+
+
+def test_identity_comes_from_workspace_paths_not_cwd(repo, monkeypatch):
+    """THE REGRESSION: cwd knows nothing; the payload knows the workspace."""
+    assert _agent_seen({"workspacePaths": [str(repo)]}, monkeypatch) == "alpha"
+
+
+def test_the_workspace_outranks_an_inherited_env_var(repo, monkeypatch):
+    """THE FIELD INCIDENT, minutes after the first real wiring.
+
+    An operator launched `agy` from a shell where ANOTHER agent's session had
+    exported AGENTBUS_AGENT. The plugin is machine-wide, so every hook in every
+    agy session inherited it: the catch-up lane polled the wrong inbox, the
+    wired project's own mail was never surfaced, and setup had reported success.
+    Nothing errored — it served the wrong identity, confidently.
+
+    On Claude Code that variable is set PER PROJECT by settings.local.json, so
+    it is a declaration and rightly wins. On agy nothing scopes it, so it is
+    ambient contamination and the workspace's own declaration must win.
+    """
+    monkeypatch.setenv("AGENTBUS_AGENT", "some-other-agents-session")
+    assert _agent_seen({"workspacePaths": [str(repo)]}, monkeypatch) == "alpha"
+
+
+def test_an_empty_workspace_list_no_ops_instead_of_guessing(repo, monkeypatch):
+    """MEASURED: `agy -p` sends "workspacePaths": []. With no workspace the hook
+    cannot know its project — cwd is the machine-wide plugin dir, nothing in the
+    environment names the project, and conversationId does not map back to one.
+
+    The fallback used to be os.environ["AGENTBUS_AGENT"], and it did real damage:
+    a session launched from a shell where ANOTHER agent had exported that
+    variable polled the WRONG inbox and reported "no mail" while the project's
+    own mail sat unread. Serving the wrong agent is worse than serving none.
+    """
+    monkeypatch.setenv("AGENTBUS_AGENT", "some-other-agents-session")
+    assert _agent_seen({"workspacePaths": [], "conversationId": "x"}, monkeypatch) is None
+
+
+def test_env_is_still_used_for_a_hook_with_no_payload_at_all(tmp_path, monkeypatch):
+    """KNOWN-POSITIVE TWIN: the environment is not ignored, it is refused only
+    when agy gave us a payload we could not resolve. A manual invocation with no
+    payload still honours it."""
+    bare = tmp_path / "no-declaration"
+    bare.mkdir()
+    monkeypatch.setenv("AGENTBUS_AGENT", "from-the-environment")
+    monkeypatch.setenv("AGENTBUS_API_KEY", "ab_sk_x")
+    monkeypatch.chdir(bare)
+    assert _agent_seen({}, monkeypatch) == "from-the-environment"
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"workspacePaths": []},
+        {"workspacePaths": ["relative/path"]},
+        {"workspacePaths": ["/nonexistent/absolute/path"]},
+        {"workspacePaths": [None]},
+        {"workspacePaths": "not-a-list"},
+    ],
+)
+def test_a_junk_workspace_is_ignored_not_trusted(repo, monkeypatch, bad):
+    """A wrong workspace is worse than none: it would resolve identity against
+    the wrong tree. Absent is honest."""
+    assert _agent_seen(bad, monkeypatch) is None
+
+
+def test_a_hostile_declared_agent_cannot_reach_the_operator_key(tmp_path, monkeypatch):
+    """REG-8b, on the new call site.
+
+    `.agentbus/agent` is attacker-controllable, and this lane feeds that name
+    into credential adoption. A name that traverses out of the keys directory
+    must not pick up `operator.env`, which can MINT a bound key for any agent.
+    """
+    cfg = tmp_path / "cfg"
+    (cfg / "keys").mkdir(parents=True)
+    (cfg / "operator.env").write_text("export AGENTBUS_API_KEY=ab_sk_OPERATOR_SECRET\n")
+    monkeypatch.setenv("AGENTBUS_CONFIG_DIR", str(cfg))
+    monkeypatch.delenv("AGENTBUS_API_KEY", raising=False)
+
+    assert _antigravity._with_credential("../operator") is False
+    assert "OPERATOR_SECRET" not in (__import__("os").environ.get("AGENTBUS_API_KEY") or ""), (
+        "a traversing agent name reached the operator credential"
+    )
+
+
+def test_a_legitimate_agent_does_get_its_key(tmp_path, monkeypatch):
+    """KNOWN-POSITIVE TWIN. Without this, the traversal test above passes just
+    as well against a function that can never adopt anything at all."""
+    cfg = tmp_path / "cfg"
+    (cfg / "keys").mkdir(parents=True)
+    (cfg / "keys" / "alpha.env").write_text("export AGENTBUS_API_KEY=ab_sk_alpha_key\n")
+    monkeypatch.setenv("AGENTBUS_CONFIG_DIR", str(cfg))
+    monkeypatch.delenv("AGENTBUS_API_KEY", raising=False)
+
+    assert _antigravity._with_credential("alpha") is True
+    assert __import__("os").environ["AGENTBUS_API_KEY"] == "ab_sk_alpha_key"

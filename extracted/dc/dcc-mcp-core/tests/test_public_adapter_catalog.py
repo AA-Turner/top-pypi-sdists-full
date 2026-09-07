@@ -34,9 +34,51 @@ def test_recent_adapter_releases_are_current() -> None:
     assert shogun["install"]["instructions_url"].endswith("/main/install.md")
 
 
+def test_obs_release_is_available_to_the_install_planner() -> None:
+    entries = {entry["name"]: entry for entry in _entries()}
+    obs = entries["dcc-mcp-obs"]
+
+    assert obs["dcc"] == ["obs"]
+    assert obs["version"] == "1.1.0"
+    assert obs["min_core_version"] == "0.20.14"
+    assert obs["install"] == {
+        "type": "pip",
+        "pip_package": "dcc-mcp-obs",
+        "url": (
+            "https://files.pythonhosted.org/packages/cc/6e/"
+            "fd6b04280ab4de5c1839cf7449f894b10e5cc9184fdefb34e073a214aa1a/"
+            "dcc_mcp_obs-1.1.0-py3-none-any.whl"
+        ),
+        "sha256": "d407127d5b200df29a6cab0a5ed6546a03a6c5a8f93b617d0dd034442f0c6b7a",
+        "entry_point": "dcc_mcp_obs:ObsMcpServer",
+        "instructions_url": ("https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-obs/main/install.md"),
+    }
+
+
 def test_skill_only_packages_are_not_pip_adapters() -> None:
     entry_names = {entry["name"] for entry in _entries()}
 
     # Cache Inspector is distributed through marketplace.json as a Skill pack.
     # It intentionally has no PyPI project or first-party adapter catalog entry.
     assert "dcc-mcp-cache-inspector" not in entry_names
+
+
+def test_liquigen_is_installable_from_pinned_pypi_wheel() -> None:
+    entries = {entry["name"]: entry for entry in _entries()}
+    liquigen = entries["dcc-mcp-liquigen"]
+
+    assert liquigen["dcc"] == ["liquigen"]
+    assert liquigen["version"] == "0.1.0"
+    assert liquigen["min_core_version"] == "0.20.22"
+    assert "typed node-graph" in liquigen["description"]
+    assert liquigen["install"] == {
+        "type": "pip",
+        "pip_package": "dcc-mcp-liquigen",
+        "url": (
+            "https://files.pythonhosted.org/packages/57/04/09ef0e03c75d0aa2694338a4bb5d3e19d1b5c3d996dac3e635dab2ad450c/"
+            "dcc_mcp_liquigen-0.1.0-py3-none-any.whl"
+        ),
+        "sha256": "130caacfb16b99b9365db071f145a7613f20b45d9b11a7397934c918b7691d0b",
+        "entry_point": "dcc_mcp_liquigen.server:main",
+        "instructions_url": "https://raw.githubusercontent.com/dcc-mcp/dcc-mcp-liquigen/main/README.md",
+    }

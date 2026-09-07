@@ -3,6 +3,7 @@ use crate::py_input::ptr_hash::{
   hash_byte_token_ptr, hash_bytearray_ptr, hash_bytes_ptr, hash_token_ptr,
   hash_unicode_ptr,
 };
+use crate::utils::MidpointSampler;
 use pyo3::ffi;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
@@ -34,16 +35,18 @@ enum TokenHashMode {
   Generic,
 }
 
+// Cached specialized types must be immortal built-ins: a callback can replace
+// list contents without changing length and release a heap-defined subclass.
 impl TokenHashMode {
   #[inline]
   unsafe fn from_first_item(first_item: *mut ffi::PyObject) -> Self {
-    if ffi::PyUnicode_Check(first_item) != 0 {
+    if ffi::PyUnicode_CheckExact(first_item) != 0 {
       return Self::Unicode;
     }
-    if ffi::PyBytes_Check(first_item) != 0 {
+    if ffi::PyBytes_CheckExact(first_item) != 0 {
       return Self::Bytes;
     }
-    if ffi::PyByteArray_Check(first_item) != 0 {
+    if ffi::PyByteArray_CheckExact(first_item) != 0 {
       return Self::ByteArray;
     }
     Self::Generic
@@ -60,10 +63,10 @@ enum ByteTokenHashMode {
 impl ByteTokenHashMode {
   #[inline]
   unsafe fn from_first_item(first_item: *mut ffi::PyObject) -> Self {
-    if ffi::PyBytes_Check(first_item) != 0 {
+    if ffi::PyBytes_CheckExact(first_item) != 0 {
       return Self::Bytes;
     }
-    if ffi::PyByteArray_Check(first_item) != 0 {
+    if ffi::PyByteArray_CheckExact(first_item) != 0 {
       return Self::ByteArray;
     }
     Self::Generic
@@ -103,6 +106,25 @@ where
     for_each_token_hash_in_sequence(py, kind, object_ptr, visitor)?;
   }
   Ok(true)
+}
+
+// Only the generic token path can invoke a Python buffer exporter, which may
+// resize the list. Keep built-in token loops fast, but revalidate after callbacks.
+#[inline]
+unsafe fn hash_list_item(
+  py: Python<'_>,
+  list: *mut ffi::PyObject,
+  length: ffi::Py_ssize_t,
+  item: *mut ffi::PyObject,
+  hash: fn(Python<'_>, *mut ffi::PyObject) -> PyResult<u64>,
+) -> PyResult<u64> {
+  let value = hash(py, item)?;
+  if ffi::PyList_GET_SIZE(list) != length {
+    return Err(pyo3::exceptions::PyRuntimeError::new_err(
+      "token list changed size during hashing",
+    ));
+  }
+  Ok(value)
 }
 
 unsafe fn for_each_token_hash_in_sequence<F>(
@@ -150,7 +172,7 @@ where
         visitor(if item_type_ptr == first_type_ptr {
           hash_unicode_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         })?;
         index += 1;
       }
@@ -162,7 +184,7 @@ where
         visitor(if item_type_ptr == first_type_ptr {
           hash_bytes_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         })?;
         index += 1;
       }
@@ -174,7 +196,7 @@ where
         visitor(if item_type_ptr == first_type_ptr {
           hash_bytearray_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         })?;
         index += 1;
       }
@@ -182,7 +204,13 @@ where
     TokenHashMode::Generic => {
       while index < length {
         let item_ptr = ffi::PyList_GET_ITEM(object_ptr, index);
-        visitor(hash_token_ptr(py, item_ptr)?)?;
+        visitor(hash_list_item(
+          py,
+          object_ptr,
+          length,
+          item_ptr,
+          hash_token_ptr,
+        )?)?;
         index += 1;
       }
     }
@@ -294,7 +322,7 @@ unsafe fn extend_tokens_from_list(
         output.push(if item_type_ptr == first_type_ptr {
           hash_unicode_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         });
         index += 1;
       }
@@ -306,7 +334,7 @@ unsafe fn extend_tokens_from_list(
         output.push(if item_type_ptr == first_type_ptr {
           hash_bytes_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         });
         index += 1;
       }
@@ -318,7 +346,7 @@ unsafe fn extend_tokens_from_list(
         output.push(if item_type_ptr == first_type_ptr {
           hash_bytearray_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         });
         index += 1;
       }
@@ -326,7 +354,13 @@ unsafe fn extend_tokens_from_list(
     TokenHashMode::Generic => {
       while index < length {
         let item_ptr = ffi::PyList_GET_ITEM(object_ptr, index);
-        output.push(hash_token_ptr(py, item_ptr)?);
+        output.push(hash_list_item(
+          py,
+          object_ptr,
+          length,
+          item_ptr,
+          hash_token_ptr,
+        )?);
         index += 1;
       }
     }
@@ -398,55 +432,6 @@ unsafe fn extend_tokens_from_tuple(
   }
 
   Ok(())
-}
-
-#[derive(Clone, Copy)]
-struct MidpointSampler {
-  q: usize,
-  r: usize,
-  step_div: usize,
-  step_mod: usize,
-  denom: usize,
-}
-
-impl MidpointSampler {
-  #[inline]
-  fn new(total: usize, limit: usize) -> Self {
-    debug_assert!(limit > 0);
-    debug_assert!(total >= limit);
-
-    let denom = limit * 2;
-    let total_div = total / limit;
-    let total_rem = total - total_div * limit;
-    let q = total_div / 2;
-    let r = if (total_div & 1) == 0 {
-      total_rem
-    } else {
-      limit + total_rem
-    };
-    let step_div = total_div;
-    let step_mod = total_rem * 2;
-
-    Self {
-      q,
-      r,
-      step_div,
-      step_mod,
-      denom,
-    }
-  }
-
-  #[inline]
-  const fn next(&mut self) -> usize {
-    let index = self.q;
-    self.r += self.step_mod;
-    self.q += self.step_div;
-    if self.r >= self.denom {
-      self.r -= self.denom;
-      self.q += 1;
-    }
-    index
-  }
 }
 
 pub fn try_extend_tokens_from_fast_sequence_sampled(
@@ -521,7 +506,7 @@ unsafe fn extend_tokens_from_list_sampled(
         output.push(if item_type_ptr == first_type_ptr {
           hash_unicode_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         });
       }
     }
@@ -536,7 +521,7 @@ unsafe fn extend_tokens_from_list_sampled(
         output.push(if item_type_ptr == first_type_ptr {
           hash_bytes_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         });
       }
     }
@@ -551,7 +536,7 @@ unsafe fn extend_tokens_from_list_sampled(
         output.push(if item_type_ptr == first_type_ptr {
           hash_bytearray_ptr(py, item_ptr)?
         } else {
-          hash_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_token_ptr)?
         });
       }
     }
@@ -562,7 +547,13 @@ unsafe fn extend_tokens_from_list_sampled(
         #[allow(clippy::cast_possible_wrap)]
         let index_ssize = index as ffi::Py_ssize_t;
         let item_ptr = ffi::PyList_GET_ITEM(object_ptr, index_ssize);
-        output.push(hash_token_ptr(py, item_ptr)?);
+        output.push(hash_list_item(
+          py,
+          object_ptr,
+          length,
+          item_ptr,
+          hash_token_ptr,
+        )?);
       }
     }
   }
@@ -707,7 +698,7 @@ unsafe fn extend_byte_tokens_from_list(
         output.push(if item_type_ptr == first_type_ptr {
           hash_bytes_ptr(py, item_ptr)?
         } else {
-          hash_byte_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_byte_token_ptr)?
         });
         index += 1;
       }
@@ -719,7 +710,7 @@ unsafe fn extend_byte_tokens_from_list(
         output.push(if item_type_ptr == first_type_ptr {
           hash_bytearray_ptr(py, item_ptr)?
         } else {
-          hash_byte_token_ptr(py, item_ptr)?
+          hash_list_item(py, object_ptr, length, item_ptr, hash_byte_token_ptr)?
         });
         index += 1;
       }
@@ -727,7 +718,13 @@ unsafe fn extend_byte_tokens_from_list(
     ByteTokenHashMode::Generic => {
       while index < length {
         let item_ptr = ffi::PyList_GET_ITEM(object_ptr, index);
-        output.push(hash_byte_token_ptr(py, item_ptr)?);
+        output.push(hash_list_item(
+          py,
+          object_ptr,
+          length,
+          item_ptr,
+          hash_byte_token_ptr,
+        )?);
         index += 1;
       }
     }

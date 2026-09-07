@@ -16,9 +16,6 @@ if TYPE_CHECKING:
     from optuna.distributions import CategoricalChoiceType
 
 
-_SUGGEST_INT_POSITIONAL_ARGS = ["self", "name", "low", "high", "step", "log"]
-
-
 class BaseTrial(abc.ABC):
     """Base class for trials.
 
@@ -102,11 +99,6 @@ class BaseTrial(abc.ABC):
     def set_user_attr(self, key: str, value: Any) -> None:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    @deprecated_func("3.1.0", "5.0.0")
-    def set_system_attr(self, key: str, value: Any) -> None:
-        raise NotImplementedError
-
     @property
     @abc.abstractmethod
     def params(self) -> dict[str, Any]:
@@ -124,14 +116,17 @@ class BaseTrial(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def system_attrs(self) -> dict[str, Any]:
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
     def datetime_start(self) -> datetime.datetime | None:
         raise NotImplementedError
 
     @property
     def number(self) -> int:
+        raise NotImplementedError
+
+    @property
+    def constraints(self) -> dict[str, float]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def set_constraint(self, key: str, value: float) -> None:
         raise NotImplementedError

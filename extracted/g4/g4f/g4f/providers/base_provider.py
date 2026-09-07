@@ -5,6 +5,7 @@ import random
 from abc import abstractmethod
 import json
 from inspect import signature, Parameter
+import threading
 from typing import Optional, _GenericAlias, AsyncIterator
 from pathlib import Path
 from aiohttp import ClientSession
@@ -309,11 +310,27 @@ class AsyncGeneratorProvider(AbstractProvider):
     supports_stream = True
     use_stream_timeout = True
     quota_url = None
+    quota_lock = threading.Lock()
+    default_reasoning_effort = "none"
 
     @classmethod
     async def get_quota(cls, api_key: Optional[str] = None, **kwargs) -> dict:
         """Get the quota information for the API key."""
         if cls.quota_url is None:
+            if not getattr(cls, "use_nodriver", False) or not cls.needs_auth:
+                with cls.quota_lock:
+                    chunks = []
+                    async for chunk in cls.create_async_generator(
+                        model=getattr(cls, "default_model", "auto"),
+                        messages=[{"role": "user", "content": "Hi"}],
+                        stream=False,
+                        reasoning_effort=cls.default_reasoning_effort,
+                        **kwargs,
+                    ):
+                        if isinstance(chunk, str):
+                            chunks.append(chunk)
+                    if chunks:
+                        return {"choices": [{"message": {"content": "".join(chunks)}}]}
             raise NotImplementedError(
                 f"{cls.__name__} does not implement get_quota method"
             )
@@ -443,6 +460,15 @@ class AuthFileMixin:
             / f"auth_{cls.parent if hasattr(cls, 'parent') else cls.__name__}.json"
         )
 
+    @classmethod
+    def delete_cache_file(cls):
+        cache_file = cls.get_cache_file()
+        if cache_file.exists():
+            try:
+                cache_file.unlink()
+            except OSError:
+                pass
+
 
 class AsyncAuthedProvider(AsyncGeneratorProvider, AuthFileMixin):
     @classmethod
@@ -450,6 +476,19 @@ class AsyncAuthedProvider(AsyncGeneratorProvider, AuthFileMixin):
         if "api_key" not in kwargs:
             raise MissingAuthError(f"API key is required for {cls.__name__}")
         return AuthResult()
+
+    @classmethod
+    def reset_auth(cls):
+        """
+        Invalidate cached authentication after an auth failure.
+
+        Removes the persisted auth cache file. Providers that keep auth
+        state in class attributes (e.g. an access token) should override
+        this to clear that in-memory state as well, so the following
+        login performs a fresh authentication instead of reusing the
+        rejected credentials.
+        """
+        cls.delete_cache_file()
 
     @classmethod
     def write_cache_file(cls, cache_file: Path, auth_result: AuthResult = None):
@@ -521,8 +560,11 @@ class AsyncAuthedProvider(AsyncGeneratorProvider, AuthFileMixin):
                 async for chunk in response:
                     yield chunk
         except (MissingAuthError, NoValidHarFileError, CloudflareError):
-            # if cache_file.exists():
-            #     cache_file.unlink()
+            # The cached auth is no longer valid (e.g. a revoked or expired
+            # access token). Drop the persisted cache file and any in-memory
+            # auth state so the re-login below fetches fresh credentials
+            # instead of reusing the rejected ones.
+            cls.reset_auth()
             response = cls.on_auth_async(**kwargs)
             async for chunk in response:
                 if isinstance(chunk, AuthResult):

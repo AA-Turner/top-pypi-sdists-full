@@ -48,6 +48,7 @@ Common features:
 """
 
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -56,7 +57,10 @@ import platform
 import subprocess
 import time
 import urllib.request
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, AsyncIterator
+import hashlib
+from urllib.parse import urlparse
+import datetime
 
 try:
     import aiohttp
@@ -64,8 +68,32 @@ except ImportError:
     pass
 
 from ..cookies import BrowserConfig
+from ..files import secure_filename
+from .. import debug
+
+try:
+    from PIL import Image
+    has_pillow = True
+except ImportError:
+    has_pillow = False
 
 logger = logging.getLogger(__name__)
+
+from pathlib import Path
+
+def get_screenshot_dir(datekey: str = None) -> str:
+    """Get the screenshot directory, creating it if necessary."""
+    try:
+        from g4f.image.copy_images import get_media_dir
+        media_dir = get_media_dir()
+    except ImportError:
+        import tempfile
+        media_dir = os.path.join(tempfile.gettempdir(), "g4f_media")
+    screenshots_dir = os.path.join(media_dir, "screenshots")
+    if datekey:
+        screenshots_dir = os.path.join(screenshots_dir, datekey)
+    os.makedirs(screenshots_dir, exist_ok=True)
+    return screenshots_dir
 
 
 def find_chrome_path() -> Optional[str]:
@@ -249,7 +277,7 @@ def get_shared_browser(host: str, preferred_port: int, headless: bool = True) ->
             chrome_path,
             f"--remote-debugging-port={port}",
             f"--user-data-dir={user_data_dir}",
-            "--window-size=1920,1080",
+            "--window-size=1280,720",
             "--no-default-browser-check",
             "--disable-suggestions-ui",
             "--no-first-run",
@@ -259,6 +287,8 @@ def get_shared_browser(host: str, preferred_port: int, headless: bool = True) ->
             "--disable-features=PrivacySandboxSettings4",
             "--disable-blink-features=AutomationControlled",
             "--remote-allow-origins=*",
+            "--disable-web-security",
+            "--disable-features=IsolateOrigins,site-per-process",
         ]
         if headless:
             cmd.append("--headless=new")
@@ -422,7 +452,7 @@ class CDPSession:
 
                         if method in self._event_queues:
                             for q in self._event_queues[method]:
-                                q.put_nowait(params)
+                                q.put_nowait({"_method": method, **params})
         except Exception as e:
             if not self._closing:
                 logger.error(f"CDP receiver loop error: {e}")
@@ -532,6 +562,53 @@ class CDPSession:
                 f"Timeout waiting for Page.loadEventFired when navigating to {url}"
             )
 
+    async def wait_for_network_idle(
+        self, idle_time: float = 0.5, timeout: float = 15.0
+    ) -> bool:
+        """Wait until network activity settles (no requests for *idle_time* seconds).
+
+        Uses Network.requestWillBeSent / Network.loadingFinished events to track
+        in-flight requests. Returns True if the network went idle, False on timeout.
+        """
+        queue: asyncio.Queue = asyncio.Queue()
+        self.add_event_handler("Network.requestWillBeSent", queue)
+        self.add_event_handler("Network.loadingFinished", queue)
+        self.add_event_handler("Network.loadingFailed", queue)
+
+        # Count currently in-flight requests via JS-free CDP approach:
+        # Every requestWillBeSent increments, every loadingFinished/loadingFailed decrements.
+        pending = 0
+        deadline = time.monotonic() + timeout
+        last_activity = time.monotonic()
+
+        try:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+
+                idle_remaining = idle_time - (time.monotonic() - last_activity)
+                wait_for = min(remaining, max(0.05, idle_remaining))
+
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=wait_for)
+                    method = event.get("_method", "")
+                    if method == "Network.requestWillBeSent":
+                        pending += 1
+                        last_activity = time.monotonic()
+                    elif method in ("Network.loadingFinished", "Network.loadingFailed"):
+                        pending = max(0, pending - 1)
+                        last_activity = time.monotonic()
+                except asyncio.TimeoutError:
+                    pass
+
+                if pending == 0 and (time.monotonic() - last_activity) >= idle_time:
+                    return True
+        finally:
+            self.remove_event_handler("Network.requestWillBeSent", queue)
+            self.remove_event_handler("Network.loadingFinished", queue)
+            self.remove_event_handler("Network.loadingFailed", queue)
+
     async def mouse_move(self, x: int, y: int):
         """Simulate a mouse movement to the given coordinates."""
         await self.call("Input.dispatchMouseEvent", type="mouseMoved", x=x, y=y)
@@ -594,6 +671,74 @@ class CDPSession:
             logger.debug(f"Failed to auto-click Turnstile: {e}")
         return False
 
+    async def click_accept_button(self) -> bool:
+        """Find and click an 'Accept' or 'Einwilligen' button, including inside iframes."""
+        js_code = """
+(() => {
+    const targetTexts = ['Accept', 'Accept all', 'Accept All', 'Einwilligen', 'Alle akzeptieren', 'Zustimmen und weiter', 'Zustimmen'];
+
+    function searchDocument(doc, offsetX = 0, offsetY = 0) {
+        try {
+            if (!doc) return null;
+
+            // 1. Search buttons in the current document
+            const buttons = doc.querySelectorAll('button, input[type="submit"], [role="button"]');
+            for (let button of buttons) {
+                const text = (button.innerText || button.value || button.textContent || '').trim();
+                if (targetTexts.includes(text)) {
+                    
+                    // NEU: Scrollt das Element/den Container in den sichtbaren Bereich
+                    button.scrollIntoView({ block: 'center', inline: 'center' });
+                    
+                    // Wichtig: Nach dem Scrollen müssen die Koordinaten neu berechnet werden!
+                    const rect = button.getBoundingClientRect();
+                    
+                    if (rect.width > 0 && rect.height > 0) {
+                        return [
+                            offsetX + rect.left + rect.width / 2,
+                            offsetY + rect.top + rect.height / 2
+                        ];
+                    }
+                }
+            }
+
+            // 2. Search inside nested iframes
+            const iframes = doc.querySelectorAll('iframe');
+            for (let iframe of iframes) {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                    if (iframeDoc) {
+                        const iframeRect = iframe.getBoundingClientRect();
+                        const res = searchDocument(
+                            iframeDoc,
+                            offsetX + iframeRect.left,
+                            offsetY + iframeRect.top
+                        );
+                        if (res) return res;
+                    }
+                } catch (e) {
+                    // Cross-origin iframe security restriction
+                }
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    // window.scrollX/Y wird am Ende aufgeschlagen, falls du absolute Page-Koordinaten brauchst
+    return searchDocument(document, window.scrollX, window.scrollY);
+})()
+"""
+        try:
+            rect = await self.evaluate_js(js_code)
+            if rect:
+                debug.log(f"Accept button rect: {rect}")
+            if rect and isinstance(rect, list) and len(rect) == 2:
+                await self.click(int(rect[0]), int(rect[1]))
+                return True
+        except Exception as e:
+            debug.log(f"Failed to click accept button: {e}")
+        return False
+
     async def bypass_turnstile(self):
         """Execute a sequence of anti-detect actions to bypass Cloudflare Turnstile."""
         import random
@@ -636,8 +781,67 @@ class CDPSession:
             await self.call("Network.enable")
             await self.call("Runtime.enable")
 
+    async def capture_screenshot(self, url: str, n: int = 3) -> AsyncIterator[str]:
+        """Navigate to a URL and capture a screenshot, caching the result."""
+        url_without_suffix = url[:-7] if url.endswith("_2.webp") or url.endswith("_3.webp") else url
+        url_with_noads = f"{url_without_suffix}&noads={int(time.time())}" if "?" in url_without_suffix else f"{url_without_suffix}?noads={int(time.time())}"
+        await self.navigate(url_with_noads)
+
+        if await self.evaluate_js('!document.doctype'):
+            raise RuntimeError(f"Failed to load page {url} for screenshot, document.doctype={await self.evaluate_js('String(document.doctype)')}")
+
+        result = None
+        for i in range(n):
+            await asyncio.sleep(1)
+            try:
+                result = await self._capture_screenshot_impl(url, n - i)
+                if url.endswith(f"_{n - i}.jpg"):
+                    return result
+            except Exception as e:
+                debug.log(f"Screenshot #{i+1} failed: {e}")
+        return result
+    
+    async def _capture_screenshot_impl(self, url: str, n: int) -> str:
+        url_without_suffix = url[:-7] if url.endswith("_2.webp") or url.endswith("_3.webp") else url
+        datekey = datetime.date.today().isoformat()
+        screenshot_dir = get_screenshot_dir(datekey)
+        # Use original URL for filename to distinguish between similar URLs
+        filepath = os.path.join(screenshot_dir, f"{secure_filename(url_without_suffix.replace('https://', '').replace('http://', '').replace('www.', ''))}{'.webp' if n == 1 else f'_{n}.webp'}")
+        if os.path.exists(filepath):
+            debug.log(f"Screenshot already exists: {filepath}")
+            return filepath
+        # Wait for network activity to settle before capturing
+        await self.wait_for_network_idle(idle_time=5, timeout=15.0)
+        # Try to click any "Accept" or "Einwilligen" cookie consent buttons
+        if n != 1:
+            for _ in range(2):
+                debug.log("Attempting to click accept button...")
+                await asyncio.sleep(1)
+                if await self.click_accept_button():
+                    debug.log("Clicked accept button.")
+                    await asyncio.sleep(1)
+                    break
+        await self.wait_for_network_idle(idle_time=5, timeout=15.0)
+        result = await self.call("Page.captureScreenshot")
+        image_bytes = base64.b64decode(result["data"])
+
+        # Resize to 1200x630 and save as WebP to reduce file size
+        if has_pillow:
+            from io import BytesIO
+            image = Image.open(BytesIO(image_bytes))
+            image = image.resize((1200, 630), Image.Resampling.LANCZOS)
+            width, height = image.size
+            image = image.crop((0, 0, max(0, width - 14), height))
+            image = image.convert("RGB")
+            output = BytesIO()
+            image.save(output, format="WEBP", quality=85, method=6)
+            image_bytes = output.getvalue()
+        
+        Path(filepath).write_bytes(image_bytes)
+        return filepath
+
     async def close(self):
-        """Close WebSocket session and close the specific target tab."""
+        """Close WebSocket session, close the specific target tab, and close the browser."""
         self._closing = True
 
         if self._receive_task:
@@ -663,6 +867,15 @@ class CDPSession:
             except Exception:
                 pass
             self.target_id = None
+
+        # Close the browser process
+        global _shared_browser_process
+        if _shared_browser_process:
+            try:
+                _shared_browser_process.terminate()
+            except Exception:
+                pass
+            _shared_browser_process = None
 
 
 class SyncCDPSession:
@@ -829,6 +1042,50 @@ class SyncCDPSession:
         self.call("Page.navigate", url=url)
         time.sleep(2.0)
 
+    def wait_for_network_idle(self, idle_time: float = 0.5, timeout: float = 15.0) -> bool:
+        """Wait until network activity settles (no in-flight requests for *idle_time* seconds).
+
+        Polls document.readyState and the Performance Resource Timing API to detect
+        when resource loading has stabilised. Returns True when idle, False on timeout.
+        """
+        deadline = time.monotonic() + timeout
+        last_count = -1
+        stable_since = time.monotonic()
+
+        while time.monotonic() < deadline:
+            try:
+                ready = self.evaluate_js("document.readyState")
+                if ready == "complete":
+                    # Count resources that are still loading (responseStart > 0 but no responseEnd)
+                    count = self.evaluate_js(
+                        """(() => {
+                            const entries = performance.getEntriesByType('resource');
+                            let pending = 0;
+                            for (const e of entries) {
+                                if (e.responseStart > 0 && e.responseEnd === 0) {
+                                    pending++;
+                                }
+                            }
+                            return pending;
+                        })()"""
+                    )
+                    count = count or 0
+                    if count == last_count:
+                        if (time.monotonic() - stable_since) >= idle_time:
+                            return True
+                    else:
+                        last_count = count
+                        stable_since = time.monotonic()
+                else:
+                    # Page not fully loaded yet — reset stability timer
+                    last_count = -1
+                    stable_since = time.monotonic()
+            except Exception:
+                pass
+            time.sleep(0.2)
+
+        return False
+
     def click(self, x: int = 200, y: int = 400):
         """
         Simulate a real mouse click at (x, y) on the page.
@@ -855,7 +1112,7 @@ class SyncCDPSession:
         )
 
     def close(self):
-        """Close WebSocket session and close the specific target tab."""
+        """Close WebSocket session, close the specific target tab, and close the browser."""
         if self.ws:
             try:
                 self.ws.close()
@@ -872,3 +1129,46 @@ class SyncCDPSession:
             except Exception:
                 pass
             self.target_id = None
+
+        # Close the browser process
+        global _shared_browser_process
+        if _shared_browser_process:
+            try:
+                _shared_browser_process.terminate()
+            except Exception:
+                pass
+            _shared_browser_process = None
+
+    def capture_screenshot(self, url: str) -> bytes:
+        """Navigate to a URL and capture a screenshot, caching the result."""
+        datekey = datetime.date.today().isoformat()
+        screenshots_dir = get_screenshot_dir(datekey)
+        filename = f"{secure_filename(url)}.webp"
+        filepath = os.path.join(screenshots_dir, filename)
+
+        if os.path.exists(filepath):
+            return Path(filepath).read_bytes()
+
+        self.navigate(url)
+        # Wait for network activity to settle before capturing
+        self.wait_for_network_idle()
+        # Try to click any "Accept" or "Einwilligen" cookie consent buttons
+        self.click_accept_button()
+        time.sleep(0.5)
+        result = self.call("Page.captureScreenshot")
+        image_bytes = base64.b64decode(result["data"])
+        
+        # Resize to 1200x675 and save as WebP to reduce file size
+        if has_pillow:
+            from io import BytesIO
+            image = Image.open(BytesIO(image_bytes))
+            image = image.resize((1200, 675), Image.Resampling.LANCZOS)
+            width, height = image.size
+            image = image.crop((0, 0, max(0, width - 10), height))
+            image = image.convert("RGB")
+            output = BytesIO()
+            image.save(output, format="WEBP", quality=85, method=6)
+            image_bytes = output.getvalue()
+        
+        Path(filepath).write_bytes(image_bytes)
+        return image_bytes

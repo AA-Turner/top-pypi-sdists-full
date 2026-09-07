@@ -26,12 +26,12 @@ import os
 from typing import List
 
 # Per PEP-440 https://peps.python.org/pep-0440/#public-version-identifiers
-__version__ = '2.3.0'
+__version__ = '2.3.1'
 __author__ = 'Ben Pruitt, Nick Conway'
 __copyright__ = (
     'Copyright 2014-2026, Ben Pruitt & Nick Conway; 2014-2018 Wyss Institute'
 )
-__license__ = 'GPLv2'
+__license__ = 'GPL-2.0-or-later'
 DESCRIPTION = 'Python bindings for Primer3'
 
 LOCAL_DIR = os.path.dirname(os.path.realpath(__file__))

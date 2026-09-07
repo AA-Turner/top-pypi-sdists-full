@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Literal, NamedTuple, TypeGuard
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, TypeGuard
 from urllib.parse import urlsplit
 
 from nab_provider._vendor.packaging.ranges import VersionRange
@@ -19,6 +19,8 @@ from nab_provider._vendor.packaging.utils import canonicalize_name
 from nab_provider._vendor.packaging.version import InvalidVersion, Version
 from nab_provider.records import RangeOutcome, SdistFile, WheelFile
 
+from .._compat import override
+from ..environment import UnevaluableMarkerError, evaluate_prepared
 from ..errors import (
     ForeignMetadataError,
     IncompatiblePythonError,
@@ -27,7 +29,6 @@ from ..errors import (
     UnsupportedSdistError,
 )
 from ..extra_keys import join_extra
-from ..marker_holds import UnevaluableMarkerError, evaluate_prepared
 from ..metadata import (
     DEPENDENCY_FIELDS,
     WheelMetadata,
@@ -36,7 +37,7 @@ from ..metadata import (
     parse_metadata,
 )
 from ..policy import BuildPolicy
-from ..requirements_file import (
+from ..project_requirements import (
     InvalidProjectRequirementError,
     parse_project_requirement,
     parse_requirements,
@@ -357,6 +358,29 @@ def _record_range_outcome(
         provider.stats.wheel_metadata_range_missing += 1
 
 
+def dists_at_version(
+    versions: Sequence[tuple[Version, DistFile]], version: Version
+) -> list[DistFile]:
+    """Return distributions at ``version`` in listing order.
+
+    The newest-first listing keeps each version's distributions adjacent.
+    """
+    low, high = 0, len(versions)
+    while low < high:
+        mid = (low + high) // 2
+        # Newest first, so a smaller ``version`` lies to the right of ``mid``.
+        if version < versions[mid][0]:
+            low = mid + 1
+        else:
+            high = mid
+
+    stop = low
+    while stop < len(versions) and versions[stop][0] == version:
+        stop += 1
+
+    return [dist for _, dist in versions[low:stop]]
+
+
 def pick_dist_for_metadata(
     versions: Sequence[tuple[Version, DistFile]],
     version: Version,
@@ -364,7 +388,7 @@ def pick_dist_for_metadata(
     target: ResolveTarget | None = None,
 ) -> DistFile | None:
     """Pick the dist whose metadata answers for ``version``. See :func:`pick_dist`."""
-    dists = [d for v, d in versions if v == version]
+    dists = dists_at_version(versions, version)
     return pick_dist(dists, tags, target) if dists else None
 
 
@@ -462,7 +486,9 @@ def pick_dist(
     else:
         # Sidecars first: ``pick`` keeps input order among wheels it ranks equally.
         installed = tags.pick(sorted(wheels, key=lambda w: not w.has_metadata))
-    return installed or next((w for w in wheels if w.has_metadata), wheels[0])
+    if installed is not None:
+        return installed
+    return next((w for w in wheels if w.has_metadata), wheels[0])
 
 
 def _sdist_deps_need_dynamic(
@@ -507,7 +533,9 @@ def resolve_dynamic_sdist(
     version_str = str(version)
     index = provider.coordinator.index
 
-    cached = index.get_resolved_sdist_metadata(canonical, version_str)
+    cached: WheelMetadata | None = index.get_resolved_sdist_metadata(
+        canonical, version_str
+    )
     if cached is not None:
         return cached
 
@@ -544,12 +572,9 @@ def augment_from_pyproject(
     is missing, unparseable, or itself marks deps dynamic via
     ``[project].dynamic``.
 
-    Raises :class:`InvalidProjectRequirementError` when ``dependencies``
-    or ``optional-dependencies`` is present but structurally wrong (not
-    an array of strings / not a table), rather than silently dropping the
-    declared dependencies.  ``get_dependencies`` catches it and rejects the
-    candidate version.  A well-typed entry that is not valid PEP 508 is
-    dropped with a warning.
+    Invalid dependency shapes or PEP 508 strings raise
+    :class:`InvalidProjectRequirementError`; ``get_dependencies`` catches it
+    and rejects the candidate version.
     """
     # Late import keeps the resolver-time path off ``WheelMetadata``
     # construction unless the dynamic-deps pyproject fallback fires.
@@ -584,7 +609,9 @@ def augment_from_pyproject(
     )
 
 
-def extend_with_extras(requires_dist: list[Requirement], optional: dict) -> list[str]:
+def extend_with_extras(
+    requires_dist: list[Requirement], optional: dict[str, Any]
+) -> list[str]:
     """Append extras-gated requirements and return Provides-Extra names.
 
     A per-extra value that is not an array of strings, or a per-extra entry
@@ -602,7 +629,7 @@ def extend_with_extras(requires_dist: list[Requirement], optional: dict) -> list
     return provides_extra
 
 
-def parse_pyproject_deps(deps: list) -> list[Requirement]:
+def parse_pyproject_deps(deps: list[str]) -> list[Requirement]:
     """Parse a ``project.dependencies`` list, raising on a malformed entry.
 
     Entries are already validated as strings by :func:`require_string_list`;
@@ -629,13 +656,12 @@ def fetch_sdist_metadata(
 ) -> tuple[str | None, bool]:
     """Block until the coordinator returns sdist PKG-INFO text.
 
-    Returns ``(metadata_text, from_sdist)``: the origin comes back with the
-    text, so text that landed in the version-level slot from somewhere other
-    than the sdist is not put through the :pep:`643` gate as if it were the
-    sdist's own PKG-INFO.
+    Returns ``(metadata_text, from_sdist)``.
+    Metadata from another source can occupy the version slot. Its origin
+    excludes it from the :pep:`643` check for sdist PKG-INFO.
 
-    The archive is verified against ``sdist.hashes`` before its PKG-INFO is
-    read. A hash mismatch is recorded as an integrity error and re-raised here.
+    When ``sdist.hashes`` contains an accepted digest, the archive is verified
+    before its PKG-INFO is read. A mismatch is recorded and re-raised here.
     """
     event = provider.coordinator.request_sdist(
         package, version, sdist.url, sdist.hashes
@@ -750,11 +776,10 @@ def parse_and_cache_metadata(
     :class:`UnsupportedSdistError` under :class:`BuildPolicy.NEVER`.
 
     The parsed :class:`WheelMetadata` is shared via the
-    :class:`~nab_provider.store.InMemoryIndex` so that universal-mode
-    resolves only run :func:`parse_metadata` once per
-    ``(package, version)`` regardless of how many tuples ask for it.  The
-    cache is keyed on ``metadata_text`` as well, so a tuple holding another
-    artifact's text for that version parses it itself.
+    :class:`~nab_provider.store.InMemoryIndex`, keyed by the text it was
+    parsed from, so a universal-mode resolve runs :func:`parse_metadata`
+    once per distinct text, however many tuples read it.
+
     Per-tuple classification (marker evaluation, extras admission)
     still runs locally in :func:`cache_deps_from_metadata`.  The
     sdist-dynamic-deps reconciliation in
@@ -821,12 +846,14 @@ def _reject_incompatible_python(
 ) -> None:
     """Reject an index candidate whose METADATA Requires-Python excludes the target.
 
-    The listing gate (:func:`nab_provider._provider.listing.excluded_by_python`)
+    The listing filter
+    (:func:`nab_provider._provider.listing.excluded_by_python`)
     reads the optional Simple-API ``requires-python`` hint, so a version whose
     listing omits it reaches here unfiltered.  The wheel's own METADATA (or the
     sdist's PKG-INFO) carries the authoritative field; a per-package override
-    still replaces it, matching the listing gate.  Raised before the deps are
-    cached so no partial state survives the rejection.
+    still replaces it, matching the listing filter. Raised before deps
+    are
+    cached, so no partial state survives the rejection.
     """
     target = provider.target
     if target is None:
@@ -983,6 +1010,7 @@ class ExtraDepsMap(Mapping[tuple[str, Version], dict[str, dict[str, VersionRange
         self._provider = provider
         self._extra_deps = extra_deps
 
+    @override
     def __getitem__(
         self, cache_key: tuple[str, Version]
     ) -> dict[str, dict[str, VersionRange]]:
@@ -993,12 +1021,15 @@ class ExtraDepsMap(Mapping[tuple[str, Version], dict[str, dict[str, VersionRange
             )
         return built
 
+    @override
     def __contains__(self, cache_key: object) -> bool:
         return cache_key in self._extra_deps
 
+    @override
     def __iter__(self) -> Iterator[tuple[str, Version]]:
         return iter(self._extra_deps)
 
+    @override
     def __len__(self) -> int:
         return len(self._extra_deps)
 
@@ -1096,9 +1127,9 @@ def target_dep_signature(
     to tell two wheels of one version apart by the dependencies they impose on
     this target rather than by raw text.  Each requirement is classified the way
     the resolver classifies deps, so a marker both wheels evaluate the same
-    folds away, and ranges go through :func:`add_classified_dep`, so ordering,
-    whitespace, and specifier spelling normalize equal.  It records nothing into
-    the marker caches or ``consulted_markers``: see
+    folds away. Ranges use :func:`add_classified_dep`, so ordering,
+    whitespace, and specifier syntax normalize equally. This writes no
+    marker cache or ``consulted_markers`` entry: see
     :func:`_classify_requirement_uncached`.
 
     ``cache_key`` is the release the wheel was served as, not whatever the
@@ -1106,7 +1137,7 @@ def target_dep_signature(
     ``provides-extra`` override is compared in the same view the resolver pins
     from.  A complete ``dependencies`` override takes the skip-fetch path in
     :meth:`nab_provider.provider.Provider.get_dependencies` and never reaches
-    here.  ``Requires-Python`` is left out: it gates admission, not the
+    here. ``Requires-Python`` controls admission, not the
     dependency edges a lock records.
 
     Unlike :func:`cache_deps_from_metadata`, a direct-URL dep is bucketed rather
@@ -1126,7 +1157,7 @@ def target_dep_signature(
             continue
         if req.url is not None:
             entry = (canonicalize_name(req.name), frozenset(req.extras), req.url)
-            for key in req_extras or {None}:
+            for key in req_extras or (None,):
                 url_buckets.setdefault(key, set()).add(entry)
             continue
         add_classified_dep(

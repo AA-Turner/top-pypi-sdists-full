@@ -62,13 +62,14 @@ This other facility uses a simple
 
 from io import StringIO
 
-from IPython.core.formatters import DisplayFormatter, PlainTextFormatter
 from IPython.core.display import DisplayObject
-
+from IPython.core.formatters import DisplayFormatter, PlainTextFormatter
 from ipywidgets import Widget
 
+from sage.features import FeatureNotPresentError
+from sage.misc.lazy_import import LazyImport, lazy_import
 from sage.repl.display.pretty_print import SagePrettyPrinter
-from sage.misc.lazy_import import lazy_import
+from sage.structure.sage_object import SageObject
 
 IPYTHON_NATIVE_TYPES = (DisplayObject, Widget)
 
@@ -77,6 +78,69 @@ TEXT_LATEX = 'text/latex'
 TEXT_HTML = 'text/html'
 
 lazy_import('matplotlib.figure', 'Figure')
+
+
+def _resolve_lazy_import(obj):
+    """
+    Return the object behind a lazy import.
+
+    Objects that are not lazy imports are returned unchanged.  A lazy import
+    may resolve to another one, so resolution is repeated; a cyclic chain of
+    lazy imports is left alone rather than followed forever.
+
+    The lazy import itself is kept whenever it does not resolve to something
+    displayable, so that the caller still sees the proxy and its established
+    behaviour: :meth:`~sage.misc.lazy_import.LazyImport.__repr__` reports a
+    missing feature instead of raising, and
+    :meth:`~sage.repl.rich_output.display_manager.DisplayManager.displayhook`
+    reads ``None`` as "nothing to display".
+
+    EXAMPLES::
+
+        sage: from sage.misc.lazy_import import LazyImport
+        sage: from sage.repl.display.formatter import _resolve_lazy_import
+        sage: _resolve_lazy_import(42)
+        42
+        sage: _resolve_lazy_import(LazyImport('sage.rings.integer_ring', 'ZZ'))
+        Integer Ring
+
+    Chains of lazy imports are resolved all the way down::
+
+        sage: import sys, types
+        sage: module = types.ModuleType('sage_doctest_lazy_module')
+        sage: sys.modules['sage_doctest_lazy_module'] = module
+        sage: module.inner = LazyImport('sage.rings.integer_ring', 'ZZ')
+        sage: _resolve_lazy_import(LazyImport('sage_doctest_lazy_module', 'inner'))
+        Integer Ring
+
+    A lazy import that does not resolve to a displayable object is returned
+    as is::
+
+        sage: module.nothing = None
+        sage: proxy = LazyImport('sage_doctest_lazy_module', 'nothing')
+        sage: _resolve_lazy_import(proxy) is proxy
+        True
+        sage: del sys.modules['sage_doctest_lazy_module']
+
+        sage: from sage.features import PythonModule
+        sage: feature = PythonModule('math')
+        sage: feature.hide()
+        sage: proxy = LazyImport('math', 'sqrt', feature=feature)
+        sage: _resolve_lazy_import(proxy) is proxy
+        True
+        sage: feature.unhide()
+    """
+    seen = []
+    while isinstance(obj, LazyImport) and not any(obj is s for s in seen):
+        seen.append(obj)
+        try:
+            resolved = obj._get_object()
+        except FeatureNotPresentError:
+            break
+        if resolved is None:
+            break
+        obj = resolved
+    return obj
 
 
 class SageDisplayFormatter(DisplayFormatter):
@@ -173,6 +237,35 @@ class SageDisplayFormatter(DisplayFormatter):
             sage: shell.run_cell('%display default')
             sage: shell.quit()
 
+        A Sage object's generic ``_repr_latex_`` exists for stock Python
+        Jupyter kernels and must not override ``%display default`` here
+        (:issue:`2236`)::
+
+            sage: from sage.structure.sage_object import SageObject
+            sage: from sage.repl.rich_output import get_display_manager
+            sage: from sage.repl.rich_output.backend_ipython import BackendIPythonNotebook
+            sage: class Formula(SageObject):
+            ....:     def _repr_(self):
+            ....:         return 'formula'
+            ....:     def _repr_latex_(self):
+            ....:         return r'$\displaystyle \frac{1}{2}$'
+            sage: shell = get_test_shell()
+            sage: dm = get_display_manager()
+            sage: previous = dm.switch_backend(BackendIPythonNotebook(), shell=shell)
+            sage: sorted(shell.display_formatter.format(Formula())[0])
+            ['text/plain']
+
+        Objects that are not Sage objects keep their own ``text/latex``, which
+        is how SymPy expressions render under a Sage kernel::
+
+            sage: class Foreign():
+            ....:     def _repr_latex_(self):
+            ....:         return r'$x$'
+            sage: sorted(shell.display_formatter.format(Foreign())[0])
+            ['text/latex', 'text/plain']
+            sage: _ = dm.switch_backend(previous, shell=shell)
+            sage: shell.quit()
+
         Test that ``__repr__`` is only called once when generating text output::
 
             sage: class Repper():
@@ -189,7 +282,27 @@ class SageDisplayFormatter(DisplayFormatter):
             sage: from sage.repl.rich_output import get_display_manager
             sage: get_display_manager().switch_backend(BackendDoctest())
             ...
+
+        A lazily imported class is displayed like the class it stands for.  In
+        particular, IPython does not call an ordinary instance method such as
+        :meth:`_repr_svg_` without an instance (:issue:`41697`)::
+
+            sage: # needs sage.combinat
+            sage: shell = get_test_shell()
+            sage: shell.run_cell('Tableau')
+            <class 'sage.combinat.tableau.Tableau'>
+            sage: shell.run_cell('DyckWord')
+            <class 'sage.combinat.dyck_word.DyckWord'>
+            sage: shell.run_cell('PlanePartition')
+            <class 'sage.combinat.plane_partition.PlanePartition'>
+
+        The class itself is unaffected and still hands out its methods::
+
+            sage: shell.run_cell('Tableau._repr_svg_')                                  # needs sage.combinat
+            <function Tableau._repr_svg_ at ...>
+            sage: shell.quit()                                                          # needs sage.combinat
         """
+        obj = _resolve_lazy_import(obj)
         sage_format, sage_metadata = self.dm.displayhook(obj)
         assert PLAIN_TEXT in sage_format, 'plain text is always present'
 
@@ -209,6 +322,14 @@ class SageDisplayFormatter(DisplayFormatter):
             exclude = list(exclude) + [PLAIN_TEXT]
         else:
             exclude = [PLAIN_TEXT]
+        if isinstance(obj, SageObject) and self.dm.preferences.text != 'latex':
+            # Sage objects carry a generic _repr_latex_ so that stock Python
+            # Jupyter kernels, which never install this formatter, can typeset
+            # formulas. Under a Sage kernel the text display preference makes
+            # that decision instead, so the hook must not quietly override
+            # "%display default". Objects that are not Sage objects, such as
+            # SymPy expressions, keep their own text/latex.
+            exclude.append(TEXT_LATEX)
         ipy_format, ipy_metadata = super().format(obj, include=include, exclude=exclude)
         if not ipy_format:
             return sage_format, sage_metadata

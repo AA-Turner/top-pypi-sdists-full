@@ -98,6 +98,8 @@ class _MergedContext:
         plugin_repo_types=frozenset(),
         codex_plugins=(),
         agent_plugins=(),
+        grok_plugins=(),
+        antigravity_plugins=(),
     ):
         self.root_path = root_path
         self.repo_types = repo_types
@@ -106,10 +108,18 @@ class _MergedContext:
         self.plugin_repo_types = set(plugin_repo_types)
         self.codex_plugins = list(codex_plugins)
         self.agent_plugins = list(agent_plugins)
+        self.grok_plugins = list(grok_plugins)
+        self.antigravity_plugins = list(antigravity_plugins)
 
     def distinct_plugin_dirs(self):
         """Same contract as :meth:`RepositoryContext.distinct_plugin_dirs`."""
-        return merge_plugin_dirs(self.plugins, self.codex_plugins, self.agent_plugins)
+        return merge_plugin_dirs(
+            self.plugins,
+            self.codex_plugins,
+            self.agent_plugins,
+            self.grok_plugins,
+            self.antigravity_plugins,
+        )
 
     @property
     def repo_type(self):
@@ -141,6 +151,8 @@ def _build_merged_context(contexts):
     skills = []
     codex_plugins = []
     agent_plugins = []
+    grok_plugins = []
+    antigravity_plugins = []
     for ctx in contexts:
         repo_types |= ctx.repo_types
         plugin_repo_types |= ctx.plugin_repo_types
@@ -148,6 +160,14 @@ def _build_merged_context(contexts):
         skills.extend(ctx.skills)
         codex_plugins.extend(ctx.codex_plugins)
         agent_plugins.extend(ctx.agent_plugins)
+        grok_plugins.extend(ctx.grok_plugins)
+        # Both spellings, as ``RepositoryContext.distinct_plugin_dirs``
+        # takes them: the direct list keeps its unresolved path for display,
+        # and the claim union adds the plugins a ``plugins.json`` registry
+        # names, which no other list holds. ``merge_plugin_dirs`` dedupes by
+        # resolved path.
+        antigravity_plugins.extend(ctx.antigravity_plugins)
+        antigravity_plugins.extend(ctx.antigravity_plugin_roots())
     return _MergedContext(
         root_path,
         repo_types,
@@ -156,6 +176,8 @@ def _build_merged_context(contexts):
         plugin_repo_types,
         codex_plugins,
         agent_plugins,
+        grok_plugins,
+        antigravity_plugins,
     )
 
 
@@ -250,7 +272,9 @@ def install_warning_display() -> None:
     """
     from ..linter import CustomRuleWarning
 
-    default_showwarning = warnings.showwarning
+    current_showwarning = warnings.showwarning
+    if getattr(current_showwarning, "_skillsaw_warning_display", None) is current_showwarning:
+        return
 
     def _showwarning(message, category, filename, lineno, file=None, line=None):
         if isinstance(message, CustomRuleWarning):
@@ -263,6 +287,11 @@ def install_warning_display() -> None:
                 file=out,
             )
         else:
-            default_showwarning(message, category, filename, lineno, file, line)
+            current_showwarning(message, category, filename, lineno, file, line)
 
+    # Mark the concrete handler rather than keeping a module-global boolean.
+    # If an embedder replaces warnings.showwarning later, the next CLI call
+    # wraps its new handler; functools.wraps cannot make that external wrapper
+    # look like the exact Skillsaw handler whose marker it copied.
+    setattr(_showwarning, "_skillsaw_warning_display", _showwarning)
     warnings.showwarning = _showwarning

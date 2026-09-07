@@ -14,7 +14,7 @@ from skillsaw.formatters import (
     parse_output_spec,
     relative_path,
 )
-from skillsaw.formatters.text import format_text
+from skillsaw.formatters.text import TOP_RULES_THRESHOLD, format_text
 from skillsaw.formatters.json_fmt import format_json
 from skillsaw.formatters.sarif import format_sarif
 from skillsaw.formatters.html import format_html
@@ -176,6 +176,31 @@ def test_text_includes_stats(valid_plugin):
     assert "Plugins:" in output
     assert "Skills:" in output
     assert "Rules run:" in output
+
+
+def test_text_repo_type_names_the_tools_configured(tmp_path):
+    """A repository is what it packages *and* what it is configured for, so
+    a `.cursor/` tree reports `cursor` rather than `unknown`."""
+    (tmp_path / ".cursor" / "rules").mkdir(parents=True)
+    (tmp_path / ".cursor" / "rules" / "style.mdc").write_text(
+        "---\ndescription: House style\n---\n\nPrefer explicit imports.\n", encoding="utf-8"
+    )
+    context = RepositoryContext(tmp_path)
+    linter = Linter(context, LinterConfig.default())
+
+    output = format_text(linter.run(), context, linter.rules, "0.0.0")
+
+    assert "Repo type: cursor" in output
+
+
+def test_text_repo_type_is_unknown_when_nothing_is_detected(tmp_path):
+    """The sentinel survives: an empty directory still says so."""
+    context = RepositoryContext(tmp_path)
+    linter = Linter(context, LinterConfig.default())
+
+    output = format_text(linter.run(), context, linter.rules, "0.0.0")
+
+    assert "Repo type: unknown" in output
 
 
 def test_text_counts_codex_plugins(tmp_path):
@@ -1283,7 +1308,7 @@ def test_text_fixable_summary_counts_only_shown_violations(valid_plugin):
         RuleViolation(
             rule_id="content-unlinked-internal-reference",
             severity=Severity.INFO,
-            message="Unlinked path reference: 'docs/x.md' (file exists, autofixable)",
+            message="Unlinked path reference: 'docs/x.md' — consider wrapping in link syntax [docs/x.md](docs/x.md)",
             file_path=Path("SKILL.md"),
             line=3,
             fixable=True,
@@ -1294,8 +1319,124 @@ def test_text_fixable_summary_counts_only_shown_violations(valid_plugin):
     hidden = format_text(violations, context, [], "0.0.0", verbose=False)
     assert "fixable with" not in hidden
 
+    # Shown with -v but outside the fix scope: no marker, no summary line.
     shown = format_text(violations, context, [], "0.0.0", verbose=True)
-    assert "[*] 1 violation(s) fixable with `skillsaw fix`" in shown
+    assert "fixable with" not in shown
+    assert "[*]" not in shown
+
+    covered = format_text(violations, context, [], "0.0.0", verbose=True, fix_level="info")
+    assert "[*] 1 violation(s) fixable with `skillsaw fix`" in covered
+
+
+def test_text_fixable_summary_counts_only_in_scope(valid_plugin):
+    """An out-of-scope info fixable never joins the summary count."""
+    context = RepositoryContext(valid_plugin)
+    violations = _make_fixable_violations() + [
+        RuleViolation(
+            rule_id="content-unlinked-internal-reference",
+            severity=Severity.INFO,
+            message="Unlinked path reference: 'docs/x.md' — consider wrapping in link syntax [docs/x.md](docs/x.md)",
+            file_path=Path("SKILL.md"),
+            line=3,
+            fixable=True,
+            fix_confidence=AutofixConfidence.SAFE,
+        ),
+    ]
+
+    output = format_text(violations, context, [], "0.0.0", verbose=True, fix_level="warning")
+    assert (
+        "[*] 2 violation(s) fixable with `skillsaw fix`"
+        " ([?] 1 more with `skillsaw fix --suggest`)" in output
+    )
+    assert "[*] 3" not in output
+
+
+def test_text_fixable_summary_info_threshold_widens_default_scope(valid_plugin):
+    """With config fail-on info, plain `skillsaw fix` covers info — no opt-in line."""
+    context = RepositoryContext(valid_plugin)
+    violations = [
+        RuleViolation(
+            rule_id="content-unlinked-internal-reference",
+            severity=Severity.INFO,
+            message="Unlinked path reference: 'docs/x.md' — consider wrapping in link syntax [docs/x.md](docs/x.md)",
+            file_path=Path("SKILL.md"),
+            line=3,
+            fixable=True,
+            fix_confidence=AutofixConfidence.SAFE,
+        ),
+    ]
+
+    output = format_text(violations, context, [], "0.0.0", fail_level="info", fix_level="info")
+    assert "[*] 1 violation(s) fixable with `skillsaw fix`" in output
+
+
+def test_format_text_positional_color_binding_stable(valid_plugin):
+    """The tenth positional argument of format_text is color — pinned for
+    library callers."""
+    context = RepositoryContext(valid_plugin)
+    output = format_text([], context, [], "0.0.0", False, 0, None, None, "error", True)
+    assert "\033[" in output
+
+
+def test_text_info_suggest_counted_when_scope_covers_info(valid_plugin):
+    """An INFO+SUGGEST finding joins the suggest hint once in scope."""
+    context = RepositoryContext(valid_plugin)
+    violations = [
+        RuleViolation(
+            rule_id="claude-md-agents-import",
+            severity=Severity.INFO,
+            message="CLAUDE.md duplicates AGENTS.md",
+            file_path=Path("CLAUDE.md"),
+            fixable=True,
+            fix_confidence=AutofixConfidence.SUGGEST,
+        ),
+    ]
+
+    default = format_text(violations, context, [], "0.0.0", verbose=True)
+    assert "fixable with" not in default
+
+    covered = format_text(violations, context, [], "0.0.0", verbose=True, fix_level="info")
+    assert "[?] 1 violation(s) fixable with `skillsaw fix --suggest`" in covered
+
+
+def test_html_info_suggest_marker_composes_both_flags(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violation = RuleViolation(
+        rule_id="claude-md-agents-import",
+        severity=Severity.INFO,
+        message="CLAUDE.md duplicates AGENTS.md",
+        file_path=Path("CLAUDE.md"),
+        fixable=True,
+        fix_confidence=AutofixConfidence.SUGGEST,
+    )
+
+    shown = format_html([violation], context, [], "1.0.0", verbose=True)
+    assert "fixable with" not in shown
+
+    covered = format_html([violation], context, [], "1.0.0", verbose=True, fix_level="info")
+    assert 'title="fixable with skillsaw fix --suggest"' in covered
+
+
+def test_text_lint_only_info_threshold_shows_finding_unmarked(valid_plugin):
+    """A lint-only fail_level=info shows the finding, but plain fix follows
+    the config — so no marker and no fixable line."""
+    context = RepositoryContext(valid_plugin)
+    violations = [
+        RuleViolation(
+            rule_id="content-unlinked-internal-reference",
+            severity=Severity.INFO,
+            message="Unlinked path reference: 'docs/x.md' — consider wrapping in link syntax [docs/x.md](docs/x.md)",
+            file_path=Path("SKILL.md"),
+            line=3,
+            fixable=True,
+            fix_confidence=AutofixConfidence.SAFE,
+        ),
+    ]
+
+    output = format_text(violations, context, [], "0.0.0", fail_level="info")
+    assert "content-unlinked-internal-reference" in output
+    assert "[*]" not in output
+    assert "fixable with" not in output
 
 
 def test_json_fixable_true_includes_confidence(valid_plugin):
@@ -1342,8 +1483,333 @@ def test_html_fixable_marker(valid_plugin):
     assert 'title="fixable with skillsaw fix --suggest"' in output
 
 
+def test_html_info_fixable_marker_follows_scope(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violation = RuleViolation(
+        rule_id="content-unlinked-internal-reference",
+        severity=Severity.INFO,
+        message="Unlinked path reference",
+        file_path=Path("SKILL.md"),
+        fixable=True,
+        fix_confidence=AutofixConfidence.SAFE,
+    )
+
+    # Shown with -v but outside the fix scope: no marker.
+    shown = format_html([violation], context, [], "1.0.0", verbose=True)
+    assert "fixable with" not in shown
+
+    # With a config-widened fix scope, plain `skillsaw fix` covers info.
+    widened = format_html([violation], context, [], "1.0.0", fail_level="info", fix_level="info")
+    assert 'title="fixable with skillsaw fix"' in widened
+
+    # A lint-only info threshold shows the finding, still unmarked.
+    lint_only = format_html([violation], context, [], "1.0.0", fail_level="info")
+    assert "fixable with" not in lint_only
+
+
 def test_html_no_fixable_marker_when_unknown(valid_plugin):
     context = RepositoryContext(valid_plugin)
     output = format_html(_make_violations(), context, [], "1.0.0", verbose=True)
 
     assert 'class="fixable"' not in output
+
+
+# --- Top rules block ---
+
+
+def _repeat_violations(rule_id, severity, count, *, files=None, fixable=None, confidence=None):
+    """`count` violations of one rule, spread over `files` distinct paths."""
+    files = count if files is None else files
+    return [
+        RuleViolation(
+            rule_id=rule_id,
+            severity=severity,
+            message=f"{rule_id} finding {i}",
+            file_path=Path(f"skills/{rule_id}-{i % files}/SKILL.md"),
+            line=i + 1,
+            fixable=fixable,
+            fix_confidence=confidence,
+        )
+        for i in range(count)
+    ]
+
+
+def test_text_no_top_rules_below_threshold(valid_plugin):
+    """One finding short of the threshold: the totals already say enough."""
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations(
+        "content-description-routing", Severity.WARNING, TOP_RULES_THRESHOLD - 1
+    )
+
+    output = format_text(violations, context, [], "0.0.0")
+
+    assert "Top rules" not in output
+
+
+def test_text_top_rules_at_threshold(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations(
+        "content-description-routing", Severity.WARNING, TOP_RULES_THRESHOLD
+    )
+
+    output = format_text(violations, context, [], "0.0.0")
+
+    assert "Top rules (50 of 50 findings):" in output
+
+
+def test_text_top_rules_ranks_mixed_severities_and_marks_fixable(valid_plugin):
+    """Five rules, ranked by count, each labelled with its own severity and
+    the strongest fix available for it."""
+    context = RepositoryContext(valid_plugin)
+    violations = (
+        _repeat_violations("content-description-routing", Severity.WARNING, 30)
+        + _repeat_violations(
+            "agentskill-name",
+            Severity.ERROR,
+            20,
+            fixable=True,
+            confidence=AutofixConfidence.SAFE,
+        )
+        + _repeat_violations(
+            "content-broken-internal-reference",
+            Severity.WARNING,
+            10,
+            fixable=True,
+            confidence=AutofixConfidence.SUGGEST,
+        )
+        + _repeat_violations("context-budget", Severity.ERROR, 5)
+        + _repeat_violations("content-weak-language", Severity.INFO, 4)
+        + _repeat_violations("content-section-length", Severity.INFO, 3)
+    )
+
+    output = format_text(violations, context, [], "0.0.0", verbose=True)
+    block = output.split("Top rules")[1]
+    top = block.splitlines()
+
+    assert top[0] == " (69 of 72 findings):"
+    assert top[1].split() == [
+        "content-description-routing",
+        "30",
+        "warning",
+        "30",
+        "files",
+        "skillsaw",
+        "explain",
+        "content-description-routing",
+    ]
+    assert top[2].split() == [
+        "agentskill-name",
+        "20",
+        "error",
+        "20",
+        "files",
+        "[*]",
+        "safe",
+        "autofix",
+    ]
+    assert top[3].split() == [
+        "content-broken-internal-reference",
+        "10",
+        "warning",
+        "10",
+        "files",
+        "[?]",
+        "fix",
+        "--suggest",
+    ]
+    assert top[4].split()[:3] == ["context-budget", "5", "error"]
+    assert top[5].split()[:3] == ["content-weak-language", "4", "info"]
+    # Capped at five rows — the sixth rule never appears in the block.
+    assert len(top) == 6
+    assert "content-section-length" not in block
+
+
+def test_text_top_rules_shows_highest_severity_when_mixed(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations(
+        "claude-plugin-json-valid", Severity.WARNING, 49
+    ) + _repeat_violations("claude-plugin-json-valid", Severity.ERROR, 1)
+
+    output = format_text(violations, context, [], "0.0.0")
+    row = output.split("Top rules")[1].splitlines()[1]
+
+    assert row.split()[:3] == ["claude-plugin-json-valid", "50", "error"]
+
+
+def test_text_top_rules_counts_distinct_files(valid_plugin):
+    """Many findings in one file count once in the files column."""
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations("content-repeated-directive", Severity.WARNING, 60, files=3)
+
+    output = format_text(violations, context, [], "0.0.0")
+    row = output.split("Top rules")[1].splitlines()[1]
+
+    assert row.split()[:5] == ["content-repeated-directive", "60", "warning", "3", "files"]
+
+
+def test_text_top_rules_singular_file(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations("content-section-length", Severity.WARNING, 55, files=1)
+
+    output = format_text(violations, context, [], "0.0.0")
+    row = output.split("Top rules")[1].splitlines()[1]
+
+    assert row.split()[:5] == ["content-section-length", "55", "warning", "1", "file"]
+
+
+def test_text_top_rules_hint_names_only_rules_explain_resolves(valid_plugin):
+    """`skillsaw explain` knows builtin and plugin rules; a custom rule and
+    the linter's own `invalid-config` id would only answer "Unknown rule"."""
+    from skillsaw.rules.builtin import BUILTIN_RULE_REGISTRY
+
+    context = RepositoryContext(valid_plugin)
+    custom = _repeat_violations("team-house-style", Severity.WARNING, 30)
+    for v in custom:
+        v.source = "custom"
+    violations = (
+        _repeat_violations("content-description-routing", Severity.WARNING, 40)
+        + custom
+        + _repeat_violations("invalid-config", Severity.WARNING, 20)
+    )
+    rules = [BUILTIN_RULE_REGISTRY["content-description-routing"]()]
+
+    output = format_text(violations, context, rules, "0.0.0")
+    rows = output.split("Top rules")[1].splitlines()[1:4]
+
+    assert "skillsaw explain content-description-routing" in rows[0]
+    assert rows[1].split()[0] == "team-house-style"
+    assert "custom rule" in rows[1] and "explain" not in rows[1]
+    assert rows[2].split()[0] == "invalid-config"
+    assert "explain" not in rows[2]
+
+
+def test_text_top_rules_counts_only_displayed_findings(valid_plugin):
+    """Info findings are hidden without -v, so they neither trip the
+    threshold nor appear in the block."""
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations("content-weak-language", Severity.INFO, 60)
+
+    hidden = format_text(violations, context, [], "0.0.0")
+    assert "Top rules" not in hidden
+
+    shown = format_text(violations, context, [], "0.0.0", verbose=True)
+    assert "Top rules (60 of 60 findings):" in shown
+
+    # `--fail-on info` displays them too, without -v.
+    failing = format_text(violations, context, [], "0.0.0", fail_level="info")
+    assert "Top rules (60 of 60 findings):" in failing
+
+
+def test_text_top_rules_header_reports_share_of_findings(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violations = []
+    for i, count in enumerate([30, 20, 10, 5, 4, 3, 2]):
+        violations += _repeat_violations(f"content-rule-{i}", Severity.WARNING, count)
+
+    output = format_text(violations, context, [], "0.0.0")
+
+    assert "Top rules (69 of 74 findings):" in output
+
+
+def test_text_top_rules_plain_without_color(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations(
+        "agentskill-name",
+        Severity.ERROR,
+        60,
+        fixable=True,
+        confidence=AutofixConfidence.SAFE,
+    )
+
+    output = format_text(violations, context, [], "0.0.0", color=False)
+
+    assert "\033" not in output
+    assert "Top rules (60 of 60 findings):" in output
+
+
+def test_text_top_rules_colors_severity_and_hint(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations(
+        "agentskill-name",
+        Severity.ERROR,
+        60,
+        fixable=True,
+        confidence=AutofixConfidence.SAFE,
+    )
+
+    output = format_text(violations, context, [], "0.0.0", color=True)
+    row = output.split("Top rules")[1].splitlines()[1]
+
+    assert "\033[91merror" in row
+    assert "\033[92m[*] safe autofix\033[0m" in row
+
+
+def test_text_top_rules_columns_align(valid_plugin):
+    """Rule ids of different lengths still line the counts up."""
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations(
+        "content-broken-internal-reference", Severity.WARNING, 40
+    ) + _repeat_violations("agentskill-name", Severity.WARNING, 30)
+
+    output = format_text(violations, context, [], "0.0.0")
+    rows = output.split("Top rules")[1].splitlines()[1:3]
+
+    assert rows[0].index("40") == rows[1].index("30")
+
+
+def test_text_top_rules_links_rule_ids_when_hyperlinks(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    linter = Linter(context, LinterConfig.default())
+    violations = _repeat_violations("agentskill-name", Severity.WARNING, 60)
+
+    output = format_text(violations, context, linter.rules, "0.0.0", color=True, hyperlinks=True)
+    row = output.split("Top rules")[1].splitlines()[1]
+
+    assert "\x1b]8;;https://skillsaw.org/rules/agentskill-name/\x1b\\agentskill-name" in row
+
+
+def test_text_top_rules_hint_follows_fix_scope(valid_plugin):
+    """An info-level safe fix is outside the default fix scope, so the row
+    points at the docs instead of promising `skillsaw fix` will help."""
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations(
+        "content-unlinked-internal-reference",
+        Severity.INFO,
+        60,
+        fixable=True,
+        confidence=AutofixConfidence.SAFE,
+    )
+
+    scoped_out = format_text(violations, context, [], "0.0.0", verbose=True)
+    assert "skillsaw explain content-unlinked-internal-reference" in scoped_out
+    assert "safe autofix" not in scoped_out
+
+    widened = format_text(violations, context, [], "0.0.0", verbose=True, fix_level="info")
+    assert "[*] safe autofix" in widened
+
+
+def test_text_top_rules_absent_from_other_formats(valid_plugin):
+    context = RepositoryContext(valid_plugin)
+    violations = _repeat_violations("content-weak-language", Severity.WARNING, 60)
+
+    for fmt in ("json", "sarif", "html", "code-climate", "gitlab"):
+        assert "Top rules" not in format_report(fmt, violations, context, [], "0.0.0")
+
+
+def test_text_top_rules_drops_files_column_for_repo_wide_findings(valid_plugin):
+    """A whole-repository rule reports no path — the column goes away
+    instead of leaving a gap in every row."""
+    context = RepositoryContext(valid_plugin)
+    violations = [
+        RuleViolation(
+            rule_id="context-budget",
+            severity=Severity.WARNING,
+            message=f"Instruction budget exceeded ({i})",
+        )
+        for i in range(55)
+    ]
+
+    output = format_text(violations, context, [], "0.0.0")
+    row = output.split("Top rules")[1].splitlines()[1]
+
+    assert row == "  context-budget  55  warning  skillsaw explain context-budget"

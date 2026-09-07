@@ -1,23 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fastdownload
-Version: 0.0.7
+Version: 0.0.8
 Summary: A general purpose data downloading library.
-Home-page: https://github.com/fastai/fastdownload/tree/master/
-Author: Jeremy Howard
-Author-email: info@fast.ai
-License: Apache Software License 2.0
+Author-email: Jeremy Howard <info@fast.ai>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/fastai/fastdownload
+Project-URL: Documentation, https://fastdownload.fast.ai/
 Keywords: fastdownload,dataset,fastai,download
-Platform: UNKNOWN
-Classifier: Development Status :: 3 - Alpha
-Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: fastprogress
+Requires-Dist: fastcore>=1.3.26
+Dynamic: license-file
 
 # fastdownload
 > Easily download, verify, and extract archives
@@ -101,5 +101,3 @@ data = extracted
 If there is no ini file present, one will be automatically created for for you using the details you pass to `FastDownload`.
 
 You can add any additional key/value pairs to the config file that you want. When you call `FastDownload.get` pass `extract_key` to use a key other than `data` for choosing a location to extract to.
-
-

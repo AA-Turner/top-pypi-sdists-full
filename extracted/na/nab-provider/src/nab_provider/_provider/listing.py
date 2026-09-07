@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, TypeGuard
 
 from nab_provider._vendor.packaging.specifiers import InvalidSpecifier, SpecifierSet
 from nab_provider._vendor.packaging.version import InvalidVersion, Version
-from nab_provider.records import SdistFile, WheelFile
+from nab_provider.records import SdistFile, WheelFile, release_wheel_payload
 
 from ..errors import (
     ForeignMetadataError,
@@ -57,6 +57,15 @@ if TYPE_CHECKING:
         "requires-python",
         "wheel-tags",
         "invalid-version",
+    ]
+
+    # A prepared listing plus the cutoff verdicts taken over it, keyed by
+    # position in the listing, or ``None`` when no cutoff is configured.
+    _SharedListing = tuple[
+        list[tuple[Version, DistFile]],
+        set[Version],
+        bool,
+        dict[int, Cause | None] | None,
     ]
 
 
@@ -303,50 +312,16 @@ def filter_distributions(
     normalized: str,
     files: Sequence[WheelFile | SdistFile],
 ) -> list[tuple[Version, DistFile]]:
-    """Filter by wheel tag, requires-python, upload time, and sort.
+    """Return candidate listing records, newest version first.
 
-    Sorting: newest version first. When the effective ``dist-policy``
-    is PREFER_WHEEL or SDIST_INSTALL, wheels sort before sdists at
-    the same version so the metadata picker hits the cheapest source
-    first.  ``normalized`` is the canonical package name used to look
-    up the per-package / per-index ``uploaded-prior-to`` and
-    ``dist-policy`` overrides; the serving index is read from the
-    coordinator.
+    :func:`base_distributions` applies dist policy, Requires-Python, upload
+    cutoffs, and equal-version ordering before the target-specific wheel-tag
+    pass. Package and index overrides are evaluated for each candidate version.
 
-    This is the single funnel into ``versions_cache``, so what it drops
-    is gone from candidate selection, metadata sourcing, every prefetch
-    path, look-ahead, the emitted wheel list, and ``nab download``.
-
-    A wheel whose PEP 425 tags the target does not accept is dropped
-    (:func:`excluded_by_wheel_tags`), and a version left with no
-    compatible wheel and no sdist is dropped with it: the target cannot
-    install it, so the resolver must not pin it.  An sdist keeps a
-    version alive at every :class:`~nab_provider.provider.BuildPolicy`,
-    which is what stops the filter over-refusing a pure-source package;
-    the tag check is a wheel's check, as it is in pip.  Look-ahead
-    rejects the version later if the sdist's metadata cannot be read
-    under the policy in force.
-
-    The dist-policy and upload-time cutoff are version-scoped: a
-    per-package override applies only to candidate versions inside its
-    requirement's range, so each version's policy is evaluated against
-    its own :class:`Version`.
-
-    Under :attr:`~nab_provider.provider.DistPolicy.SDIST_INSTALL` a
-    version keeps its wheels in ``versions_cache`` as a cheap metadata
-    source only when it also publishes an sdist; a version whose only
-    surviving artifact is a wheel has no source to install, so it is
-    dropped and never becomes a candidate.  The kept wheels are dropped
-    later, at lock construction time, so only the sdist is pinned.
-
-    The filter runs in two passes.  :func:`base_distributions` applies
-    everything that has no platform axis (dist policy, Requires-Python,
-    upload cutoff, sort order, equal-version canonicalization), and is
-    memoised per (package, Python) across the targets of one resolve
-    when the provider carries a
-    :class:`~nab_provider.provider.ListingFilterCache`.  The wheel-tag
-    pass then runs per target on top of that shared list, so a
-    linux-only wheel still stays off the Windows target.
+    Under ``PREFER_WHEEL`` and ``SDIST_INSTALL``, wheels sort before sdists of
+    the same version as the cheaper metadata source. ``SDIST_INSTALL`` keeps a
+    version only when it has a surviving sdist; its wheels remain metadata
+    candidates and are removed during lock construction.
     """
     base = base_distributions(provider, normalized, files)
     return _apply_wheel_tags(provider, normalized, base)
@@ -438,23 +413,14 @@ def _filter_base(
             target_drops=True,
         )
     else:
-        parsed, sdist_install_versions, sort_with_wheel_first = cache.prepared(
-            normalized,
-            provider.stats,
-            partial(
-                _prepare_listing,
-                provider,
+        parsed, sdist_install_versions, sort_with_wheel_first, time_causes = (
+            cache.prepared(
                 normalized,
-                files,
-                policy,
-                target_drops=False,
-            ),
+                provider.stats,
+                partial(_prepare_shared, provider, normalized, files, policy),
+            )
         )
-        result = [
-            pair
-            for pair in parsed
-            if not python_or_time_cause(provider, normalized, pair[0], pair[1], policy)
-        ]
+        result = _apply_target_drops(provider, normalized, policy, parsed, time_causes)
 
     result = _drop_sdist_install_wheel_only(result, sdist_install_versions)
 
@@ -477,6 +443,59 @@ def _count_files_seen(stats: ProviderStats, wheels: int, sdists: int) -> None:
     stats.distributions_seen += wheels + sdists
     stats.wheels_seen += wheels
     stats.sdists_seen += sdists
+
+
+def _prepare_shared(
+    provider: Provider,
+    normalized: str,
+    files: Sequence[WheelFile | SdistFile],
+    policy: ListingPolicy,
+) -> _SharedListing:
+    """Run the half of the pass a matrix shares, and start its cutoff table.
+
+    A cutoff verdict reads the file's stamp and its effective cutoff, and
+    neither varies with the target, so one verdict answers every Python.
+    The table starts empty: :func:`_python_or_shared_time_cause` fills it
+    as it reaches each file, so a file no target admits is never dated.
+    """
+    parsed, sdist_install_versions, sort_with_wheel_first = _prepare_listing(
+        provider, normalized, files, policy, target_drops=False
+    )
+
+    time_causes: dict[int, Cause | None] | None = None
+    if policy.time_filter_active:
+        time_causes = {}
+
+    return parsed, sdist_install_versions, sort_with_wheel_first, time_causes
+
+
+def _apply_target_drops(
+    provider: Provider,
+    normalized: str,
+    policy: ListingPolicy,
+    parsed: list[tuple[Version, DistFile]],
+    time_causes: dict[int, Cause | None] | None,
+) -> list[tuple[Version, DistFile]]:
+    """Drop the prepared files this target's Python or the cutoff refuses.
+
+    ``time_causes`` holds the matrix's cutoff verdicts by position in
+    ``parsed``, and is ``None`` when no cutoff is configured and only the
+    Requires-Python drop runs.
+    """
+    if time_causes is None:
+        return [
+            pair
+            for pair in parsed
+            if not python_or_time_cause(provider, normalized, pair[0], pair[1], policy)
+        ]
+
+    return [
+        pair
+        for index, pair in enumerate(parsed)
+        if not _python_or_shared_time_cause(
+            provider, normalized, pair[0], pair[1], policy, time_causes, index
+        )
+    ]
 
 
 def _prepare_listing(
@@ -645,20 +664,33 @@ def _apply_wheel_tags(
 
     Runs per target: the tags are the one axis of the filter the targets
     of a matrix do not share.
+
+    Where the provider's caller allows it, a refused wheel is released as
+    it is dropped, since nothing fetches it again
+    (:func:`~nab_provider.records.release_wheel_payload`).
     """
     tags = provider.wheel_tags
     if tags is None:
         return base
+
+    accepts = tags.accepts
+    release_refused = provider.release_refused_wheels
 
     result: list[tuple[Version, DistFile]] = []
     tag_rejected_versions: set[Version] = set()
     run_version: Version | None = None
     run_length = 0
 
-    for version, dist in base:
-        if not excluded_by_wheel_tags(dist, tags):
-            result.append((version, dist))
+    for pair in base:
+        version, dist = pair  # a kept pair is appended as-is, not rebuilt
+
+        # Copied from excluded_by_wheel_tags rather than called: this runs per file.
+        if not isinstance(dist, WheelFile) or accepts(dist.filename):
+            result.append(pair)
             continue
+
+        if release_refused:
+            release_wheel_payload(dist)
 
         # ``base`` is sorted by version, so a version's rejected wheels arrive
         # together and fold into one tally update.  Identity is enough for the
@@ -727,7 +759,56 @@ def python_or_time_cause(
     return cause
 
 
-def excluded_by_wheel_tags(dist: DistFile, tags: TagSet) -> bool:
+def _python_or_shared_time_cause(
+    provider: Provider,
+    normalized: str,
+    version: Version,
+    dist: DistFile,
+    policy: ListingPolicy,
+    time_causes: dict[int, Cause | None],
+    index: int,
+) -> Cause | None:
+    """Answer :func:`python_or_time_cause` from the matrix's shared cutoff verdicts.
+
+    The first target to get the file at ``index`` past Requires-Python
+    takes its cutoff verdict into ``time_causes``, and the rest read that
+    back.  Requires-Python is asked first, as it is per target, so a file
+    no target admits is never given a cutoff.
+
+    Written out rather than shared with :func:`python_or_time_cause`
+    through helpers: both run once per file per target, and the frames
+    that sharing adds cost more than the duplication saves.
+    """
+    if policy.overridden:
+        override_rp = provider.effective_requires_python(normalized, version)
+    else:
+        override_rp = None
+
+    if excluded_by_python(provider, dist, override_rp):
+        return DropCause.REQUIRES_PYTHON
+
+    if index in time_causes:
+        cause = time_causes[index]
+    else:
+        if policy.overridden:
+            cutoff = provider.effective_uploaded_prior_to(
+                normalized, version, policy.index_name
+            )
+        else:
+            cutoff = policy.default_cutoff
+
+        cause = upload_time_cause(dist, cutoff)
+        time_causes[index] = cause
+
+    if cause is None:
+        return None
+    if cause == DropCause.UPLOAD_TIME_NAIVE:
+        raise InvalidUploadTimeError(naive_upload_time_message(normalized, dist))
+    provider.stats.excluded_by_time += 1
+    return cause
+
+
+def excluded_by_wheel_tags(dist: DistFile, tags: TagSet) -> TypeGuard[WheelFile]:
     """Return True when ``dist`` is a wheel the target cannot install.
 
     An sdist is never excluded here: it carries no tags, and building it
@@ -768,10 +849,10 @@ def dropped_release_in_range(
 
     Callers ask only when no surviving version falls in the range, so a
     dropped one that does is the release the requirement asked for.  A
-    dropped version equal to a surviving one survived under another
-    spelling instead: :func:`filter_distributions` collapses equal
-    versions onto one representative, and ``===`` compares its string
-    form.  Filtering through ``version_range`` keeps the pre-release
+    dropped version equal to a survivor is represented by that survivor:
+    :func:`filter_distributions` collapses equal versions onto one
+    representative. ``===`` compares its string form. Filtering through
+    ``version_range`` keeps the pre-release
     semantics candidate selection uses.
     """
     files = provider.coordinator.index.get_listing(normalized)
@@ -835,13 +916,17 @@ def _canonicalize_equal_versions(
     """
     representative: dict[Version, Version] = {}
     needs_rebuild = False
+    run_version: Version | None = None
+
     for version, _ in result:
-        chosen = representative.get(version)
-        if chosen is None:
-            representative[version] = version
-        elif chosen is not version:
-            # The listing interns its versions, so two distinct objects that
-            # compare equal are two spellings of one release.
+        # ``result`` is sorted by version and the listing interns its versions,
+        # so artifacts sharing a version string arrive as a run of one object.
+        if version is run_version:
+            continue
+        run_version = version
+
+        chosen = representative.setdefault(version, version)
+        if chosen is not version:
             needs_rebuild = True
             if (len(version.release), str(version)) < (
                 len(chosen.release),
@@ -901,7 +986,7 @@ def excluded_by_python(
 
 
 def upload_time_cause(dist: DistFile, cutoff: datetime | None) -> Cause | None:
-    """Return which upload-time rule refuses ``dist``, or None when none does.
+    """Return the upload-time rule that refuses ``dist``, if any.
 
     ``cutoff`` is the effective upload-time cutoff for the package, already
     resolved through the overrides and the global ``uploaded-prior-to``
@@ -1125,7 +1210,7 @@ def parse_prefetched_metadata(
         # as dependency-free.
         return
     if from_sdist:
-        # sdist PKG-INFO: caching it here would skip the PEP 643 gate.
+        # sdist PKG-INFO: caching it here would skip the PEP 643 check.
         return
 
     try:

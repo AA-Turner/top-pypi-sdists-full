@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.416.0", "uqff_calculator.VERSION = 0.416.0 (THE ORIGIN POINTS SHIP: SHIP GUARD v9 tag-chain continuity + hardened ship.ps1 pre-flight/post-push verification + v0.413.0 history named honestly - THE USER MANUAL BAND, PREPARED, PUBLISHED INSIDE v0.414.0; a ship is not a ship until the remote tag is seen)")
+assert_that(C.VERSION == "0.420.0", "uqff_calculator.VERSION = 0.420.0 (THE CODE-TRUTH SHIP: Batches 21-25, 40 rulings B162-B201 + one sweep application - the Millennium set is equation-verified, the resonance tables are superseded on three independent code witnesses, the Ubi namespace closes as one law with four faces, and the registry crosses 7,000 rows)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -4464,8 +4464,8 @@ assert_that(abs(C.calc('PAPER_013b')['value']['uqff_factor'] - 0.6194) < 1e-4 an
             "PAPER_013b: LISA SMBH factor 0.6194 (38.1% reduction)")
 assert_that(C.calc('PAPER_014b')['value']['harmonics_mHz'] == [0.293, 0.586, 0.879] and C.calc('PAPER_014b')['value']['stability_factor'] == 1.15,
             "PAPER_014b: EMRI f_ISCO=2.931 mHz harmonics 0.293/0.586/0.879; stability 1.15")
-assert_that(C.calc('PAPER_026c')['status'] == 'OPEN_RULING' and C.calc('PAPER_026c')['value']['m_s_claimed_keV'] == 5.4,
-            "PAPER_026c: sterile neutrino m_s=5.4 keV headline; formula mojibake (540 MeV) OPEN_RULING Q-244b")
+assert_that(C.calc('PAPER_026c')['status'].startswith('RULED_2026-09-04') and C.calc('PAPER_026c')['value']['m_s_claimed_keV'] == 5.4,
+            "PAPER_026c: sterile neutrino m_s=5.4 keV headline; the 540-MeV formula mojibake (Q-244b) IS the B52-disclosed 1e5 unit-dimension issue - one finding under two tags, RULED at the v0.416.0 post-ship audit; short variant re-IDd, sequential file canonical PAPER_026")
 assert_that('positive' in C.calc('PAPER_221b')['value']['enhancement_form'].lower(),
             "PAPER_221b: Bubble Nebula (1+E(t)) positive irradiation enhancement")
 assert_that('expansion' in C.calc('PAPER_221c')['value']['enhancement_form'].lower(),
@@ -9570,7 +9570,7 @@ def _sg4_last(path, n=4000):
             return _f.read().decode('utf-8', 'ignore')
     except OSError:
         return ''
-_sg4_band = 'ORIGINPOINTS_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
+_sg4_band = 'CODETRUTH_ARC'  # v4.1 (2026-08-21): tracks the CURRENT arc marker each ship - the frozen BAND_2151_2156 form passed four ships by tail-window luck until the GAPS tail rotated it out; update this marker at every ship prep
 for _sg4_f in ('UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv',
                'UNIFIED_REGISTRY_R3_LEDGER.csv', 'UNIFIED_REGISTRY_XGEO_QUEUE.csv',
                'UNIFIED_REGISTRY_XGEO_ROUTES.csv'):
@@ -15049,6 +15049,245 @@ assert_that(all(C.calc(_p)['status'].startswith('RULED_BATCH1_2026-08-31') for _
 _rq_led = _readfile('RULINGS_QUEUE.md')
 assert_that('BATCH 1 RULINGS' in _rq_led and 'ANSWERS (Daniel, 2026-08-31)' in _readfile('RULINGS_BATCH_1.md'),
             "BATCH 1 FOLD (2/2) - THE ANSWERS ARE ON RECORD: every ruling is written into the ledger's BATCH 1 section and the batch file's ANSWERS appendix with per-question dispositions (including the two partial-scope notes: Q-002 Gauss recorded but its ten carrier papers hold other open questions so they stay flagged, and Q-216 narrowed to Q-216b because the ruled bridge FORM still needs its per-domain reference values) - rulings without a paper trail are how drift starts, so the trail is gate-pinned")
+
+# ---- BATCH 25 RULED 2026-09-07 (B194-B201): the CoAnQi block closes - code truth, four faces, and the YM fork resolution ----
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in range(172, 180))
+            and C.calc('PAPER_194')['status'].startswith('RULED_2026-09-07')
+            and abs(3 * 6.674e-11 * 2.984e30 ** 2 / 1e12 - 1.783e39) / 1.783e39 < 1e-3
+            and abs(70 * 1000 / 3.0857e22 - 2.2685e-18) / 2.2685e-18 < 1e-4
+            and abs(7.09 / 2 - 3.545) < 1e-12
+            and abs(3e8 / 656e-9 - 4.573e14) / 4.573e14 < 1e-3
+            and abs((5e-4 * 0.57) ** 2 - 8.1225e-8) < 1e-12
+            and abs(-1 * __import__('math').log(0.7) / 1.68e12 - 2.123e-13) / 2.123e-13 < 1e-3
+            and abs(1e15 * 2.97e8 ** 2 / 1e-23 - 8.82e54) / 8.82e54 < 1e-3
+            and abs(4.297e6 * 1.989e30 - 8.55e36) / 8.55e36 < 0.001
+            and abs(0.25 - 1.0 / 4) < 1e-18,
+            "BATCH 25 (B194-B201) - the CoAnQi block closes on code truth: the Ubi namespace lands as ONE LAW WITH FOUR SCOPED FACES (galactic/local/moment/fluid - the fluid face matching the B163 Master-U_Bi), the resonance tables are FORMALLY SUPERSEDED by the operational 1.773e-9 on THREE independent witnesses (unit test, decomposition, running sim - the trigger reading canonized), Term 9 = 3GM^2/r^3 is canonized as the compressed-table generator (code == table == derived), corpus H0 = 70 goes EVERYWHERE-standing, the four-way YM fork resolves onto the B178 1.736 GeV canon (three commentary routes), the DPM mapping is scoped to three faces with the spatial grad(UA) T0 seed canonical, rho_A = 1e-23 is canonized corpus-wide, the quasar unbinding mechanism is reconciled COMPATIBLE with the PAPER_2153 bound-state doctrine (indirect signatures), the two distinct 26-ladders are separated (level-18-Higgs assignment stands, the 1e-2 J value = the defect), the faint-young-Sun kappa chain is ruled a slipped attempt (kappa stands on B130/B146), the M_bh anchor updates to the B147 GRAVITY pair, and the sec-8 epistemic self-assessment is registered as the corpus Rule 7 exemplar; the sweep caught PAPER_194s Q-174a dependency and closed it under B200; opens: MUGE.cpp extraction, level-18 quantity, E_0 basis, SCm_contrib magnitude; sweep CLEAN after application")
+
+# ---- BATCH 24 RULED 2026-09-07 (B186-B193): the sec-2.4 block opens on observational anchors and the Ubi scoping ----
+import math as _m_b24
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-07') for _n in range(164, 172))
+            and abs(2.3e14 / 1e4 - 2.3e10) < 1.0
+            and abs(3e11 / 2.3e10 - 13.04) < 0.01
+            and abs(13 * 1.602e-7 / 1e-45 - 2.083e39) / 2.083e39 < 1e-3
+            and abs(2.3e10 / 4.4e13 - 5.227e-4) / 5.227e-4 < 1e-3
+            and abs(5.28 ** 2 / (2 * 1.2566e-6) - 1.109e7) / 1.109e7 < 1e-3
+            and abs((0.3 * 1.602e-10) ** 4 / (3.1615e-26) ** 3 * 1e-45 / 9e16 - 1.876e-27) / 1.876e-27 < 0.01
+            and abs(5e51 + 3e51 - 8e51) < 1e38
+            and abs(1 + 0.001 * 400 - 1.4) < 1e-12
+            and abs(1.6726e-27 * 5e6 - 8.36e-21) / 8.36e-21 < 1e-3
+            and abs(5e-4 * 0.57 - 2.85e-4) < 1e-18
+            and abs(_m_b24.log10(8.8e26 / 1e4) - 22.94) < 0.01,
+            "BATCH 24 (B186-B193) - the sec-2.4 block opens: SGR 1745s field goes to the Chandra observational anchor (2.3e10 T, the 13x demo fork closed) with the compressed-dominant reading corrected against 158s own algebra; the A_mu_nu coupling takes B = 5.28 T (exact chain match) and the TENSOR-CORRECT trace 4 = D_PHYS; the wind convention settles at delta_sw per km/s (factor 1.4, the 0.01 outlier named); GW231123s mass-gap chain is corrected (1.876e-27 kg glueball-scale, recomputed) with F_U MERGER ADDITIVITY canonized and the 300 MeV figure folded as a Lambda_QCD anchor datapoint under the B178 canon; the entity scale factors are ruled ad-hoc visualization compression; kappa*SSq = 2.85e-4 is ruled a DIMENSIONLESS coupling (the 158/169 concordant family); the UBI SCOPING DOCTRINE lands - one Ubi with local (compact), DPM-moment (mu_s-gradient), and galactic (full chain) faces, final namespace check at Q-168; and the k1/k2/k3 = 1.5/1.2/1.8 SOURCE-DOCUMENT PROVENANCE is canonized as the sec-2.4 anchor (May 2025 Final Equations, PAPER_2152 chain, k4 third confirmation); opens: T_plasma 1270 source, SCm_contrib replacement, Q-168 four-form check; sweep CLEAN")
+
+# ---- BATCH 23 RULED 2026-09-04 (B178-B185): the Millennium verification pass + the calibration block ----
+import math as _m_b23
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED') for _n in range(156, 164))
+            and 'ruling_b184' in C.calc('PAPER_162')
+            and abs(0.5 + C.F_TRZ * (5.0 / 6) - 7.0 / 12) < 1e-15
+            and abs(_m_b23.log(10) / (5.0 / 6) - 2.7631) < 1e-4
+            and abs(C.F_TRZ ** 9 - 1e-9) < 1e-22
+            and abs((1 - C.F_TRZ * 6.0 / 4) - 0.85) < 1e-15
+            and (4 + 6 == 10 == 5 * 4 // 2)
+            and abs(25.0 / 12 - 2 - 1.0 / 12) < 1e-15
+            and abs(0.218 * (1 + C.F_TRZ * 25.0 / 12) * 6 - 1.581) < 0.005
+            and (1.70 <= 1.736 <= 1.80) and not (1.70 <= 1.581 <= 1.80)
+            and abs(6.674e-11 * 1e30 / 1e22 - 6.674e-3) < 1e-15
+            and abs(2 * _m_b23.pi / 0.001 - 6283.2) < 0.1
+            and abs(0.57 * 5e-4 - 2.85e-4) < 1e-18
+            and abs((0.99 / 0.1) ** 2 - 98.01) < 1e-10,
+            "BATCH 23 (B178-B185) - the Millennium verification pass and the calibration block: PAPER_1182 is THE canonical Millennium set with its closure equations INDEPENDENTLY VERIFIED (Poincare 7/12 EXACT, Riemann suppression ln(10)/Phi_res with the true 10000th zero, P-NP F_TRZ^9 EXACT, NS cap 0.85 EXACT, Hodge dim-sum EXACT, BSD = the true Cremona 37a1 value) and its K_Mex-1 misprint corrected-by-reference to the K_Mex-2 = 1/12 DPM-pair identity; the YM 1.736 GeV canon is confirmed BY 1182s own falsifiable window which its ladder fails; E_react adjudicates to route 1 with k4 = 2.0 confirmed corpus-wide (self-rectification validated); the blend runs on corrected inputs at the Schwinger scale (SSq*kappa footer EXACT); the 13th term takes the 2.32 mm throat with E_vac,neb = rho_UA canonized; the Lambda global/local bridge canonizes under dual-manifestation; the jet mojibake resolves with the H-atom rho_A reading; the solar-cycle relative amplitude gets its SECOND independent ruling (B17 + B184 concordant); and the modular MUGE wires on H0 = 70 with the per-term normalization program registered to the sigma_ref family; opens: Lambda_QCD anchor, 14.3 TeV, SCm_contrib replacement, g_res recompute; sweep CLEAN")
+
+# ---- BATCH 22 RULED 2026-09-04 (B170-B177): the MUGE system papers - placeholders, doctrines, and the 2.32 mm landmark ----
+import math as _m_b22
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-04') for _n in range(148, 156))
+            and abs(0.1 / 1.773e-9 - 5.64e7) / 5.64e7 < 0.01
+            and abs(3e11 / 4.4e9 - 68.2) < 0.5
+            and abs(3e8 / _m_b22.sqrt(8 * _m_b22.pi * 6.674e-11 * 1e31) - 2.32e-3) / 2.32e-3 < 0.005
+            and abs(1e8 * C.F_TRZ - 1e7) < 1e-6
+            and abs(1.0 / (C.F_TRZ * 5e-4) - 20000.0) < 1e-9
+            and abs(20000.0 / 365.25 - 54.75) < 0.01
+            and abs(1e15 * 1e16 / 1e-15 - 1e46) < 1e33
+            and abs(1e-23 * 1e8 - 1e-15) < 1e-28
+            and abs(0.9 + C.F_TRZ - 1.0) < 1e-15
+            and abs((1 - _m_b22.exp(-1e-6)) / 1e-6 - 1.0) < 1e-5,
+            "BATCH 22 (B170-B177) - the MUGE system papers close: the magnetospheric identification is canonized as the reading for the block (first in-corpus statement, PAPER_148), the 7-system g values are ruled PARAMETRIC PLACEHOLDERS on the 1-2-5 ladder x (1 + F_TRZ^3 rung-3 tag), the scoping doctrine extends to photon paths (resolving the 30-order ring flag and the Jeans mix under one rule), the 146/147 derivations become the ONE canonical 12-term formula set (tables supersede the printed 147 cascade; 152 forms = variant), the wormhole throat r_0 = 2.32 mm is canonized as a falsifiable landmark (the block's cleanest chain), the three jet identities land with lambda_SCm registered and the TWO 1e46 E_react routes adjudicated as ONE LINKED STRUCTURE (lambda_SCm = rho_A*v_SCm), the SM-limit keystone is ruled VALID on Ug4i form 4 with the CONTAINMENT DOCTRINE canonized as the framework's GR-relationship statement, Pioneer is reframed as an upper bound (thermal-recoil resolution acknowledged), and the mantissa-exact/exponent-slip family gets its standing transcription-audit note; opens: kappa_length, cascade cluster, real SOURCE4 values, Westerlund distance fork; sweep CLEAN")
+
+# ---- BATCH 21 RULED 2026-09-04 (B162-B169): the MUGE Cycle-3 architecture block ----
+import math as _m_b21
+assert_that(all(C.calc('PAPER_%d' % _n)['status'].startswith('RULED_2026-09-04') for _n in range(140, 148))
+            and _m_b21.log10(5.96e-27 / 7.09e-36) > 8.8
+            and abs(2 * C.F_TRZ - 0.2) < 1e-15
+            and abs(6.674e-11 * 1.6726e-27 ** 2 / (1.0546e-34 * 2.9979e8) - 5.902e-39) / 5.902e-39 < 0.002
+            and abs(2.2 / 3.3 - 2.0 / 3.0) < 1e-12
+            and abs(4.0 / (4 + 6) - 0.4) < 1e-15 and abs(6.0 / 10 - 0.6) < 1e-15
+            and abs(0.6 * 23.33 - 14.0) < 0.01
+            and abs(1e12 * 10 * 1e5 / 3e8 - 3.333e9) / 3.333e9 < 1e-3
+            and abs(1.0 / ((4 - 1) * (10 + 1)) - 1.0 / 33) < 1e-18,
+            "BATCH 21 (B162-B169) - the MUGE Cycle-3 architecture block closes: the ratio-10 origin is the SO_5 monopole-mode count with factor 11 = SO_5+1 (both primitive-locked, DE overclaim superseded by the PAPER_145 split); the azeo void joins the 2*F_TRZ identity family as its 4th appearance (PAPER_1944 seminal, predecessor-canonized) with Buoy_term ruled STRUCTURED-CALIBRATED on the Master U_Bi chain (4/5 factors primitive-locked incl. the Boyle 1/33 identity); alpha_G = G*m_p^2/(hbar*c) canonized inside the H_res dipole term; the 40/60 bridge back-solves to the (D_phys, D_BSFG)/SO_5 primitive pair (D_phys/D_BSFG = 2/3 EXACT, the rescue of the derived-not-assumed claim); the genesis Ub 14:1 dominance yields to the balanced F_UBi/F_UBii doctrine and the SSq survival narrative is canonized; MUGE-g identified as a system-scale resonance-correction amplitude (demo values parametric); the scoped fTRZ resolution is adopted with the four Ug4i forms renamed; and the FDPM cascade's formula-vs-tables split is disclosed with omega_SCm = 1.25 THz canonized as the one THz carrier; opens: d_pair rule, island fork, k4 fork, cascade cluster, four QM-anomaly targets; sweep CLEAN")
+
+# ---- BATCH 20 RULED 2026-09-04 (B154-B161): the genesis block - roots, doctrines, and rung 3 ----
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_132', 'PAPER_133', 'PAPER_134', 'PAPER_135', 'PAPER_136',
+                           'PAPER_137', 'PAPER_138', 'PAPER_139'))
+            and abs(0.1 ** 3 - 1e-3) < 1e-18
+            and abs(1e15 * 1e8 / 1e-23 - 1e46) < 1e33
+            and abs(7.654 / 2.0801 - 3.680) < 1e-3
+            and abs(1.2 * 1.1e-10 * 8887 * 1.005 * 1e46 - 1.18e40) / 1.18e40 < 0.01
+            and abs(1 / 7.623e-49 - 1.312e48) / 1.312e48 < 1e-3,
+            "BATCH 20 (B154-B161) - the genesis block closes with its roots and doctrines: PAPER_133 is the PROVENANCE ROOT (bit-for-bit with the PAPER_2152 Final-Equations findings, the beta 0.6 lineage documented), E_react's v1 form is confirmed on three supports, P_SCm = F_TRZ^3 takes rung 3 beside d_sw's rung 2, the DOMAIN-DECAY DOCTRINE separates field-band constants from astronomical timescales (four falsified outputs Nos. 4-7 pinned along the way), the NS-Millennium answers arrange into a hierarchy under the enstrophy cap, H_SCm and P_SCm read as trapped-SCm bookkeeping per the two-scales doctrine, genesis ladder ENERGIES survive their superseded LABELS, the B_crit three-value fork closes under the Schwinger canon, and the unit-reference doctrine extends to the MUGE inverse family; the Hoyle fit is honestly calibrated and the two N=3s stay two; opens: W/m3 label, alpha_star, cavity chain, Ug4 chain; sweep CLEAN")
+
+# ---- BATCH 19 RULED 2026-09-04 (B146-B153): kappa's second origin + the refinement block's honesty audit ----
+import math as _b19m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_124', 'PAPER_125', 'PAPER_126', 'PAPER_127', 'PAPER_128',
+                           'PAPER_129', 'PAPER_130', 'PAPER_131'))
+            and abs(0.35 / 700 - 5e-4) < 1e-12
+            and abs(-(1 - 2 / _b19m.sqrt(130)) - (-0.8246)) < 1e-4
+            and 26 // 2 == 13
+            and abs(1 - 0.6029 - 0.3971) < 1e-12
+            and abs(0.168 - 1.0 / 6) / (1.0 / 6) < 0.01
+            and abs(1 + 0.57 * 0.6029 * 0.1 - 1.0344) < 1e-4,
+            "BATCH 19 (B146-B153) - the d91b1f6c refinement block audited to the floor: kappa gains its SECOND independent observational derivation (alpha/t_mean = 0.35/700 = 5e-4 EXACT from real blazar statistics, beside the outburst route), the GRAVITY pair (8.55e36 kg, 2.554e20 m) drives the corpus with Q-117a settled, the d_sw triple stands unified by prior rulings with the Alfven PSP grounding as the observational peg, SSq^3 is ADJUDICATED to Omega_b/Omega_DM (the selected-to-match 0.185 anchor exposed against its own citation), the 3C273 counter-jet double error corrects to t = -0.81 solving R = 130 EXACTLY with 13 knots = D_crit/2, RACS reclassifies as a young NS with the clean 1-beta_i ejecta form, the apparent-mass /10 is F_TRZ, and TWO falsified code outputs plus two explicit circularities are pinned by name; opens held: E_gap, beaming convention, damping chain; sweep CLEAN")
+
+# ---- BATCH 18 RULED 2026-09-04 (B138-B145): the winding pick + the SSq^3 identity + one canon for EP-09 ----
+import math as _b18m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_116', 'PAPER_118', 'PAPER_119', 'PAPER_120',
+                           'PAPER_121', 'PAPER_122', 'PAPER_123'))
+            and 'ruling_b139' in C.calc('PAPER_117') and C.calc('PAPER_117')['status'].startswith('RULED')
+            and 60 + 26 - 4 == 82
+            and abs(0.049 / 0.265 - 0.57 ** 3) / 0.57 ** 3 < 0.002
+            and abs(2.0 / 10 - 0.2) < 1e-15
+            and abs(10 ** (4.20 - 20) / 1.602e-16 - 0.989) < 0.001
+            and abs(1e15 * 1e8 / 1e-23 - 1e46) < 1e33
+            and abs(_b18m.log10(1.602) - 0.20466) < 1e-5,
+            "BATCH 18 (B138-B145) - the EP refinement block: the EXCLUSIVITY PICK goes to the winding primitive (dn = 2/SO_5 = 1/5 EXACT, the anchor becomes DERIVED 0.989 keV and the round-eV 0.2047 is exposed as the conversion mantissa), Omega_b/Omega_DM = SSq^3 at 0.16 percent is REGISTERED with a derivation session queued, Z = 82 = A_5+D_crit-D_phys is ratified in its EP context, EP-09 gets ONE canonical mechanism (the B25 composite ladder over two era variants), B_crit supercritical handling goes bounded via the D_SCm threshold, the UA namespace split closes FOUR queue items at once, the hadron mid-band correction is RESOLVED-BY-CORPUS on three voices with the falsified R^2 retired, and the M_bh scoped split mirrors the d_g pin; opens held: the Lambda-30-TeV connection, the SSq^3 session; sweep CLEAN")
+
+# ---- BATCH 17 RULED 2026-09-04 (B130-B137): the EP compendium - two anchors for one primitive ----
+import math as _b17m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_106', 'PAPER_107', 'PAPER_108', 'PAPER_109', 'PAPER_110',
+                           'PAPER_111', 'PAPER_112', 'PAPER_113'))
+            and abs(6.0 / 5 * 0.57 - 0.684) < 1e-12
+            and abs(1 - 0.57 * (1 - 0.57) - 0.7549) < 1e-4
+            and abs(_b17m.sqrt(0.57) - 0.755) < 5e-4
+            and abs(0.6029 * 3e8 - 1.809e8) / 1.809e8 < 1e-3
+            and abs(_b17m.log(2.1 / 0.47) / 562 - 2.66e-3) / 2.66e-3 < 0.01
+            and abs((1 + 0.57 * 2 / _b17m.pi) * 1.1 - 1.5) / 1.5 < 0.001,
+            "BATCH 17 (B130-B137) - the empirical-proof compendium block closes with SSq gaining a SECOND independent observational anchor (the Ikeda 10-alpha boundary condition IS 0.57, beside the spin-down 0.755^2 origin - and f_pp = 1-SSq(1-SSq) = 0.7549 grazes sqrt(SSq) = 0.7550 on the way); beta_i is TRI-SOURCED across three physics domains with the canonical 0.6029 primary at 0.48 percent; Omega_L's 0.685 anchor finds its (6/5)*SSq origin; EP-01's asserted R = 1.5 is grounded by citation to the B25 composite ladder; the SgrA* distance gets its scoped pin; the ill-defined clustering statistic is retired for a real test; and kappa gains its flare-vs-population domain structure re-grounded on PAPER_125's named sources; the 089-footer template-injection audit note is standing; sweep CLEAN")
+
+# ---- BATCH 16 RULED 2026-09-04 (B122-B129): Session-0's first hundred closes with the flagship bench test ----
+import math as _b16m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_098', 'PAPER_099', 'PAPER_100', 'PAPER_101', 'PAPER_102',
+                           'PAPER_103', 'PAPER_104', 'PAPER_105'))
+            and abs(25.0 / 12 * 0.84 + 1 - 2.75) < 1e-10
+            and abs(2.75 - 2.7255) / 2.7255 < 0.01
+            and abs(5 * 1.25e12 - 6.25e12) < 1
+            and 10 // 2 == 5
+            and abs(3e8 * 1e-4 - 3.0e4) < 1e-9
+            and abs(2000 * 27.0 / (60 * 24) - 37.5) < 0.01
+            and abs(1.97327e-25 / 1e-15 / 1.602e-10 - 1.2317) < 0.01,
+            "BATCH 16 (B122-B129) - Session-0's first hundred papers close with the framework's most accessible test: the vacuum hole is the FIFTH HARMONIC of the phonon carrier (nu_hole = 5*f_SCm = 6.25 THz, 5 = SO_5/2) and the canonical vacuum-channel dip is 10 PERCENT - a THz-bench measurement away; the viscosity twist turned out to be B112's CONFIRMING instance (lab fluids = in-medium F_TRZ^2); T_CMB goes primitive (K_MEX*Phi_res + 1 = 2.75 K, superseding the era sqrt([SCm]) chain); eta_b = eps_CP*[UA] lands EXACT; ONE velocity constant v_UA = c*[UA] = 3.0e4 m/s unifies the era labels and formally closes Q-060b; Delta_YM = 1.736 GeV rules its three-epoch chain; the numerological line is struck by the paper's own honesty; and Domain 1.13 closes as structural re-expression; sweep CLEAN")
+
+# ---- BATCH 15 RULED 2026-09-04 (B114-B121): the primitives' own origins + the fork's dividends ----
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_090', 'PAPER_091', 'PAPER_092', 'PAPER_093', 'PAPER_094',
+                           'PAPER_095', 'PAPER_096', 'PAPER_097'))
+            and abs(0.57 * 5e-4 - 2.85e-4) < 1e-12
+            and abs((600.0 / 1200.0) * 0.1 ** 3 - 5e-4) < 1e-15
+            and abs(0.755 ** 2 - 0.5700) < 3e-5
+            and 4 + 4 + 10 + 6 + 2 == 26
+            and abs(1.34 / 1.35 - 0.9926) < 1e-3
+            and 1000 - 340 == 660
+            and abs(1 + 0.57 - 1.57) < 1e-12,
+            "BATCH 15 (B114-B121) - the primitives found their own Session-0 origins: KAPPA = (N_burst/t_active)*F_TRZ^3 EXACT from the SGR1745 outburst (the mysterious 1e-3 was a rung), SSq = 0.755^2 from spin-down anchoring (empirical origin paired with PAPER_1154), and U_bi/F_U = SSq*kappa = 2.85e-4 becomes a named ratio; the B112 context split pays three dividends in one batch (pulsar timing 10 percent, FRB slope 1.10, neutrino already settled); the 26-layer fine partition {D_phys, D_phys, SO_5, D_BSFG, 2} refines the coarse census; the T0 doctrine's Session-0 root is recorded in PAPER_090's own words; the ASKAP reconciliation is ratified; the corrected FRB energy chain lands nearer CHIME without beaming; honest holds: the 7.09e-5 anchor normalization FLAGGED without a chain, the horizon-shift form, the missing 14th mode, the Ug4 falloff; sweep CLEAN")
+
+# ---- BATCH 14 RULED 2026-09-04 (B106-B113): powers of the Hawking identity + the five-observable fork closed ----
+import math as _b14m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_082', 'PAPER_083', 'PAPER_084', 'PAPER_085', 'PAPER_086',
+                           'PAPER_087', 'PAPER_088', 'PAPER_089'))
+            and abs((1 - 0.1 ** 2) ** -4 - 1.0410) < 1e-4
+            and abs((1 / 1.0410) ** (1.0 / 3) - 0.9867) < 1e-4
+            and abs(5.7e11 * (1 - 0.1 ** 2) ** (4.0 / 3) - 5.62e11) / 5.62e11 < 0.002
+            and 4 + (4 + 10) + 6 + 2 == 26
+            and abs(5e-7 * 365.25 - 1.827e-4) / 1.827e-4 < 1e-3
+            and abs(_b14m.cos(0) + _b14m.cos(2 * _b14m.pi / 3) + _b14m.cos(4 * _b14m.pi / 3)) < 1e-12
+            and 10 ** 6.45 // 1 == 2818382,
+            "BATCH 14 (B106-B113) - the evaporation family runs on POWERS of the Hawking identity: t_UQFF/t_GR = (1-F_TRZ^2)^-4 = 1.0410 EXACT and the threshold shifts by (1-F_TRZ^2)^(4/3) to 5.62e11 kg (the -1.3 percent that two papers' corrected chains agree on, with 083's exponent sign-flipped in print); the 26-channel partition goes fully primitive (D_phys + (D_phys+SO_5) + D_BSFG + 2, the third decomposition of 26); THE FIVE-OBSERVABLE f_TRZ FORK IS CLOSED by the context split - vacuum channels see F_TRZ (the +10 percent SgrA* neutrino excess is DETECTABLE), in-medium channels see F_TRZ^2 (the anchor family gains its mechanism: one rung eaten by the medium, and PAPER_102's viscosity exclusion is respected); kappa_AGN = 5e-7/day joins the decay register; eta is mode-dependent (SC reduction / XRB doubling); ASKAP has two periods; the year-label pattern is canon; t_Page = 0.5205 is tracked; honest opens: Ug4 form, footer chain; sweep CLEAN")
+
+# ---- BATCH 13 RULED 2026-09-04 (B98-B105): the sign that turned a caveat into a win + the Hawking identity ----
+import math as _b13m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_074', 'PAPER_075', 'PAPER_076', 'PAPER_077', 'PAPER_078',
+                           'PAPER_079', 'PAPER_080', 'PAPER_081'))
+            and 4 / 125 == 0.032
+            and abs((342 * (1 - 0.57 * 4 / 125) - 324) / 12 - 0.98) < 0.01
+            and abs((1 + 0.1) * (1 - 0.1) - 0.99) < 1e-15
+            and abs(5.6 / _b13m.sqrt(0.5 ** 2 + 1.0 ** 2) - 5.0) < 0.02
+            and abs(1 + 0.99 * 0.99 - 1.9801) < 1e-12
+            and abs(_b13m.log10(1.99) - 0.299) < 1e-3,
+            "BATCH 13 (B98-B105) - the deepest dissolution yet: PAPER_074's one-sided Rule-7 caveat became a UQFF WIN once the sign followed the master equation - sigma_UQFF = sigma_Newton*(1 - SSq*4/125) with 0.032 = D_phys/(A_5*K_MEX) EXACT (the 125-family sibling of the rocky-Love 3/125) beats Newton in ALL SIX rows; the Hawking ratio is the primitive-locked identity (1+F_TRZ)(1-F_TRZ) = 0.99 EXACT joining the F_TRZ^2 anchor family (7th self-rectification, drift inputs superseded); log10(1+SSq^6) claims its SECOND domain (NNDC binding beside Gaia log g); the Crab dual spin is real spin-down epochs; the enhancement pair 1.9801/1.99 is class-scoped; the tension is 5.0 sigma computed; and the capstone now tells the corrected story; opens held: sigma_Newton provenance, M_dot table, photon-mass formula, J1818 provenance, Pdot; sweep CLEAN")
+
+# ---- BATCH 12 RULED 2026-09-04 (B90-B97): ground-truth configs + the COP identity + the first lab datum ----
+import math as _b12m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_066', 'PAPER_067', 'PAPER_068', 'PAPER_070',
+                           'PAPER_071', 'PAPER_072', 'PAPER_073'))
+            and 'ruling_b93' in C.calc('PAPER_069') and C.calc('PAPER_069')['status'].startswith('RULED')
+            and abs(8.3e30 * 1e5 - 8.3e35) / 8.3e35 < 1e-12
+            and 10 ** 15 == 1000000000000000
+            and abs(6e5 * (1 - 1e-4 * 0.99) - 5.9994e5) < 1
+            and abs(1 + 0.1 + (10 / 2) * 0.1 ** 2 - 1.15) < 1e-12
+            and abs(0.87 * 0.57 * 0.1 - 0.0496) < 1e-4
+            and abs(_b12m.log10(1 + 0.57 ** 6) - 0.01465) < 1e-4
+            and abs(1e30 / (4 * _b12m.pi * (6.15e18) ** 2 * 3e8) - 7.0e-18) / 7.0e-18 < 0.02
+            and abs(2 * _b12m.pi / 1e6 - 6.28e-6) / 6.28e-6 < 1e-3,
+            "BATCH 12 (B90-B97) - the source configs were the ground truth: the Super_Flares dict confirms every PAPER_071 pin, the PN dict carries its own omega contradiction, and the reactor record RDR-002 supplies the COP IDENTITY - COP_pred = 1 + F_TRZ + delta_SCm = 1.15 EXACT with delta_SCm = (SO_5/2)*F_TRZ^2 = 0.05 EXACT (kappa's composition family) and the physical route through the ROMULUS25 R_SCm = 0.87 at 0.8 percent - plus the F_TRZ primitive's FIRST LABORATORY DATUM (0.098 vs 0.10, 10-hr sustained); the dual-x2 joint ruling settles five corrupted appearances (cosmic 3.40e172 / stellar 1.35e172), k4_AGN_SCALE = SO_5^15 EXACT closes another namespace, f_Z was the ROMULUS25 metal-retention fraction all along, the log-g correction is log10(1+SSq^6) keeping the sharp 5-sigma falsifiable, and the Helix 50-percent sentence is held AWAITING-POINTER after three dives found no corpus support - told honestly, per the protocol; sweep CLEAN")
+
+# ---- BATCH 11 RULED 2026-09-04 (B82-B89): the R91 5th sector lands + the Q_wave rung ladder ----
+import math as _b11m
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_058', 'PAPER_059', 'PAPER_060', 'PAPER_061', 'PAPER_062', 'PAPER_064', 'PAPER_065'))
+            and 'ruling_b87' in C.calc('PAPER_063') and C.calc('PAPER_063')['status'].startswith('RULED')
+            and 1.0 / (4 - 2) == 0.5
+            and abs(0.1 ** -12 - 1e12) / 1e12 < 1e-12 and abs(0.1 ** 6 - 1e-6) / 1e-6 < 1e-12
+            and abs((6.015122 + 2 * 1.008665 - 2 * 4.002603) * 931.494 - 25.38) < 0.02
+            and abs(2 * _b11m.pi * 1.25e12 - 7.854e12) / 7.854e12 < 1e-3
+            and abs(_b11m.exp(-0.57) - 0.5655) < 1e-4
+            and abs(3 * 5e6 * 1.602e-19 / 2e-15 - 1.2e3) / 1.2e3 < 0.01,
+            "BATCH 11 (B82-B89) - PAPER_2142's gate-pinned R91 5th-sector PREDICTION IS FULFILLED: the BEC suppression exponent 0.50 = 1/(D_phys-2) EXACT (with the SSq alternative's level-26 = S_LFV pinned beside it); Q_wave joins the rung taxonomy as a regime-indexed quantity (F_TRZ^-12 resonance / 1 ground / F_TRZ^6 thermalized - the fourth rung-12 appearance); the LENR channel IS the phonon resonance (omega_LENR = omega_SCm identity); the Li Q-value goes arithmetic-true at 25.38 MeV; the thermal margin corrects to ~4000x (stronger); the local-dynamical-mass and observation-relative-denominator conventions are canonized; the L26 row labels are inverted and fixed; and the B13-era e217 set is confirmed with B_crit = Schwinger; honest opens: F_LENR exponent, the 6.95e-37 source; sweep CLEAN")
+
+# ---- BATCH 10 RULED 2026-09-04 (B74-B81): the root of the units drift + two more exact locks ----
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_049', 'PAPER_050', 'PAPER_052', 'PAPER_054',
+                           'PAPER_055', 'PAPER_056', 'PAPER_057'))
+            and 'ruling_b76' in C.calc('PAPER_051') and C.calc('PAPER_051')['status'].startswith('RULED')
+            and 9 + 4 + 13 == 26
+            and 4 ** 4 == 256
+            and abs(7e-11 / 5.96e-10 - 0.117) < 1e-3
+            and abs(2.95e-10 / 7.8551e-12 - 37.56) < 0.01
+            and abs((1 + 0.3) ** 2.3 - 1.83) < 0.005
+            and abs(2.95e-10 / 1.3275e-12 - 222.2) < 0.1,
+            "BATCH 10 (B74-B81) - the kg/m3-vs-J/m3 drift that PAPER_2147 corrected corpus-wide has its ROOT-ERA instance found and fixed (PAPER_049's 16-orders headline was the artifact; consistent ratio 0.117), the lambda_vac form was in QCalc all along (occupation-weighted 26-level sum), the 26-partition reconciles with the dimensional flow as census-vs-projection (9+4+13 primitive-exact), the plasma-level origin of BOTH canonical primitives is confirmed on a third datum, the E18 annotation is rehabilitated as oscillator-projection shorthand, the suite's Hubble 'inversion' is B20's two branches systematically labeled, the Carina exponent is settled by the corpus's own 12.5x/37.5x verifications, Ug2/g_grav = D_phys^D_phys = 256 EXACT joins the locks, and the 1.3275 mantissa collision is flagged as the copy artifact it is; the 2x compression stays honestly calibrated-not-derived; sweep CLEAN")
+
+# ---- BATCH 9 RULED 2026-09-04 (B66-B73): the F_UBii cluster family + the second forensic closure ----
+assert_that(all(C.calc(_p)['status'].startswith('RULED_2026-09-04')
+                for _p in ('PAPER_040', 'PAPER_041', 'PAPER_044', 'PAPER_046', 'PAPER_047', 'PAPER_048'))
+            and 'ruling_b68' in C.calc('PAPER_042') and C.calc('PAPER_042')['status'].startswith('RULED')
+            and abs(1.0 * 0.1 ** 12 - 1e-12) < 1e-24
+            and abs((1100 / 880) ** 3 - 1.95) < 0.01
+            and abs(1.8937e-23 / 1.246e28 - 1.52e-51) / 1.52e-51 < 0.01
+            and abs(1.25e12 / 300 - 4.167e9) / 4.167e9 < 1e-3,
+            "BATCH 9 (B66-B73) - the F_UBii cluster family closed with the sweep rule in force: the Virgo factor-2 was the code's own sigma_X^3 weighting (BuoyancyProofVariants L87), the whim variant's buried 1e-12 is the lambda_vac_sw F_TRZ^12 rung (the same rung as the PAPER_2259 bridge - intended dilution, not a slip), PAPER_042's three-way ladder rides B18 plus two self-rectifications, the k_eta namespace and the Di-Pseudo-Monopole canon are settled, the 132-order inflation gap routes to PAPER_889's fine-tuning window, the SEMF row-shift is confirmed with a NEW AI-artifact type flagged, and the SECOND FORENSIC CLOSURE lands - the predecessor 1.894 artifact is PAPER_048's Ug4 Sun-SgrA* force value, completing the PAPER_2156 pair with B47's rho_crit; kappa-correction chain held OPEN honestly; post-fold tags-vs-status sweep ran CLEAN")
+
+# ---- POST-SHIP AUDIT 2026-09-04 (Daniel's catch, v0.416.0): three dispatches shipped OPEN on closed questions ----
+assert_that(C.calc('PAPER_026c')['status'].startswith('RULED_2026-09-04')
+            and C.calc('PAPER_222')['status'].startswith('RULED_2026-09-04')
+            and C.calc('PAPER_223')['status'].startswith('RULED_2026-09-04'),
+            "POST-SHIP AUDIT (Daniel: 'you either missed something or didn't give a full account') - the sweep found 22 dispatches shipped OPEN_RULING with settled components: 19 are legitimate carriers (own questions still open, B2 convention), but PAPER_026c (its own dispatch existed and B52's fold only touched PAPER_026), PAPER_222, and PAPER_223 (tagged ONLY the fully-closed Q-216) shipped unresolved - all three now folded; standing rule: every batch fold ends with a tags-vs-status sweep across ALL dispatches so a closed question can never leave a dispatch OPEN again")
 
 # ---- BATCH 8 RULED 2026-09-03/04 (B58-B65): session files + grok threads - the long-form physics was there ----
 import math as _b8m

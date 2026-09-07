@@ -1,1 +1,0 @@
-var e=`data-recipes:open-learning-recipes`;export{e as t};

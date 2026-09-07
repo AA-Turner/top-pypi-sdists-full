@@ -7,14 +7,15 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 import optuna
-from optuna._experimental import experimental_class
+from optuna import _deprecated
 from optuna._experimental import warn_experimental_argument
-from optuna.samplers._base import _CONSTRAINTS_KEY
+from optuna._warnings import optuna_warn
 from optuna.samplers._base import _INDEPENDENT_SAMPLING_WARNING_TEMPLATE
 from optuna.samplers._base import _process_constraints_after_trial
 from optuna.samplers._base import BaseSampler
 from optuna.samplers._lazy_random_state import LazyRandomState
 from optuna.study import StudyDirection
+from optuna.study._constrained_optimization import _is_constrained_optimization
 from optuna.study._multi_objective import _is_pareto_front
 from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
@@ -49,6 +50,9 @@ import logging
 _logger = logging.getLogger(__name__)
 
 EPS = 1e-10
+# NOTE(nabe): Multi-objective and constrained optimization may derive QMC seeds by adding small
+# (like ~30) offsets to a base seed. Use `1 << 30` as a conservative upper bound.
+_MAX_QMC_SEED_VALUE = 1 << 30
 
 _RELATIVE_PARAMS_KEY = "gp:relative_params"
 # The value of system_attrs must be less than 2046 characters on RDBStorage.
@@ -63,9 +67,12 @@ def _standardize_values(values: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.
     return standardized_values, means, stds
 
 
-@experimental_class("3.6.0")
 class GPSampler(BaseSampler):
     """Sampler using Gaussian process-based Bayesian optimization.
+
+    .. note::
+        This sampler requires ``scipy`` and ``torch`` (the CPU version is sufficient).
+        You can install these dependencies with ``pip install scipy torch``.
 
     This sampler fits a Gaussian process (GP) to the objective function and optimizes
     the acquisition function to suggest the next parameters.
@@ -80,9 +87,24 @@ class GPSampler(BaseSampler):
     As an acquisition function, we use:
 
     - log expected improvement (logEI) for single-objective optimization,
-    - log expected hypervolume improvement (logEHVI) for Multi-objective optimization, and
-    - the summation of logEI and the logarithm of the feasible probability with the independent
-      assumption of each constraint for (black-box inequality) constrained optimization.
+    - log expected hypervolume improvement (logEHVI) for multi-objective optimization,
+    - log constrained expected improvement (logCEI) for single-objective constrained optimization,
+    - log constrained expected hypervolume improvement (logCEHVI) for multi-objective constrained
+      optimization,
+    - q-batch log expected improvement (qLogEI) for single-objective optimization with
+      running trials, and
+    - q-batch log expected hypervolume improvement (qLogEHVI) for multi-objective
+      optimization with running trials, and
+    - q-batch log constrained expected improvement (qLogCEI) for
+      single-objective constrained optimization with running trials, and
+    - q-batch constrained log expected hypervolume improvement (qLogCEHVI) for
+      multi-objective constrained optimization with running trials.
+
+    Note that we adopt a sequential greedy selection for batch candidates instead of joint
+    optimization and constrained optimization refers to optimization with black-box inequalities.
+    The constrained acquisition functions assume the independence between each constraint and
+    objective, computing the summation of objective acquisition function and the logarithm of
+    the feasible probability.
 
     For further information about these acquisition functions, please refer to the following
     papers:
@@ -137,9 +159,30 @@ class GPSampler(BaseSampler):
     We use line search instead of rounding the results from the continuous optimization since EI
     typically yields a high value between one grid and its adjacent grid.
 
-    .. note::
-        This sampler requires ``scipy`` and ``torch``.
-        You can install these dependencies with ``pip install scipy torch``.
+    .. admonition:: Linux runtime performance note
+
+        If you feel ``GPSampler`` laggy on Linux, it may be due to thread oversubscription.
+        Essentially, OpenBLAS threads in NumPy and OpenMP threads in PyTorch compete,
+        slowing down the throughput. It is a compounding issue rather than two separate
+        ones: the two thread pools eat up each other's threads on the same cores.
+
+        This sampler mitigates it automatically by limiting PyTorch intra-op threads to 1,
+        and, on SciPy v1.15+, also limiting ``OPENBLAS_NUM_THREADS`` to 1.
+        (`SciPy Issue #22438 <https://github.com/scipy/scipy/issues/22438>`__)
+
+        This oversubscription has not been observed on macOS, which uses Apple Accelerate
+        with dynamic threading.
+
+    .. admonition:: Complete solution to the runtime performance issue
+
+        Set ``OMP_NUM_THREADS=1`` BEFORE running your script (or before torch imports), if the
+        runtime of ``GPSampler`` is critical in your application.
+
+        .. code-block:: bash
+
+            OMP_NUM_THREADS=1 python your_script.py
+
+        Setting it at runtime has no effect because torch reads this variable during import.
 
     Args:
         seed:
@@ -157,6 +200,11 @@ class GPSampler(BaseSampler):
             the minimum value (slightly above 0 to ensure numerical stability).
             Defaults to :obj:`False`. Currently, all the objectives will be assume to be
             deterministic if :obj:`True`.
+
+            .. note::
+                Added in v3.6.0 as an experimental feature. The interface may change in newer
+                versions without prior notice. See
+                https://github.com/optuna/optuna/releases/tag/v3.6.0.
         constraints_func:
             An optional function that computes the objective constraints. It must take a
             :class:`~optuna.trial.FrozenTrial` and return the constraints. The return value must
@@ -168,6 +216,12 @@ class GPSampler(BaseSampler):
             The ``constraints_func`` will be evaluated after each successful trial.
             The function won't be called when trials fail or are pruned, but this behavior is
             subject to change in future releases.
+
+            .. warning::
+                Deprecated in v5.0.0. This feature will be removed in the future. The removal of
+                this feature is currently scheduled for v7.0.0, but this schedule is subject to
+                change. Use :meth:`~optuna.trial.Trial.set_constraint` instead.
+                See https://github.com/optuna/optuna/releases/tag/v5.0.0.
         warn_independent_sampling:
             If this is :obj:`True`, a warning message is emitted when
             the value of a parameter is sampled by using an independent sampler,
@@ -210,13 +264,21 @@ class GPSampler(BaseSampler):
         self._warn_independent_sampling = warn_independent_sampling
 
         if constraints_func is not None:
-            warn_experimental_argument("constraints_func")
+            msg = _deprecated._DEPRECATION_WARNING_TEMPLATE.format(
+                name="`constraints_func`", d_ver="5.0.0", r_ver="7.0.0"
+            )
+            optuna_warn(f"{msg} Use `optuna.trial.Trial.set_constraint` instead.", FutureWarning)
+        if deterministic_objective:
+            warn_experimental_argument("deterministic_objective")
 
         # Control parameters of the acquisition function optimization.
         self._n_preliminary_samples: int = 2048
         # NOTE(nabenabe): ehvi in BoTorchSampler uses 20.
         self._n_local_search = 10
         self._tol = 1e-4
+        # NOTE(sawa3030): Benchmark results are available at https://github.com/optuna/optuna/pull/6640#issuecomment-4645179073
+        self._n_qmc_samples_qei = 128
+        self._n_qmc_samples_ehvi = 128  # NOTE(nabenabe): The BoTorch default value.
 
     def _log_independent_sampling(self, trial: FrozenTrial, param_name: str) -> None:
         msg = _INDEPENDENT_SAMPLING_WARNING_TEMPLATE.format(
@@ -401,25 +463,43 @@ class GPSampler(BaseSampler):
 
         best_params: np.ndarray | None
         acqf: acqf_module.BaseAcquisitionFunc
-        if self._constraints_func is None:
+        if not _is_constrained_optimization(completed_trials):
             if n_objectives == 1:
                 assert len(gprs_list) == 1
-                acqf = acqf_module.LogEI(
-                    gpr=gprs_list[0],
-                    search_space=internal_search_space,
-                    threshold=standardized_score_vals[:, 0].max(),
-                    normalized_params_of_running_trials=normalized_params_of_running_trials,
-                )
+                if normalized_params_of_running_trials is None:
+                    acqf = acqf_module.LogEI(
+                        gpr=gprs_list[0],
+                        search_space=internal_search_space,
+                        threshold=standardized_score_vals[:, 0].max(),
+                    )
+                else:
+                    acqf = acqf_module.qLogEI(
+                        gpr=gprs_list[0],
+                        search_space=internal_search_space,
+                        threshold=standardized_score_vals[:, 0].max(),
+                        n_qmc_samples=self._n_qmc_samples_qei,
+                        qmc_seed=self._rng.rng.randint(_MAX_QMC_SEED_VALUE),
+                        normalized_params_of_running_trials=normalized_params_of_running_trials,
+                    )
                 best_params = normalized_params[np.argmax(standardized_score_vals), np.newaxis]
             else:
-                acqf = acqf_module.LogEHVI(
-                    gpr_list=gprs_list,
-                    search_space=internal_search_space,
-                    Y_train=torch.from_numpy(standardized_score_vals),
-                    n_qmc_samples=128,  # NOTE(nabenabe): The BoTorch default value.
-                    qmc_seed=self._rng.rng.randint(1 << 30),
-                    normalized_params_of_running_trials=normalized_params_of_running_trials,
-                )
+                if normalized_params_of_running_trials is None:
+                    acqf = acqf_module.LogEHVI(
+                        gpr_list=gprs_list,
+                        search_space=internal_search_space,
+                        Y_train=torch.from_numpy(standardized_score_vals),
+                        n_qmc_samples=self._n_qmc_samples_ehvi,
+                        qmc_seed=self._rng.rng.randint(_MAX_QMC_SEED_VALUE),
+                    )
+                else:
+                    acqf = acqf_module.qLogEHVI(
+                        gpr_list=gprs_list,
+                        search_space=internal_search_space,
+                        Y_train=torch.from_numpy(standardized_score_vals),
+                        n_qmc_samples=self._n_qmc_samples_ehvi,
+                        qmc_seed=self._rng.rng.randint(_MAX_QMC_SEED_VALUE),
+                        normalized_params_of_running_trials=normalized_params_of_running_trials,
+                    )
                 best_params = self._get_best_params_for_multi_objective(
                     normalized_params, standardized_score_vals
                 )
@@ -440,14 +520,25 @@ class GPSampler(BaseSampler):
                 )
                 i_opt = np.argmax(y_with_neginf)
                 best_feasible_y = y_with_neginf[i_opt]
-                acqf = acqf_module.ConstrainedLogEI(
-                    gpr=gprs_list[0],
-                    search_space=internal_search_space,
-                    threshold=best_feasible_y,
-                    constraints_gpr_list=constr_gpr_list,
-                    constraints_threshold_list=constr_threshold_list,
-                    normalized_params_of_running_trials=normalized_params_of_running_trials,
-                )
+                if normalized_params_of_running_trials is None:
+                    acqf = acqf_module.LogCEI(
+                        gpr=gprs_list[0],
+                        search_space=internal_search_space,
+                        threshold=best_feasible_y,
+                        constraints_gpr_list=constr_gpr_list,
+                        constraints_threshold_list=constr_threshold_list,
+                    )
+                else:
+                    acqf = acqf_module.qLogCEI(
+                        gpr=gprs_list[0],
+                        search_space=internal_search_space,
+                        threshold=best_feasible_y,
+                        n_qmc_samples=self._n_qmc_samples_qei,
+                        qmc_seed=self._rng.rng.randint(_MAX_QMC_SEED_VALUE),
+                        constraints_gpr_list=constr_gpr_list,
+                        constraints_threshold_list=constr_threshold_list,
+                        normalized_params_of_running_trials=normalized_params_of_running_trials,
+                    )
                 assert normalized_params.shape[:-1] == y_with_neginf.shape
                 best_params = (
                     None if np.isneginf(best_feasible_y) else normalized_params[i_opt, np.newaxis]
@@ -460,20 +551,35 @@ class GPSampler(BaseSampler):
                     constraint_vals, internal_search_space, normalized_params
                 )
                 is_all_infeasible = not any(is_feasible)
-                acqf = acqf_module.ConstrainedLogEHVI(
-                    gpr_list=gprs_list,
-                    search_space=internal_search_space,
-                    Y_feasible=(
-                        torch.from_numpy(standardized_score_vals[is_feasible])
-                        if not is_all_infeasible
-                        else None
-                    ),
-                    n_qmc_samples=128,  # NOTE(nabenabe): The BoTorch default value.
-                    qmc_seed=self._rng.rng.randint(1 << 30),
-                    constraints_gpr_list=constr_gpr_list,
-                    constraints_threshold_list=constr_threshold_list,
-                    normalized_params_of_running_trials=normalized_params_of_running_trials,
-                )
+                if normalized_params_of_running_trials is None:
+                    acqf = acqf_module.LogCEHVI(
+                        gpr_list=gprs_list,
+                        search_space=internal_search_space,
+                        Y_feasible=(
+                            torch.from_numpy(standardized_score_vals[is_feasible])
+                            if not is_all_infeasible
+                            else None
+                        ),
+                        n_qmc_samples=self._n_qmc_samples_ehvi,
+                        qmc_seed=self._rng.rng.randint(_MAX_QMC_SEED_VALUE),
+                        constraints_gpr_list=constr_gpr_list,
+                        constraints_threshold_list=constr_threshold_list,
+                    )
+                else:
+                    acqf = acqf_module.qLogCEHVI(
+                        gpr_list=gprs_list,
+                        search_space=internal_search_space,
+                        Y_feasible=(
+                            torch.from_numpy(standardized_score_vals[is_feasible])
+                            if not is_all_infeasible
+                            else None
+                        ),
+                        n_qmc_samples=self._n_qmc_samples_ehvi,
+                        qmc_seed=self._rng.rng.randint(_MAX_QMC_SEED_VALUE),
+                        constraints_gpr_list=constr_gpr_list,
+                        constraints_threshold_list=constr_threshold_list,
+                        normalized_params_of_running_trials=normalized_params_of_running_trials,
+                    )
                 best_params = (
                     self._get_best_params_for_multi_objective(
                         normalized_params[is_feasible],
@@ -520,10 +626,7 @@ class GPSampler(BaseSampler):
 def _get_constraint_vals_and_feasibility(
     study: Study, trials: list[FrozenTrial]
 ) -> tuple[np.ndarray, np.ndarray]:
-    _constraint_vals = [
-        study._storage.get_trial_system_attrs(trial._trial_id).get(_CONSTRAINTS_KEY, ())
-        for trial in trials
-    ]
+    _constraint_vals = [list(trial.constraints.values()) for trial in trials]
     if any(len(_constraint_vals[0]) != len(c) for c in _constraint_vals):
         raise ValueError("The number of constraints must be the same for all trials.")
 

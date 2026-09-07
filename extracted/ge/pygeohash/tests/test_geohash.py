@@ -269,16 +269,42 @@ def test_decode_non_ascii():
 
 
 def test_decode_return_types():
-    """decode/decode_exactly return the documented named tuples with named fields."""
+    """decode/decode_exactly return the documented named tuples with named fields.
+
+    The wrappers hand back whatever the C extension constructed, so the exact type
+    is pinned here rather than only ``isinstance``.
+    """
     from pygeohash.geohash_types import ExactLatLong, LatLong
 
     latlong = pgh.decode("ezs42")
-    assert isinstance(latlong, LatLong)
+    assert type(latlong) is LatLong
     assert latlong == (latlong.latitude, latlong.longitude)
+    assert latlong.latitude == pytest.approx(42.60498046875)
+    assert latlong.longitude == pytest.approx(-5.60302734375)
 
     exact = pgh.decode_exactly("ezs42")
-    assert isinstance(exact, ExactLatLong)
+    assert type(exact) is ExactLatLong
+    assert exact.latitude == pytest.approx(42.60498046875)
+    assert exact.longitude == pytest.approx(-5.60302734375)
     assert exact.latitude_error > 0 and exact.longitude_error > 0
+
+
+def test_native_decode_return_types_and_values():
+    """Native decoders return the public named tuples with their named values."""
+    from pygeohash.geohash_types import ExactLatLong, LatLong
+
+    latlong = geohash_module.decode("u4pruyd")
+    assert isinstance(latlong, LatLong)
+    assert latlong == LatLong(latitude=57.64869689941406, longitude=10.407485961914062)
+
+    exact = geohash_module.decode_exactly("u4pruyd")
+    assert isinstance(exact, ExactLatLong)
+    assert exact == ExactLatLong(
+        latitude=57.64869689941406,
+        longitude=10.407485961914062,
+        latitude_error=0.0006866455078125,
+        longitude_error=0.0006866455078125,
+    )
 
 
 def test_decode_exactly_invalid_type():

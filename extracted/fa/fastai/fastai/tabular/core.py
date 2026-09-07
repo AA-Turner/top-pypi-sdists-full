@@ -20,8 +20,7 @@ pd.set_option('mode.chained_assignment','raise')
 def make_date(df, date_field):
     "Make sure `df[date_field]` is of the right date type."
     field_dtype = df[date_field].dtype
-    if isinstance(field_dtype, pd.core.dtypes.dtypes.DatetimeTZDtype):
-        field_dtype = np.datetime64
+    if isinstance(field_dtype, pd.core.dtypes.dtypes.DatetimeTZDtype): field_dtype = np.datetime64
     if not isinstance(field_dtype, np.dtype) or not np.issubdtype(field_dtype, np.datetime64):
         df[date_field] = pd.to_datetime(df[date_field])
 
@@ -32,7 +31,7 @@ def add_datepart(df, field_name, prefix=None, drop=True, time=False):
     field = df[field_name]
     prefix = ifnone(prefix, re.sub('[Dd]ate$', '', field_name))
     attr = ['Year', 'Month', 'Week', 'Day', 'Dayofweek', 'Dayofyear', 'Is_month_end', 'Is_month_start',
-            'Is_quarter_end', 'Is_quarter_start', 'Is_year_end', 'Is_year_start']
+        'Is_quarter_end', 'Is_quarter_start', 'Is_year_end', 'Is_year_start']
     if time: attr = attr + ['Hour', 'Minute', 'Second']
     # Pandas removed `dt.week` in v1.1.10
     week = field.dt.isocalendar().week.astype(field.dt.day.dtype) if hasattr(field.dt, 'isocalendar') else field.dt.week
@@ -48,8 +47,7 @@ def _get_elapsed(df,field_names, date_field, base_field, prefix):
         day1 = np.timedelta64(1, 'D')
         last_date,last_base,res = np.datetime64(),None,[]
         for b,v,d in zip(df[base_field].values, df[f].values, df[date_field].values):
-            if last_base is None or b != last_base:
-                last_date,last_base = np.datetime64(),b
+            if last_base is None or b != last_base: last_date,last_base = np.datetime64(),b
             if v: last_date = d
             res.append(((d-last_date).astype('timedelta64[D]') / day1))
         df[prefix + f] = res
@@ -69,13 +67,11 @@ def add_elapsed_times(df, field_names, date_field, base_field):
     work_df = work_df.sort_values([base_field, date_field], ascending=[True, False])
     work_df = _get_elapsed(work_df, field_names, date_field, base_field, 'Before')
 
-    for a in ['After' + f for f in field_names] + ['Before' + f for f in field_names]:
-        work_df[a] = work_df[a].fillna(0).astype(int)
+    for a in ['After' + f for f in field_names] + ['Before' + f for f in field_names]: work_df[a] = work_df[a].fillna(0).astype(int)
 
     for a,s in zip([True, False], ['_bw', '_fw']):
         work_df = work_df.set_index(date_field)
-        tmp = (work_df[[base_field] + field_names].sort_index(ascending=a)
-                      .groupby(base_field).rolling(7, min_periods=1).sum())
+        tmp = (work_df[[base_field] + field_names].sort_index(ascending=a).groupby(base_field).rolling(7, min_periods=1).sum())
         if base_field in tmp: tmp.drop(base_field, axis=1,inplace=True)
         tmp.reset_index(inplace=True)
         work_df.reset_index(inplace=True)
@@ -97,6 +93,7 @@ def cont_cat_split(df, max_card=20, dep_var=None):
     return cont_names, cat_names
 
 # %% ../../nbs/40_tabular.core.ipynb #9a3b6c97
+# chkstyle: skip
 def df_shrink_dtypes(df, skip=[], obj2cat=True, int2uint=False):
     "Return any possible smaller data types for DataFrame columns. Allows `object`->`category`, `int`->`uint`, and exclusion."
 
@@ -148,7 +145,7 @@ class Tabular(CollBase, GetAttr, FilteredBase):
     "A `DataFrame` wrapper that knows which cols are cont/cat/y, and returns rows in `__getitem__`"
     _default,with_cont='procs',True
     def __init__(self, df, procs=None, cat_names=None, cont_names=None, y_names=None, y_block=None, splits=None,
-                 do_setup=True, device=None, inplace=False, reduce_memory=True):
+        do_setup=True, device=None, inplace=False, reduce_memory=True):
         if inplace and splits is not None and pd.options.mode.chained_assignment is not None:
             warn("Using inplace with splits will trigger a pandas error. Set `pd.options.mode.chained_assignment=None` to avoid it.")
         if not inplace: df = df.copy()
@@ -172,7 +169,7 @@ class Tabular(CollBase, GetAttr, FilteredBase):
 
     def new(self, df, inplace=False):
         return type(self)(df, do_setup=False, reduce_memory=False, y_block=TransformBlock(), inplace=inplace,
-                          **attrdict(self, 'procs','cat_names','cont_names','y_names', 'device'))
+            **attrdict(self, 'procs','cat_names','cont_names','y_names', 'device'))
 
     def subset(self, i): return self.new(self.items[slice(0,self.split) if i==0 else slice(self.split,len(self))])
     def copy(self): self.items = self.items.copy(); return self
@@ -229,12 +226,11 @@ class TabularProc(InplaceTransform):
         return self(items.items if isinstance(items,Datasets) else items)
 
     @property
-    def name(self): return f"{super().name} -- {getattr(self,'__stored_args__',{})}"
+    def name(self): return f"{super().name} -- {init_args(self)}"
 
 # %% ../../nbs/40_tabular.core.ipynb #87389d74
 def _apply_cats (voc, add, c):
-    if not (hasattr(c, 'dtype') and isinstance(c.dtype, CategoricalDtype)):
-        return pd.Categorical(c, categories=voc[c.name][add:]).codes+add
+    if not (hasattr(c, 'dtype') and isinstance(c.dtype, CategoricalDtype)): return pd.Categorical(c, categories=voc[c.name][add:]).codes+add
     return c.cat.codes+add #if is_categorical_dtype(c) else c.map(voc[c.name].o2i)
 def _decode_cats(voc, c): return c.map(dict(enumerate(voc[c.name].items)))
 
@@ -253,10 +249,8 @@ class Categorify(TabularProc):
 @Categorize
 def setups(self, to:Tabular):
     if len(to.y_names) > 0:
-        if self.vocab is None:
-            self.vocab = CategoryMap(getattr(to, 'train', to).iloc[:,to.y_names[0]].items, strict=True)
-        else:
-            self.vocab = CategoryMap(self.vocab, sort=False, add_na=self.add_na)
+        if self.vocab is None: self.vocab = CategoryMap(getattr(to, 'train', to).iloc[:,to.y_names[0]].items, strict=True)
+        else: self.vocab = CategoryMap(self.vocab, sort=False, add_na=self.add_na)
         self.c = len(self.vocab)
     return self(to)
 
@@ -274,7 +268,7 @@ def decodes(self, to:Tabular):
 @Normalize
 def setups(self, to:Tabular):
     store_attr(but='to', means=dict(getattr(to, 'train', to).conts.mean()),
-               stds=dict(getattr(to, 'train', to).conts.std(ddof=0)+1e-7))
+        stds=dict(getattr(to, 'train', to).conts.std(ddof=0)+1e-7))
     return self(to)
 
 @Normalize
@@ -303,14 +297,12 @@ class FillMissing(TabularProc):
 
     def setups(self, to):
         missing = pd.isnull(to.conts).any()
-        store_attr(but='to', na_dict={n:self.fill_strategy(to[n], self.fill_vals[n])
-                            for n in missing[missing].keys()})
+        store_attr(but='to', na_dict={n: self.fill_strategy(to[n], self.fill_vals[n]) for n in missing[missing].keys()})
         self.fill_strategy = self.fill_strategy.__name__
 
     def encodes(self, to):
         missing = pd.isnull(to.conts)
-        for n in missing.any()[missing.any()].keys():
-            assert n in self.na_dict, f"nan values in `{n}` but not in setup training set"
+        for n in missing.any()[missing.any()].keys(): assert n in self.na_dict, f"nan values in `{n}` but not in setup training set"
         for n in self.na_dict.keys():
             to[n] = to[n].fillna(self.na_dict[n])
             if self.add_col:
@@ -343,8 +335,7 @@ class ReadTabBatch(ItemTransform):
 
 # %% ../../nbs/40_tabular.core.ipynb #063a6e8e
 @dispatch
-def show_batch(x: Tabular, y, its, max_n=10, ctxs=None):
-    x.show()
+def show_batch(x: Tabular, y, its, max_n=10, ctxs=None): x.show()
 
 # %% ../../nbs/40_tabular.core.ipynb #bcf9ce05
 @delegates()

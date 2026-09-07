@@ -19,10 +19,10 @@ from nab_provider._vendor.packaging.requirements import Requirement
 from nab_provider._vendor.packaging.specifiers import SpecifierSet
 from nab_provider._vendor.packaging.utils import InvalidName
 from nab_provider.marker_holds import IntractableMarkerError, UnevaluableMarkerError
+from nab_provider.project_requirements import add_extra_marker
 from nab_provider.requirements_file import (
     InvalidProjectRequirementError,
     InvalidProjectTableError,
-    _add_extra_marker,
     expand_extra_requirements,
     expand_group_includes,
     expand_self_extras,
@@ -37,27 +37,66 @@ _AT_LIMIT = "1" * sys.get_int_max_str_digits()
 _OVERSIZED = _AT_LIMIT + "1"
 
 
+def _include_chain(depth: int, leaf: str) -> dict[str, list[str | dict[str, str]]]:
+    """Return an include chain ending with ``leaf`` at ``g{depth}``."""
+    groups: dict[str, list[str | dict[str, str]]] = {
+        f"g{step}": [{"include-group": f"g{step + 1}"}] for step in range(depth)
+    }
+    groups[f"g{depth}"] = [leaf]
+    return groups
+
+
+def _boundary_marker_message() -> str:
+    """Probe the first marker-depth failure from the current caller's stack."""
+    depth = 0
+    while True:
+        depth += 1
+        nested = "(" * depth + "os_name == 'posix'" + ")" * depth
+        try:
+            resolve_groups_to_requirements({"probe": [f"foo ; {nested}"]}, ("probe",))
+        except InvalidProjectRequirementError as caught:
+            return str(caught)
+
+
+def _boundary_include_message() -> str:
+    """Locate the first failing include depth for the current caller."""
+    lower, upper = 0, sys.getrecursionlimit()
+    message: str | None = None
+    while upper - lower > 1:
+        depth = (lower + upper) // 2
+        try:
+            resolve_groups_to_requirements(_include_chain(depth, "pytest"), ("g0",))
+        except InvalidProjectRequirementError as caught:
+            upper = depth
+            message = str(caught)
+        else:
+            lower = depth
+
+    assert message is not None, "the include chain did not reach the recursion limit"
+    return message
+
+
 class TestAddExtraMarker:
     def test_no_existing_marker(self) -> None:
         """A bare requirement gets a fresh ``extra ==`` marker."""
-        out = _add_extra_marker("numpy>=1.0", "foo")
+        out = add_extra_marker("numpy>=1.0", "foo")
         assert out == 'numpy>=1.0 ; extra == "foo"'
 
     def test_with_existing_marker(self) -> None:
         """An existing marker is wrapped and combined with ``and``."""
-        out = _add_extra_marker("numpy>=1.0 ; python_version >= '3.10'", "foo")
+        out = add_extra_marker("numpy>=1.0 ; python_version >= '3.10'", "foo")
         assert out == 'numpy>=1.0 ; (python_version >= "3.10") and extra == "foo"'
 
     def test_semicolon_in_direct_url_kept(self) -> None:
         """A ``;`` in a direct-URL is part of the URL, not the marker."""
-        out = _add_extra_marker("foo @ https://h/a;b/p.tar.gz", "bar")
+        out = add_extra_marker("foo @ https://h/a;b/p.tar.gz", "bar")
         req = Requirement(out)
         assert req.url == "https://h/a;b/p.tar.gz"
         assert str(req.marker) == 'extra == "bar"'
 
     def test_semicolon_in_direct_url_with_marker_kept(self) -> None:
         """The URL ``;`` survives and the existing marker is kept with extra."""
-        out = _add_extra_marker(
+        out = add_extra_marker(
             "foo @ https://h/a;b/p.tar.gz ; python_version >= '3.10'", "bar"
         )
         req = Requirement(out)
@@ -68,9 +107,9 @@ class TestAddExtraMarker:
         """Folding must keep the parens around a nested double-paren or group.
 
         The dep needs ``python_version < "3.10"``, so on 3.12 it stays inactive
-        only if the or group cannot leak past the and gate.
+        only if the or group cannot leak past the and condition.
         """
-        out = _add_extra_marker(
+        out = add_extra_marker(
             'pkg ; python_version < "3.10" '
             'and ((sys_platform == "linux" or sys_platform == "darwin"))',
             "cli",
@@ -81,8 +120,8 @@ class TestAddExtraMarker:
         assert marker.evaluate(env) is False
 
     def test_non_canonical_extra_name_normalized(self) -> None:
-        """A non-canonical extra name is normalised (PEP 685) in the gate."""
-        out = _add_extra_marker("numpy", "My.Extra")
+        """A marker condition normalises a non-canonical extra name per PEP 685."""
+        out = add_extra_marker("numpy", "My.Extra")
         assert out == 'numpy ; extra == "my-extra"'
 
     def test_extra_name_with_marker_syntax_rejected(self) -> None:
@@ -90,10 +129,10 @@ class TestAddExtraMarker:
 
         A ``[project.optional-dependencies]`` key like
         ``a" or os_name != "x`` would otherwise close the quote and leave
-        the dep gated on a marker that is always true.
+        the dependency conditioned on a marker that is always true.
         """
         with pytest.raises(InvalidName):
-            _add_extra_marker("pkg", 'a" or os_name != "x')
+            add_extra_marker("pkg", 'a" or os_name != "x')
 
     def test_invalid_extra_name_rejected_as_project_requirement(self) -> None:
         """An invalid extra name is rejected by the synthesis path, not
@@ -414,13 +453,50 @@ class TestResolveGroupsToRequirements:
 
     def test_over_nested_marker_raises(self, over_nested_marker: str) -> None:
         """An over-nested marker fails inside the loader, before the guarded parse."""
-        with pytest.raises(
-            InvalidProjectRequirementError,
-            match=r"\[dependency-groups\]: .*nested too deeply",
-        ):
+        with pytest.raises(InvalidProjectRequirementError) as caught:
             resolve_groups_to_requirements(
                 {"dev": [f"foo ; {over_nested_marker}"]}, ("dev",)
             )
+
+        assert str(caught.value) == (
+            "invalid requirement in [dependency-groups]: "
+            "marker is nested too deeply to parse"
+        )
+
+    def test_marker_at_the_stack_boundary_names_the_marker(self) -> None:
+        """The first marker-depth failure retains the marker diagnostic."""
+        assert _boundary_marker_message() == (
+            "invalid requirement in [dependency-groups]: "
+            "marker is nested too deeply to parse"
+        )
+
+    def test_over_deep_include_chain_names_the_chain(self) -> None:
+        """An include chain beyond the recursion limit reports the include depth."""
+        chain = _include_chain(sys.getrecursionlimit(), leaf="pytest")
+        with pytest.raises(InvalidProjectRequirementError) as caught:
+            resolve_groups_to_requirements(chain, ("g0",))
+
+        assert str(caught.value) == (
+            "invalid [dependency-groups]: "
+            "include-group chain is nested too deeply to resolve"
+        )
+
+    def test_include_chain_at_the_stack_boundary_reports_the_chain(self) -> None:
+        """Parsing a plain requirement at the depth limit is still an include error."""
+        assert _boundary_include_message() == (
+            "invalid [dependency-groups]: "
+            "include-group chain is nested too deeply to resolve"
+        )
+
+    def test_unreached_malformed_requirement_names_the_chain(self) -> None:
+        """The chain is reported even when a group holds a malformed string."""
+        chain = _include_chain(sys.getrecursionlimit(), leaf="pytest >= bad junk")
+        with pytest.raises(InvalidProjectRequirementError) as caught:
+            resolve_groups_to_requirements(chain, ("g0",))
+
+        message = str(caught.value)
+        assert "include-group chain" in message
+        assert "marker" not in message
 
     @pytest.mark.parametrize("operator", ["==", "==="])
     def test_oversized_specifier_version_raises(self, operator: str) -> None:
@@ -584,8 +660,9 @@ class TestExpandSelfExtras:
         assert sorted(expand_self_extras(opt, "mypkg", ["a"])) == ["a", "b"]
 
     def test_unknown_extra_in_self_reference_tolerated(self) -> None:
-        """Unknown extras are surfaced by ``expand_extra_requirements``,
-        not here; expansion must keep walking what it can.
+        """Leave unknown extras for ``expand_extra_requirements``.
+
+        Continue walking the reachable extras.
         """
         opt = {"all": ["mypkg[a, missing]"], "a": ["depA"]}
         assert sorted(expand_self_extras(opt, "mypkg", ["all"])) == [
@@ -670,7 +747,7 @@ class TestExpandSelfExtras:
         assert expand_self_extras(opt, "mypkg", ["cpu"], env) == ["cpu"]
 
     def test_self_reference_negated_extra_walks_other_extra(self) -> None:
-        """A self-ref gated ``extra != "cpu"`` activates when walked from
+        """A self-ref conditioned by ``extra != "cpu"`` activates from
         another extra."""
         opt = {
             "gpu": ['mypkg[fast]; extra != "cpu"'],
@@ -682,7 +759,7 @@ class TestExpandSelfExtras:
 
 class TestSelfReferenceUnevaluableMarker:
     def test_self_reference_gate_no_comparison_decides(self) -> None:
-        """A self-ref gate is reduced against the walked extra, which is the
+        """A self-ref condition is reduced against the walked extra, the
         second place a marker with no meaning is read."""
         opt = {
             "all": ["mypkg[fast]; python_full_version ~= '3'"],
@@ -703,7 +780,7 @@ class TestSelfExtraMarkers:
         assert self_extra_markers(opt, "mypkg", ["all"]) == []
 
     def test_marker_collected_from_reachable_extras(self) -> None:
-        """The walk follows the closure, so a nested gate is collected too."""
+        """The walk follows the closure and collects nested conditions."""
         opt = {
             "all": ["mypkg[mid]; python_full_version >= '3.10.4'"],
             "mid": ["mypkg[leaf]; sys_platform == 'win32'"],
@@ -715,7 +792,7 @@ class TestSelfExtraMarkers:
         ]
 
     def test_marker_collected_regardless_of_outer_gate(self) -> None:
-        """A nested gate counts even where the gate above it reads false:
+        """A nested condition counts when its outer condition reads false:
         the environments the caller has to check are not chosen yet."""
         opt = {
             "all": ["mypkg[mid]; python_version < '3.0'"],
@@ -906,7 +983,7 @@ class TestExpandExtraRequirements:
         assert not any(d.marker.evaluate(neither) for d in deps)
 
     def test_self_ref_extra_gate_does_not_survive_as_marker(self) -> None:
-        """An ``extra ==`` self-ref gate is satisfied at expansion, so the
+        """An ``extra ==`` self-ref condition is satisfied at expansion, so the
         flattened dep is bare; carrying ``extra == "all"`` forward would
         drop it on every universal tuple, where ``extra`` is unbound."""
         opt = {
@@ -921,7 +998,7 @@ class TestExpandExtraRequirements:
         assert dep.marker is None
 
     def test_self_ref_combined_gate_keeps_only_env_residual(self) -> None:
-        """A gate of ``extra == "all" and python_version < "3.10"`` drops the
+        """The ``extra == "all" and python_version < "3.10"`` condition drops the
         tautological extra clause and keeps the environment condition, so the
         dep survives on 3.9 and not on 3.11."""
         opt = {
@@ -1021,8 +1098,10 @@ class TestExpandExtraRequirements:
         )
 
     def test_self_ref_extra_gate_combined_with_dep_marker(self) -> None:
-        """The dep's own marker survives when the self-ref gate is a pure
-        ``extra ==``: the gate drops out and only the dep marker remains."""
+        """The dep marker survives a pure ``extra ==`` self-ref condition.
+
+        Expansion removes the self-ref clause and retains the dep marker.
+        """
         opt = {
             "all": ['mypkg[fast]; extra == "all"'],
             "fast": ["some-dep; sys_platform == 'linux'"],
@@ -1037,8 +1116,7 @@ class TestExpandExtraRequirements:
         assert not dep.marker.evaluate({"sys_platform": "win32"})
 
     def test_self_ref_extra_gate_for_other_extra_does_not_activate(self) -> None:
-        """A self-ref gated by ``extra == "<other>"`` than the one being walked
-        never activates, so its extras are not flattened in."""
+        """A self-ref conditioned on another extra does not activate."""
         opt = {
             "all": ['mypkg[fast]; extra == "other"'],
             "fast": ["some-dep"],
@@ -1085,8 +1163,7 @@ class TestExpandExtraRequirements:
         )
 
     def test_self_ref_extra_gate_chain_drops_each_link(self) -> None:
-        """A chain of ``extra ==`` self-refs flattens to a bare dep: every
-        link's gate is satisfied at expansion."""
+        """A chain of satisfied ``extra ==`` self-refs flattens to a bare dep."""
         opt = {
             "all": ['mypkg[mid]; extra == "all"'],
             "mid": ['mypkg[leaf]; extra == "mid"'],
@@ -1131,9 +1208,11 @@ class TestExpandExtraRequirements:
         assert "some-dep" not in names
 
     def test_self_ref_extras_set_marker_carried_as_residual(self) -> None:
-        """A self-ref gated on the ``extras`` set variable (distinct from the
-        ``extra`` scalar) is carried onto the reached dep as a residual gate,
-        not routed through ``extra`` evaluation, which raises on ``extras``."""
+        """An ``extras`` set condition becomes a residual dependency marker.
+
+        The ``extras`` set differs from the ``extra`` scalar used during
+        expansion.
+        """
         opt = {
             "all": ['mypkg[fast]; "docs" in extras'],
             "fast": ["some-dep"],
@@ -1148,9 +1227,10 @@ class TestExpandExtraRequirements:
         assert not dep.marker.evaluate({"extras": frozenset()}, context="lock_file")
 
     def test_self_ref_env_value_containing_extra_substring_kept(self) -> None:
-        """A self-ref env gate whose value contains the substring ``extra``
-        (``sys_platform == "extraos"``) is kept as a residual, not decided
-        against the walked extra and dropped."""
+        """An env value containing ``extra`` remains a residual marker.
+
+        ``sys_platform == "extraos"`` is independent of the walked extra.
+        """
         opt = {
             "all": ['mypkg[fast]; sys_platform == "extraos"'],
             "fast": ["some-dep"],
@@ -1165,9 +1245,7 @@ class TestExpandExtraRequirements:
         assert not dep.marker.evaluate({"sys_platform": "linux"})
 
     def test_self_ref_extras_set_marker_group_gate_kept(self) -> None:
-        """A grouped gate mixing the ``extras`` set variable with an environment
-        condition is kept whole; the ``extras`` clause is not decided as an
-        ``extra`` comparison."""
+        """A grouped ``extras`` and environment condition remains intact."""
         opt = {
             "all": ['mypkg[fast]; ("docs" in extras and python_version < "3.10")'],
             "fast": ["some-dep"],
@@ -1201,9 +1279,9 @@ class TestExpandExtraRequirements:
         assert {"depA", "depB"} <= names
 
     def test_self_ref_var_vs_var_extra_gate_kept_as_target_residual(self) -> None:
-        """A variable-vs-variable self-ref gate naming ``extra``
-        (``sys_platform == extra``) survives as a residual atom over the
-        target's ``sys_platform``, not decided against the machine running nab.
+        """A variable comparison against ``extra`` remains a target marker.
+
+        ``sys_platform == extra`` is evaluated against the target platform.
         """
         opt = {
             "all": ["mypkg[fast]; sys_platform == extra"],

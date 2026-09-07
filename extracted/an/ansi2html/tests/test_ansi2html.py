@@ -151,12 +151,10 @@ class TestAnsi2HTML:
     def test_inline_as_command(
         self, mock_stdout: StringIO, mock_argv: List[str]
     ) -> None:
-        test_input = textwrap.dedent(  # noqa: BLK100
-            """
+        test_input = textwrap.dedent("""
         this is
         a test
-        """
-        )
+        """)  # noqa: BLK100
 
         with patch("sys.stdin", new_callable=lambda: StringIO(test_input)):
             main()
@@ -460,6 +458,11 @@ class TestAnsi2HTML:
         )
         html = Ansi2HTMLConverter(inline=True).convert(ansi)
         assert target in html
+
+    def test_truecolor_once(self) -> None:
+        ansi = "\u001b[38;2;1;2;3m 1 \u001b[0m " + "\u001b[38;2;1;2;3m 2 \u001b[0m "
+        html = Ansi2HTMLConverter().convert(ansi * 3)
+        assert html.count(".ansi38-001002003") == 1
 
     def test_truecolor_malformed(self) -> None:
         ansi = "\u001b[38;2;255;102m malformed \u001b[0m "

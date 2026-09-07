@@ -676,10 +676,22 @@ def main():
     else:
         site_sync = sync_website_docs(tag_name, previous_tag, args.site_repo)
 
-    owner, repo = get_repo_slug()
-    edit_url = (
-        f"https://github.com/{owner}/{repo}/releases/edit/{tag_name}" if owner else None
-    )
+    edit_url = None
+    try:
+        result = subprocess.run(
+            ["gh", "release", "view", tag_name, "--json", "url", "-q", ".url"],
+            capture_output=True,
+            text=True,
+        )
+        release_url = (result.stdout or "").strip()
+        if "/releases/tag/" in release_url:
+            edit_url = release_url.replace("/releases/tag/", "/releases/edit/")
+    except FileNotFoundError:
+        pass
+    if not edit_url:
+        owner, repo = get_repo_slug()
+        if owner:
+            edit_url = f"https://github.com/{owner}/{repo}/releases/edit/{tag_name}"
 
     if edit_url and not args.no_browser:
         try:

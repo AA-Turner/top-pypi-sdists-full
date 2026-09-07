@@ -34,7 +34,9 @@ from typing import Mapping
 from typing import Sequence
 import uuid
 
+from dcc_mcp_core._server._continuation_lifecycle import resolve_bridge_result
 from dcc_mcp_core._server._inprocess_contracts import BaseDccCallableDispatcher
+from dcc_mcp_core._server._inprocess_contracts import ContinuationOutcome
 from dcc_mcp_core._server._inprocess_contracts import DeferredToolResult
 from dcc_mcp_core._server._inprocess_contracts import InProcessExecutionContext
 from dcc_mcp_core._server._inprocess_contracts import context_from_kwargs as _context_from_kwargs
@@ -43,7 +45,6 @@ from dcc_mcp_core._server._inprocess_contracts import is_host_queue_dispatcher a
 from dcc_mcp_core._server._inprocess_contracts import resolve_sandbox_action_name as _resolve_sandbox_action_name
 from dcc_mcp_core._server._inprocess_contracts import sandbox_denied_envelope
 from dcc_mcp_core._server._inprocess_contracts import timeout_hint_secs_to_ms
-from dcc_mcp_core._server._inprocess_results import resolve_execution_result
 from dcc_mcp_core.cancellation import _reset_current_job_id
 from dcc_mcp_core.cancellation import _set_current_job_id
 from dcc_mcp_core.cancellation import check_cancelled
@@ -69,9 +70,11 @@ _SCRIPT_PACKAGE_CLEAR_TIMEOUT_SECS = 1.0
 
 __all__ = [
     "BaseDccCallableDispatcher",
+    "ContinuationOutcome",
     "DeferredToolResult",
     "HostExecutionBridge",
     "InProcessExecutionContext",
+    "SplitPhaseOutcome",
     "build_inprocess_executor",
     "clear_script_package",
     "exception_to_error_envelope",
@@ -79,6 +82,8 @@ __all__ = [
     "sandbox_denied_envelope",
     "timeout_hint_secs_to_ms",
 ]
+
+SplitPhaseOutcome = ContinuationOutcome
 
 
 @dataclass
@@ -343,11 +348,14 @@ class HostExecutionBridge:
         context: InProcessExecutionContext,
     ) -> Any:
         """Resolve a DeferredToolResult or ChunkedRunner."""
-        return resolve_execution_result(
+        return resolve_bridge_result(
             result,
             context,
             dispatcher=self.dispatcher,
             dispatch_raw=self._dispatch_raw,
+            cancel_token=context.cancel_token,
+            current_generation=self._current_generation,
+            is_current_generation=self._is_current_generation,
         )
 
     def execute_script(

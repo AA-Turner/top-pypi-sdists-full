@@ -9,6 +9,7 @@ from skillsaw.rule import AutofixConfidence, AutofixResult, Rule, RuleViolation,
 from skillsaw.context import RepositoryContext
 from skillsaw.markdown_doc import MarkdownCodeSpan, MarkdownDoc, file_span, splice
 from skillsaw.rules.builtin.content_analysis import (
+    blank_long_tokens,
     gather_all_content_blocks,
 )
 from skillsaw.utils import read_text
@@ -22,7 +23,6 @@ class ContentUnlinkedInternalReferenceRule(Rule):
 
     autofix_confidence = AutofixConfidence.SAFE
 
-    formats = None
     since = "0.9.0"
     repo_types = None
 
@@ -92,12 +92,14 @@ class ContentUnlinkedInternalReferenceRule(Rule):
     ) -> List[Tuple[int, Optional[int], str, Optional[MarkdownCodeSpan]]]:
         """Collect (body_line, col_start, path_str, code_span) candidates in order."""
         results: List[Tuple[int, Optional[int], str, Optional[MarkdownCodeSpan]]] = []
+        # Path references always contain a "/", so quickly skip text segments
+        # and code spans that lack "/" before running regex checks.
         for seg in doc.text_segments():
-            if seg.in_link:
+            if seg.in_link or "/" not in seg.text:
                 continue
             if _IMPORT_LINE_RE.match(doc.line(seg.body_line)):
                 continue
-            for match in self._PATH_LIKE_RE.finditer(seg.text):
+            for match in self._PATH_LIKE_RE.finditer(blank_long_tokens(seg.text)):
                 path_str = match.group(0)
                 # Skip paths abutting parens (link syntax / parentheticals).
                 if match.start() > 0 and seg.text[match.start() - 1] == "(":
@@ -111,7 +113,7 @@ class ContentUnlinkedInternalReferenceRule(Rule):
                 col = seg.col_start + match.start() if seg.col_start is not None else None
                 results.append((seg.body_line, col, path_str, None))
         for span in doc.code_spans():
-            if span.in_link:
+            if span.in_link or "/" not in span.content:
                 continue
             if _IMPORT_LINE_RE.match(doc.line(span.body_line)):
                 continue
@@ -138,13 +140,19 @@ class ContentUnlinkedInternalReferenceRule(Rule):
                         file_exists = safe_exists(resolved)
                     except ValueError:
                         pass
+                # A path-shaped phrase that cannot resolve locally is not an
+                # actionable linking opportunity.  Requiring an existing
+                # in-repository target keeps examples such as
+                # ``JavaScript/Node.js`` and ``examples/app/config.yaml`` from
+                # dominating first-run results while preserving every real
+                # local reference this rule can make navigable.
+                if not file_exists:
+                    continue
                 # fix() only wraps references whose target exists on disk,
                 # and never rewrites a body extracted from another format —
                 # there is no span in the enclosing file to splice into.
-                fixable = file_exists and not cf.diagnostic_only
+                fixable = not cf.diagnostic_only
                 msg = f"Unlinked path reference: '{path_str}' — consider wrapping in link syntax [{path_str}]({path_str})"
-                if fixable:
-                    msg += " (file exists, autofixable)"
                 violations.append(self.violation(msg, block=cf, line=body_line, fixable=fixable))
         return violations
 
@@ -154,7 +162,7 @@ class ContentUnlinkedInternalReferenceRule(Rule):
         patterns = self.setting("patterns")
         fixes_by_file: Dict[Path, List[tuple]] = defaultdict(list)
         for v in violations:
-            if not v.file_path or "autofixable" not in v.message or v.block is None:
+            if not v.file_path or not v.fixable or v.block is None:
                 continue
             path_str = v.message.split("'")[1]
             fixes_by_file[v.file_path].append((path_str, v))

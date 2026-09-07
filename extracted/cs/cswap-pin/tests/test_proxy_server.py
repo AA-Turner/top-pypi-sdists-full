@@ -7780,6 +7780,166 @@ class TestDrainReportsWhatItCut:
             pp._pin_daemon_pids = real_pids
             pp.is_draining = real_draining
 
+    def case_a_draining_process_must_not_claim_a_deaf_bridge_is_fresh(
+            self, certdir):
+        """The predecessor in the incident stood down at 01:18:28Z and still
+        logged `9 of 9 bridge(s) post but hold no inbound stream` at
+        01:42:33Z, `only a NEW PROCESS clears it`, while a successor already
+        held those very streams — 66 and 39 established connections against
+        its own 2 and 1. `_report_deaf_bridges` asks OTHER draining pids what
+        they hold (the case above), but never asks whether IT is the one
+        draining, so a bridge whose stream migrated away from it reads
+        exactly like one that lost its stream for good.
+
+        `this_process_is_draining()`, not `is_draining(certdir, pid)`: the
+        marker lags the first beat, which is the whole width of this window.
+        """
+        import os
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        real_pids = pp._pin_daemon_pids
+        pp._log_lifecycle = lines.append
+        pp._pin_daemon_pids = lambda _c: [os.getpid()]
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+            srv._certdir = certdir
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_MIGRATED/worker/messages")
+            srv._connected_bridges = {"cse_MIGRATED"}
+
+            done = pp.announce_draining(certdir, os.getpid())
+            # THE DISCRIMINATING CASE. The marker file is gone, so a
+            # regression to `is_draining(certdir, os.getpid())` would read
+            # this process as NOT draining and MARK cse_MIGRATED instead —
+            # `this_process_is_draining()` must still answer True from the
+            # in-memory depth map alone.
+            pp.draining_marker_path(certdir, os.getpid()).unlink()
+            try:
+                srv._report_deaf_bridges()
+            finally:
+                done()
+            assert lines, (
+                "it went silent while draining; a reader cannot tell a "
+                "suppressed report from a check that never ran")
+            assert pp.DEAF_REPORT_MARK not in lines[-1], (
+                "a draining process claimed a bridge is deaf although its "
+                f"own view cannot see where the stream went: {lines[-1]!r}")
+            assert "only a NEW PROCESS" not in lines[-1], (
+                "it promised a remedy that already happened — the successor "
+                f"holding the stream IS the new process: {lines[-1]!r}")
+            assert pp.DEAF_REPORT_BLIND in lines[-1], (
+                f"the refusal is not verbatim, so no watcher can match it: "
+                f"{lines[-1]!r}")
+            assert "cse_MIGRATED" in lines[-1], (
+                "it does not name the bridge, so a reader cannot check "
+                f"whether it is really gone: {lines[-1]!r}")
+
+            # THE CONTROL. The same bridge, the same daemon, NOT draining —
+            # the report must still name it deaf, or the fix silenced the
+            # alarm instead of correcting its wording.
+            before = len(lines)
+            srv._last_deaf = None
+            srv._report_deaf_bridges()
+            assert len(lines) > before, (
+                "a non-draining process with the same deaf bridge produced "
+                "no line")
+            assert pp.DEAF_REPORT_MARK in lines[-1], (
+                "a genuinely deaf bridge, reported by a process that is not "
+                f"draining, must still get the ordinary MARK: {lines[-1]!r}")
+        finally:
+            pp._log_lifecycle = real_log
+            pp._pin_daemon_pids = real_pids
+
+    def case_a_drain_that_aborts_does_not_silence_the_bridge_forever(
+            self, certdir):
+        """The reviewer's trace: the watchdog handover announces the drain,
+        `_spawn_daemon` times out waiting for a successor, `done_draining()`
+        fires, and this process keeps serving as the live pid. The deaf set
+        never changed, so `now == prev` alone would dedupe the MARK away —
+        for the rest of this process's life, once a BLIND for it was ever
+        latched into `_last_deaf` while draining. Every consumer of the MARK
+        line would go permanently quiet on a bridge that is genuinely deaf.
+
+        `_with_deaf_age` is the same field that separated the incident's own
+        migration burst from a real loss (`deaf 156s-162s` on nine ids was
+        nine SSE legs closing in ~6s, not nine losses) — it belongs on the
+        BLIND line exactly as much as on the MARK it replaces.
+        """
+        import os
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        real_pids = pp._pin_daemon_pids
+        pp._log_lifecycle = lines.append
+        pp._pin_daemon_pids = lambda _c: [os.getpid()]
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+            srv._stream_lost = {}
+            srv._certdir = certdir
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_ABORT/worker/messages")
+            srv._connected_bridges = {"cse_ABORT"}
+            # A REAL, MEASURED AGE: this process itself once held the stream
+            # and lost it, so `deaf_for` answers a number, never None.
+            # -42.4, NOT -42: `int(age)` truncates in `_with_deaf_age`, and
+            # the I/O between this stamp and the read (announce_draining's
+            # own `_collect_dead_markers` scan) only adds time, never
+            # removes it. The 0.6s of headroom below the 43s rounding
+            # boundary is what a loaded runner needs to still read 42.
+            srv._stream_lost["cse_ABORT"] = time.monotonic() - 42.4
+
+            # THE DRAIN STARTS, and while it runs this bridge looks deaf.
+            done = pp.announce_draining(certdir, os.getpid())
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_BLIND in lines[-1], (
+                f"a genuinely-aged loss while draining was not BLIND: {lines}")
+            assert "(deaf 42s)" in lines[-1], (
+                "the BLIND line drops the one field that tells a migration "
+                f"burst from a real loss: {lines[-1]!r}")
+
+            # THE DRAIN ABORTS (the successor never came up) and this
+            # process keeps serving — `announce_draining`'s own release.
+            done()
+
+            # THE SAME DEAF SET, one sweep later: the dedupe must not let
+            # the stale draining-BLIND stand forever now that this process
+            # is no longer draining.
+            before = len(lines)
+            srv._report_deaf_bridges()
+            assert len(lines) > before, (
+                "the aborted drain's BLIND latched permanently — no MARK "
+                "ever followed for a bridge that is genuinely still deaf")
+            assert pp.DEAF_REPORT_MARK in lines[-1], (
+                "a drain that aborted and left this process serving must "
+                f"MARK an unchanged deaf set: {lines[-1]!r}")
+
+            # THE CONTROL. Once the MARK itself stands with nothing changed,
+            # the ordinary dedupe still applies — this fix must not turn
+            # every sweep into a fresh log line.
+            before = len(lines)
+            srv._report_deaf_bridges()
+            assert len(lines) == before, (
+                "an ordinary unchanged MARK was re-logged; the fix for the "
+                "stale-BLIND case must not defeat the dedupe generally")
+        finally:
+            pp._log_lifecycle = real_log
+            pp._pin_daemon_pids = real_pids
+
     def case_an_attachment_fetch_says_whether_it_worked(self, certdir):
         """Nothing recorded whether a claude.ai attachment ever downloaded.
 
@@ -11725,6 +11885,373 @@ class TestASpuriousStream404DoesNotEndTheSession:
     def case_a_real_200_is_untouched(self):
         got = self._relay(self.STREAM, b"200 OK", prime=self.BEAT)
         assert got.startswith(b"HTTP/1.1 200"), got[:40]
+
+
+class TestA429OnMessagesBecomesA401OnceCswapHasWalledTheAccount:
+    """A 429 on /v1/messages sleeps the client for the WHOLE reset window of
+    the account it walled; a credential swap underneath that sleep does not
+    shorten it, because CC only re-reads the credential file when it rebuilds
+    its client, and a rate limit is not one of the triggers that rebuild
+    watches — 401/403, a stale socket, or an mTLS reload are. Measured live
+    at 45m44s beside an account with 4h of headroom. See
+    `_switch_off_walled_account`.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    RESET_HEADER = b"anthropic-ratelimit-unified-reset: 9999999999"
+    RESET_HEADER_2 = b"anthropic-ratelimit-unified-reset: 8888888888"
+    RETRY_AFTER = b"retry-after: 3600"
+    UNIFIED_STATUS = b"anthropic-ratelimit-unified-status: allowed_warning"
+    SHOULD_RETRY = b"x-should-retry: true"
+
+    @staticmethod
+    def _wire(monkeypatch, switched, raises_once=None, needs_login=False,
+              validated=True):
+        """Stub claude_swap's switcher so no real account store is touched.
+
+        ``validated=None`` omits the key entirely (an older cswap that never
+        probed the landing credential, or a probe that never ran)."""
+        from cswap_pin import proxy as pp
+
+        calls = []
+        state = {"raised": False}
+
+        def _switch_off(sw):
+            calls.append(sw)
+            if raises_once is not None and not state["raised"]:
+                state["raised"] = True
+                raise raises_once
+            result = {"switched": switched, "needsLogin": needs_login,
+                      "reason": None if switched else "candidates-exhausted"}
+            if validated is not None:
+                result["validated"] = validated
+            return result
+
+        fake_module = type("M", (), {
+            "ClaudeAccountSwitcher": staticmethod(lambda: None),
+            "switch_off_at_limit_account": staticmethod(_switch_off),
+        })()
+        monkeypatch.setattr(pp, "require", lambda n: fake_module)
+        pp._walled_switch_seen.clear()
+        return calls
+
+    @classmethod
+    def _relay(cls, path="/v1/messages", reset=None, status=b"429 Too Many Requests"):
+        import socket as _s
+        from cswap_pin import proxy as pp
+        up_a, up_b = _s.socketpair()
+        cl_a, cl_b = _s.socketpair()
+        try:
+            head = b"HTTP/1.1 " + status + b"\r\n"
+            if reset is not False:  # False omits the header entirely
+                head += (reset or cls.RESET_HEADER) + b"\r\n"
+            head += (cls.RETRY_AFTER + b"\r\n" + cls.UNIFIED_STATUS + b"\r\n"
+                     + cls.SHOULD_RETRY + b"\r\nContent-Length: 2\r\n\r\nno")
+            up_b.sendall(head)
+            up_b.shutdown(_s.SHUT_WR)
+            pp._relay_response(up_a, cl_a, 0, method="POST", path=path)
+            cl_a.shutdown(_s.SHUT_WR)
+            return cl_b.recv(4096)
+        finally:
+            for x in (up_a, up_b, cl_a, cl_b):
+                try: x.close()
+                except OSError: pass
+
+    def case_a_successful_switch_rewrites_429_to_401(self, monkeypatch):
+        self._wire(monkeypatch, switched=True)
+        got = self._relay()
+        assert got.startswith(b"HTTP/1.1 401"), got[:40]
+
+    def case_a_401_carries_no_rate_limit_header(self, monkeypatch):
+        """`retry-after` above 60s throws `api_request_retry_after_too_long`
+        and kills the client's turn outright; the whole
+        `anthropic-ratelimit-*` family (unified-status included) is
+        meaningless, or misleading, on an auth response; `x-should-retry:
+        true` would have the SDK retry internally on the same client,
+        defeating the whole point of the 401 silently."""
+        self._wire(monkeypatch, switched=True)
+        got = self._relay()
+        assert b"retry-after" not in got.lower(), got[:80]
+        assert self.RESET_HEADER not in got, got[:80]
+        assert self.UNIFIED_STATUS not in got, got[:80]
+        assert self.SHOULD_RETRY not in got, got[:80]
+
+    def case_no_headroom_anywhere_relays_the_429_untouched(self, monkeypatch):
+        calls = self._wire(monkeypatch, switched=False)
+        got = self._relay()
+        assert got.startswith(b"HTTP/1.1 429"), got[:40]
+        assert self.RESET_HEADER in got, got[:80]
+        assert self.UNIFIED_STATUS in got, got[:80]
+        assert self.SHOULD_RETRY in got, got[:80]
+        assert len(calls) == 1, len(calls)
+
+    def case_a_raising_switch_releases_the_slot_for_a_retry(self, monkeypatch):
+        """A transient failure (this daemon's own config lock held
+        elsewhere, or an older claude-swap with no such symbol) must not
+        burn the wall's only attempt forever — once its short memo expiry
+        has passed."""
+        from cswap_pin import proxy as pp
+        monkeypatch.setattr(pp, "_WALLED_SWITCH_RAISE_TTL", 0.0)
+        calls = self._wire(monkeypatch, switched=True, raises_once=OSError("locked"))
+        first = self._relay()
+        assert first.startswith(b"HTTP/1.1 429"), first[:40]
+        second = self._relay()
+        assert second.startswith(b"HTTP/1.1 401"), second[:40]
+        assert len(calls) == 2, len(calls)
+
+    def case_a_raise_is_remembered_briefly_so_a_storm_does_not_serialize(
+        self, monkeypatch,
+    ):
+        """The raise path used to record nothing, so a storm on one wall
+        serialized N real `switch()` calls — each blocking the lock for the
+        full config-lock timeout — instead of one. A raise must debounce
+        like any other outcome, for its own short expiry."""
+        from cswap_pin import proxy as pp
+
+        calls = []
+
+        def _switch_off(sw):
+            calls.append(sw)
+            raise OSError("locked")
+
+        fake_module = type("M", (), {
+            "ClaudeAccountSwitcher": staticmethod(lambda: None),
+            "switch_off_at_limit_account": staticmethod(_switch_off),
+        })()
+        monkeypatch.setattr(pp, "require", lambda n: fake_module)
+        pp._walled_switch_seen.clear()
+
+        for _ in range(10):
+            got = self._relay()
+            assert got.startswith(b"HTTP/1.1 429"), got[:40]
+        assert len(calls) == 1, len(calls)
+
+    def case_needs_login_is_not_a_usable_switch(self, monkeypatch):
+        """switched=True with needsLogin=True means the credential is gone,
+        not moved to a usable one — a 401 here dies on auth instead of
+        surviving a wait it could have survived."""
+        self._wire(monkeypatch, switched=True, needs_login=True)
+        got = self._relay()
+        assert got.startswith(b"HTTP/1.1 429"), got[:40]
+
+    def case_an_absent_reset_header_is_never_walled(self, monkeypatch):
+        """No header is no evidence of an account-level unified wall (an
+        edge/gateway 429, or an org/key-scoped limit `switch()` cannot
+        fix) — must not switch, and must not debounce future header-less
+        429s against one shared empty key."""
+        calls = self._wire(monkeypatch, switched=True)
+        got = self._relay(reset=False)
+        assert got.startswith(b"HTTP/1.1 429"), got[:40]
+        assert not calls, len(calls)
+
+    def case_a_non_429_on_messages_is_never_touched(self, monkeypatch):
+        calls = self._wire(monkeypatch, switched=True)
+        got = self._relay(status=b"200 OK")
+        assert got.startswith(b"HTTP/1.1 200"), got[:40]
+        assert not calls, len(calls)
+
+    def case_the_switch_outcome_is_logged_both_ways(self, monkeypatch):
+        """`_TRACE` is off on a daemon that is already serving, which is
+        every daemon this runs on — `_log_lifecycle` (daemon.log) is the
+        only record that survives, on success AND on a no-headroom no-op."""
+        from cswap_pin import proxy as pp
+        logged = []
+        monkeypatch.setattr(pp, "_log_lifecycle", logged.append)
+        self._wire(monkeypatch, switched=True)
+        self._relay()
+        assert logged, "a successful switch went unlogged"
+        logged.clear()
+        self._wire(monkeypatch, switched=False)
+        self._relay(reset=self.RESET_HEADER_2)
+        assert logged, "a no-headroom switch attempt went unlogged"
+
+    def case_an_absent_reset_header_is_also_logged(self, monkeypatch):
+        """Without this, a daemon declining every header-less 429 produces a
+        daemon.log identical to one this release never reached — "verify
+        what is serving, not what is installed" needs a line to read."""
+        from cswap_pin import proxy as pp
+        logged = []
+        monkeypatch.setattr(pp, "_log_lifecycle", logged.append)
+        self._wire(monkeypatch, switched=True)
+        self._relay(reset=False)
+        assert logged, "a header-less 429 decline went unlogged"
+
+    def case_an_absent_reset_header_log_carries_the_retry_after(self, monkeypatch):
+        """A header-less 429's own sleep is capped at 6h client-side and
+        unguarded against a throw — instrumentation only, no behaviour keyed
+        on it, but unmeasurable unless the value is on the line."""
+        from cswap_pin import proxy as pp
+        logged = []
+        monkeypatch.setattr(pp, "_log_lifecycle", logged.append)
+        self._wire(monkeypatch, switched=True)
+        self._relay(reset=False)
+        assert any(b"3600" in m.encode() for m in logged), logged
+
+    def case_the_debounce_hit_is_logged_with_the_reset_epoch(self, monkeypatch):
+        """This branch was invisible in daemon.log before the fix, which is
+        why a repeat wall could only be reconstructed from the CC bundle;
+        the new `session_limit_watch` monitor reads this line."""
+        from cswap_pin import proxy as pp
+        logged = []
+        monkeypatch.setattr(pp, "_log_lifecycle", logged.append)
+        self._wire(monkeypatch, switched=True)
+        self._relay()
+        logged.clear()
+        self._relay()
+        assert any(b"9999999999" in m.encode() for m in logged), logged
+
+    def case_a_second_429_on_the_same_wall_still_gets_the_401(self, monkeypatch):
+        """A retry that reused the stale bearer, or a second concurrent
+        connection on the same wall, must not re-attempt the switch — that
+        would either churn accounts or dogpile the cross-process locks ten
+        at once. But the account for THIS wall is already switched off, so
+        the client must still see the 401, not the wall 429 relayed
+        verbatim — a debounced switch is not a debounced conversion."""
+        calls = self._wire(monkeypatch, switched=True)
+        first = self._relay()
+        assert first.startswith(b"HTTP/1.1 401"), first[:40]
+        second = self._relay()
+        assert second.startswith(b"HTTP/1.1 401"), second[:40]
+        assert len(calls) == 1, len(calls)
+
+    def case_a_debounced_failed_switch_still_relays_the_429(self, monkeypatch):
+        """The deque slot is claimed whether or not the switch succeeded —
+        it also has to stop a storm of retries on a wall with no headroom
+        anywhere. A debounce hit must only forge a 401 for a wall this
+        daemon actually switched off; one that never succeeded must keep
+        relaying the 429 untouched on every repeat, not just the first."""
+        calls = self._wire(monkeypatch, switched=False)
+        first = self._relay()
+        assert first.startswith(b"HTTP/1.1 429"), first[:40]
+        second = self._relay()
+        assert second.startswith(b"HTTP/1.1 429"), second[:40]
+        assert self.RESET_HEADER in second, second[:80]
+        assert len(calls) == 1, len(calls)
+
+    def case_a_switch_without_a_validated_landing_relays_the_429_unchanged(
+        self, monkeypatch,
+    ):
+        """`switch()` landed a credential but never probed it live (an older
+        cswap on the host, or a probe that did not run) — no `validated`
+        key at all. A 401 here would rebuild CC onto a credential nobody
+        confirmed is alive, which is worse than the wall it replaces."""
+        from cswap_pin import proxy as pp
+        logged = []
+        monkeypatch.setattr(pp, "_log_lifecycle", logged.append)
+        calls = self._wire(monkeypatch, switched=True, validated=None)
+        got = self._relay()
+        assert got.startswith(b"HTTP/1.1 429"), got[:40]
+        assert self.RESET_HEADER in got, got[:80]
+        assert self.RETRY_AFTER in got, got[:80]
+        assert sum(
+            "did not validate the landing credential (validated absent), "
+            "relaying the 429 unchanged" in m for m in logged
+        ) == 1, logged
+        second = self._relay()
+        assert second.startswith(b"HTTP/1.1 429"), second[:40]
+        assert self.RESET_HEADER in second, second[:80]
+        assert len(calls) == 1, len(calls)
+
+    def case_a_switch_with_validated_false_relays_the_429_unchanged(
+        self, monkeypatch,
+    ):
+        """Same as the missing-key case, spelled the other way: `switch()`
+        ran the probe and it came back dead."""
+        from cswap_pin import proxy as pp
+        logged = []
+        monkeypatch.setattr(pp, "_log_lifecycle", logged.append)
+        calls = self._wire(monkeypatch, switched=True, validated=False)
+        got = self._relay()
+        assert got.startswith(b"HTTP/1.1 429"), got[:40]
+        assert self.RESET_HEADER in got, got[:80]
+        assert self.RETRY_AFTER in got, got[:80]
+        assert sum(
+            "did not validate the landing credential (validated False), "
+            "relaying the 429 unchanged" in m for m in logged
+        ) == 1, logged
+        second = self._relay()
+        assert second.startswith(b"HTTP/1.1 429"), second[:40]
+        assert len(calls) == 1, len(calls)
+
+    def case_two_concurrent_429s_on_the_same_wall_wait_for_the_switch(
+        self, monkeypatch,
+    ):
+        """Ten concurrent 429s on one wall (measured), each its own MITM
+        thread: a debounce that claims the wall's slot and releases the
+        lock BEFORE `switch()` returns lets a second thread read
+        seen-and-not-yet-ok and relay the 429 verbatim while the first
+        thread's switch is still landing. The lock must stay held across
+        `switch()` so every waiter reads the one settled answer."""
+        from cswap_pin import proxy as pp
+        entered = threading.Event()
+        release = threading.Event()
+
+        def _switch_off(sw):
+            entered.set()
+            assert release.wait(timeout=5), "release never set — test bug"
+            return {"switched": True, "needsLogin": False, "validated": True}
+
+        calls = []
+
+        def _counted(sw):
+            calls.append(sw)
+            return _switch_off(sw)
+
+        fake_module = type("M", (), {
+            "ClaudeAccountSwitcher": staticmethod(lambda: None),
+            "switch_off_at_limit_account": staticmethod(_counted),
+        })()
+        monkeypatch.setattr(pp, "require", lambda n: fake_module)
+        pp._walled_switch_seen.clear()
+
+        results = {}
+
+        def _run(key):
+            results[key] = self._relay()
+
+        t1 = threading.Thread(target=_run, args=("a",))
+        t1.start()
+        assert entered.wait(timeout=5), "switch() never started"
+
+        t2 = threading.Thread(target=_run, args=("b",))
+        t2.start()
+        # t2 has had time to reach the debounce check (or run past it, on
+        # the broken shape) while switch() is still blocked on `release`.
+        time.sleep(0.2)
+        # On the broken shape (lock released before `switch()` returns) t2
+        # has already written its 429 by now, before switch() ever settles.
+        assert "b" not in results, results
+        release.set()
+        t1.join(timeout=5)
+        t2.join(timeout=5)
+
+        assert results["a"].startswith(b"HTTP/1.1 401"), results["a"][:40]
+        assert results["b"].startswith(b"HTTP/1.1 401"), results["b"][:40]
+        assert len(calls) == 1, len(calls)
+
+    def case_a_different_wall_switches_again(self, monkeypatch):
+        """The debounce keys on the WALL's own reset value, not on a time
+        window or the account identity: a different wall must switch again
+        even seconds later, and a wall already seen must never re-switch no
+        matter how long it persists — but its already-converted 401 is what
+        every later repeat of it sees."""
+        calls = self._wire(monkeypatch, switched=True)
+        first = self._relay(reset=self.RESET_HEADER)
+        assert first.startswith(b"HTTP/1.1 401"), first[:40]
+        second = self._relay(reset=self.RESET_HEADER_2)
+        assert second.startswith(b"HTTP/1.1 401"), second[:40]
+        assert len(calls) == 2, len(calls)
+        third = self._relay(reset=self.RESET_HEADER)
+        assert third.startswith(b"HTTP/1.1 401"), third[:40]
+        assert len(calls) == 2, len(calls)
+
+    def case_a_429_off_messages_is_never_touched(self, monkeypatch):
+        calls = self._wire(monkeypatch, switched=True)
+        got = self._relay(path="/v1/other")
+        assert got.startswith(b"HTTP/1.1 429"), got
+        assert not calls, "the switch must only ever be tried for /v1/messages"
 
 
 class TestTheEvidenceSurvivesAHandover:

@@ -20,12 +20,105 @@ impl RangeSelfUse {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum StructuralEdit {
+    InsertRows { before: u32 },
+    DeleteRows { start: u32, end: u32 },
+    InsertColumns { before: u32 },
+    DeleteColumns { start: u32, end: u32 },
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct StructuralOccupancy {
+    occupied_rows: Vec<u32>,
+    occupied_columns: Vec<u32>,
+    conservative: bool,
+}
+
+impl StructuralOccupancy {
+    pub(crate) fn conservative() -> Self {
+        Self {
+            conservative: true,
+            ..Self::default()
+        }
+    }
+
+    fn finish(&mut self) {
+        self.occupied_rows.sort_unstable();
+        self.occupied_rows.dedup();
+        self.occupied_columns.sort_unstable();
+        self.occupied_columns.dedup();
+    }
+
+    pub(crate) fn include_arrow_sheet(&mut self, sheet: &crate::arrow_store::ArrowSheet) {
+        let shapes = sheet.shape();
+        for (col, column) in sheet.columns.iter().enumerate() {
+            let shape_occupied = shapes.get(col).is_some_and(|shape| {
+                shape.has_num || shape.has_bool || shape.has_text || shape.has_err
+            });
+            let sparse_meta_occupied = column.sparse_chunks.values().any(|chunk| {
+                chunk.meta.non_null_num > 0
+                    || chunk.meta.non_null_bool > 0
+                    || chunk.meta.non_null_text > 0
+                    || chunk.meta.non_null_err > 0
+            });
+            let overlay_occupied = column
+                .chunks
+                .iter()
+                .chain(column.sparse_chunks.values())
+                .any(|chunk| {
+                    chunk.overlay.iter().next().is_some()
+                        || chunk.computed_overlay.iter().next().is_some()
+                });
+            if shape_occupied || sparse_meta_occupied || overlay_occupied {
+                self.occupied_columns.push(col as u32);
+            }
+        }
+        self.finish();
+    }
+
+    fn intersects(sorted: &[u32], start: u32, end: u32) -> bool {
+        let index = sorted.partition_point(|value| *value < start);
+        sorted.get(index).is_some_and(|value| *value <= end)
+    }
+
+    fn cross_axis_occupied(self_ref: &Self, edit: StructuralEdit, start: u32, end: u32) -> bool {
+        if self_ref.conservative {
+            return true;
+        }
+        match edit {
+            StructuralEdit::InsertRows { .. } | StructuralEdit::DeleteRows { .. } => {
+                Self::intersects(&self_ref.occupied_columns, start, end)
+            }
+            StructuralEdit::InsertColumns { .. } | StructuralEdit::DeleteColumns { .. } => {
+                Self::intersects(&self_ref.occupied_rows, start, end)
+            }
+        }
+    }
+}
+
 impl DependencyGraph {
-    pub(crate) fn compressed_range_dependents_intersecting_deleted_rows(
+    pub(crate) fn has_compressed_range_dependencies(&self) -> bool {
+        !self.formula_to_range_deps.is_empty()
+    }
+
+    pub(crate) fn structural_occupancy(&self, sheet_id: SheetId) -> StructuralOccupancy {
+        let mut occupancy = StructuralOccupancy::default();
+        for (id, coord) in self.grid_vertices_in_sheet(sheet_id) {
+            if self.store.kind(id) != VertexKind::Empty {
+                occupancy.occupied_rows.push(coord.row());
+                occupancy.occupied_columns.push(coord.col());
+            }
+        }
+        occupancy.finish();
+        occupancy
+    }
+
+    pub(crate) fn compressed_range_dependents_for_structural_edit(
         &self,
         sheet_id: SheetId,
-        start_row: u32,
-        end_row: u32,
+        edit: StructuralEdit,
+        occupancy: &StructuralOccupancy,
     ) -> Vec<VertexId> {
         self.formula_to_range_deps
             .iter()
@@ -34,46 +127,51 @@ impl DependencyGraph {
                     .iter()
                     .any(|range| {
                         // `Current` is the dependent formula's own sheet. An
-                        // unresolvable sheet name keeps the dependent in the
-                        // candidate set (over-approximating is safe here;
-                        // dropping it would silently lose a dependent).
+                        // unresolvable sheet keeps the candidate conservative.
                         let range_sheet_id = self
                             .sheet_reg
                             .resolve_locator(&range.sheet, self.get_vertex_sheet_id(dependent))
-                            .unwrap_or(sheet_id);
-                        let range_start = range.start_row.map(|bound| bound.index).unwrap_or(0);
-                        let range_end = range.end_row.map(|bound| bound.index).unwrap_or(u32::MAX);
-                        range_sheet_id == sheet_id
-                            && range_start <= end_row
-                            && range_end >= start_row
-                    })
-                    .then_some(dependent)
-            })
-            .collect()
-    }
-
-    pub(crate) fn compressed_range_dependents_intersecting_deleted_columns(
-        &self,
-        sheet_id: SheetId,
-        start_col: u32,
-        end_col: u32,
-    ) -> Vec<VertexId> {
-        self.formula_to_range_deps
-            .iter()
-            .filter_map(|(&dependent, ranges)| {
-                ranges
-                    .iter()
-                    .any(|range| {
-                        // See the row query above.
-                        let range_sheet_id = self
-                            .sheet_reg
-                            .resolve_locator(&range.sheet, self.get_vertex_sheet_id(dependent))
-                            .unwrap_or(sheet_id);
-                        let range_start = range.start_col.map(|bound| bound.index).unwrap_or(0);
-                        let range_end = range.end_col.map(|bound| bound.index).unwrap_or(u32::MAX);
-                        range_sheet_id == sheet_id
-                            && range_start <= end_col
-                            && range_end >= start_col
+                            .ok();
+                        if range_sheet_id.is_some_and(|resolved| resolved != sheet_id) {
+                            return false;
+                        }
+                        let start_row = range.start_row.map(|bound| bound.index).unwrap_or(0);
+                        let end_row = range.end_row.map(|bound| bound.index).unwrap_or(u32::MAX);
+                        let start_col = range.start_col.map(|bound| bound.index).unwrap_or(0);
+                        let end_col = range.end_col.map(|bound| bound.index).unwrap_or(u32::MAX);
+                        let axis_matches = match edit {
+                            StructuralEdit::DeleteRows { start, end } => {
+                                start_row <= end && end_row >= start
+                            }
+                            StructuralEdit::InsertRows { before } => {
+                                (range.start_row.is_none() || start_row < before)
+                                    && before <= end_row
+                            }
+                            StructuralEdit::DeleteColumns { start, end } => {
+                                start_col <= end && end_col >= start
+                            }
+                            StructuralEdit::InsertColumns { before } => {
+                                (range.start_col.is_none() || start_col < before)
+                                    && before <= end_col
+                            }
+                        };
+                        let (cross_start, cross_end) = match edit {
+                            StructuralEdit::InsertRows { .. }
+                            | StructuralEdit::DeleteRows { .. } => (start_col, end_col),
+                            StructuralEdit::InsertColumns { .. }
+                            | StructuralEdit::DeleteColumns { .. } => (start_row, end_row),
+                        };
+                        axis_matches
+                            && (range_sheet_id.is_none()
+                                // An unresolvable sheet candidate must remain
+                                // conservative; occupancy from the edited sheet
+                                // cannot prove that candidate empty.
+                                || StructuralOccupancy::cross_axis_occupied(
+                                    occupancy,
+                                    edit,
+                                    cross_start,
+                                    cross_end,
+                                ))
                     })
                     .then_some(dependent)
             })
@@ -221,7 +319,10 @@ impl DependencyGraph {
         if self.store.sheet_id(dependent) != sheet_id {
             return false;
         }
-        let coord = self.store.coord(dependent);
+        // A symbol vertex has no position, so no range region can contain it.
+        let Some(coord) = self.store.grid_addr(dependent) else {
+            return false;
+        };
         let r0 = coord.row();
         let c0 = coord.col();
         s_row.is_none_or(|s| r0 >= s)
@@ -347,7 +448,8 @@ impl DependencyGraph {
             if row < 0 || col < 0 {
                 return Some(false);
             }
-            let coord = graph.store.coord(dependent);
+            // A symbol vertex has no position, so no range region can contain it.
+            let coord = graph.store.grid_addr(dependent)?;
             let contains = if row == 0 && col == 0 {
                 coord.row() >= sr && coord.row() <= er && coord.col() >= sc && coord.col() <= ec
             } else if col == 0 {
@@ -488,6 +590,18 @@ impl DependencyGraph {
                 self.record_self_loop(dependent);
             }
 
+            // #376: an all-unbounded range means "the whole sheet". The stripe
+            // classification below would treat it as both column- and
+            // row-striped, fall through both branches, and collapse it to a
+            // single row-0 stripe, hiding edits anywhere else from this
+            // dependent. Register full column coverage instead; the precision
+            // check against `formula_to_range_deps` already treats the missing
+            // bounds as unbounded.
+            if s_row.is_none() && e_row.is_none() && s_col.is_none() && e_col.is_none() {
+                self.register_whole_sheet_stripes(dependent, sheet_id);
+                continue;
+            }
+
             let col_stripes = (s_row.is_none() && e_row.is_none())
                 || (s_col.is_some() && e_col.is_some() && (s_row.is_none() || e_row.is_none()));
             let row_stripes = (s_col.is_none() && e_col.is_none())
@@ -622,6 +736,26 @@ impl DependencyGraph {
         }
     }
 
+    /// Register stripes covering every cell of a sheet, for a dependent whose
+    /// range is unbounded on both axes (#376). Dirty-propagation lookups probe
+    /// the column stripe of every edited cell, so covering all columns
+    /// guarantees any edit on the sheet reaches the precision check.
+    fn register_whole_sheet_stripes(&mut self, dependent: VertexId, sheet_id: SheetId) {
+        /// Excel sheet column capacity (column XFD), as a 0-based exclusive bound.
+        const SHEET_MAX_COLS: u32 = 16_384;
+        for col in 0..SHEET_MAX_COLS {
+            let key = StripeKey {
+                sheet_id,
+                stripe_type: StripeType::Column,
+                index: col,
+            };
+            self.stripe_to_dependents
+                .entry(key)
+                .or_default()
+                .insert(dependent);
+        }
+    }
+
     /// Fast-path: add range dependencies using compact RangeKey.
     pub fn add_range_deps_from_keys(
         &mut self,
@@ -664,17 +798,20 @@ impl DependencyGraph {
                     let b = mk_axis(c0);
                     SharedRangeRef::from_parts(sheet_loc, None, Some(b), None, Some(b)).ok()
                 }
-                RK::OpenRect { start, end, .. } => {
-                    let (sr, sc) = match start {
-                        Some(p) => (Some(mk_axis(p.row())), Some(mk_axis(p.col()))),
-                        None => (None, None),
-                    };
-                    let (er, ec) = match end {
-                        Some(p) => (Some(mk_axis(p.row())), Some(mk_axis(p.col()))),
-                        None => (None, None),
-                    };
-                    SharedRangeRef::from_parts(sheet_loc, sr, sc, er, ec).ok()
-                }
+                RK::OpenRect {
+                    start_row,
+                    start_col,
+                    end_row,
+                    end_col,
+                    ..
+                } => SharedRangeRef::from_parts(
+                    sheet_loc,
+                    start_row.map(mk_axis),
+                    start_col.map(mk_axis),
+                    end_row.map(mk_axis),
+                    end_col.map(mk_axis),
+                )
+                .ok(),
             };
 
             if let Some(r) = built {
@@ -708,6 +845,18 @@ impl DependencyGraph {
                     != RangeSelfUse::Excluded
             {
                 self.record_self_loop(dependent);
+            }
+
+            // #376: an all-unbounded range means "the whole sheet". The stripe
+            // classification below would treat it as both column- and
+            // row-striped, fall through both branches, and collapse it to a
+            // single row-0 stripe, hiding edits anywhere else from this
+            // dependent. Register full column coverage instead; the precision
+            // check against `formula_to_range_deps` already treats the missing
+            // bounds as unbounded.
+            if s_row.is_none() && e_row.is_none() && s_col.is_none() && e_col.is_none() {
+                self.register_whole_sheet_stripes(dependent, sheet_id);
+                continue;
             }
 
             let col_stripes = (s_row.is_none() && e_row.is_none())

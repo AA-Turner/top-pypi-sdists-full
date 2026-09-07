@@ -4,7 +4,9 @@ use std::borrow::Cow;
 use crate::{
     compiler,
     error::ValidationError,
-    evaluation::{format_schema_location, Annotations, ErrorDescription, EvaluationNode},
+    evaluation::{
+        format_schema_location, Annotations, ChildList, ErrorDescription, EvaluationNode,
+    },
     keywords::CompilationResult,
     node::SchemaNode,
     paths::{LazyLocation, Location, RefTracker},
@@ -215,7 +217,7 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
             return EvaluationResult::valid_empty();
         };
         let mut matched_props = Vec::with_capacity(object.len());
-        let mut children = Vec::new();
+        let mut children = ChildList::default();
         if object.len() <= self.properties.len() {
             for (name, value) in object.members() {
                 let name = name.as_ref();
@@ -224,7 +226,8 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
                     if prop_name.matches(head, name) {
                         let path = location.push(name);
                         matched_props.push(prop_name.as_str().to_owned());
-                        children.push(node.evaluate_instance_below(&value, &path, tracker, ctx));
+                        let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                        children.push(&mut ctx.arena, child);
                         break;
                     }
                 }
@@ -234,13 +237,51 @@ impl<F: Json> Validate<F> for SmallPropertiesValidator<F> {
                 if let Some(prop) = object.get(key) {
                     let path = location.push(prop_name.as_str());
                     matched_props.push(prop_name.as_str().to_owned());
-                    children.push(node.evaluate_instance_below(&prop, &path, tracker, ctx));
+                    let child = node.evaluate_instance_below(&prop, &path, tracker, ctx);
+                    children.push(&mut ctx.arena, child);
                 }
             }
         }
         let mut application = EvaluationResult::from_children(children);
         application.annotate(Annotations::new(Value::from(matched_props)));
         application
+    }
+}
+
+impl<F: Json> SmallPropertiesWithRequired2Validator<F> {
+    #[cold]
+    #[inline(never)]
+    fn missing<'i>(
+        &self,
+        key: &PropertyName,
+        instance: &F::Node<'i>,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+    ) -> ValidationError<'i> {
+        ValidationError::required(
+            self.required_location.clone(),
+            crate::paths::capture_evaluation_path(tracker, &self.required_location),
+            location.into(),
+            instance.lazy_value(),
+            Value::String(key.as_str().to_owned()),
+        )
+        .with_absolute_keyword_location(self.required_absolute_location.clone())
+    }
+
+    fn check_required<'i, O: Object<'i, F>>(
+        &self,
+        instance: &F::Node<'i>,
+        object: &O,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+    ) -> Result<(), ValidationError<'i>> {
+        if object.get(&self.first_key).is_none() {
+            return Err(self.missing(&self.first, instance, location, tracker));
+        }
+        if object.get(&self.second_key).is_none() {
+            return Err(self.missing(&self.second, instance, location, tracker));
+        }
+        Ok(())
     }
 }
 
@@ -296,42 +337,45 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
         tracker: Option<&RefTracker>,
         ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
-        if let Some(object) = instance.as_object() {
-            // Check required first
-            if object.get(&self.first_key).is_none() {
-                return Err(ValidationError::required(
-                    self.required_location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.required_location),
-                    location.into(),
-                    instance.lazy_value(),
-                    Value::String(self.first.as_str().to_owned()),
-                ));
-            }
-            if object.get(&self.second_key).is_none() {
-                return Err(ValidationError::required(
-                    self.required_location.clone(),
-                    crate::paths::capture_evaluation_path(tracker, &self.required_location),
-                    location.into(),
-                    instance.lazy_value(),
-                    Value::String(self.second.as_str().to_owned()),
-                ));
-            }
-            if object.len() <= self.properties.len() {
-                for (name, value) in object.members() {
-                    let name = name.as_ref();
-                    let head = KeyHead::of(name);
-                    for (prop_name, _, node) in &self.properties {
-                        if prop_name.matches(head, name) {
-                            node.validate(&value, &location.push(name), tracker, ctx)?;
-                            break;
+        let Some(object) = instance.as_object() else {
+            return Ok(());
+        };
+        if object.len() <= self.properties.len() {
+            // One pass validates matching properties and confirms both required keys.
+            let mut seen_first = false;
+            let mut seen_second = false;
+            for (name, value) in object.members() {
+                let name = name.as_ref();
+                let head = KeyHead::of(name);
+                if self.first.matches(head, name) {
+                    seen_first = true;
+                } else if self.second.matches(head, name) {
+                    seen_second = true;
+                }
+                for (prop_name, _, node) in &self.properties {
+                    if prop_name.matches(head, name) {
+                        if let Err(error) =
+                            node.validate(&value, &location.push(name), tracker, ctx)
+                        {
+                            // A missing required name is reported before a property error.
+                            self.check_required(instance, &object, location, tracker)?;
+                            return Err(error);
                         }
+                        break;
                     }
                 }
-            } else {
-                for (name, key, node) in &self.properties {
-                    if let Some(prop) = object.get(key) {
-                        node.validate(&prop, &location.push(name.as_str()), tracker, ctx)?;
-                    }
+            }
+            if !seen_first {
+                return Err(self.missing(&self.first, instance, location, tracker));
+            }
+            if !seen_second {
+                return Err(self.missing(&self.second, instance, location, tracker));
+            }
+        } else {
+            self.check_required(instance, &object, location, tracker)?;
+            for (name, key, node) in &self.properties {
+                if let Some(prop) = object.get(key) {
+                    node.validate(&prop, &location.push(name.as_str()), tracker, ctx)?;
                 }
             }
         }
@@ -351,24 +395,11 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
         };
         {
             // Check required
-            let eval_path = crate::paths::capture_evaluation_path(tracker, &self.required_location);
             if object.get(&self.first_key).is_none() {
-                errors.push(ValidationError::required(
-                    self.required_location.clone(),
-                    eval_path.clone(),
-                    location.into(),
-                    instance.lazy_value(),
-                    Value::String(self.first.as_str().to_owned()),
-                ));
+                errors.push(self.missing(&self.first, instance, location, tracker));
             }
             if object.get(&self.second_key).is_none() {
-                errors.push(ValidationError::required(
-                    self.required_location.clone(),
-                    eval_path,
-                    location.into(),
-                    instance.lazy_value(),
-                    Value::String(self.second.as_str().to_owned()),
-                ));
+                errors.push(self.missing(&self.second, instance, location, tracker));
             }
             if object.len() <= self.properties.len() {
                 for (name, value) in object.members() {
@@ -402,7 +433,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
     ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
             let mut matched_props = Vec::with_capacity(object.len());
-            let mut children = Vec::new();
+            let mut children = ChildList::default();
             if object.len() <= self.properties.len() {
                 for (name, value) in object.members() {
                     let name = name.as_ref();
@@ -411,8 +442,8 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                         if prop_name.matches(head, name) {
                             let path = location.push(name);
                             matched_props.push(prop_name.as_str().to_owned());
-                            children
-                                .push(node.evaluate_instance_below(&value, &path, tracker, ctx));
+                            let child = node.evaluate_instance_below(&value, &path, tracker, ctx);
+                            children.push(&mut ctx.arena, child);
                             break;
                         }
                     }
@@ -422,7 +453,8 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                     if let Some(prop) = object.get(key) {
                         let path = location.push(prop_name.as_str());
                         matched_props.push(prop_name.as_str().to_owned());
-                        children.push(node.evaluate_instance_below(&prop, &path, tracker, ctx));
+                        let child = node.evaluate_instance_below(&prop, &path, tracker, ctx);
+                        children.push(&mut ctx.arena, child);
                     }
                 }
             }
@@ -453,7 +485,7 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                 ));
             }
             if !required_errors.is_empty() {
-                children.push(EvaluationNode::invalid(
+                let child = EvaluationNode::invalid(
                     crate::paths::evaluation_path(tracker, &self.required_location, ctx),
                     self.required_absolute_location.clone(),
                     format_schema_location(
@@ -463,8 +495,9 @@ impl<F: Json> Validate<F> for SmallPropertiesWithRequired2Validator<F> {
                     location.into(),
                     None,
                     required_errors,
-                    Vec::new(),
-                ));
+                    ChildList::default(),
+                );
+                children.push(&mut ctx.arena, child);
             }
             let mut application = EvaluationResult::from_children(children);
             application.annotate(Annotations::new(Value::from(matched_props)));
@@ -537,12 +570,13 @@ impl<F: Json> Validate<F> for BigPropertiesValidator<F> {
     ) -> EvaluationResult {
         if let Some(object) = instance.as_object() {
             let mut matched_props = Vec::with_capacity(object.len());
-            let mut children = Vec::new();
+            let mut children = ChildList::default();
             for (prop_name, prop) in object.members() {
                 if let Some(node) = self.properties.get(prop_name.as_ref()) {
                     let path = location.push(prop_name.as_ref());
                     matched_props.push(prop_name.as_ref().to_owned());
-                    children.push(node.evaluate_instance_below(&prop, &path, tracker, ctx));
+                    let child = node.evaluate_instance_below(&prop, &path, tracker, ctx);
+                    children.push(&mut ctx.arena, child);
                 }
             }
             let mut application = EvaluationResult::from_children(children);
@@ -556,9 +590,22 @@ impl<F: Json> Validate<F> for BigPropertiesValidator<F> {
 
 /// Check if we can use fused properties+required validator.
 /// Conditions: properties < threshold, required: [2 strings], no patternProperties.
-fn extract_required2(parent: &Map<String, Value>) -> Option<(String, String)> {
+fn extract_required2<F: Json>(
+    ctx: &compiler::Context<F>,
+    parent: &Map<String, Value>,
+) -> Option<(String, String)> {
     // No patternProperties (uses separate validator paths)
     if parent.contains_key("patternProperties") {
+        return None;
+    }
+    if ctx.is_keyword_overridden("required") {
+        return None;
+    }
+    // `required::compile` keeps its own validator once `additionalProperties` takes this shape
+    if matches!(
+        parent.get("additionalProperties"),
+        Some(Value::Bool(false) | Value::Object(_))
+    ) {
         return None;
     }
     if let Some(Value::Array(items)) = parent.get("required") {
@@ -581,12 +628,16 @@ pub(crate) fn compile<'a, F: Json>(
 ) -> Option<CompilationResult<'a, F>> {
     match parent.get("additionalProperties") {
         // This type of `additionalProperties` validator handles `properties` logic
-        Some(Value::Bool(false) | Value::Object(_)) => None,
+        Some(Value::Bool(false) | Value::Object(_))
+            if !ctx.is_keyword_overridden("additionalProperties") =>
+        {
+            None
+        }
         _ => {
             if let Value::Object(map) = schema {
                 if map.len() < HASHMAP_THRESHOLD {
                     // Try fused validator for properties + required: [2 items]
-                    if let Some((first, second)) = extract_required2(parent) {
+                    if let Some((first, second)) = extract_required2(ctx, parent) {
                         Some(SmallPropertiesWithRequired2Validator::compile(
                             ctx, map, first, second,
                         ))
@@ -613,7 +664,7 @@ pub(crate) fn compile<'a, F: Json>(
 #[cfg(test)]
 mod tests {
     use crate::tests_util;
-    use serde_json::{json, Value};
+    use serde_json::{json, Map, Value};
     use test_case::test_case;
 
     #[test]
@@ -676,6 +727,77 @@ mod tests {
             "additionalProperties": {"type": "string"},
         });
         assert_eq!(crate::is_valid(&additional, &json!({key: 1})), matches);
+    }
+
+    // Names agreeing on length, first and last eight bytes share a head
+    fn colliding_name(middle: usize) -> String {
+        format!("prefix00{middle:02}suffix00")
+    }
+
+    #[test_case("plain", 3, 3, true)]
+    #[test_case("plain", 3, 4, false)]
+    #[test_case("plain", 13, 13, true)]
+    #[test_case("plain", 0, 13, false)]
+    #[test_case("plain", 99, 0, true)]
+    #[test_case("fused", 3, 3, true)]
+    #[test_case("fused", 3, 4, false)]
+    #[test_case("fused", 13, 13, true)]
+    #[test_case("additional", 3, 3, true)]
+    #[test_case("additional", 3, 4, false)]
+    #[test_case("additional", 99, 0, false)]
+    fn colliding_heads_select_the_named_property(
+        kind: &str,
+        key: usize,
+        value: usize,
+        expected: bool,
+    ) {
+        let properties: Map<String, Value> = (0..14)
+            .map(|index| (colliding_name(index), json!({"const": index})))
+            .collect();
+        let mut schema = json!({"properties": properties});
+        let mut instance = json!({colliding_name(key): value});
+        match kind {
+            "fused" => {
+                schema["required"] = json!([colliding_name(0), colliding_name(1)]);
+                instance[colliding_name(0)] = json!(0);
+                instance[colliding_name(1)] = json!(1);
+            }
+            "additional" => schema["additionalProperties"] = json!(false),
+            _ => {}
+        }
+        assert_eq!(crate::is_valid(&schema, &instance), expected);
+    }
+
+    // Required names outside `properties`
+    #[test_case(&json!({"a": 1, "z": 2}), true)]
+    #[test_case(&json!({"a": 1}), false)]
+    #[test_case(&json!({"z": 2, "y": 3}), false)]
+    #[test_case(&json!({"a": "x", "z": 2}), false)]
+    fn fused_required_outside_properties(instance: &Value, expected: bool) {
+        let schema = json!({
+            "properties": {"a": {"type": "integer"}, "b": {}},
+            "required": ["a", "z"],
+        });
+        assert_eq!(crate::is_valid(&schema, instance), expected);
+        assert_eq!(
+            crate::validator_for(&schema)
+                .unwrap()
+                .validate(instance)
+                .is_ok(),
+            expected
+        );
+    }
+
+    // A missing required name is reported before an invalid property
+    #[test_case(&json!({"a": "x"}), r#""b" is a required property"#)]
+    #[test_case(&json!({"b": 1}), r#""a" is a required property"#)]
+    #[test_case(&json!({"a": "x", "b": "y"}), r#""x" is not of type "integer""#)]
+    fn fused_error_precedence(instance: &Value, expected: &str) {
+        let validator = crate::validator_for(&fused_schema()).unwrap();
+        assert_eq!(
+            validator.validate(instance).unwrap_err().to_string(),
+            expected
+        );
     }
 
     #[test]
@@ -814,5 +936,22 @@ mod tests {
         // wide instance, required "a" absent -> get branch early fast-fail
         let wide = with_extra_keys(json!({"b": "x"}), 300);
         assert!(!validator.is_valid(&wide));
+    }
+
+    #[test]
+    fn fused_required_absolute_keyword_locations() {
+        tests_util::assert_absolute_keyword_locations(
+            &json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://example.com/s.json",
+                "properties": {"a": {"type": "string"}},
+                "required": ["a", "b"]
+            }),
+            &json!({}),
+            &[
+                ("required", "https://example.com/s.json#/required"),
+                ("required", "https://example.com/s.json#/required"),
+            ],
+        );
     }
 }

@@ -20,5 +20,14 @@ __all__ = (
     "S3SourceConfig",
     "SourceConfig",
     "is_model_handler",
+    "last_checkpoint_path",  # pyright: ignore[reportUnsupportedDunderAll]
     "model_handler",
 )
+
+
+def __getattr__(name: str):
+    if name == "last_checkpoint_path":
+        from chalk.ml.chalk_train import last_checkpoint_path
+
+        return last_checkpoint_path
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -58,6 +58,7 @@ if TYPE_CHECKING:
         "offline-miss",
         "unreadable-only",
         "unreachable-only",
+        "none-usable",
         "yanked-only",
         "absent",
         "pinned-absent",
@@ -172,6 +173,10 @@ class Remedy:
 
     __slots__ = ("covers", "field", "label", "layer", "selector")
 
+    # Declared, or a checker widens the assigned literal to ``str``.
+    field: Field
+    layer: Layer
+
     def __init__(
         self,
         field: Field,
@@ -204,6 +209,8 @@ class DroppedFile:
         "raw_version",
         "version",
     )
+
+    cause: Cause
 
     def __init__(
         self,
@@ -278,6 +285,8 @@ class Blocker:
 
     __slots__ = ("declared", "held", "kind", "package")
 
+    kind: Blocked
+
     def __init__(
         self,
         kind: Blocked,
@@ -294,6 +303,16 @@ class Blocker:
         self.package = package
         self.declared = declared
         self.held = held
+
+
+class RootBan:
+    """Versions permanently excluded by a root requirement."""
+
+    __slots__ = ("blocker", "versions")
+
+    def __init__(self, blocker: Blocker, versions: tuple[Version, ...]) -> None:
+        self.blocker = blocker
+        self.versions = versions
 
 
 class MetadataBlock:
@@ -319,6 +338,8 @@ class NoVersionsReason:
     """What the resolve recorded when a package ran out of candidates."""
 
     __slots__ = ("blockers", "declaring_version", "kind", "metadata", "version_range")
+
+    kind: Kind
 
     def __init__(
         self,
@@ -414,11 +435,11 @@ def walk_listing(provider: Provider, normalized: str) -> ListingDiagnosis | None
     """Re-walk ``normalized``'s raw listing, recording what refused each file.
 
     Returns ``None`` when the index served nothing, which leaves the walk
-    with nothing to attribute.  The predicates are the filter's own; the
-    order it asks them in is re-expressed here, and the differential-oracle
-    test is what holds the two in step.  Counter bumps those predicates
-    make are taken back by the caller, see
-    :meth:`~nab_provider.provider.Provider.diagnose_listing`.
+    with nothing to attribute.  The predicates are the filter's own, apart
+    from the wheel-tag test the filter runs inline; the order it asks them
+    in is re-expressed here, and the differential-oracle test is what holds
+    the two in step.  Counter bumps those predicates make are taken back by
+    the caller, see :meth:`~nab_provider.provider.Provider.diagnose_listing`.
     """
     files = provider.coordinator.index.get_listing(normalized)
     if not files:
@@ -604,14 +625,7 @@ def _detailed(
     return DroppedFile(dist, version, cause, dist.upload_time, cutoff)
 
 
-# One short line per cause, for the listing the filter emptied.  Read only
-# where every group says the same one, so each states the whole of what went
-# wrong.  A why-clause is here only where the key does not carry it: an
-# excluding uploaded-prior-to reads as a cutoff nothing was old enough for
-# unless the line says otherwise, and the dist-policy value says which half
-# of the listing that key kept.  The two rungs this report never offers a
-# remedy for name the target they judged against instead, which is the half
-# a reader can move.
+# Each template describes a whole empty listing for one uniform drop cause.
 _SHORT_EMPTY: dict[Cause, str] = {
     DropCause.UPLOAD_TIME_MISSING: (
         "uploaded-prior-to excluded every file; none is dated"
@@ -677,7 +691,7 @@ def in_range_diagnostic(
     Returns ``None`` when the walk explains every drop and none of them
     falls inside the range, which is the caller's signal that the
     requirement asks for a version the index never published.  A refused
-    version equal to one in ``kept`` survived under another spelling and
+    version equal to one in ``kept`` survived under another form. It
     does not count.
     """
     named = [
@@ -685,7 +699,11 @@ def in_range_diagnostic(
         for record in diagnosis.dropped
         if record.version is not None and record.version not in diagnosis.kept
     ]
-    in_range = set(version_range.filter({record.version for record in named}))
+    # Every version here was refused, so PEP 440's default of yielding a
+    # pre-release only when no final matched would leave its filter unnamed.
+    in_range = set(
+        version_range.filter({record.version for record in named}, prereleases=True)
+    )
     asked = [record for record in named if record.version in in_range]
 
     groups = _groups(asked)
@@ -872,12 +890,14 @@ _CLAUSE_TEMPLATES: dict[Cause | None, str] = {
 _ALTERNATIVES = r"\[([^|\]]*)\|([^\]]*)\]"
 
 
+def _pick_forms(template: str, count: int) -> str:
+    """Take ``template``'s singular alternatives when ``count`` is 1."""
+    return re.sub(_ALTERNATIVES, r"\1" if count == 1 else r"\2", template)
+
+
 def _render(cause: Cause | None, count: int, **fields: object) -> str:
     """Fill ``cause``'s template, taking the singular form when ``count`` is 1."""
-    template = re.sub(
-        _ALTERNATIVES, r"\1" if count == 1 else r"\2", _CLAUSE_TEMPLATES[cause]
-    )
-    return template.format(n=count, **fields)
+    return _pick_forms(_CLAUSE_TEMPLATES[cause], count).format(n=count, **fields)
 
 
 # The fields a cause's template states of every file it counts, rather
@@ -951,7 +971,7 @@ def _newest(records: Sequence[DroppedFile]) -> DroppedFile:
 
 
 def _version_of(record: DroppedFile) -> Version:
-    """Return a record's version, which every cause but INVALID_VERSION has."""
+    """Return a record's version; INVALID_VERSION records have none."""
     assert record.version is not None
     return record.version
 
@@ -1008,18 +1028,8 @@ _REMEDIES: dict[tuple[Field, Layer], str] = {
     ),
 }
 
-# The instruction cut out of each remedy, for the one ``try:`` line the
-# default report prints.  It names a setting to change rather than a
-# fragment to paste, since the table holding that setting usually exists
-# already and a second one is a TOML error.  Three layers name an entry
-# the file already holds.  The per-package and scoped-entry layers do it
-# because the same override is written on two surfaces, only one of them
-# spelled ``packages."<selector>"``, and a ``[[package-rules]]`` entry can
-# match several packages, so naming the one being reported would send the
-# reader to change the others too.  The bare-name layer does it because
-# the table its key path would write is that entry.  It states what to
-# set and not what follows: lifting a filter admits files rather than
-# promising a resolve.
+# Name a setting to change, not a TOML fragment that may duplicate
+# its table. Lifting a filter admits files; it does not promise a resolution.
 _TRY_LINES: dict[tuple[Field, Layer], str] = {
     ("uploaded-prior-to", OverrideLayer.GLOBAL): (
         'set packages."{selector}".uploaded-prior-to = false'
@@ -1237,13 +1247,15 @@ def filtered_sdist_diagnostic(
 # behind ``-v``, so both depths say the same thing.
 _BLOCKER_CLAUSES: dict[Blocked, str] = {
     BlockerKind.DECIDED: (
-        "needs {package} in {declared}, but the resolve chose {package} {held}"
+        "[needs|need] {package} in {declared}, but the resolve chose {package} {held}"
     ),
     BlockerKind.HELD: (
-        "needs {package} in {declared}, but the resolve holds {package} in {held}"
+        "[needs|need] {package} in {declared},"
+        " but the resolve holds {package} in {held}"
     ),
     BlockerKind.ROOT: (
-        "needs {package} in {declared}, but your project requires {package} {held}"
+        "[needs|need] {package} in {declared},"
+        " but your project requires {package} {held}"
     ),
 }
 
@@ -1283,10 +1295,10 @@ def blockers_diagnostic(
     return Diagnostic(_several_blockers_short(blockers, metadata), tuple(detail))
 
 
-def _blocker_clause(provider: Provider, blocker: Blocker) -> str:
-    """Say what one rejection wanted and what stands in its way."""
+def _blocker_clause(provider: Provider, blocker: Blocker, count: int = 1) -> str:
+    """Format a blocker clause with a verb agreeing with the version count."""
     declared, held = _render_blocker(provider, blocker)
-    return _BLOCKER_CLAUSES[blocker.kind].format(
+    return _pick_forms(_BLOCKER_CLAUSES[blocker.kind], count).format(
         package=blocker.package, declared=declared, held=held
     )
 
@@ -1350,12 +1362,54 @@ def metadata_diagnostic(
     return Diagnostic(_METADATA_REJECTED, tuple(block.message for block in blocks))
 
 
-# The bullet already names the proxy, so these say "the extra" rather than
-# spelling it out again, and only the narrowed line names the base package.
+def ban_diagnostic(
+    provider: Provider,
+    normalized: str,
+    bans: Sequence[RootBan],
+    metadata: Sequence[MetadataBlock],
+) -> Diagnostic:
+    """Explain versions rejected by root constraints or metadata failures."""
+    if not bans:
+        return metadata_diagnostic(provider, normalized, metadata)
+
+    clauses = [_root_ban_clause(provider, ban) for ban in bans]
+    if metadata:
+        rejected = metadata_diagnostic(provider, normalized, metadata)
+        return Diagnostic(
+            _several_bans_short(bans, metadata),
+            (*clauses, *rejected.detail),
+            rejected.remedy,
+        )
+    if len(clauses) == 1:
+        return Diagnostic(clauses[0])
+    return Diagnostic(_several_bans_short(bans, metadata), tuple(clauses))
+
+
+def _root_ban_clause(provider: Provider, ban: RootBan) -> str:
+    """Format the versions rejected by one root requirement."""
+    versions = [str(version) for version in ban.versions]
+    clause = _blocker_clause(provider, ban.blocker, len(versions))
+    return f"{_named_or_counted(versions, 'versions')} {clause}"
+
+
+def _several_bans_short(
+    bans: Sequence[RootBan], metadata: Sequence[MetadataBlock]
+) -> str:
+    """Summarize the blocking packages and any metadata rejections."""
+    names = _named_or_counted(
+        list(dict.fromkeys(ban.blocker.package for ban in bans)), "packages"
+    )
+    if not metadata:
+        return f"some versions are blocked by {names}"
+    return f"some versions are blocked by {names} or rejected on their metadata"
+
+
+# The bullet names the proxy, so these say "the extra" instead of
+# repeating it, and only the narrowed line names the base package.
 _EXTRA_SHORT: dict[Kind, str] = {
     ReasonKind.EXTRA_UNDECLARED: "no version of {base} declares this extra",
-    # nab never read the metadata that would say which versions declare the
-    # extra, so this line cannot claim any version does.
+    # Metadata was not read, so the message cannot name a version that
+    # declares the extra.
     ReasonKind.EXTRA_METADATA: _METADATA_REJECTED,
     ReasonKind.EXTRA_NARROWED: (
         "another requirement holds {base} where this extra is undeclared"

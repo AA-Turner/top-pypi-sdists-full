@@ -28,6 +28,7 @@ from ._provider import metadata_resolver as _metadata_resolver
 from ._provider import priority as _priority
 from ._provider import sources as _sources
 from .conflict_kind import EMPTY_MEMBERSHIP_SETS
+from .environment import host_environment
 from .errors import (
     ForeignMetadataError,
     IncompatiblePythonError,
@@ -63,7 +64,6 @@ from .policy import (
     ResolveMode as ResolveMode,  # noqa: PLC0414  (re-export, importable from here)
 )
 from .records import DistFile, SdistFile, WheelFile
-from .target import host_environment
 from .vcs_admission import (
     UnsupportedVcsError,
     VcsConfig,
@@ -185,15 +185,17 @@ class ListingFilterCache:
     identical list.  Memoising it per (package, Python) leaves only the
     wheel-tag pass to run per target.
 
-    Most of that half reads no Python either: the version parse and the
-    dist-policy exclusion do the same work for every Python of a matrix,
-    and only the Requires-Python and upload-cutoff drops differ.  When the
-    resolve spans more than one Python, :attr:`shares_pythons` is set and
-    :meth:`prepared` memoises that inner pass per package, so a
+    Most of that half reads no Python either: the version parse, the
+    dist-policy exclusion and the upload cutoff reach the same answer for
+    every Python of a matrix, and only the Requires-Python drop differs.
+    When the resolve spans more than one Python, :attr:`shares_pythons` is
+    set and :meth:`prepared` memoises that inner pass per package, so a
     three-Python matrix walks each listing's files once rather than three
-    times.  A one-Python resolve has nothing to share and skips the split,
-    since materialising the intermediate list would cost it a pass it does
-    not get back.
+    times.  The memo also holds the cutoff verdicts: the first target to
+    get a file past Requires-Python takes its verdict and the rest read it
+    back, while counting the drop stays per target.  A one-Python resolve
+    has nothing to share and skips the split, since materialising the
+    intermediate list would cost it a pass it does not get back.
 
     One instance is only valid across providers that share a coordinator
     and a policy config, as the targets of one resolve do.
@@ -361,7 +363,7 @@ def _requirement_over_listing(
 
     Bounds ``selected`` on each side ``constraint`` is bounded, then excludes
     by name every other listed version those bounds admit.  Built out of
-    specifiers, so it has a spelling to render.
+    specifiers, so it has a text form to render.
 
     ``None`` when a bound carries a local segment, which an ordering specifier
     does not accept, when the span holds more than ``_MAX_EXCLUSIONS`` versions
@@ -407,7 +409,7 @@ class Provider:
     port the host supplies; nab's own implementation submits them to a
     background asyncio loop, so transitive deps land during resolution.
 
-    ``target`` is the environment the resolve is for: its markers gate
+    ``target`` is the environment the resolve is for: its markers filter
     every dependency, its Python filters candidates by Requires-Python,
     and its wheel tags filter candidates by PEP 425 compatibility, so a
     version whose only wheels the target cannot install is a version the
@@ -433,6 +435,13 @@ class Provider:
     ``decision_order`` chooses whether the decision scan may rank a
     package on whether its listing has landed yet.  See
     :meth:`settled_listing`.
+
+    ``release_refused_wheels`` lets the wheel-tag filter drop the payload
+    of the wheels it refuses
+    (:func:`nab_provider.records.release_wheel_payload`).  Only the caller
+    that builds the providers knows whether that is safe: pass it when no
+    other reader of this coordinator's listings needs the URL, hashes or
+    sidecar of a wheel these tags refuse.
     """
 
     # Declared in ``_provider.listing``; the scan reads it off the instance.
@@ -505,6 +514,7 @@ class Provider:
         constraints: Mapping[str, VersionRange] | None = None,
         trust_unverified_sdist_deps: bool = False,
         decision_order: DecisionOrder = DecisionOrder.ARRIVAL,
+        release_refused_wheels: bool = False,
     ) -> None:
         """Construct the provider; see the class docstring for parameters."""
         if isinstance(resolution_strategy, str):
@@ -524,6 +534,8 @@ class Provider:
         # The pre-tag half of the listing filter, shared with the other
         # targets of this resolve.  ``None`` computes it here instead.
         self.listing_filter_cache = listing_filter_cache
+
+        self.release_refused_wheels = release_refused_wheels
 
         self.extras_mode = extras_mode
         self.root_extras = root_extras or set()
@@ -705,7 +717,7 @@ class Provider:
         self._widened_ranges: dict[tuple[str, Version], VersionRange] = {}
         self._gap_widened_ranges: dict[tuple[str, Version], VersionRange] = {}
 
-        self.solution_ranges: Mapping[str, RangeProtocol[Version]] = {}
+        self.solution_ranges: Mapping[str, VersionRange] = {}
         self.solution_decisions: Mapping[str, Version] = {}
         self.pending_clauses: list[Incompatibility[str, Version]] = []
         self.pending_blocks: defaultdict[tuple[str, str, Version], list[Version]] = (
@@ -737,8 +749,7 @@ class Provider:
         # Root-requirement rejections, keyed by (candidate, blocker, the
         # candidate's dependency range, the blocker's root range).
         self.pending_root_blocks: defaultdict[
-            tuple[str, str, RangeProtocol[Version], RangeProtocol[Version]],
-            list[Version],
+            tuple[str, str, VersionRange, VersionRange], list[Version]
         ] = defaultdict(list)
 
         # Metadata-error rejections, carrying the message so the failure can
@@ -756,6 +767,11 @@ class Provider:
         # and unioned across scans.
         self._metadata_ban_blocks: dict[
             str, dict[Version, _diagnosis.MetadataBlock]
+        ] = {}
+
+        # Root constraints and rejected versions retained across look-ahead scans.
+        self._root_ban_versions: dict[
+            str, dict[tuple[str, VersionRange, VersionRange], dict[Version, None]]
         ] = {}
 
         # Blocker packages queued for force back-track by the resolver after
@@ -1363,41 +1379,16 @@ class Provider:
     def has_satisfying_version(
         self, package: str, version_range: RangeProtocol[Version]
     ) -> bool:
-        """Report whether a usable version exists, side-effect-free.
+        """Report whether a usable version exists without affecting later decisions.
 
-        Runs the real ``choose_version`` over ``version_range`` so look-ahead
-        rejections are honored, then rolls back the state it records: the queued
-        clauses, the force-backtrack signal, and the pending look-ahead blocks
-        are dropped, and the force-backtrack budget and no-versions reasons are
-        restored to their pre-probe values.  A failed-resolve attribution probe
-        therefore cannot alter a later decision.
+        Runs the real ``choose_version`` so look-ahead rejections count, then
+        clears its clauses, pending blocks, and force-backtrack state. The
+        probed package's no-versions reason and permanent metadata-ban evidence
+        may remain because they affect only failure diagnostics.
 
-        The one exception is ``package``'s own no-versions reason.  When the
-        un-narrowed range yields no version because a transitive conflict
-        rejected every candidate, this probe is the only pass that names the
-        blocker, so its reason is kept rather than rolled back to the generic
-        no-match the constraint-narrowed pass recorded.  The reason map only
-        labels a ``NO_VERSIONS`` clause, so keeping it cannot alter a decision.
-
-        The probe also suppresses the two look-ahead shortcuts that could
-        otherwise report a version the decided blocker rejects:
-        ``_probing_satisfiable`` skips the abort and keeps checking decisions
-        past ``_BROAD_LA_REJECT_CAP``.
-
-        The un-narrowed range spans versions the constraint clipped away, so
-        look-ahead can reach one whose metadata raises a hard error the narrowed
-        resolve never touched (a failed integrity check, a tie-ranked-wheel
-        divergence, or an advertised sidecar the index answered it will not
-        serve).  Each names a fault of that one version, so the probe catches
-        them and returns ``False`` rather than aborting; the crash still fires
-        when the version is pinned for real.
-
-        A transient transport failure is deliberately not in that tuple.  A 5xx
-        that outlived the retry budget, or a dropped connection, says nothing
-        about the version, and swallowing it would report "no satisfying
-        candidate" for a version that has one and hand back a different
-        resolution instead of failing.  The ``finally`` restores the snapshot
-        either way.
+        Candidate-specific integrity, metadata, policy, and format failures
+        count as unsatisfied. Transport failures propagate. Decision-affecting
+        state is restored either way.
         """
         saved_counts = dict(self._force_backtrack_counts)
         saved_reasons = dict(self._no_versions_reasons)
@@ -1670,44 +1661,13 @@ class Provider:
         metadata: tuple[_diagnosis.MetadataBlock, ...] = (),
         version_range: VersionRange | None = None,
     ) -> None:
-        """Record why ``choose_version`` returned ``None`` for ``package``.
+        """Store deferred failure evidence for ``package``.
 
-        Runs during the resolve, on every ask that returns no version, which
-        is ordinary backtracking and not failure.  So it stores a marker and
-        renders nothing: no listing is walked, no version parsed and no
-        sentence built until :meth:`get_no_versions_reason` is asked for one,
-        which happens once, after the resolve has already failed.
-
-        ``blockers`` and ``metadata`` carry the look-ahead rejection causes
-        when every candidate that fell in ``version_range`` was rejected:
-        either because of an already-decided package, a positive-range
-        constraint, a root-requirement disagreement, or because the
-        candidate's metadata could not be read under the current
-        build policy.  When supplied, the recorded reason names those
-        causes so the user does not see a bare "no version matches
-        the requirement", which would suggest the package is
-        missing from the index when in fact it is the resolver's
-        transitive constraints (or a too-strict build policy) that
-        excluded every candidate.
-
-        ``version_range`` is passed only when no surviving version fell
-        inside it.  A version the listing filter dropped that does fall
-        inside it is the release the requirement asked for, so the reason
-        names the filters that dropped it rather than reporting no match.
-        The marker carries the range; which filters fired is decided later.
-
-        ``all_versions`` is post-filter, so an empty one means either the
-        index served no files or every file it served was dropped by one of
-        the listing filter's rungs.  The stored listing tells absence from
-        incompatibility apart, except that it is also empty for an index
-        skipped offline and for a page that named files nab could not use.
-        Both are marked when stored, so the reason names what happened
-        instead of absence.
-
-        A look-ahead rejection emits a clause that removes the rejected
-        versions from the range, so the resolver asks again over a range
-        nothing falls in.  That second ask has no blockers of its own, so
-        its no-match reason must not overwrite the one naming the blocker.
+        ``blockers`` and ``metadata`` are look-ahead rejection causes.
+        ``version_range`` separates a filtered release from no match. An
+        empty post-filter listing reuses its stored diagnosis, including
+        offline-skipped and unusable-file pages. A later generic miss
+        does not replace an earlier blocker.
         """
         if not all_versions:
             _, _, normalized = self.split_and_normalize(package)
@@ -1832,7 +1792,7 @@ class Provider:
             ]
 
             # The blocker is decided, so the record keeps that version rather
-            # than a singleton range, which has no specifier spelling.
+            # than a singleton range, which has no specifier form.
             out.append(
                 _diagnosis.Blocker(
                     _diagnosis.BlockerKind.DECIDED,
@@ -1887,6 +1847,19 @@ class Provider:
         meta = self.pending_metadata_blocks.get(normalized) or {}
         return out, tuple(meta.values())
 
+    def record_root_ban(
+        self,
+        normalized: str,
+        blocker: str,
+        declared: VersionRange,
+        root_range: VersionRange,
+        versions: Sequence[Version],
+    ) -> None:
+        """Retain a root constraint and its rejected versions across scans."""
+        recorded = self._root_ban_versions.setdefault(normalized, {})
+        banned = recorded.setdefault((blocker, declared, root_range), {})
+        banned.update(dict.fromkeys(versions))
+
     def record_metadata_ban(
         self, normalized: str, blocks: Mapping[Version, _diagnosis.MetadataBlock]
     ) -> None:
@@ -1899,31 +1872,58 @@ class Provider:
         for version, message in blocks.items():
             recorded.setdefault(version, message)
 
-    def get_no_versions_reason(self, package: str) -> Diagnostic | None:
-        """Return the recorded reason for ``package``'s NO_VERSIONS clause.
+    def _root_bans(
+        self, normalized: str, failed_range: RangeProtocol[Version] | None
+    ) -> list[_diagnosis.RootBan]:
+        """Return root bans restricted to failed_range; None includes all versions."""
+        bans: list[_diagnosis.RootBan] = []
+        recorded = self._root_ban_versions.get(normalized, {})
+        for (blocker, declared, root_range), banned in recorded.items():
+            versions = tuple(
+                version
+                for version in banned
+                if failed_range is None or version in failed_range
+            )
+            if not versions:
+                continue
+            bans.append(
+                _diagnosis.RootBan(
+                    _diagnosis.Blocker(
+                        _diagnosis.BlockerKind.ROOT, blocker, (declared,), root_range
+                    ),
+                    versions,
+                )
+            )
+        return bans
 
-        Ranked by specificity, not by which pass wrote first: a recorded
-        reason that names a cause wins, and a metadata ban beats the two
-        that say only that nothing matched.
+    def _metadata_bans(
+        self, normalized: str, failed_range: RangeProtocol[Version] | None
+    ) -> list[_diagnosis.MetadataBlock]:
+        """Return metadata bans within failed_range, or all bans when it is None."""
+        recorded = self._metadata_ban_blocks.get(normalized, {})
+        return [
+            block
+            for version, block in recorded.items()
+            if failed_range is None or version in failed_range
+        ]
 
-        This is where the sentence is built, and the only place it is built.
-        Reaching it means the resolve has already failed, so the marker is
-        rendered here rather than on the resolve path.
+    def get_no_versions_reason(
+        self, package: str, failed_range: RangeProtocol[Version] | None = None
+    ) -> Diagnostic | None:
+        """Return the recorded no-versions diagnostic for package.
 
-        Returns ``None`` if no diagnostic was captured (e.g. the
-        package was decided successfully or failed for a non-listing
-        reason such as a metadata parse error).
+        Specific recorded causes take precedence over permanent bans.
+        ``failed_range`` restricts banned versions; None includes every ban.
         """
         recorded = self._no_versions_reasons.get(package)
         if recorded is not None and not recorded.is_generic:
             return self._render_no_versions_reason(package, recorded)
 
         normalized = canonicalize_name(package)
-        blocks = self._metadata_ban_blocks.get(normalized)
-        if blocks:
-            return _diagnosis.metadata_diagnostic(
-                self, normalized, list(blocks.values())
-            )
+        bans = self._root_bans(normalized, failed_range)
+        blocks = self._metadata_bans(normalized, failed_range)
+        if bans or blocks:
+            return _diagnosis.ban_diagnostic(self, normalized, bans, blocks)
         if recorded is None:
             return None
         return self._render_no_versions_reason(package, recorded)
@@ -2221,9 +2221,11 @@ class Provider:
         derivations because backjumping a decision also undoes its derivations.
 
         Both maps are read-only and pinned to the moment the caller took them,
-        so storing the references is enough.
+        so storing the references is enough. The resolver builds its ranges
+        from the :class:`VersionRange` values this provider hands it, which
+        the cast records.
         """
-        self.solution_ranges = positive_ranges
+        self.solution_ranges = cast("Mapping[str, VersionRange]", positive_ranges)
         self.solution_decisions = decisions
 
     def _look_ahead_ok(
@@ -2389,10 +2391,10 @@ class Provider:
         """Map a possibly-widened ``constraint`` back onto listed versions.
 
         Returns a requirement admitting the same listed versions as
-        ``constraint``, built out of specifiers so :meth:`format_range` has a
-        spelling to print.  Where no short requirement states those versions,
-        ``constraint`` stands if it spells, and is snapped onto the listing if
-        it does not.
+        ``constraint``, built from specifiers for :meth:`format_range`.
+        Where no short requirement states those versions, ``constraint``
+        stands if it has a specifier form. Otherwise, it is snapped onto
+        the listing.
 
         A constraint containing every listed version becomes the full range,
         so it reads as "any version".  One containing none is returned
@@ -2434,8 +2436,8 @@ class Provider:
 
         An unconstrained range renders as nothing, leaving the package name to
         carry the line, and the empty range gets a phrase rather than the
-        ``<0`` a specifier set spells it with.  A range with no specifier
-        spelling, such as a disjunction, keeps the range's own rendering.
+        ``<0`` from a specifier set. A range without a specifier-set
+        form, such as a disjunction, keeps the range's own rendering.
         """
         assert isinstance(constraint, VersionRange)
         if constraint.is_empty:
@@ -2728,7 +2730,7 @@ class Provider:
         """
         normalized = canonicalize_name(canonical_name)
         listing = self.versions_cache.get(normalized, [])
-        return [dist for v, dist in listing if v == version]
+        return _metadata_resolver.dists_at_version(listing, version)
 
     def tag_excluded_wheel_count(self, canonical_name: str, version: Version) -> int:
         """Return how many wheels the tag filter dropped at ``version`` (0 if none)."""

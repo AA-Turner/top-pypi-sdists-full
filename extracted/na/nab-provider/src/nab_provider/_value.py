@@ -1,25 +1,17 @@
-"""The shared base under the package's declared-source value types.
-
-Those types are written out by hand instead of declared with
-``@dataclass(slots=True)``, because applying the decorator is import-time work
-every ``nab`` invocation pays for.  The comparison, hash and repr all eight
-share live here; each type declares its own fields and constructor.
-"""
+"""Equality, hashing and repr for explicit value types."""
 
 from __future__ import annotations
 
-from typing_extensions import override
+from ._compat import override
 
 __all__ = ["SlottedValue"]
 
 
 class SlottedValue:
-    """Comparison, hashing and repr over a subclass's declared fields.
+    """Equality, hashing and repr over a subclass's declared fields.
 
-    A subclass lists its fields in ``__slots__`` and repeats them, in
-    declaration order, in ``__match_args__``, which is the order read here.
-    Comparison tests the exact class, so a subclass holding equal field
-    values is not equal.
+    ``__match_args__`` sets field order. Equality checks the exact class.
+    Subclasses using ``cached_property`` retain a ``__dict__``.
     """
 
     __slots__ = ()

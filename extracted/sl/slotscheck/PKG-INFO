@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: slotscheck
-Version: 0.20.1
+Version: 0.21.0
 Summary: Ensure your __slots__ are working properly.
 Author: Arie Bovenberg
 Author-email: Arie Bovenberg <a.c.bovenberg@gmail.com>

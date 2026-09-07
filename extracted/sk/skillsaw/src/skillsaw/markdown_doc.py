@@ -71,6 +71,21 @@ _PARSER = _make_parser()
 
 _REF_DEF_RE = re.compile(r"^[ \t]{0,3}\[([^\]]+)\]:[ \t]+")
 
+# After the inline walk, lazy queries need block ranges/content, headings
+# with their following inline text, and ordered-list depth. Keep this set
+# aligned with the token queries below when adding a new facade accessor.
+_POST_WALK_TOKEN_TYPES = frozenset(
+    {
+        "inline",
+        "fence",
+        "code_block",
+        "html_block",
+        "heading_open",
+        "ordered_list_open",
+        "ordered_list_close",
+    }
+)
+
 
 def _html_comment_spans(text: str):
     """Yield closed HTML-comment spans and line offsets in one linear pass."""
@@ -805,6 +820,8 @@ class MarkdownDoc:
         self._inline_verbatim: List[Tuple[int, int, int]] = []  # (map_start, start, end)
         self._inline_maps: List[Tuple[int, str, List[Tuple[int, int]]]] = []
         self._html_comments: Optional[List[MarkdownHtmlComment]] = None
+        self._headings: Optional[List[MarkdownHeading]] = None
+        self._fences: Optional[List[MarkdownFence]] = None
         self._prose: Optional[List[str]] = None
         self._prose_text: Optional[str] = None
 
@@ -910,9 +927,18 @@ class MarkdownDoc:
             self._segments.extend(walker.segments)
             self._inline_comments.extend(walker.html_comments)
             map_start = token.map[0] if token.map else 0
-            for span in walker.verbatim_spans:
-                self._inline_maps.append((map_start, token.content, [span]))
+            if walker.verbatim_spans:
+                # All spans in this token share one source-to-column map.
+                self._inline_maps.append((map_start, token.content, walker.verbatim_spans))
         self._backfill_reference_spans()
+        # Inline results are now materialized; later queries use only the
+        # top-level tokens. Copy before dropping children: the parser cache
+        # shares its original token graph with other MarkdownDoc instances.
+        self._tokens = [
+            token.copy(children=None) if token.type == "inline" and token.children else token
+            for token in self._tokens
+            if token.type in _POST_WALK_TOKEN_TYPES
+        ]
 
     # -- accessors ------------------------------------------------------------
 
@@ -931,8 +957,34 @@ class MarkdownDoc:
         self._ensure_walked()
         return list(self._segments)
 
+    def ordered_list_content_lines(self) -> List[Tuple[int, str]]:
+        """AST-normalized ``(body_line, text)`` pairs inside ordered lists.
+
+        Markdown-it removes container prefixes from inline token content. The
+        returned text therefore excludes ordered-list markers and any outer
+        blockquote/list indentation without guessing at source punctuation.
+        """
+        result: List[Tuple[int, str]] = []
+        ordered_list_depth = 0
+        for token in self._tokens:
+            if token.type == "ordered_list_open":
+                ordered_list_depth += 1
+                continue
+            if token.type == "ordered_list_close":
+                ordered_list_depth = max(0, ordered_list_depth - 1)
+                continue
+            if token.type != "inline" or ordered_list_depth == 0 or not token.map:
+                continue
+            start, end = token.map
+            content_lines = token.content.split("\n")
+            for offset, content_line in enumerate(content_lines[: end - start]):
+                result.append((start + offset + 1, content_line))
+        return result
+
     def fences(self) -> List[MarkdownFence]:
         """Fenced and indented code blocks (line ranges include delimiters)."""
+        if self._fences is not None:
+            return list(self._fences)
         result: List[MarkdownFence] = []
         for token in self._tokens:
             if token.type in ("fence", "code_block") and token.map:
@@ -950,10 +1002,13 @@ class MarkdownDoc:
                         content=token.content or "",
                     )
                 )
-        return result
+        self._fences = result
+        return list(result)
 
     def headings(self) -> List[MarkdownHeading]:
         """ATX and setext headings."""
+        if self._headings is not None:
+            return list(self._headings)
         result: List[MarkdownHeading] = []
         tokens = self._tokens
         for i, token in enumerate(tokens):
@@ -973,7 +1028,8 @@ class MarkdownDoc:
                     setext=token.markup in ("=", "-"),
                 )
             )
-        return result
+        self._headings = result
+        return list(result)
 
     def html_comments(self) -> List[MarkdownHtmlComment]:
         """HTML comments from block-level HTML and inline HTML."""

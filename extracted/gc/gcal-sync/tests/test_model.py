@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from gcal_sync.exceptions import CalendarParseException
 from gcal_sync.model import (
     EVENT_FIELDS,
     ID_DELIM,
@@ -27,7 +28,6 @@ from gcal_sync.model import (
     SyntheticEventId,
     VisibilityEnum,
 )
-from gcal_sync.exceptions import CalendarParseException
 
 SUMMARY = "test summary"
 LOS_ANGELES = zoneinfo.ZoneInfo("America/Los_Angeles")
@@ -84,6 +84,39 @@ def test_calendar_timezone() -> None:
     assert calendar.access_role == AccessRole.READER
     assert calendar.background_color is None
     assert calendar.foreground_color is None
+
+
+@pytest.mark.parametrize(
+    "api_access_role,access_role",
+    [
+        ("freeBusyReader", AccessRole.FREE_BUSY_READER),
+        ("reader", AccessRole.READER),
+        ("writer", AccessRole.WRITER),
+        ("owner", AccessRole.OWNER),
+        ("writerWithoutPrivateAccess", AccessRole.WRITER_WITHOUT_PRIVATE_ACCESS),
+        ("some-unknown-role", AccessRole.UNKNOWN),
+    ],
+)
+def test_calendar_access_role(api_access_role: str, access_role: AccessRole) -> None:
+    """Test parsing access roles in a calendar."""
+    calendar = Calendar.model_validate(
+        {
+            "id": "some-calendar-id",
+            "summary": "Calendar summary",
+            "accessRole": api_access_role,
+        }
+    )
+    assert calendar.access_role == access_role
+
+
+def test_calendar_unknown_access_role_by_alias() -> None:
+    """Test instantiating calendar with unknown access role using attribute name."""
+    calendar = Calendar(
+        id="some-calendar-id",
+        summary="Calendar summary",
+        access_role="unknown-role",  # type: ignore[arg-type]
+    )
+    assert calendar.access_role == AccessRole.UNKNOWN
 
 
 def test_event_with_date() -> None:
@@ -316,22 +349,22 @@ def test_event_utc() -> None:
     assert event.start.date is None
     assert event.start.date_time
     assert event.start.date_time == datetime.datetime(
-        2022, 4, 12, 16, 30, 0, tzinfo=datetime.timezone.utc
+        2022, 4, 12, 16, 30, 0, tzinfo=datetime.UTC
     )
     assert event.start.timezone is None
     assert event.start.value == datetime.datetime(
-        2022, 4, 12, 16, 30, 0, tzinfo=datetime.timezone.utc
+        2022, 4, 12, 16, 30, 0, tzinfo=datetime.UTC
     )
 
     assert event.end
     assert event.end.date is None
     assert event.end.date_time == datetime.datetime(
-        2022, 4, 12, 17, 0, 0, tzinfo=datetime.timezone.utc
+        2022, 4, 12, 17, 0, 0, tzinfo=datetime.UTC
     )
     assert event.start.timezone is None
     assert event.end.timezone is None
     assert event.end.value == datetime.datetime(
-        2022, 4, 12, 17, 0, 0, tzinfo=datetime.timezone.utc
+        2022, 4, 12, 17, 0, 0, tzinfo=datetime.UTC
     )
 
 
@@ -477,9 +510,7 @@ def test_event_timezone_comparison() -> None:
     dt2 = event2.start.value
     assert isinstance(dt2, datetime.datetime)
     assert dt1 == dt2
-    assert dt1.astimezone(datetime.timezone.utc) == dt2.astimezone(
-        datetime.timezone.utc
-    )
+    assert dt1.astimezone(datetime.UTC) == dt2.astimezone(datetime.UTC)
 
     assert event1.intersects(event2)
     assert not event1.includes(event2)
@@ -523,9 +554,7 @@ def test_event_timezone_comparison_timetone_not_used() -> None:
     dt2 = event2.start.value
     assert isinstance(dt2, datetime.datetime)
     assert dt1 == dt2
-    assert dt1.astimezone(datetime.timezone.utc) == dt2.astimezone(
-        datetime.timezone.utc
-    )
+    assert dt1.astimezone(datetime.UTC) == dt2.astimezone(datetime.UTC)
     assert event1.start.value.isoformat() == "2022-05-01T22:00:00+02:00"
     assert event2.start.value.isoformat() == "2022-05-01T22:00:00+02:00"
 
@@ -739,16 +768,16 @@ def test_recurring_event() -> None:
             datetime.datetime(2022, 9, 6, 8, 30, 0),
         ),
         (
-            datetime.datetime(2022, 9, 6, 6, 0, 0, tzinfo=datetime.timezone.utc),
-            datetime.datetime(2022, 9, 6, 7, 0, 0, tzinfo=datetime.timezone.utc),
-            datetime.datetime(2022, 9, 6, 8, 0, 0, tzinfo=datetime.timezone.utc),
-            datetime.datetime(2022, 9, 6, 8, 30, 0, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2022, 9, 6, 6, 0, 0, tzinfo=datetime.UTC),
+            datetime.datetime(2022, 9, 6, 7, 0, 0, tzinfo=datetime.UTC),
+            datetime.datetime(2022, 9, 6, 8, 0, 0, tzinfo=datetime.UTC),
+            datetime.datetime(2022, 9, 6, 8, 30, 0, tzinfo=datetime.UTC),
         ),
         (
             datetime.datetime(2022, 9, 6, 6, 0, 0, tzinfo=LOS_ANGELES),
             datetime.datetime(2022, 9, 6, 7, 0, 0, tzinfo=LOS_ANGELES),
-            datetime.datetime(2022, 9, 7, 8, 0, 0, tzinfo=datetime.timezone.utc),
-            datetime.datetime(2022, 9, 7, 8, 30, 0, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2022, 9, 7, 8, 0, 0, tzinfo=datetime.UTC),
+            datetime.datetime(2022, 9, 7, 8, 30, 0, tzinfo=datetime.UTC),
         ),
         (
             datetime.datetime(2022, 9, 6, 6, 0, 0, tzinfo=LOS_ANGELES),
@@ -765,8 +794,8 @@ def test_recurring_event() -> None:
         (
             datetime.date(2022, 9, 6),
             datetime.date(2022, 9, 7),
-            datetime.datetime(2022, 9, 6, 8, 0, 0, tzinfo=datetime.timezone.utc),
-            datetime.datetime(2022, 9, 6, 8, 30, 0, tzinfo=datetime.timezone.utc),
+            datetime.datetime(2022, 9, 6, 8, 0, 0, tzinfo=datetime.UTC),
+            datetime.datetime(2022, 9, 6, 8, 30, 0, tzinfo=datetime.UTC),
         ),
     ],
 )
@@ -900,11 +929,11 @@ def test_event_recurrence_id_utc() -> None:
     """Test creating a recurrence id for an event in UTC."""
     syn_id = SyntheticEventId(
         "event-id",
-        datetime.datetime(2022, 10, 2, 5, 32, 00, tzinfo=datetime.timezone.utc),
+        datetime.datetime(2022, 10, 2, 5, 32, 00, tzinfo=datetime.UTC),
     )
     assert syn_id.original_event_id == "event-id"
     assert syn_id.dtstart == datetime.datetime(
-        2022, 10, 2, 5, 32, 00, tzinfo=datetime.timezone.utc
+        2022, 10, 2, 5, 32, 00, tzinfo=datetime.UTC
     )
     assert syn_id.event_id == SyntheticEventId.parse(syn_id.event_id).event_id
 
@@ -954,6 +983,8 @@ def test_invalid_event_id(event_id: str) -> None:
         (AccessRole.READER, False),
         (AccessRole.WRITER, True),
         (AccessRole.OWNER, True),
+        (AccessRole.WRITER_WITHOUT_PRIVATE_ACCESS, True),
+        (AccessRole.UNKNOWN, False),
     ],
 )
 def test_access_role_writer(access_role: AccessRole, writer: bool) -> None:

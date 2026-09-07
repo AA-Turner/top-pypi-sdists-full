@@ -234,6 +234,50 @@ def test_reconnect_waits_for_the_target_device(monkeypatch):
     assert captured.get("serial") == "TARGET-UDID"
 
 
+def test_reconnect_any_accepts_first_available_device(monkeypatch, caplog):
+    """With RECONNECT_ANY_ENV_VAR set, `--reconnect` must accept the first available device (no
+    serial filter), warn about the UDID mismatch, and retarget the re-invocation at it."""
+    import logging
+    import os
+
+    from pymobiledevice3.cli import cli_common
+
+    _patch_isolated_asyncio_run(monkeypatch)
+    captured: dict[str, str] = {}
+
+    async def fake_retry_create_using_usbmux(*args, **kwargs):
+        captured.update(kwargs)
+
+        class _FakeLockdown:
+            udid = "OTHER-UDID"
+
+            async def close(self) -> None:
+                pass
+
+        return _FakeLockdown()
+
+    invocations = iter([True, False])
+    monkeypatch.setattr(__main__, "invoke_cli_with_error_handling", lambda: next(invocations))
+    monkeypatch.setattr(__main__, "RECONNECT", True)
+    monkeypatch.setattr(__main__, "retry_create_using_usbmux", fake_retry_create_using_usbmux)
+    argv = ["pymobiledevice3", "--reconnect", "afc", "webdav", "--udid", "TARGET-UDID"]
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(os, "environ", dict(os.environ))  # isolate env mutations done by main()
+    os.environ[cli_common.RECONNECT_ANY_ENV_VAR] = "1"
+
+    with caplog.at_level(logging.WARNING, logger=__main__.logger.name):
+        __main__.main()
+
+    # No serial filter: any device is accepted.
+    assert captured.get("serial") is None
+    # The re-invocation is retargeted at the device that actually connected (argv --udid wins over
+    # the env var, so both must be rewritten).
+    assert argv[argv.index("--udid") + 1] == "OTHER-UDID"
+    assert os.environ[cli_common.UDID_ENV_VAR] == "OTHER-UDID"
+    # The mismatch is warned about.
+    assert any("OTHER-UDID" in record.message and "TARGET-UDID" in record.message for record in caplog.records)
+
+
 def test_device_not_found_is_a_reconnectable_failure(monkeypatch):
     """A device-not-found failure must keep the `--reconnect` retry loop alive: after a disconnect,
     the target device may still be enumerating while other devices are attached."""

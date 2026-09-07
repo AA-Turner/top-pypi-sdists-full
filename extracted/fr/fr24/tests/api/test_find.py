@@ -1,9 +1,9 @@
+from typing import Annotated
+
 import pytest
 from pydantic import BaseModel, ConfigDict, Discriminator
-from typing_extensions import Annotated
 
 from fr24 import FR24
-from fr24._deprecated import JSON_API_DEPRECATION_NOTICE
 from fr24.types.json import (
     Entry,
     Info,
@@ -15,8 +15,6 @@ from fr24.types.json import (
     is_schedule,
 )
 from fr24.utils import get_current_timestamp
-
-pytestmark = pytest.mark.skip(reason=JSON_API_DEPRECATION_NOTICE)
 
 
 # overwriting the original FindResult for now

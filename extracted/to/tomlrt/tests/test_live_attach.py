@@ -1948,3 +1948,63 @@ def test_update_through_a_plain_mapping_copies_a_popped_subtrees_table() -> None
         y = 2
         """)
     assert orphan.to_dict() == {"arr": [1, 2], "it": {"x": 9}, "sub": {"y": 2}}
+
+
+def test_aot_factory_copies_a_live_section_it_holds() -> None:
+    """An AoT factory's entries are rehomed; the views they hold are not.
+
+    Clearing a source's slot linkage on the way in would both steal the
+    user's view — writes through it would land in the destination and
+    the source document would stop answering — and leave the copy with
+    nothing but data to be rebuilt from.
+    """
+    src = tomlrt.loads(
+        td("""
+        [s]
+        q = 0x0f # keep
+        """)
+    )
+    dst = tomlrt.loads("x = 1\n")
+    section = src.table("s")
+
+    dst["arr"] = AoT([{"e": section}])
+    section["q"] = 0x10
+
+    assert tomlrt.dumps(dst) == td("""
+        x = 1
+
+        [[arr]]
+
+        [arr.e]
+        q = 0x0f # keep
+        """)
+    assert tomlrt.dumps(src) == td("""
+        [s]
+        q = 16 # keep
+        """)
+    assert _reparses(tomlrt.dumps(dst)) == dst.to_dict()
+
+
+def test_nested_aot_factory_keeps_standalone_inline_child_ownership() -> None:
+    standalone = Array([{"value": 1}])
+    child = standalone.table(0)
+    nested = AoT([{"inline": child}])
+    factory = AoT([{"section": Table.section({"nested": nested})}])
+    entry, nested_entry = factory[0], nested[0]
+    doc = tomlrt.Document()
+    doc["items"] = factory
+
+    child["value"] = 2
+    entry["held"] = True
+    nested_entry["extra"] = 3
+
+    assert tomlrt.dumps(doc) == td("""
+        [[items]]
+        held = true
+
+        [[items.section.nested]]
+        inline = { value = 1 }
+        extra = 3
+        """)
+    assert tomlrt.dumps({"standalone": standalone}) == "standalone = [{ value = 2 }]\n"
+    assert _reparses(tomlrt.dumps(doc)) == doc.to_dict()

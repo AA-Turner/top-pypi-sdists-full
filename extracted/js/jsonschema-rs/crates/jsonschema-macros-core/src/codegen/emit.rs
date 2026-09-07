@@ -58,8 +58,11 @@ pub(crate) trait ValueEmitter {
     fn object_values_iter(object_expr: impl ToTokens) -> TokenStream;
     fn array_iter_ref(array_expr: impl ToTokens) -> TokenStream;
     fn public_value_ty(runtime_crate: &TokenStream, lifetime: impl ToTokens) -> TokenStream;
-    /// The `is_valid`/`validate`/`iter_errors` methods on the validator struct. A representation
-    /// that records unreadable values out of band wraps each one and returns them.
+    /// The bodies behind the validator struct's methods, emitted inside the aliased module. A
+    /// representation that records unreadable values out of band wraps each one and returns them.
+    fn entry_bodies() -> TokenStream;
+    /// The `is_valid`/`validate`/`iter_errors` methods on the validator struct, delegating to
+    /// [`ValueEmitter::entry_bodies`].
     fn entry_points(impl_mod_name: &Ident, runtime_crate: &TokenStream) -> TokenStream;
     fn declare_key(key: &str) -> TokenStream;
     fn key_to_owned(key_expr: impl ToTokens) -> TokenStream;
@@ -67,6 +70,11 @@ pub(crate) trait ValueEmitter {
     /// function starts from.
     fn module_prelude() -> TokenStream;
     fn function_prelude() -> TokenStream;
+    /// Dispatch for a schema whose only typed arm is an array, narrowing once instead of
+    /// classifying and then narrowing.
+    fn sole_array_match(body: TokenStream, fallback: TokenStream) -> TokenStream;
+    /// The object counterpart of [`ValueEmitter::sole_array_match`].
+    fn sole_object_match(body: TokenStream, fallback: TokenStream) -> TokenStream;
     fn type_match(scrutinee: impl ToTokens, arms: Vec<TokenStream>) -> TokenStream;
     /// Type dispatch with no per-type body: whether the instance has one of `patterns`' types.
     fn type_matches(patterns: Vec<TokenStream>) -> TokenStream;

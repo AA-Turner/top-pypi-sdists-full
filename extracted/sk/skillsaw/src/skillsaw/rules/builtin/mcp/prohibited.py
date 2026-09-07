@@ -6,9 +6,9 @@ from typing import List
 
 from skillsaw.diagnostics import safe_display
 from skillsaw.rule import Rule, RuleViolation, Severity
+from skillsaw.blocks import McpConfigRole
 from skillsaw.context import RepositoryContext
 from skillsaw.lint_target import PluginNode
-from skillsaw.rules.builtin.content_analysis import McpBlock
 from skillsaw.rules.builtin.utils import read_json
 
 
@@ -51,15 +51,17 @@ class McpProhibitedRule(Rule):
         violations = []
         allowlist = set(self.config.get("allowlist", []))
 
-        for block in context.lint_tree.find(McpBlock):
+        for block in context.lint_tree.find(McpConfigRole):
             prohibited = block.server_names - allowlist if allowlist else block.server_names
             if not prohibited:
                 continue
+            source_line = getattr(block, "source_line", None)
             if allowlist:
                 violations.append(
                     self.violation(
                         f"non-allowlisted MCP servers defined: {self._named(prohibited)}",
                         file_path=block.path,
+                        line=source_line,
                     )
                 )
             else:
@@ -67,6 +69,7 @@ class McpProhibitedRule(Rule):
                     self.violation(
                         f"MCP servers defined in {block.path.name}",
                         file_path=block.path,
+                        line=source_line,
                     )
                 )
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from ..context import RepositoryContext, RepositoryType
 from ..formatters import format_report, get_counts, parse_output_spec
 from ..linter import Linter
-from ._config import _get_version, load_config
+from ._config import _get_version, load_config, resolve_fail_level, resolve_fix_level
 from ._helpers import (
     _RuleProgress,
     _build_merged_context,
@@ -110,14 +110,8 @@ def _run_lint(args):
     if config_path and args.verbose and args.fmt == "text":
         print(f"Using config: {config_path}\n")
 
-    # CLI flags override the config file's strict/fail-on settings; the config
-    # values only apply when neither flag is given.
-    if args.fail_on:
-        fail_level = args.fail_on
-    elif args.strict:
-        fail_level = "warning"
-    else:
-        fail_level = config.effective_fail_level()
+    fail_level = resolve_fail_level(args, config)
+    fix_level = resolve_fix_level(args, config)
 
     baseline = None
     if not args.no_baseline:
@@ -153,6 +147,7 @@ def _run_lint(args):
             repo_types=override_types,
             exclude_patterns=config.exclude_patterns,
             content_paths=config.content_paths,
+            lint_external_content=config.lint_external_content,
         )
         contexts.append(context)
 
@@ -172,14 +167,20 @@ def _run_lint(args):
 
         # After Linter construction plugin repo type detectors have run, so
         # a repository recognized only by a plugin is not warned about.
-        if context.repo_type == RepositoryType.UNKNOWN and not context.plugin_repo_types:
+        if (
+            context.repo_type == RepositoryType.UNKNOWN
+            and not context.plugin_repo_types
+            and not context.lint_tree.children
+        ):
             print(
                 "Warning: Directory doesn't appear to be a recognized repository",
                 file=sys.stderr,
             )
             print(
-                "Expected: an Agent Plugins plugin.json, .claude-plugin/plugin.json, "
-                "plugins/ directory, or SKILL.md (agentskills.io)\n",
+                "Expected: agent skills (SKILL.md), a Claude Code or Codex plugin or "
+                "marketplace, an Agent Plugins or APM package, an MCP Registry "
+                "server.json, or instruction files such as CLAUDE.md, AGENTS.md, or "
+                "an editor's rules directory\n",
                 file=sys.stderr,
             )
 
@@ -242,11 +243,12 @@ def _run_lint(args):
         duration=lint_duration,
         grade=grade,
         fail_level=fail_level,
+        fix_level=fix_level,
         color=color,
         hyperlinks=hyperlinks_enabled(sys.stdout, color),
     )
-    print(stdout_output)
-
+    # Write the requested report files before printing: a stdout the
+    # console cannot render must not cost the files the user asked for.
     report_cache = {}
     for output_path, fmt in output_formats.items():
         if fmt not in report_cache:
@@ -261,6 +263,7 @@ def _run_lint(args):
                 duration=lint_duration,
                 grade=grade,
                 fail_level=fail_level,
+                fix_level=fix_level,
             )
         out_path = Path(output_path)
         try:
@@ -269,6 +272,8 @@ def _run_lint(args):
         except (OSError, ValueError) as e:
             print(f"Error: Failed to write report to '{out_path}': {e}", file=sys.stderr)
             sys.exit(1)
+
+    print(stdout_output)
 
     # Advisory violations (deprecation notices) display like warnings but
     # never affect the exit code — a skillsaw upgrade must not break strict

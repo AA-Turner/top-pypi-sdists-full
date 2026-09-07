@@ -28,6 +28,8 @@ from data_diff.abcs.database_types import (
     Time,
 )
 
+DEFAULT_ODBC_DRIVER = "ODBC Driver 18 for SQL Server"
+
 
 @import_helper("mssql")
 def import_mssql():
@@ -174,12 +176,23 @@ class MsSQL(ThreadedDatabase):
     def __init__(self, host, port, user, password, *, database, thread_count, **kw) -> None:
         super().__init__(thread_count=thread_count)
 
+        # A separate keyword rather than `driver`: in a connection dict that name is
+        # already consumed by connect_with_dict as the *scheme*. Reading it off `kw`
+        # also covers the URI entry point, whose query params land there too.
+        odbc_driver = kw.pop("odbc_driver", None) or DEFAULT_ODBC_DRIVER
+
         args = dict(server=host, port=port, database=database, user=user, password=password, **kw)
         self._args = {k: v for k, v in args.items() if v is not None}
-        self._args["driver"] = "{ODBC Driver 18 for SQL Server}"
+        # Only FreeTDS splits a `DOMAIN\user` login and negotiates NTLM. msodbcsql
+        # offers it as a SQL login name, which SQL Server rejects with 18456 - and a
+        # backslash is illegal in a SQL login, so such an account can only ever be a
+        # Windows one. Hard-coding the driver made domain accounts undiffable.
+        self._args["driver"] = "{%s}" % odbc_driver
 
-        # TODO temp dev debug
-        self._args["TrustServerCertificate"] = "yes"
+        # Kept as a default rather than removed: setups with self-signed certificates
+        # already depend on it, and dropping it fails them with
+        # "SSL Provider: certificate verify failed". Now overridable by the caller.
+        self._args.setdefault("TrustServerCertificate", "yes")
 
         try:
             self.default_database = self._args["database"]

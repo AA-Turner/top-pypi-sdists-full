@@ -30,9 +30,15 @@ from .coordinates import (
 )
 from .formula import oooc_to_ooow
 from .isiterable import isiterable
+from .json_formater import format_json
 from .remove_tree import remove_tree
-from .rfc3066 import is_RFC3066
-from .str_convert import bytes_to_str, str_to_bytes, to_bytes, to_str
+from .rfc3066 import get_default_language, is_RFC3066
+from .str_convert import (
+    bytes_to_str,
+    str_to_bytes,
+    to_bytes,
+    to_str,
+)
 from .style_constants import (
     FALSE_FAMILY_MAP_REVERSE,
     FAMILY_LESS_STYLE_TAGS,
@@ -42,6 +48,7 @@ from .style_constants import (
     STYLES_TO_REGISTER,
     SUBCLASSED_STYLES,
 )
+from .unify_name import NameUnifyer
 from .xpath_query import make_xpath_query
 
 __all__ = [
@@ -53,10 +60,13 @@ __all__ = [
     "STYLES_TO_REGISTER",
     "SUBCLASSED_STYLES",
     "Blob",
+    "NameUnifyer",
     "alpha_to_digit",
     "bytes_to_str",
     "convert_coordinates",
     "digit_to_alpha",
+    "format_json",
+    "get_default_language",
     "hex2rgb",
     "hexa_color",
     "increment",

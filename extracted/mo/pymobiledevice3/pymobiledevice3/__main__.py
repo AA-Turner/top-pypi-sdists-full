@@ -28,6 +28,7 @@ import pymobiledevice3._lazy_imports  # noqa: F401
 from pymobiledevice3.cli.cli_common import (
     FORCE_TUNNEL_ENV_VAR,
     NATIVE_ENV_VAR,
+    RECONNECT_ANY_ENV_VAR,
     TUNNEL_ENV_VAR,
     UDID_ENV_VAR,
     USERSPACE_ENV_VAR,
@@ -285,7 +286,10 @@ def _root(
         bool,
         typer.Option(
             "--reconnect",
-            help="Automatically reconnect if the device disconnects mid-command.",
+            help=(
+                "Automatically reconnect if the device disconnects mid-command "
+                f"(set {RECONNECT_ANY_ENV_VAR} to accept any device, not just the original one)."
+            ),
             show_default=False,
         ),
     ] = False,
@@ -467,6 +471,17 @@ def invoke_cli_with_error_handling() -> bool:
     return False
 
 
+def _retarget_reconnect_udid(udid: str) -> None:
+    """Point the `--reconnect` re-invocation at ``udid``: an explicit ``--udid`` on argv wins over
+    the env var, so rewrite both."""
+    for i, arg in enumerate(sys.argv):
+        if arg == "--udid" and i + 1 < len(sys.argv):
+            sys.argv[i + 1] = udid
+        elif arg.startswith("--udid="):
+            sys.argv[i] = f"--udid={udid}"
+    os.environ[UDID_ENV_VAR] = udid
+
+
 def main() -> None:
     # Retry to invoke the CLI
     while invoke_cli_with_error_handling():
@@ -478,10 +493,23 @@ def main() -> None:
             logger.info("Waiting for the device to be available again")
             # Wait for the device the command targeted, not just any device. The target is the
             # explicit --udid / env value, or whichever device the command's dependency resolved
-            # to (auto-pick or interactive prompt).
+            # to (auto-pick or interactive prompt). RECONNECT_ANY_ENV_VAR opts out: accept the
+            # first available device even when its UDID differs from the original target.
             serial = _cli_udid() or resolved_udid()
-            lockdown = asyncio.run(retry_create_using_usbmux(serial=serial))
-            if serial is not None and not os.getenv(UDID_ENV_VAR):
+            accept_any = bool(os.getenv(RECONNECT_ANY_ENV_VAR))
+            if accept_any and serial is not None:
+                logger.warning(
+                    f"{RECONNECT_ANY_ENV_VAR} is set: accepting the first available device, "
+                    f"even if its UDID differs from {serial}"
+                )
+            lockdown = asyncio.run(retry_create_using_usbmux(serial=None if accept_any else serial))
+            if accept_any and lockdown.udid:
+                if serial is not None and lockdown.udid != serial:
+                    logger.warning(f"Reconnected to a different device: {lockdown.udid} (was {serial})")
+                serial = lockdown.udid
+                # Retarget the re-invocation at the device that actually connected.
+                _retarget_reconnect_udid(serial)
+            elif serial is not None and not os.getenv(UDID_ENV_VAR):
                 # Stamp the target so the re-invocation resolves the same device instead of
                 # prompting again (or silently auto-picking another attached device).
                 os.environ[UDID_ENV_VAR] = serial

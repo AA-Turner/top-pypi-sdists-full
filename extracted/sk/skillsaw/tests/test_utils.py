@@ -3,6 +3,7 @@ Tests for builtin rule utilities (read_text, read_json, frontmatter_key_line, he
 and centralized YAML line number functions).
 """
 
+import json
 import os
 from pathlib import Path
 import stat
@@ -10,7 +11,12 @@ import stat
 import pytest
 
 from skillsaw import utils as skillsaw_utils
-from skillsaw.utils import mkdir_parents_anchored, rename_path_anchored, write_bytes_atomic
+from skillsaw.utils import (
+    mkdir_parents_anchored,
+    read_toml,
+    rename_path_anchored,
+    write_bytes_atomic,
+)
 
 from skillsaw.rules.builtin.utils import (
     read_text,
@@ -497,6 +503,94 @@ def test_read_json_returns_error_on_missing(temp_dir):
     assert "Failed to read" in error
 
 
+def test_read_toml_parses_valid(temp_dir):
+    f = temp_dir / "config.toml"
+    f.write_text('[mcp_servers.berths]\ncommand = "bin/harbourmaster"\n', encoding="utf-8")
+    data, error = read_toml(f)
+    assert data == {"mcp_servers": {"berths": {"command": "bin/harbourmaster"}}}
+    assert error is None
+
+
+def test_read_toml_returns_error_on_syntax_error(temp_dir):
+    """The parser's own wording carries the position this two-element
+    contract cannot; what is pinned is that an error came back, not how
+    ``tomli`` phrases it — the 3.9 floor resolves a separately versioned
+    copy."""
+    f = temp_dir / "bad.toml"
+    f.write_text("[mcp_servers.berths\n", encoding="utf-8")
+    data, error = read_toml(f)
+    assert data is None
+    assert "line 1" in error
+
+
+def test_read_toml_returns_error_on_duplicate_key(temp_dir):
+    """A duplicate key is a parse error in TOML, not a last-one-wins merge as
+    it is in the JSON readers."""
+    f = temp_dir / "dup.toml"
+    f.write_text("[mcp]\nmax_output_bytes = 1\nmax_output_bytes = 2\n", encoding="utf-8")
+    data, error = read_toml(f)
+    assert data is None
+    assert "Cannot overwrite a value" in error
+
+
+def test_read_toml_returns_error_on_duplicate_table_header(temp_dir):
+    f = temp_dir / "dup-table.toml"
+    f.write_text(
+        '[mcp_servers.berths]\ncommand = "a"\n\n[mcp_servers.berths]\ncommand = "b"\n',
+        encoding="utf-8",
+    )
+    data, error = read_toml(f)
+    assert data is None
+    assert "Cannot declare" in error
+
+
+def test_read_toml_accepts_a_utf8_bom(temp_dir):
+    """``read_text`` decodes with ``utf-8-sig``, so the mark never reaches the
+    parser — which would refuse it. Whether Grok's Rust reader refuses one is
+    unmeasured, so this stays permissive rather than inventing a verdict."""
+    f = temp_dir / "bom.toml"
+    f.write_bytes(b"\xef\xbb\xbf" + b'[permission]\nallow = ["Bash(make test)"]\n')
+    data, error = read_toml(f)
+    assert error is None
+    assert data == {"permission": {"allow": ["Bash(make test)"]}}
+
+
+def test_read_toml_returns_error_on_missing(temp_dir):
+    data, error = read_toml(temp_dir / "missing.toml")
+    assert data is None
+    assert "Failed to read" in error
+
+
+def test_read_toml_returns_error_on_undecodable_bytes(temp_dir):
+    """A config saved as cp1252 never reaches the parser: ``read_text``
+    refuses it, and the reader reports rather than raising."""
+    f = temp_dir / "cp1252.toml"
+    f.write_bytes(b'[permission]\nallow = ["Bash(caf\x92 *)"]\n')
+    data, error = read_toml(f)
+    assert data is None
+    assert "Failed to read" in error
+
+
+def test_read_toml_reports_deep_nesting(temp_dir):
+    """A ``RecursionError`` from the parser becomes an error string; escaping
+    it would abort the whole lint."""
+    f = temp_dir / "deep.toml"
+    f.write_text("a = " + "[" * 2000 + "]" * 2000, encoding="utf-8")
+    assert read_toml(f) == (None, "Nesting too deep to parse")
+
+
+def test_read_toml_reports_an_oversized_integer(temp_dir, oversized_integer_digits):
+    """Past the interpreter's digit limit the parser raises bare
+    ``ValueError``, not its own decode error."""
+    if oversized_integer_digits is None:
+        pytest.skip("interpreter enforces no int-parse digit limit")
+    f = temp_dir / "big.toml"
+    f.write_text(f"a = {oversized_integer_digits}\n", encoding="utf-8")
+    data, error = read_toml(f)
+    assert data is None
+    assert "digits" in error
+
+
 def test_frontmatter_key_line_finds_key(temp_dir):
     f = temp_dir / "doc.md"
     f.write_text("---\nname: test\ndescription: A thing\n---\n", encoding="utf-8")
@@ -798,6 +892,31 @@ def test_yaml_path_line_lookup_invalid_yaml():
     assert lookup("bad") is None
 
 
+def test_yaml_path_line_lookup_deep_nesting_does_not_crash():
+    depth = 250
+    text = "root:\n" + "".join("  " * (index + 1) + "nested:\n" for index in range(depth))
+    text += "  " * (depth + 1) + "value\n"
+
+    lookup = yaml_path_line_lookup(text)
+
+    assert lookup("root") is None
+
+
+@pytest.mark.parametrize("error_type", [ValueError, RecursionError])
+def test_yaml_path_line_lookup_handles_ruamel_runtime_errors(monkeypatch, error_type):
+    class BrokenYaml:
+        preserve_quotes = False
+
+        def load(self, _text):
+            raise error_type("parser failed")
+
+    monkeypatch.setattr(skillsaw_utils, "_RuamelYAML", BrokenYaml)
+
+    lookup = yaml_path_line_lookup("name: test\n")
+
+    assert lookup("name") is None
+
+
 # ---------------------------------------------------------------------------
 # yaml_key_line_after
 # ---------------------------------------------------------------------------
@@ -896,9 +1015,16 @@ def test_parse_frontmatter_malformed_yaml_reports_error_line():
     assert error_line == 5  # --- closing line where parser fails
 
 
-def test_parse_frontmatter_recursion_is_reported_as_invalid():
-    nested = "[" * 1200 + "0" + "]" * 1200
-    content = f"---\nextra: {nested}\n---\nbody\n"
+def test_parse_frontmatter_recursion_is_reported_as_invalid(monkeypatch):
+    # Simulate a RecursionError during YAML loading to verify error handling
+    # without depending on environment-specific stack limits.
+    import yaml as yaml_mod
+
+    def explode(*_args, **_kwargs):
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(yaml_mod, "load", explode)
+    content = "---\nextra: [[0]]\n---\nbody\n"
     frontmatter, body, error_line = parse_frontmatter(content)
 
     assert frontmatter is None
@@ -1105,3 +1231,254 @@ class TestReplaceFrontmatterField:
 
         content = "---\nname: a\nname: b\n---\n"
         assert replace_frontmatter_field(content, "name", "name: new") == content
+
+
+class TestStripJsonc:
+    """JSONC tolerance: comments and trailing commas, with offsets preserved."""
+
+    def test_line_and_block_comments_become_spaces(self):
+        import json
+
+        from skillsaw.utils import strip_jsonc
+
+        source = '{\n  // a note\n  "a": 1, /* inline */ "b": 2\n}'
+        stripped = strip_jsonc(source)
+        assert json.loads(stripped) == {"a": 1, "b": 2}
+        assert len(stripped) == len(source)
+        assert stripped.count("\n") == source.count("\n")
+
+    def test_trailing_commas_are_removed_in_objects_and_arrays(self):
+        import json
+
+        from skillsaw.utils import strip_jsonc
+
+        source = '{"a": [1, 2,], "b": {"c": 3,},}'
+        assert json.loads(strip_jsonc(source)) == {"a": [1, 2], "b": {"c": 3}}
+
+    def test_separating_commas_survive(self):
+        import json
+
+        from skillsaw.utils import strip_jsonc
+
+        source = '{"a": [1, [2], 3], "b": 4}'
+        assert json.loads(strip_jsonc(source)) == {"a": [1, [2], 3], "b": 4}
+
+    def test_comment_and_comma_syntax_inside_strings_is_data(self):
+        import json
+
+        from skillsaw.utils import strip_jsonc
+
+        source = '{"url": "https://x.example//p", "csv": "a,", "b": "/* not */"}'
+        assert json.loads(strip_jsonc(source)) == {
+            "url": "https://x.example//p",
+            "csv": "a,",
+            "b": "/* not */",
+        }
+
+    def test_an_escaped_quote_does_not_end_the_string(self):
+        import json
+
+        from skillsaw.utils import strip_jsonc
+
+        source = '{"a": "he said \\" // not a comment"}'
+        assert json.loads(strip_jsonc(source)) == {"a": 'he said " // not a comment'}
+
+    def test_an_unterminated_block_comment_runs_to_end_of_file(self):
+        import json
+
+        from skillsaw.utils import strip_jsonc
+
+        source = '{"a": 1}\n/* trailing'
+        assert json.loads(strip_jsonc(source)) == {"a": 1}
+
+    def test_parse_error_positions_still_point_at_the_real_line(self, tmp_path):
+        """Blanking rather than deleting is what keeps the reported line honest."""
+        from skillsaw.utils import read_jsonc
+
+        path = tmp_path / "opencode.jsonc"
+        path.write_text('{\n  // a note\n  "a": 1\n  "b": 2\n}\n')
+        data, error = read_jsonc(path)
+        assert data is None
+        assert "line 4" in error
+
+    def test_a_newline_inside_a_block_comment_is_kept(self, tmp_path):
+        """The one branch that would shift every line below a `/* */` comment."""
+        from skillsaw.utils import read_jsonc
+
+        path = tmp_path / "opencode.jsonc"
+        path.write_text('{\n  /* two\n     lines */\n  "a": 1\n  "b": 2\n}\n')
+        data, error = read_jsonc(path)
+        assert data is None
+        assert "line 5" in error
+
+    @pytest.mark.parametrize(
+        "comment",
+        ["// 文档 😀\r\n", "/* 文档\r\n😀\n */", "/* */\n// 第二条\n"],
+    )
+    def test_unicode_comment_offsets_and_adjacent_trailing_comma(self, comment):
+        from skillsaw.utils import strip_jsonc
+
+        prefix = '{"标题": "😀 // keep", "items": ["é",'
+        source = prefix + comment + '], "value": }'
+        stripped = strip_jsonc(source)
+        assert len(stripped) == len(source)
+        assert stripped[: len(prefix) - 1] == prefix[:-1]
+        assert stripped[len(prefix) - 1] == " "
+        assert [i for i, char in enumerate(stripped) if char == "\n"] == [
+            i for i, char in enumerate(source) if char == "\n"
+        ]
+        with pytest.raises(json.JSONDecodeError) as failure:
+            json.loads(stripped)
+        assert failure.value.pos == source.rindex("}")
+        assert failure.value.lineno == source.count("\n") + 1
+        assert failure.value.colno == len(source.rsplit("\n", 1)[-1])
+
+    def test_a_plain_json_document_never_reaches_the_stripper(self, tmp_path, monkeypatch):
+        """Valid JSON parses as-is, so the per-character scan is off the common path."""
+        import skillsaw.utils as utils_module
+        from skillsaw.utils import read_jsonc
+
+        def _fail(content):
+            raise AssertionError("strip_jsonc must not run on a document that parses")
+
+        monkeypatch.setattr(utils_module, "strip_jsonc", _fail)
+        path = tmp_path / "opencode.json"
+        path.write_text('{"a": [1, 2], "b": {"c": "https://x.example//p"}}')
+        assert read_jsonc(path) == ({"a": [1, 2], "b": {"c": "https://x.example//p"}}, None)
+
+    @pytest.mark.parametrize("allow_duplicate_keys", [False, True])
+    def test_read_jsonc_rejects_the_non_finite_extension(self, tmp_path, allow_duplicate_keys):
+        from skillsaw.utils import read_jsonc
+
+        path = tmp_path / "opencode.jsonc"
+        path.write_text('{"timeout": NaN}')
+        data, error = read_jsonc(path, allow_duplicate_keys=allow_duplicate_keys)
+        assert data is None
+        assert "NaN" in error
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            '{"name": "first", "name": "second"}',
+            '{// comment\n"nested": {"name": 1, "name": 2},}',
+        ],
+    )
+    def test_read_jsonc_rejects_duplicate_object_keys(self, tmp_path, content):
+        from skillsaw.utils import read_jsonc
+
+        path = tmp_path / "opencode.jsonc"
+        path.write_text(content)
+
+        data, error = read_jsonc(path)
+
+        assert data is None
+        assert 'duplicate JSON object key: "name"' in error
+
+    @pytest.mark.parametrize("comment", ["", "// Registry metadata\n"])
+    def test_duplicate_key_policy_is_explicit_and_cached_separately(self, tmp_path, comment):
+        from skillsaw.blocks.json_config import OpenCodeConfigBlock
+        from skillsaw.utils import read_jsonc
+
+        path = tmp_path / "config.jsonc"
+        path.write_text(comment + '{"name":"first","name":"second"}')
+        assert read_jsonc(path, allow_duplicate_keys=True) == ({"name": "second"}, None)
+        data, error = read_jsonc(path)
+        assert data is None
+        assert 'duplicate JSON object key: "name"' in error
+        assert read_jsonc(path, allow_duplicate_keys=True) == ({"name": "second"}, None)
+        # Enabling Antigravity's policy must not relax another JSONC host.
+        block = OpenCodeConfigBlock(path=path)
+        assert block.raw_data is None
+        assert 'duplicate JSON object key: "name"' in block.parse_error
+
+
+def test_read_json_strict_rejects_duplicate_object_keys(tmp_path):
+    from skillsaw.utils import read_json_strict
+
+    path = tmp_path / "skills-lock.json"
+    path.write_text('{"skills": {"demo": {"source": "one", "source": "two"}}}')
+
+    data, error = read_json_strict(path)
+
+    assert data is None
+    assert 'duplicate JSON object key: "source"' in error
+
+
+def test_rule_strict_json_rejects_duplicate_object_keys(tmp_path):
+    from skillsaw.rules.builtin.utils import strict_json
+
+    path = tmp_path / "plugin.json"
+    path.write_text('{"name": "first", "name": "second"}')
+
+    data, error = strict_json(path)
+
+    assert data is None
+    assert 'duplicate JSON object key: "name"' in error
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "\x1b]0;unsafe\x07" + "x" * 1000,
+        "😀" * 100,
+        "é" * 100,
+        "\x00" * 100,
+        "\u202e" * 100,
+        "\ud800" * 100,
+    ],
+    ids=["terminal-control", "emoji", "non-ascii", "nul", "bidi", "lone-surrogate"],
+)
+def test_duplicate_json_key_diagnostic_is_bounded_and_control_safe(tmp_path, key):
+    from skillsaw.utils import read_json_strict
+
+    path = tmp_path / "server.json"
+    path.write_text(json.dumps({key: 1})[:-1] + "," + json.dumps(key) + ":2}")
+
+    data, error = read_json_strict(path)
+
+    assert data is None
+    assert "\x1b" not in error
+    assert len(error) < 200
+    error.encode("utf-8")
+
+
+class TestOpenCodeTimeout:
+    """`timeout` is a number in 1.x and an object in 2.0, and upstream ships
+    two disagreeing declarations of that object — so the accepted key set is
+    their union."""
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            5000,
+            0,
+            30.5,
+            {},
+            {"startup": 45000, "catalog": 30000, "execution": 600000},
+            {"startup": 5000, "request": 10000},
+            {"catalog": 1},
+        ],
+    )
+    def test_accepted(self, value):
+        from skillsaw.formats.opencode import timeout_is_valid
+
+        assert timeout_is_valid(value)
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            True,
+            False,
+            "30s",
+            None,
+            [30000],
+            {"startup": True},
+            {"catalog": "30s"},
+            {"unknown": 1},
+            {"startup": 1, "unknown": 2},
+        ],
+    )
+    def test_rejected(self, value):
+        from skillsaw.formats.opencode import timeout_is_valid
+
+        assert not timeout_is_valid(value)

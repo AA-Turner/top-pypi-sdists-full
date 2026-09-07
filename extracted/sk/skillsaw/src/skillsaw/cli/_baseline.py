@@ -22,6 +22,7 @@ def _run_baseline(args):
         args.path,
         exclude_patterns=config.exclude_patterns,
         content_paths=config.content_paths,
+        lint_external_content=config.lint_external_content,
     )
 
     try:
@@ -35,7 +36,8 @@ def _run_baseline(args):
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    violations = [v for v in linter.run() if v.severity != Severity.INFO]
+    include_info = args.include_info or config.effective_fail_level() == "info"
+    violations = [v for v in linter.run() if include_info or v.severity != Severity.INFO]
     if context.lint_tree_errors:
         for message in context.lint_tree_errors:
             print(f"Error: {message}", file=sys.stderr)

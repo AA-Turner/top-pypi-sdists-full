@@ -135,6 +135,33 @@ def test_clone_large_aot_entry(benchmark: BenchmarkFixture) -> None:
     benchmark.pedantic(work, setup=_parsed(_large_aot_entry(500)), rounds=50)
 
 
+@pytest.mark.parametrize("trailing_kvs", [0, 10_000])
+def test_clone_forward_declared_table(
+    benchmark: BenchmarkFixture, trailing_kvs: int
+) -> None:
+    source = tomlrt.loads(
+        "[target.child]\nx = 1\n[target]\ny = 2\n[other]\n"
+        + "".join(f"k{i} = {i}\n" for i in range(trailing_kvs))
+    ).table("target")
+
+    def work(doc: Document) -> None:
+        doc["copy"] = source
+
+    benchmark.pedantic(work, setup=_parsed(""), rounds=200)
+
+
+@pytest.mark.parametrize("size", [20, 2_000])
+def test_install_cloned_section_non_tail(
+    benchmark: BenchmarkFixture, size: int
+) -> None:
+    source = tomlrt.loads(_section_doc(1, size)).table("s0")
+
+    def work(doc: Document) -> None:
+        doc.table("a")["child"] = source
+
+    benchmark.pedantic(work, setup=_parsed("[a]\nx = 1\n[other]\ny = 2\n"), rounds=100)
+
+
 def test_clear_aot_with_trailing(benchmark: BenchmarkFixture) -> None:
     """Clear an AoT that is not the last thing in the document.
 
@@ -148,6 +175,23 @@ def test_clear_aot_with_trailing(benchmark: BenchmarkFixture) -> None:
     benchmark.pedantic(work, setup=_parsed(_aot_with_trailing(2_000, 5)), rounds=50)
 
 
+@pytest.mark.parametrize("size", [1_000, 16_000])
+def test_clear_aot_before_sections(benchmark: BenchmarkFixture, size: int) -> None:
+    def work(doc: Document) -> None:
+        doc.aot("items").clear()
+
+    src = _aot_doc(size) + _section_doc(size, 1)
+    benchmark.pedantic(work, setup=_parsed(src), rounds=10)
+
+
+@pytest.mark.parametrize("size", [1_000, 16_000])
+def test_delete_aot_prefix(benchmark: BenchmarkFixture, size: int) -> None:
+    def work(doc: Document) -> None:
+        del doc.aot("items")[: size // 2]
+
+    benchmark.pedantic(work, setup=_parsed(_aot_doc(size)), rounds=10)
+
+
 def test_replace_aot_slice(benchmark: BenchmarkFixture) -> None:
     def work(doc: Document) -> None:
         doc.aot("items")[150:350] = (
@@ -155,6 +199,91 @@ def test_replace_aot_slice(benchmark: BenchmarkFixture) -> None:
         )
 
     benchmark.pedantic(work, setup=_parsed(_aot_doc(500)), rounds=100)
+
+
+@pytest.mark.parametrize("source", ["entry", "mapping"])
+def test_replace_aot_extended_slice(benchmark: BenchmarkFixture, source: str) -> None:
+    def work(doc: Document) -> None:
+        items = doc.aot("items")
+        values = (
+            list(items[::2]) if source == "entry" else [{"x": i} for i in range(50)]
+        )
+        items[98::-2] = values
+
+    benchmark.pedantic(work, setup=_parsed(_aot_doc(100)), rounds=100)
+
+
+@pytest.mark.parametrize(
+    "source", ["entry", "mapping", "aot", "inline", "factory", "scalars"]
+)
+@pytest.mark.parametrize("size", [2, 1000])
+def test_replace_aot_entry(benchmark: BenchmarkFixture, source: str, size: int) -> None:
+    src = _aot_doc(50) + "\n[template]\n"
+    if source == "aot":
+        src += "".join(f"[[template.nested]]\nx = {i}\n" for i in range(size))
+    elif source == "scalars":
+        src += "".join(f"k{i} = {i}\n" for i in range(size))
+    else:
+        src += "nested = [" + ", ".join(str(i) for i in range(size)) + "]\n"
+
+    def work(doc: Document) -> None:
+        items = doc.aot("items")
+        if source == "entry":
+            items[0] = items[-1]
+        elif source == "mapping":
+            items[0] = {"x": 1}
+        elif source == "factory":
+            items[0] = {"value": tomlrt.Table.inline({"nested": list(range(size))})}
+        else:
+            items[0] = doc.table("template")
+
+    benchmark.pedantic(work, setup=_parsed(src), rounds=200)
+
+
+@pytest.mark.parametrize("size", [10, 1000])
+def test_append_list_in_aot_entry(benchmark: BenchmarkFixture, size: int) -> None:
+    values = list(range(size))
+
+    def work(doc: Document) -> None:
+        doc.aot("items").append({"values": values})
+
+    benchmark.pedantic(work, setup=_parsed(_aot_doc(50)), rounds=200)
+
+
+@pytest.mark.parametrize(
+    ("entries", "width", "depth"),
+    [(1, 5, 0), (500, 5, 0), (1, 1000, 0), (1, 5, 5), (1, 5, 25)],
+)
+def test_attach_aot_factory(
+    benchmark: BenchmarkFixture, entries: int, width: int, depth: int
+) -> None:
+    def setup() -> tuple[tuple[Document, tomlrt.AoT], dict[str, object]]:
+        factory = tomlrt.AoT([{"values": list(range(width))} for _ in range(entries)])
+        for _ in range(depth):
+            factory = tomlrt.AoT([{"child": factory}])
+        return (tomlrt.Document(), factory), {}
+
+    def work(doc: Document, factory: tomlrt.AoT) -> None:
+        doc["items"] = factory
+
+    benchmark.pedantic(work, setup=setup, rounds=100)
+
+
+@pytest.mark.parametrize("source", ["section", "aot"])
+@pytest.mark.parametrize("size", [2, 1000])
+def test_replace_aot_from_ancestor(
+    benchmark: BenchmarkFixture, source: str, size: int
+) -> None:
+    src = "[parent]\nroot = 1\n\n" + _aot_doc(size).replace(
+        "[[items]]", "[[parent.items]]"
+    )
+
+    def work(doc: Document) -> None:
+        parent = doc.table("parent")
+        items = parent.aot("items")
+        items[0] = {"nested": parent if source == "section" else items}
+
+    benchmark.pedantic(work, setup=_parsed(src), rounds=100)
 
 
 def test_overwrite_section_inside_aot_entry(benchmark: BenchmarkFixture) -> None:
@@ -211,6 +340,25 @@ def _inline_array(rows: int) -> str:
     )
 
 
+@pytest.mark.parametrize("kind", ["array", "table"])
+def test_clone_section_with_inline_value(
+    benchmark: BenchmarkFixture, kind: str
+) -> None:
+    src = (
+        _inline_array(1_000)
+        if kind == "array"
+        else "items = {\n"
+        + "".join(f"    k{i} = {i}, # item {i}\n" for i in range(1_000))
+        + "}\n"
+    )
+    source = tomlrt.loads("[source]\n" + src).table("source")
+
+    def work(doc: Document) -> None:
+        doc["copy"] = source
+
+    benchmark.pedantic(work, setup=_parsed(""), rounds=100)
+
+
 def test_insert_into_inline_array(benchmark: BenchmarkFixture) -> None:
     def work(doc: Document) -> None:
         arr = doc.array("items")
@@ -239,6 +387,42 @@ def test_delete_from_inline_array(benchmark: BenchmarkFixture) -> None:
             del arr[0]
 
     benchmark.pedantic(work, setup=_parsed(_inline_array(500)), rounds=100)
+
+
+@pytest.mark.parametrize("size", [1_000, 16_000])
+@pytest.mark.parametrize("layout", ["single", "multiline"])
+@pytest.mark.parametrize("step", [1, 2])
+def test_delete_inline_array_slice(
+    benchmark: BenchmarkFixture, size: int, layout: str, step: int
+) -> None:
+    def work(doc: Document) -> None:
+        del doc.array("items")[: size // 2 : step]
+
+    src = (
+        _inline_array(size)
+        if layout == "multiline"
+        else "items = [" + ", ".join(str(i) for i in range(size)) + "]\n"
+    )
+    benchmark.pedantic(work, setup=_parsed(src), rounds=20)
+
+
+@pytest.mark.parametrize("size", [1_000, 16_000])
+@pytest.mark.parametrize("layout", ["single", "multiline"])
+def test_insert_inline_array_slice(
+    benchmark: BenchmarkFixture, size: int, layout: str
+) -> None:
+    values = list(range(size // 2))
+
+    def work(doc: Document) -> None:
+        at = size // 4
+        doc.array("items")[at:at] = values
+
+    src = (
+        _inline_array(size)
+        if layout == "multiline"
+        else "items = [" + ", ".join(str(i) for i in range(size)) + "]\n"
+    )
+    benchmark.pedantic(work, setup=_parsed(src), rounds=20)
 
 
 # --- key-level edits -------------------------------------------------------

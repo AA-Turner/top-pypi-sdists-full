@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, Literal, TypeVar
+from typing import Literal, TypeVar
 
-import httpx
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -14,6 +14,7 @@ from textual.containers import ScrollableContainer
 from textual.widgets import DataTable, Footer, Header, Input, Label, Static
 
 from fr24 import FR24
+from fr24.clients import HTTPStatusError
 from fr24.tui.formatters import Time, fmt_aircraft, fmt_airport, fmt_status
 from fr24.tui.widgets import AircraftWidget, AirportWidget, FlightWidget
 from fr24.types import IntoTimestamp
@@ -226,11 +227,11 @@ class FR24Tui(App[None]):
             results = result.to_dict()
             if results is None or results["stats"]["count"]["schedule"] == 0:
                 return
-            flight_numbers = list(
+            flight_numbers = [
                 sched["detail"]["flight"]
                 for sched in results["results"]
                 if is_schedule(sched)
-            )
+            ]
             flight_lists: list[FlightList] = []
             for value in flight_numbers:
                 try:
@@ -241,8 +242,8 @@ class FR24Tui(App[None]):
                 except UnwrapError as exc:
                     err = exc.err
                     if (
-                        isinstance(err, httpx.HTTPStatusError)
-                        and err.response.status_code == 402
+                        isinstance(err, HTTPStatusError)
+                        and err.status_code == 402
                     ):
                         await asyncio.sleep(10)
                         res_obj = await self.fr24.flight_list.fetch(
@@ -250,7 +251,7 @@ class FR24Tui(App[None]):
                         )
                         res = res_obj.to_dict()
                     else:
-                        raise exc
+                        raise
 
                 flight_lists.append(res)
 

@@ -129,9 +129,10 @@ default = Model(
             "Qwen",
             "TeachAnything",
             "OpenaiChat",
-            "OrcaRouter",
             "OpenCode",
             "KiloCode",
+            "OpenRouterFree",
+            "GeminiPro",
         ]
     ),
 )

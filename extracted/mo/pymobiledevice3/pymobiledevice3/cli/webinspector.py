@@ -396,9 +396,32 @@ async def cdp(
     host: str = "127.0.0.1",
     port: int = 9222,
     chrome: Optional[str] = None,
+    pause_new_targets: Annotated[
+        bool,
+        typer.Option(
+            "--pause-new-targets",
+            help="Attach to every JSContext an app creates before it runs and stop it on its first "
+            'statement (Safari\'s "Automatically Pause Connecting to JSContexts"); open it from the '
+            "landing page to land on the pause. Sets the initial state of the landing page's "
+            '"Pause new JSContexts on launch" switch.',
+        ),
+    ] = False,
 ) -> None:
     """
     Start a CDP server for debugging WebViews and inspectable JSContexts.
+
+    \b
+    A client that auto-attaches with waitForDebuggerOnStart (VS Code, Playwright, Puppeteer)
+    is attached to every JSContext an application creates before the context runs, and holds
+    it until the client releases it - the equivalent of Safari's "Automatically Show Web
+    Inspector for JSContexts". WKWebView pages cannot be held before they run; they are
+    attached the moment they appear, and their cross-site navigations are held until the
+    client's breakpoints reached the new process.
+
+    \b
+    --pause-new-targets (or the switch on the landing page) is Safari's "Automatically Pause
+    Connecting to JSContexts": every new JSContext is stopped on its first statement and
+    listed as paused; opening it lands DevTools on that pause.
 
     \b
     Open the following URL in Google Chrome and pick a page to inspect:
@@ -423,6 +446,7 @@ async def cdp(
     """
     app.state.inspector = WebinspectorService(lockdown=service_provider)
     app.state.chrome_path = find_chrome(chrome)
+    app.state.pause_new_targets = pause_new_targets
     print(f"Web Inspector ready. Open in Google Chrome: http://{host}:{port}/")
     server = uvicorn.Server(
         uvicorn.Config(

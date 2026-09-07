@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: hypothesis-graphql
-Version: 0.13.1
+Version: 0.13.2
 Summary: Hypothesis strategies for GraphQL queries
 Project-URL: Changelog, https://github.com/Stranger6667/hypothesis-graphql/blob/master/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/Stranger6667/hypothesis-graphql
@@ -37,11 +37,11 @@ Provides-Extra: dev
 Requires-Dist: coverage-enable-subprocess; extra == 'dev'
 Requires-Dist: coverage>=7; extra == 'dev'
 Requires-Dist: coverage[toml]>=7; extra == 'dev'
-Requires-Dist: pytest-xdist<3.0,>=2.5; extra == 'dev'
+Requires-Dist: pytest-xdist>=3; extra == 'dev'
 Requires-Dist: pytest<8,>=6.2.0; extra == 'dev'
 Provides-Extra: tests
 Requires-Dist: coverage>=7; extra == 'tests'
-Requires-Dist: pytest-xdist<3.0,>=2.5; extra == 'tests'
+Requires-Dist: pytest-xdist>=3; extra == 'tests'
 Requires-Dist: pytest<8,>=6.2.0; extra == 'tests'
 Description-Content-Type: text/markdown
 

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import io
 import math
+import sys
 from copy import copy, deepcopy
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from typing import TYPE_CHECKING
 
 import pytest
@@ -19,9 +20,25 @@ import pytest
 import tomlrt
 from _helpers import reparses, td
 from tomlrt import AoT, Array, Document, Table, TOMLError
+from tomlrt._values import (
+    ArrayItem,
+    ArrayValue,
+    InlineTableEntry,
+    InlineTableValue,
+    IntegerValue,
+    KeyPart,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
+
+    from typing_extensions import Self
+
+if sys.version_info >= (3, 12):
+    from typing import override
+else:  # pragma: no cover -- backport for Python < 3.12
+    from typing_extensions import override
 
 
 # ---------------------------------------------------------------------------
@@ -772,6 +789,348 @@ def test_deepcopy_preserves_document_structure() -> None:
     doc1 = tomlrt.loads(src)
     doc2 = deepcopy(doc1)
     assert tomlrt.dumps(doc2) == src
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_cloned_comma_values_preserve_nested_layout(newline: str) -> None:
+    src = td("""
+        [source]
+        values = [
+            # first item
+            { "odd key" . 'child' = [0x2A, 'literal'], empty = { }, }, # keep
+            [true, 1979-05-27T07:32:00Z],
+        ]
+        """).replace("\n", newline)
+    source = tomlrt.loads(src)
+    target = tomlrt.loads(f"[source]{newline}")
+    target["source"] = source.table("source")
+    assert tomlrt.dumps(target) == src
+
+    values = target.table("source").array("values")
+    values.table(0).table("odd key").array("child")[0] = 7
+    values.array(1)[0] = False
+    expected = td("""
+        [source]
+        values = [
+            # first item
+            { "odd key" . 'child' = [7, 'literal'], empty = { }, }, # keep
+            [false, 1979-05-27T07:32:00Z],
+        ]
+        """).replace("\n", newline)
+    assert tomlrt.dumps(target) == expected
+    assert tomlrt.dumps(source) == src
+    assert reparses(expected) == target.to_dict()
+
+
+@pytest.mark.parametrize(
+    ("literal", "replacement", "rendered"),
+    [
+        ("'literal'", "changed", '"changed"'),
+        ('"old\\tvalue"', "changed", '"changed"'),
+        ('"""first\nsecond"""', "changed", '"changed"'),
+        ("0x2A", 7, "7"),
+        ("1_000.0", 3.25, "3.25"),
+        ("true", False, "false"),
+        (
+            "1979-05-27T07:32:00Z",
+            datetime(2000, 1, 2, tzinfo=timezone.utc),
+            "2000-01-02T00:00:00+00:00",
+        ),
+        ("1979-05-27", date(2000, 1, 2), "2000-01-02"),
+        ("07:32:00", time(1, 2, 3), "01:02:03"),
+    ],
+)
+def test_cloned_scalars_remain_independent_under_mutation(
+    literal: str, replacement: tomlrt.TomlInput, rendered: str
+) -> None:
+    src = td("""
+        [source]
+        direct = SCALAR # keep
+        array = [SCALAR]
+        inline = { value = SCALAR }
+        """).replace("SCALAR", literal)
+    source = tomlrt.loads(src)
+    target = Document()
+    target["copy"] = source.table("source")
+    copied = target.table("copy")
+    copied["direct"] = replacement
+    copied.array("array")[0] = replacement
+    copied.table("inline")["value"] = replacement
+    assert tomlrt.dumps(source) == src
+    assert tomlrt.dumps(target) == td("""
+        [copy]
+        direct = SCALAR # keep
+        array = [SCALAR]
+        inline = { value = SCALAR }
+        """).replace("SCALAR", rendered)
+    assert reparses(tomlrt.dumps(target)) == target.to_dict()
+
+
+class _MutableOffset(tzinfo):
+    def __init__(self) -> None:
+        self.hours = 0
+
+    @override
+    def utcoffset(self, _dt: datetime | None) -> timedelta:
+        return timedelta(hours=self.hours)
+
+    @override
+    def dst(self, _dt: datetime | None) -> timedelta:
+        return timedelta(0)
+
+    @override
+    def tzname(self, _dt: datetime | None) -> str:
+        return f"offset-{self.hours}"
+
+
+def test_cloned_datetime_payloads_are_independent() -> None:
+    zone = _MutableOffset()
+    value = datetime(2020, 1, 1, tzinfo=zone)
+    source = Document(
+        {
+            "source": {
+                "direct": value,
+                "array": [value, value],
+                "inline": Table.inline({"value": value}),
+            }
+        }
+    )
+    target = Document()
+    target["copy"] = source.table("source")
+    zone.hours = 2
+    copied = target.table("copy")["direct"]
+    assert isinstance(copied, datetime)
+    assert copied.tzname() == "offset-0"
+    array = target.table("copy").array("array")
+    assert array[0] is array[1]
+    expected = td("""
+        [copy]
+        direct = 2020-01-01T00:00:00+00:00
+        array = [2020-01-01T00:00:00+00:00, 2020-01-01T00:00:00+00:00]
+        inline = { value = 2020-01-01T00:00:00+00:00 }
+        """)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
+
+
+class _MutableInt(int):
+    def __init__(self, _value: int) -> None:
+        self.labels = ["original"]
+
+
+class _MutableFloat(float):
+    def __init__(self, _value: float) -> None:
+        self.labels = ["original"]
+
+
+class _MutableStr(str):
+    __slots__ = ("labels",)
+
+    def __init__(self, _value: str) -> None:
+        self.labels = ["original"]
+
+
+class _CopyAwareInt(_MutableInt):
+    def __init__(self, value: int) -> None:
+        super().__init__(value)
+        self.owners: list[ArrayValue] = []
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        new = type(self)(self)
+        memo[id(self)] = new
+        new.labels = ["custom copy"]
+        new.owners = deepcopy(self.owners, memo)
+        return new
+
+
+def test_comma_node_deepcopy_preserves_memo_aliases_and_payload_hooks() -> None:
+    payload = _CopyAwareInt(42)
+    scalar = IntegerValue("0x2A", payload)
+    item = ArrayItem("", scalar, "", has_comma=True, post_comma_trivia=" ")
+    node = ArrayValue([item, item])
+    sibling = ArrayValue(node.items)
+    payload.owners = [node, sibling]
+    memo: dict[int, object] = {}
+
+    cloned = deepcopy(node, memo)
+    cloned_sibling = deepcopy(sibling, memo)
+    assert cloned.items is cloned_sibling.items
+    assert cloned.items is not node.items
+    assert cloned.items[0] is cloned.items[1]
+    assert cloned.items[0] is not item
+    cloned_scalar = cloned.items[0].value
+    assert isinstance(cloned_scalar, IntegerValue)
+    cloned_payload = cloned_scalar.value
+    assert isinstance(cloned_payload, _CopyAwareInt)
+    assert cloned_payload is not payload
+    assert cloned_payload.labels == ["custom copy"]
+    assert cloned_payload.owners[0] is cloned
+    assert cloned_payload.owners[1] is cloned_sibling
+    assert deepcopy(node, memo) is cloned
+    assert cloned.render() == "[0x2A, 0x2A, ]"
+    assert cloned_sibling.render() == node.render() == cloned.render()
+
+
+def test_comma_node_deepcopy_honors_preset_scalar_memo() -> None:
+    scalar = IntegerValue("0x2A", 42)
+    item = ArrayItem("", scalar, "", has_comma=False, post_comma_trivia="")
+    node = ArrayValue([item])
+    replacement = IntegerValue("7", 7)
+    cloned = deepcopy(node, {id(scalar): replacement})
+
+    assert cloned.items[0].value is replacement
+    assert cloned.render() == "[7]"
+    assert node.render() == "[0x2A]"
+
+
+def test_comma_node_deepcopy_copies_mutable_trivia_and_key_fields() -> None:
+    padding = _MutableStr(" ")
+    key = KeyPart(_MutableStr("'key'"), _MutableStr("key"))
+    entry = InlineTableEntry(
+        "",
+        ArrayValue(),
+        "",
+        has_comma=False,
+        post_comma_trivia="",
+        key_parts=(key,),
+        key_seps=(),
+        pre_eq=padding,
+        post_eq=padding,
+        key_path=(key.value,),
+    )
+    node = InlineTableValue([entry], padding, padding)
+    assert not node.is_multiline()
+    cloned = deepcopy(node)
+    assert not cloned.is_multiline()
+    cloned_entry = cloned.items[0]
+    assert cloned_entry is not entry
+    assert cloned_entry.key_parts[0] is not key
+    assert cloned_entry.key_parts[0].value is cloned_entry.key_path[0]
+    assert isinstance(cloned_entry.key_path[0], _MutableStr)
+    assert cloned_entry.key_path[0] is not key.value
+    assert cloned.header_trivia is cloned.final_trivia
+    assert cloned.header_trivia is cloned_entry.pre_eq is cloned_entry.post_eq
+    assert isinstance(cloned.header_trivia, _MutableStr)
+    assert cloned.header_trivia is not padding
+    padding.labels.append("changed")
+    key.raw = "'changed'"
+    assert cloned.header_trivia.labels == ["original"]
+    assert cloned.render() == "{ 'key' = [] }"
+    assert node.render() == "{ 'changed' = [] }"
+
+
+class _IntLikeType(type):
+    @override
+    def __eq__(cls, other: object) -> bool:
+        return other is int or super().__eq__(other)
+
+    __hash__ = type.__hash__
+
+
+class _IntLikeInt(_MutableInt, metaclass=_IntLikeType):
+    pass
+
+
+@pytest.mark.parametrize(
+    ("factory", "rendered"),
+    [
+        (lambda: _MutableInt(1), "1"),
+        (lambda: _IntLikeInt(1), "1"),
+        (lambda: _MutableFloat(1.25), "1.25"),
+        (lambda: _MutableStr("value"), '"value"'),
+    ],
+    ids=["int", "int-like-type", "float", "str"],
+)
+def test_cloned_scalar_subclass_payloads_are_independent(
+    factory: Callable[[], _MutableInt | _MutableFloat | _MutableStr], rendered: str
+) -> None:
+    value = factory()
+    source = Document(
+        {
+            "source": {
+                "direct": value,
+                "array": [value],
+                "inline": Table.inline({"value": value}),
+            }
+        }
+    )
+    target = Document()
+    target["copy"] = source.table("source")
+    value.labels.append("changed")
+    copied = target.table("copy")
+    for item in (
+        copied["direct"],
+        copied.array("array")[0],
+        copied.table("inline")["value"],
+    ):
+        assert isinstance(item, (_MutableInt, _MutableFloat, _MutableStr))
+        assert item.labels == ["original"]
+    expected = td("""
+        [copy]
+        direct = SCALAR
+        array = [SCALAR]
+        inline = { value = SCALAR }
+        """).replace("SCALAR", rendered)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
+
+
+class _MutableLexeme(str):
+    __slots__ = ("rendered",)
+
+    rendered: str
+
+    def __new__(cls, value: str) -> Self:
+        lexeme = super().__new__(cls, value)
+        lexeme.rendered = value
+        return lexeme
+
+    @override
+    def __format__(self, _format_spec: str) -> str:
+        return self.rendered
+
+
+class _RenderedInt(int):
+    def __init__(self, value: int) -> None:
+        self.lexeme = _MutableLexeme(str(value))
+
+    @override
+    def __str__(self) -> str:
+        return self.lexeme
+
+
+def test_cloned_scalar_lexemes_are_independent() -> None:
+    value = _RenderedInt(1)
+    source = Document(
+        {
+            "source": {
+                "direct": value,
+                "array": [value],
+                "inline": Table.inline({"value": value}),
+            }
+        }
+    )
+    target = Document()
+    target["copy"] = source.table("source")
+    value.lexeme.rendered = "9"
+    assert tomlrt.dumps(source) == td("""
+        [source]
+        direct = 9
+        array = [9]
+        inline = { value = 9 }
+        """)
+    expected = td("""
+        [copy]
+        direct = 1
+        array = [1]
+        inline = { value = 1 }
+        """)
+    assert tomlrt.dumps(target) == expected
+    assert reparses(expected) == target.to_dict()
+    copied = target.table("copy")["direct"]
+    assert isinstance(copied, _RenderedInt)
+    assert copied.lexeme is not value.lexeme
+    assert copied.lexeme.rendered == "1"
 
 
 def test_deepcopy_yields_independent_document() -> None:

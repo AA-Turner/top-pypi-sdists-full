@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cattrs
-Version: 26.1.0
+Version: 26.2.0
 Summary: Composable complex class support for attrs and dataclasses.
 Project-URL: Homepage, https://catt.rs
 Project-URL: Changelog, https://catt.rs/en/latest/history.html
@@ -33,7 +33,7 @@ Requires-Dist: cbor2>=5.4.6; extra == 'cbor2'
 Provides-Extra: msgpack
 Requires-Dist: msgpack>=1.0.5; extra == 'msgpack'
 Provides-Extra: msgspec
-Requires-Dist: msgspec>=0.19.0; (implementation_name == 'cpython') and extra == 'msgspec'
+Requires-Dist: msgspec>=0.21.1; (implementation_name == 'cpython') and extra == 'msgspec'
 Provides-Extra: orjson
 Requires-Dist: orjson>=3.11.3; (implementation_name == 'cpython') and extra == 'orjson'
 Provides-Extra: pyyaml

@@ -240,6 +240,18 @@ async def _iter_response_lines(
         yield buffer.decode("utf-8", errors="replace")
 
 
+def _fallback_model(requested_model: str) -> str:
+    # Google ships new Gemini models faster than the hard-coded registry can
+    # track them. Route an unknown name to the closest known model of the same
+    # family so the request keeps working until the registry is refreshed.
+    name = requested_model.lower()
+    if "pro" in name:
+        return "gemini-3.1-pro"
+    if "lite" in name:
+        return "gemini-3.5-flash-lite"
+    return "gemini-3.6-flash"
+
+
 def _resolve_model(model: str, think_override: int = None) -> tuple[str, bool]:
     requested_model = model
     think_mode = think_override
@@ -255,14 +267,20 @@ def _resolve_model(model: str, think_override: int = None) -> tuple[str, bool]:
             raise ValueError("Thinking mode must be an integer between 0 and 4")
     model = MODEL_ALIASES.get(model, model)
     if model not in models:
-        raise ValueError(
-            f"Unknown Gemini model: {model}. " f"Supported models: {', '.join(models)}"
+        fallback = _fallback_model(requested_model)
+        debug.log(
+            f"Unknown Gemini model: {model!r}. "
+            f"Falling back to {fallback!r}. "
+            f"Known models: {', '.join(models)}"
         )
-    expanded_thinking = (
-        requested_model in EXPANDED_MODEL_ALIASES
-        if think_mode is None
-        else think_mode <= 2
-    )
+        model = fallback
+    if think_mode is None:
+        expanded_thinking = (
+            requested_model in EXPANDED_MODEL_ALIASES
+            or "thinking" in requested_model.lower()
+        )
+    else:
+        expanded_thinking = think_mode <= 2
     return model, expanded_thinking
 
 
@@ -519,7 +537,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
             **RESPONSE_HEADER_LIMITS,
         ) as session:
             await cls.fetch_snlm0e(session, cls._cookies)
-        return cls._snlm0e
+        return {"sid": cls._sid, "bl": cls._bl, "push_id": cls._upload_push_id}
 
     @classmethod
     async def get_models(
@@ -560,7 +578,7 @@ class Gemini(AsyncGeneratorProvider, ProviderModelMixin):
                 except (ClientError, ResponseError, ValueError) as error:
                     cls._account_models_fetched_at = time.time()
                     debug.log(f"Gemini model discovery failed: {error}")
-        return {key: value for key, value in cls._account_models.items() if value.get("available")}
+        return {key: value for key, value in cls._account_models.items()}
 
     @classmethod
     async def create_async_generator(

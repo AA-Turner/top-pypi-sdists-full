@@ -1,4 +1,4 @@
-"""Tests for the .pre-commit-hooks.yaml manifest.
+"""Tests for the shipped and local pre-commit configurations.
 
 Validates the hook definition offline: structure, consistency with the
 console scripts declared in pyproject.toml, and the repo-level invocation
@@ -11,7 +11,8 @@ import re
 from pathlib import Path
 
 import pytest
-import yaml
+
+from skillsaw.utils import read_yaml_commented
 
 REPO_ROOT = Path(__file__).parent.parent
 MANIFEST = REPO_ROOT / ".pre-commit-hooks.yaml"
@@ -19,7 +20,9 @@ MANIFEST = REPO_ROOT / ".pre-commit-hooks.yaml"
 
 @pytest.fixture(scope="module")
 def hooks():
-    return yaml.safe_load(MANIFEST.read_text(encoding="utf-8"))
+    parsed, error, _error_line = read_yaml_commented(MANIFEST)
+    assert error is None
+    return parsed
 
 
 @pytest.fixture(scope="module")

@@ -2,11 +2,11 @@
 
 Aggregates the most useful signals for diagnosing tool failures:
 
-1. **Recent log lines** — tail the rolling log file written by
-   ``DccServerBase`` (``dcc-mcp-<dcc>.*.log``).  Includes ERROR and WARNING
-   lines plus the last N lines of context.
+1. **Recent log lines** — tail only the current process's rolling log file
+   written by ``DccServerBase`` (``dcc-mcp-<dcc>.<pid>.*.log``).  Includes
+   ERROR and WARNING lines plus the last N lines of context.
 2. **Failed / interrupted jobs** — query the SQLite job-persistence database
-   (``dcc-mcp-<dcc>-jobs.db``) for recent non-successful jobs.
+   (``dcc-mcp-<dcc>-<instance>-jobs.db``) for recent non-successful jobs.
 3. **Process status** — current PID liveness, platform, Python version.
 4. **Observability config** — which features are active (file logging, job
    persistence, telemetry) so the user knows what data is available.
@@ -24,8 +24,11 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import sqlite3
 import sys
+
+from dcc_mcp_core.constants import ENV_JOB_INSTANCE_KEY
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,14 +41,13 @@ def _tail_lines(path: str, n: int) -> list[str]:
         return []
 
 
-def _find_log_files(log_dir: str, dcc_name: str | None) -> list[str]:
-    """Return all matching log files sorted newest-first."""
+def _find_log_files(log_dir: str, dcc_name: str | None, pid: int) -> list[str]:
+    """Return only log files owned by the exact current DCC process."""
+    if not dcc_name or pid <= 0:
+        return []
     base = Path(log_dir)
-    pattern = f"dcc-mcp-{dcc_name}-*.log" if dcc_name else "dcc-mcp-*.log"
+    pattern = f"dcc-mcp-{dcc_name}.{pid}.*.log"
     files = list(base.glob(pattern))
-    if not files:
-        pattern2 = f"dcc-mcp-{dcc_name}*.log" if dcc_name else "dcc-mcp*.log"
-        files = list(base.glob(pattern2))
     return sorted((str(f) for f in files), key=os.path.getmtime, reverse=True)
 
 
@@ -59,7 +61,7 @@ def _extract_errors(lines: list[str], include_warnings: bool = True) -> list[str
     return out
 
 
-def _collect_log_section(log_dir: str, dcc_name: str | None, tail_lines: int) -> dict:
+def _collect_log_section(log_dir: str, dcc_name: str | None, tail_lines: int, pid: int) -> dict:
     """Read recent log lines and extract errors/warnings."""
     if not log_dir or not Path(log_dir).is_dir():
         return {
@@ -69,7 +71,7 @@ def _collect_log_section(log_dir: str, dcc_name: str | None, tail_lines: int) ->
             "and DccServerBase(opts).",
         }
 
-    files = _find_log_files(log_dir, dcc_name)
+    files = _find_log_files(log_dir, dcc_name, pid)
     if not files:
         return {
             "available": False,
@@ -226,17 +228,16 @@ def main(**kwargs) -> None:
         job_limit = args.job_limit
 
     if not db_path and log_dir and dcc_name:
-        db_path = str(Path(log_dir) / f"dcc-mcp-{dcc_name}-jobs.db")
-    elif not db_path and log_dir:
-        candidates = sorted(
-            Path(log_dir).glob("dcc-mcp-*-jobs.db"),
-            key=os.path.getmtime,
-            reverse=True,
-        )
-        if candidates:
-            db_path = str(candidates[0])
+        # Default persistence is isolated by process/instance key. Resolve
+        # the current instance first so concurrent DCC processes cannot leak
+        # another process's failed jobs into this report.
+        instance_key = os.environ.get(ENV_JOB_INSTANCE_KEY, "").strip() or str(os.getpid())
+        safe_key = re.sub(r"[^A-Za-z0-9_.-]+", "_", instance_key)[:64] or "default"
+        exact = Path(log_dir) / f"dcc-mcp-{dcc_name}-{safe_key}-jobs.db"
+        if exact.exists():
+            db_path = str(exact)
 
-    log_section = _collect_log_section(log_dir, dcc_name, tail_lines)
+    log_section = _collect_log_section(log_dir, dcc_name, tail_lines, os.getpid())
     job_section = _collect_job_section(db_path, job_limit)
     process_section = _collect_process_section()
 

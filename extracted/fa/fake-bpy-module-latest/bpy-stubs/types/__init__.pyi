@@ -1198,6 +1198,7 @@ bpy.types.NODE_FH_image_node.rst
 bpy.types.SEQUENCER_FH_image_strip.rst
 bpy.types.SEQUENCER_FH_movie_strip.rst
 bpy.types.SEQUENCER_FH_sound_strip.rst
+bpy.types.SEQUENCER_FH_text_strip.rst
 bpy.types.VIEW3D_FH_camera_background_image.rst
 bpy.types.VIEW3D_FH_empty_image.rst
 bpy.types.VIEW3D_FH_vdb_volume.rst
@@ -92794,6 +92795,35 @@ class SEQUENCER_FH_sound_strip(FileHandler, bpy_struct):
         :return: The class or default when not found.
         """
 
+class SEQUENCER_FH_text_strip(FileHandler, bpy_struct):
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class SPHFluidSettings(bpy_struct):
     """Settings for particle fluids physics"""
 
@@ -104884,10 +104914,11 @@ class SpaceProperties(Space, bpy_struct):
 
     context: typing.Literal[
         "TOOL",
-        "SCENE",
         "RENDER",
         "OUTPUT",
+        "SCENE",
         "VIEW_LAYER",
+        "COMPOSITOR",
         "WORLD",
         "COLLECTION",
         "OBJECT",
@@ -104903,7 +104934,6 @@ class SpaceProperties(Space, bpy_struct):
         "SHADERFX",
         "STRIP",
         "STRIP_MODIFIER",
-        "COMPOSITOR",
     ]
     """ (default 'RENDER')"""
 
@@ -149919,6 +149949,8 @@ SEQUENCER_FH_image_strip: bl_operators.sequencer.SEQUENCER_FH_image_strip
 SEQUENCER_FH_movie_strip: bl_operators.sequencer.SEQUENCER_FH_movie_strip
 
 SEQUENCER_FH_sound_strip: bl_operators.sequencer.SEQUENCER_FH_sound_strip
+
+SEQUENCER_FH_text_strip: bl_operators.sequencer.SEQUENCER_FH_text_strip
 
 SEQUENCER_HT_header: bl_ui.space_sequencer.SEQUENCER_HT_header
 

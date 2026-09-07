@@ -551,7 +551,8 @@ class UnifiedMessage:
                         }
                     )
                 elif content.text:
-                    text_parts.append({"type": "input_text", "text": content.text})
+                    text_type = "output_text" if self.role == Role.ASSISTANT else "input_text"
+                    text_parts.append({"type": text_type, "text": content.text})
 
             elif isinstance(content, ToolCallContent):
                 item = content.to_openai()

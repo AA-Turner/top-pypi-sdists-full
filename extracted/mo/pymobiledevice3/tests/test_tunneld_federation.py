@@ -1,3 +1,4 @@
+import asyncio
 import socket
 import socketserver
 import subprocess
@@ -5,6 +6,7 @@ import sys
 import threading
 import time
 from collections.abc import Iterator, Sequence
+from contextlib import suppress
 from typing import Any, Optional
 
 import pytest
@@ -180,6 +182,15 @@ def test_local_entries_report_no_origin(federated_pair: tuple[int, int]) -> None
     assert _list_tunnels(port_a)[UDID_A][0]["origin"] is None
 
 
+async def _close_writer(writer: asyncio.StreamWriter) -> None:
+    """Fully close a dialed stream before its tunneld process is killed. `close()` alone only
+    schedules the close: a StreamWriter GC'd with its transport still open raises in `__del__`,
+    which pytest reports as an unraisable-exception error (flaky on the Windows runners)."""
+    writer.close()
+    with suppress(ConnectionError):
+        await writer.wait_closed()
+
+
 async def test_connect_relays_through_aggregator(aggregator: tuple[int, int], echo_port: int) -> None:
     """The headline capability: a client with a route only to the aggregator reaches a device
     attached to the downstream host, with no VPN and no route to that host's tunnel interface."""
@@ -192,7 +203,7 @@ async def test_connect_relays_through_aggregator(aggregator: tuple[int, int], ec
             await writer.drain()
             assert await reader.readexactly(len(payload)) == payload
     finally:
-        writer.close()
+        await _close_writer(writer)
 
 
 async def test_connect_reports_no_tunnel_when_no_upstream_owns_it(aggregator: tuple[int, int]) -> None:
@@ -288,7 +299,7 @@ async def test_schemeless_upstream_relays(echo_port: int) -> None:
             await writer.drain()
             assert await reader.readexactly(10) == b"schemeless"
         finally:
-            writer.close()
+            await _close_writer(writer)
     finally:
         for proc in procs:
             proc.kill()
@@ -323,7 +334,7 @@ async def test_connect_picks_the_tunnel_the_client_named(echo_port: int) -> None
             await writer.drain()
             assert await reader.readexactly(12) == b"named tunnel"
         finally:
-            writer.close()
+            await _close_writer(writer)
     finally:
         for proc in procs:
             proc.kill()
@@ -343,7 +354,7 @@ async def test_connect_still_serves_its_own_tunnel_by_address(echo_port: int) ->
             await writer.drain()
             assert await reader.readexactly(10) == b"own tunnel"
         finally:
-            writer.close()
+            await _close_writer(writer)
     finally:
         for proc in procs:
             proc.kill()

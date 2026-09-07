@@ -1,4 +1,7 @@
-use crate::py_input::extend_prehashed_token_values_from_document;
+use crate::py_input::{
+  buffer_has_native_byte_order, extend_prehashed_token_values_from_document,
+  extend_prehashed_token_values_from_iterable, PREHASHED_TOKEN_TYPE_ERROR,
+};
 use crate::rminhash::permutation_cache::AdaptivePermutationCache;
 use crate::rminhash::send_ptr::SendPtr;
 use crate::rminhash::{
@@ -7,12 +10,14 @@ use crate::rminhash::{
 };
 use crate::simd::dispatch::PermutationSoA;
 use pyo3::buffer::{Element, PyBuffer};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyIterator, PyList, PyTuple};
 use rayon::prelude::*;
 use std::sync::mpsc;
 use std::thread;
+
+const MIN_FLAT_BUFFER_HASHES: usize = 65_536;
 
 fn new_permutation_cache(
   config: DigestBuildConfig,
@@ -50,21 +55,6 @@ struct DigestComputeContext<'a> {
 }
 
 impl RMinHash {
-  fn compute_digest_from_token_hashes_into(
-    digest_row: &mut [u32],
-    token_hashes: &[u64],
-    permutations: &[(u64, u64)],
-    permutations_soa: &PermutationSoA,
-  ) {
-    // Callers pre-initialize matrix rows to u32::MAX.
-    Self::apply_token_hashes_to_values(
-      digest_row,
-      permutations,
-      permutations_soa,
-      token_hashes,
-    );
-  }
-
   fn compute_digest_chunk(
     job: &DigestChunkJob,
     num_perm: usize,
@@ -84,11 +74,11 @@ impl RMinHash {
         .par_chunks_mut(num_perm)
         .zip(job.ranges.par_iter())
         .for_each(|(row, &(start, end))| {
-          Self::compute_digest_from_token_hashes_into(
+          Self::apply_token_hashes_to_values(
             row,
-            &job.flat[start..end],
             permutations,
             permutations_soa,
+            &job.flat[start..end],
           );
         });
     } else if let Some(cache) = permutation_cache {
@@ -109,11 +99,11 @@ impl RMinHash {
       for (row, &(start, end)) in
         data.chunks_exact_mut(num_perm).zip(job.ranges.iter())
       {
-        Self::compute_digest_from_token_hashes_into(
+        Self::apply_token_hashes_to_values(
           row,
-          &job.flat[start..end],
           permutations,
           permutations_soa,
+          &job.flat[start..end],
         );
       }
     }
@@ -131,9 +121,7 @@ impl RMinHash {
     }
 
     let flat = std::mem::take(token_hashes_chunk);
-    let flat_capacity = flat.capacity();
     let ranges = std::mem::take(token_hash_ranges);
-    let ranges_capacity = ranges.capacity();
     let rows = ranges.len();
     let matrix_start = matrix_data.len();
     matrix_data.resize(matrix_start + rows * context.num_perm, u32::MAX);
@@ -157,8 +145,10 @@ impl RMinHash {
       });
     });
 
-    *token_hashes_chunk = Vec::with_capacity(flat_capacity);
-    *token_hash_ranges = Vec::with_capacity(ranges_capacity);
+    *token_hashes_chunk = job.flat;
+    token_hashes_chunk.clear();
+    *token_hash_ranges = job.ranges;
+    token_hash_ranges.clear();
   }
 
   pub(in crate::rminhash) fn build_token_hash_rows(
@@ -186,6 +176,73 @@ impl RMinHash {
     Ok(values)
   }
 
+  pub(in crate::rminhash) fn build_digest_matrix_from_flat_python_hashes(
+    token_hashes: &Bound<'_, PyAny>,
+    row_offsets: &Bound<'_, PyAny>,
+    num_perm: usize,
+    seed: u64,
+  ) -> PyResult<RMinHashDigestMatrix> {
+    let offsets = Self::parse_row_offsets(row_offsets)?;
+    let values = if let Ok(buffer) = PyBuffer::<u64>::get(token_hashes) {
+      if !buffer.is_c_contiguous() || !buffer_has_native_byte_order(&buffer) {
+        return Err(PyTypeError::new_err(PREHASHED_TOKEN_TYPE_ERROR));
+      }
+      if buffer.item_count() >= MIN_FLAT_BUFFER_HASHES
+        && rayon::current_num_threads() == 1
+        && DigestBuildConfig::from_env().max_perm_cache_hashes == 0
+      {
+        return Self::build_digest_matrix_from_flat_buffer(
+          token_hashes.py(),
+          &buffer,
+          &offsets,
+          num_perm,
+          seed,
+        );
+      }
+      buffer.to_vec(token_hashes.py())?
+    } else {
+      let mut values = Vec::new();
+      extend_prehashed_token_values_from_iterable(token_hashes, &mut values)?;
+      values
+    };
+    Self::build_digest_matrix_from_flat_token_hashes(
+      &values, &offsets, num_perm, seed,
+    )
+  }
+
+  fn build_digest_matrix_from_flat_buffer(
+    py: Python<'_>,
+    buffer: &PyBuffer<u64>,
+    offsets: &[usize],
+    num_perm: usize,
+    seed: u64,
+  ) -> PyResult<RMinHashDigestMatrix> {
+    Self::validate_flat_row_offsets(offsets, buffer.item_count())?;
+    let rows = offsets.len() - 1;
+    let mut data = vec![u32::MAX; checked_matrix_len(rows, num_perm)?];
+    let shared = crate::rminhash::shared_permutations(num_perm, seed);
+    let values = buffer
+      .as_slice(py)
+      .ok_or_else(|| PyTypeError::new_err(PREHASHED_TOKEN_TYPE_ERROR))?;
+    // Keep the GIL and buffer alive throughout traversal. ReadOnlyCell copies
+    // each value without assuming readonly views have no writable aliases.
+    for (row, bounds) in data.chunks_exact_mut(num_perm).zip(offsets.windows(2))
+    {
+      crate::rminhash::bucket::apply(
+        row,
+        &shared.pairs,
+        &shared.soa,
+        &values[bounds[0]..bounds[1]],
+      );
+    }
+    Ok(RMinHashDigestMatrix {
+      num_perm,
+      rows,
+      data,
+      rho_sidecar: None,
+    })
+  }
+
   fn extract_row_offset(item: &Bound<'_, PyAny>) -> PyResult<usize> {
     let value = item
       .extract::<u64>()
@@ -205,7 +262,7 @@ impl RMinHash {
     let Ok(buffer) = PyBuffer::<T>::get(values) else {
       return Ok(false);
     };
-    if !buffer.is_c_contiguous() {
+    if !buffer.is_c_contiguous() || !buffer_has_native_byte_order(&buffer) {
       return Err(PyValueError::new_err(FLAT_ROW_OFFSET_TYPE_ERROR));
     }
     let slice = unsafe {
@@ -316,11 +373,11 @@ impl RMinHash {
             |(row_index, row)| {
               let start = row_offsets[row_index];
               let end = row_offsets[row_index + 1];
-              Self::compute_digest_from_token_hashes_into(
+              Self::apply_token_hashes_to_values(
                 row,
-                &token_hashes[start..end],
                 &permutations,
                 &permutations_soa,
+                &token_hashes[start..end],
               );
             },
           );
@@ -348,11 +405,11 @@ impl RMinHash {
             {
               let start = row_offsets[row_index];
               let end = row_offsets[row_index + 1];
-              Self::compute_digest_from_token_hashes_into(
+              Self::apply_token_hashes_to_values(
                 row,
-                &token_hashes[start..end],
                 &permutations,
                 &permutations_soa,
+                &token_hashes[start..end],
               );
             }
           }
@@ -396,9 +453,7 @@ impl RMinHash {
 
         if token_hash_ranges.len() == config.doc_chunk_size {
           let flat = std::mem::take(&mut token_hashes_chunk);
-          let flat_capacity = flat.capacity();
           let ranges = std::mem::take(&mut token_hash_ranges);
-          let ranges_capacity = ranges.capacity();
           let row_count = ranges.len();
           let output_start = chunk_row_start * num_perm;
           let job = DigestChunkJob {
@@ -416,9 +471,17 @@ impl RMinHash {
             permutation_cache.as_mut(),
           );
           chunk_row_start += row_count;
-          token_hashes_chunk = Vec::with_capacity(flat_capacity);
-          token_hash_ranges = Vec::with_capacity(ranges_capacity);
+          token_hashes_chunk = job.flat;
+          token_hashes_chunk.clear();
+          token_hash_ranges = job.ranges;
+          token_hash_ranges.clear();
         }
+      }
+
+      if chunk_row_start + token_hash_ranges.len() != rows {
+        return Err(PyValueError::new_err(
+          "document list changed size during hashing",
+        ));
       }
 
       if !token_hash_ranges.is_empty() {
@@ -507,6 +570,14 @@ impl RMinHash {
         token_hashes_chunk = Vec::with_capacity(flat_capacity);
         token_hash_ranges = Vec::with_capacity(ranges_capacity);
       }
+    }
+
+    if extraction_error.is_none()
+      && chunk_row_start + token_hash_ranges.len() != rows
+    {
+      extraction_error = Some(PyValueError::new_err(
+        "document list changed size during hashing",
+      ));
     }
 
     if extraction_error.is_none() && !token_hash_ranges.is_empty() {
@@ -639,16 +710,6 @@ impl RMinHash {
       &permutations_soa,
       document_hasher,
     )
-  }
-
-  pub(in crate::rminhash) fn digest_rows_from_matrix(
-    matrix: &RMinHashDigestMatrix,
-  ) -> Vec<Vec<u32>> {
-    matrix
-      .data
-      .chunks_exact(matrix.num_perm)
-      .map(std::borrow::ToOwned::to_owned)
-      .collect()
   }
 
   pub(in crate::rminhash) fn from_matrix(

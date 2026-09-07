@@ -308,4 +308,24 @@ class SEQUENCER_FH_sound_strip(_bpy_types.FileHandler, SequencerFileHandlerBase)
         :return: The class or default when not found.
         """
 
+class SEQUENCER_FH_text_strip(_bpy_types.FileHandler, SequencerFileHandlerBase):
+    bl_file_extensions: typing.Any
+    bl_idname: typing.Any
+    bl_import_operator: typing.Any
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
 def calculate_duration_frames(scene, duration_seconds) -> None: ...

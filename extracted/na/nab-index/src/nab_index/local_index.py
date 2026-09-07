@@ -24,7 +24,6 @@ import errno
 import os
 import re
 import stat
-import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 from urllib.parse import unquote, urljoin, urlparse, urlsplit
@@ -101,9 +100,10 @@ class NonLocalArtifactError(LocalIndexError):
 def _resolve_served_path(url: str) -> Path:
     """Resolve a served-artifact URL to a local path.
 
-    :func:`parse_file_url` raises :class:`ValueError` for an ``http(s)`` or
-    non-local ``file://`` URL; re-raise it as :class:`NonLocalArtifactError` so
-    the fetch fails through the index-error path.
+    :func:`parse_file_url` raises :class:`ValueError` for HTTP(S), or for a
+    non-local file URL on platforms without UNC support. Re-raise it as
+    :class:`NonLocalArtifactError` so the fetch fails through the index-error
+    path.
     """
     try:
         return parse_file_url(url)
@@ -168,18 +168,12 @@ _FLAT_EXTS = re.compile(r"\.(whl|tar\.gz)$", re.IGNORECASE)
 
 
 class _ScanResult(NamedTuple):
-    """What one scan of a local index found for a package.
+    """One local-index scan and its dropped-file evidence.
 
-    The five fields beside ``files`` describe what the scan dropped, none of
-    which leaves a record.  ``unreadable`` says the listing offered a file in
-    a format nab does not read, which tells a page of ``.zip`` sdists from an
-    empty one; ``unreachable`` says it offered a wheel or ``.tar.gz`` sdist
-    behind an href that resolves to no usable URL; ``all_yanked`` says every
-    anchor naming a file was yanked, which tells a page of yanked releases
-    from a package this index does not carry; ``named_files`` says an
-    unyanked anchor named a release, whatever the scan then made of it,
-    which tells a page that offered releases from one that offered none;
-    ``zip_sdists`` names the releases it offered as ``.zip`` sdists.
+    ``unreadable`` marks unsupported formats; ``unreachable`` marks a
+    wheel or tar sdist behind an unusable URL. ``all_yanked`` marks a
+    page whose file links are all yanked; ``named_files`` records an
+    unyanked release name. ``zip_sdists`` records zip-sdist versions.
     """
 
     files: list[WheelFile | SdistFile]
@@ -316,20 +310,12 @@ def _resolve_local_link(
     base_url: str,
     bases: list[str] | None,
 ) -> _Link:
-    """Resolve an anchor href to the artefact it names, if any.
+    """Resolve an href into its URL, filename, local path, and hashes.
 
     ``base_url`` is the page's ``<base href>`` when it carries one, else the
     ``index.html`` URL, and ``bases`` is :func:`_merging_bases` over the page.
-    An href is a URL reference, so only its path component names the artefact,
-    and the target may sit outside the package directory: the standard mirror
-    layout links to a shared ``../../packages/`` tree.
-
-    The href's hash fragment is surfaced as the file record's ``hashes``
-    tuple so the lockfile writer has something to round-trip.
-
-    ``local_path`` is the artefact's on-disk path when the href names
-    a local file, and ``None`` for an ``http``/``https`` href.  It is
-    carried so downstream code never has to reverse the ``file:`` URL.
+    A local file sets ``local_path``; HTTP(S) does not. An unusable
+    release link has no filename and sets ``unreachable``.
     """
     href_no_frag, _, fragment = href.partition("#")
     hashes = hash_fragment(fragment)
@@ -342,8 +328,9 @@ def _resolve_local_link(
     # page's, so the split round trip is what drops a tab, CR or LF.
     try:
         if absolute is None:
-            absolute = urljoin(base_url, href_no_frag)
-        url = _normalized_url(absolute)
+            url = _joined_url(base_url, href_no_frag)
+        else:
+            url = _normalized_url(absolute)
         parsed = urlparse(url)
         page = urlparse(base_url)
     except ValueError:
@@ -372,7 +359,7 @@ def _resolve_local_link(
     if parsed.scheme in {"http", "https"}:
         return _Link(unquote(last_segment), url, None, hashes)
 
-    # Drop an anchor naming no local file rather than fail the whole listing.
+    # Distinguish an unusable release link from a non-package link.
     try:
         path = _parsed_file_url_path(parsed, url)
     except ValueError:
@@ -385,6 +372,17 @@ def _resolve_local_link(
         )
 
     return _Link(path.name, url, path, hashes)
+
+
+def _joined_url(base_url: str, href: str) -> str:
+    """Resolve and normalize a link while preserving a ``//`` path root."""
+    if not href.startswith("////"):
+        return _normalized_url(urljoin(base_url, href))
+
+    # Some urljoin versions discard the empty authority before a // path.
+    escaped_path = f"/%2F{href[4:]}"
+    joined = _normalized_url(urljoin(base_url, f"//{escaped_path}"))
+    return joined.replace("/%2F", "//", 1)
 
 
 # A mirror href climbs out of the package directory to the shared packages
@@ -413,8 +411,8 @@ def _listing_bases(base_url: str) -> list[str] | None:
     if scheme != "file" or not path.startswith("/"):
         return None
 
-    # Every segment of the directory is bracketed by slashes, so these three
-    # substrings are the whole of the empty and dot segment test.
+    # Slashes bracket each directory segment. These substrings detect
+    # empty, current, and parent segments without splitting the path.
     directory = path[: path.rindex("/") + 1]
     if "//" in directory or "/./" in directory or "/../" in directory:
         return None
@@ -581,6 +579,9 @@ def _read_wheel_requires_python(wheel_path: Path, expected: str) -> str | None:
     one bad file does not fail the listing that carries the package's other
     versions.
     """
+    # Deferred so importing this module does not load zipfile.
+    import zipfile  # noqa: PLC0415
+
     try:
         with zipfile.ZipFile(wheel_path) as archive:
             member = wheel_metadata_member(archive.namelist(), expected)
@@ -663,6 +664,10 @@ def read_wheel_metadata(wheel_path: Path) -> str | None:
     parsed = _parse_wheel_filename(wheel_path.name)
     if parsed is None:
         return None
+
+    # Deferred so importing this module does not load zipfile.
+    import zipfile  # noqa: PLC0415
+
     try:
         with zipfile.ZipFile(wheel_path) as zf:
             member = wheel_metadata_member(zf.namelist(), parsed[0])

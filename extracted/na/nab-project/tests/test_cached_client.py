@@ -2189,7 +2189,7 @@ class TestNoReuseListings:
     """A listing the origin bars from unvalidated reuse is checked every read.
 
     RFC 9111 5.2.2.4 for ``no-cache`` and 5.2.2.5 for ``no-store``. The
-    responses here carry no max-age and no Expires, the case the heuristic
+    responses here omit both max-age and Expires, the case the heuristic
     window would otherwise cover.
     """
 
@@ -2661,6 +2661,26 @@ class TestHtmlListing:
 
         return (asyncio.run(go()), transport)
 
+    def _fetch_with_mark(self, cache: OnDiskCache, body: bytes) -> tuple[list, bool]:
+        """Return ``torch``'s records and whether its page was marked unreachable.
+
+        The mark is per-client state, so it is read while the client that
+        made the call is still alive.
+        """
+        transport = _FakeTransport(
+            [_FakeResponse(body, headers={"content-type": "text/html"})]
+        )
+
+        async def go() -> tuple[list, bool]:
+            client = CachedAsyncSimpleClient(transport, cache, self._INDEX)
+            try:
+                files = await client.get_files("torch")
+            finally:
+                await client.aclose()
+            return files, client.served_unreachable_only("torch")
+
+        return asyncio.run(go())
+
     def test_pep503_page_is_read(self, tmp_path: Path) -> None:
         files, _ = self._fetch(_make_cache(tmp_path), self._PAGE, "text/html")
         (wheel,) = files
@@ -2732,6 +2752,45 @@ class TestHtmlListing:
         )
         files, _ = self._fetch(_make_cache(tmp_path), page, "text/html")
         assert [f.filename for f in files] == ["torch-2.7.0-py3-none-any.whl"]
+
+    def test_malformed_ipv6_wheel_href_is_kept_unresolved(self, tmp_path: Path) -> None:
+        # The converted body is the only record of what the page offered, so
+        # dropping the anchor here loses it on every later read of the cache.
+        page = b'<a href="https://[::1/torch-2.7.0-py3-none-any.whl">torch</a>'
+        cache = _make_cache(tmp_path)
+
+        files, unreachable_only = self._fetch_with_mark(cache, page)
+
+        assert files == []
+        assert unreachable_only
+        cached = cache.get_simple("torch")
+        assert cached is not None
+        assert json.loads(cached[0]) == {
+            "files": [
+                {
+                    "filename": "torch-2.7.0-py3-none-any.whl",
+                    "url": "https://[::1/torch-2.7.0-py3-none-any.whl",
+                }
+            ]
+        }
+
+    def test_malformed_href_naming_no_distribution_is_dropped(
+        self, tmp_path: Path
+    ) -> None:
+        # The last segment of an href that will not parse is a filename only
+        # when it names a wheel or a .tar.gz sdist; anything else is a
+        # navigation link the page never offered as a release.
+        cache = _make_cache(tmp_path)
+
+        files, unreachable_only = self._fetch_with_mark(
+            cache, b'<a href="http://[bad">bad</a>'
+        )
+
+        assert files == []
+        assert not unreachable_only
+        cached = cache.get_simple("torch")
+        assert cached is not None
+        assert json.loads(cached[0]) == {"files": []}
 
     def test_href_wrapped_in_whitespace_is_read(self, tmp_path: Path) -> None:
         # HTML allows a URL attribute's value to be surrounded by whitespace.
@@ -4994,7 +5053,7 @@ def _debug_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
 
 
 class TestAssumeFreshFloor:
-    """Read-time freshness floor: extend, never shorten, and never rewrite disk."""
+    """A read-time floor extends freshness without shortening it or writing disk."""
 
     def test_stale_positive_within_floor_serves_cached_no_transport(
         self,

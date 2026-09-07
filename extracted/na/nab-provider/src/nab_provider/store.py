@@ -9,7 +9,7 @@ import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
-from nab_provider.metadata import metadata_header_block
+from nab_provider.metadata import metadata_header_block, metadata_without_description
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping, Sequence
@@ -45,6 +45,12 @@ def range_pending_key(package: str, version: str, wheel_url: str) -> str:
     declare different dependencies.
     """
     return f"range:{package}:{version}:{wheel_url}"
+
+
+def _project_table_only(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``data`` cut to ``[project]``, empty unless that key holds a table."""
+    project = data.get("project")
+    return {"project": project} if isinstance(project, dict) else {}
 
 
 class InMemoryIndex:
@@ -87,12 +93,14 @@ class InMemoryIndex:
         # Metadata text is keyed by the artifact it came from: the sidecar URL
         # for a wheel's METADATA, or None for text that stands for the version
         # itself, such as an sdist's PKG-INFO.  Each is cut to its header block
-        # on the way in.
+        # less the description on the way in.
         self._metadata: dict[tuple[str, str, str | None], str | None] = {}
         self._metadata_errors: dict[tuple[str, str, str | None], BaseException] = {}
         # Versions whose version-level slot was written from an sdist PKG-INFO;
-        # only sdist deps go through the PEP 643 gate.
+        # only sdist deps go through the PEP 643 check.
         self._metadata_from_sdist: set[tuple[str, str]] = set()
+        # The distinct texts a release's slots hold, so equal ones share a str.
+        self._slot_texts: dict[tuple[str, str], tuple[str, ...]] = {}
 
         # Empty metadata slots that stand for a rung skipped offline, keyed by
         # that rung's URL.
@@ -108,9 +116,8 @@ class InMemoryIndex:
         # the provider's tier accounting.
         self._range_outcomes: dict[tuple[str, str, str], RangeOutcome] = {}
 
-        # A parse is a pure function of its text, so ``(source_text, parsed)``
-        # entries are shared across the per-target providers of one resolve.
-        self._parsed_metadata: dict[tuple[str, str], tuple[str, Any]] = {}
+        # Share each text's parse across the target providers of one resolve.
+        self._parsed_metadata: dict[tuple[str, str], tuple[tuple[str, Any], ...]] = {}
 
         # Sdist metadata after PEP 643 dynamic deps have been resolved from the
         # bundled pyproject.toml or a PEP 517 backend.  Shared across targets so
@@ -275,7 +282,7 @@ class InMemoryIndex:
     def get_metadata(
         self, package: str, version: str, metadata_url: str | None = None
     ) -> str | None:
-        """Return the cached header block, or ``None`` if not yet stored."""
+        """Return the cached header block less the description, or ``None``."""
         with self._lock:
             return self._read_metadata(package, version, metadata_url)[0]
 
@@ -308,6 +315,20 @@ class InMemoryIndex:
         with self._lock:
             return self._read_metadata(package, version, metadata_url)
 
+    def _share_slot_text(self, release: tuple[str, str], text: str) -> str:
+        """Return the str already held for ``release`` equal to ``text``, or hold it.
+
+        Caller holds the lock.  ``release`` is ``(package, version)``.  A matrix
+        writes one slot per target of a release, and targets whose wheels
+        declare the same headers would otherwise hold a copy of the text each.
+        """
+        held = self._slot_texts.get(release, ())
+        for seen in held:
+            if seen == text:
+                return seen
+        self._slot_texts[release] = (*held, text)
+        return text
+
     def _write_metadata_slot(
         self,
         slot: tuple[str, str, str | None],
@@ -315,13 +336,19 @@ class InMemoryIndex:
         *,
         from_sdist: bool,
     ) -> None:
-        """Write one metadata slot, cut to its header block. Caller holds the lock.
+        """Write a metadata slot while holding the lock.
 
-        Reconciled sdist metadata is derived from the version-level text, so
-        replacing that text drops it.
+        Replacing version-level text drops metadata derived from it.
         """
         package, version, metadata_url = slot
-        text = None if data is None else metadata_header_block(data)
+        if data is None:
+            text = None
+        else:
+            text = self._share_slot_text(
+                (package, version),
+                metadata_without_description(metadata_header_block(data)),
+            )
+
         if metadata_url is None:
             if self._metadata.get(slot) != text:
                 self._resolved_sdist_metadata.pop((package, version), None)
@@ -342,15 +369,10 @@ class InMemoryIndex:
         *,
         metadata_url: str | None = None,
     ) -> None:
-        """Cache the header block of ``data``, or ``None`` when no sidecar was served.
+        """Cache metadata without its description.
 
-        ``metadata_url`` is the sidecar the text came from; ``None`` stores it
-        as standing for the version rather than one artifact.  It is
-        keyword-only: it and ``data`` are both ``str | None``, so a transposed
-        call would type-check.
-
-        A ``data`` of ``None`` lands in the sidecar's own slot, so it cannot
-        erase sdist PKG-INFO from the version-level one.
+        ``metadata_url`` selects an artifact slot. ``None`` data records a
+        missing sidecar without replacing version-level PKG-INFO.
         """
         key = metadata_pending_key(package, version, metadata_url)
         slot = (package, version, metadata_url)
@@ -454,8 +476,8 @@ class InMemoryIndex:
     ) -> None:
         """Store range-recovered wheel METADATA in the wheel's own slot.
 
-        The text is authoritative wheel METADATA, so it is stored with
-        ``from_sdist=False`` and stays off the :pep:`643` dynamic-deps gate.
+        The text is authoritative wheel METADATA, so it uses
+        ``from_sdist=False`` and skips the :pep:`643` check.
         """
         key = range_pending_key(package, version, wheel_url)
         with self._publishing(key):
@@ -503,18 +525,19 @@ class InMemoryIndex:
     def store_sdist_pyproject(
         self, package: str, version: str, data: Mapping[str, Any] | None
     ) -> None:
-        """Store an sdist's parsed pyproject.toml for static-metadata fallback.
+        """Store the pyproject cut to ``[project]`` for static-metadata fallback.
 
         The host parses the TOML on the way in, so the store needs no TOML
         library.  ``None`` reads the same as never-fetched.
         """
+        stored = None if data is None else _project_table_only(data)
         with self._lock:
-            self._sdist_pyproject[(package, version)] = data
+            self._sdist_pyproject[(package, version)] = stored
 
     def get_sdist_pyproject(
         self, package: str, version: str
     ) -> Mapping[str, Any] | None:
-        """Return the parsed sdist pyproject, or ``None`` if absent or unfetched."""
+        """Return the ``[project]`` cut, or ``None`` if absent or unfetched."""
         return self._sdist_pyproject.get((package, version))
 
     def store_sdist_archive(
@@ -568,23 +591,23 @@ class InMemoryIndex:
     def get_parsed_metadata(
         self, package: str, version: str, source_text: str
     ) -> Any | None:
-        """Return the cached parse of ``source_text``, or ``None``.
-
-        A parse of any other text is a miss: wheel METADATA and sdist PKG-INFO
-        share one ``(package, version)`` slot, so a key-only hit could hand
-        back another artifact's deps.
-        """
-        entry = self._parsed_metadata.get((package, version))
-        if entry is None or entry[0] != source_text:
-            return None
-        return entry[1]
+        """Return the parse cached for ``source_text``, if any."""
+        for text, metadata in self._parsed_metadata.get((package, version), ()):
+            if text == source_text:
+                return metadata
+        return None
 
     def store_parsed_metadata(
         self, package: str, version: str, metadata: Any, source_text: str
     ) -> None:
-        """Cache the parse of ``source_text``."""
+        """Cache a text's parse beside the version's other parses.
+
+        Replacing the tuple keeps unlocked reads atomic.
+        """
+        key = (package, version)
         with self._lock:
-            self._parsed_metadata[(package, version)] = (source_text, metadata)
+            entries = self._parsed_metadata.get(key, ())
+            self._parsed_metadata[key] = (*entries, (source_text, metadata))
 
     def get_resolved_sdist_metadata(self, package: str, version: str) -> Any | None:
         """Return cached post-reconciliation sdist metadata or ``None``.

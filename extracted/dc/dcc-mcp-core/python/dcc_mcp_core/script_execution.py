@@ -25,19 +25,34 @@ import json
 from pathlib import Path
 import sys
 import threading
-import traceback
 from typing import Any
 from typing import Sequence
 from typing import TextIO
 
 from dcc_mcp_core.errors import DccMcpError
 from dcc_mcp_core.result_envelope import ToolResultEnvelope
+from dcc_mcp_core.runtime.scene_digest import SceneDigestError
+from dcc_mcp_core.runtime.scene_digest import SceneDigestExecution
+from dcc_mcp_core.runtime.scene_digest import SceneDigestExecutionError
+from dcc_mcp_core.runtime.scene_digest import SceneDigestSnapshot
+from dcc_mcp_core.runtime.scene_digest import StateDigestProvider
+from dcc_mcp_core.runtime.scene_digest import snapshot_from_provider
+from dcc_mcp_core.runtime.scene_digest_envelope import scene_digest_postcondition as _scene_digest_postcondition
+from dcc_mcp_core.runtime.scene_digest_envelope import script_execution_failure as _script_execution_failure
+from dcc_mcp_core.runtime.scene_digest_execution import capture_scene_digest_wire as _capture_scene_digest_wire
+from dcc_mcp_core.runtime.scene_digest_execution import resolve_scene_digest_transaction as _resolve_digest_transaction
+from dcc_mcp_core.runtime.script_execution_helpers import file_ref_for_script_path as _file_ref_for_script_path
 from dcc_mcp_core.schema import derive_script_parameters_schema
 from dcc_mcp_core.script_materialization import MaterializedScript
 from dcc_mcp_core.script_materialization import cleanup_materialized_scripts
 from dcc_mcp_core.script_materialization import default_script_materialization_root
 from dcc_mcp_core.script_materialization import materialize_script
 from dcc_mcp_core.script_materialization import resolve_materialized_script
+
+try:
+    from dcc_mcp_core._core import _run_with_scene_digest_transaction
+except ImportError:  # pragma: no cover - py37-lite has no native transaction boundary
+    _run_with_scene_digest_transaction = None
 
 ScriptMaterializationPolicy = str
 _SCRIPT_MATERIALIZATION_POLICIES = {"off", "auto", "require"}
@@ -411,6 +426,8 @@ def _materialized_script_context(
         return {} if context is None else context
     if isinstance(materialized_script, MaterializedScript):
         return {
+            "schema_version": 1,
+            "producer": "dcc-mcp-core.script_materialization",
             "path": materialized_script.file_path,
             "file_path": materialized_script.file_path,
             "file_ref": materialized_script.file_ref,
@@ -422,38 +439,13 @@ def _materialized_script_context(
             "session_id": materialized_script.session_id,
             "tool_call_id": materialized_script.tool_call_id,
             "correlation_id": materialized_script.correlation_id,
+            "reuse_key": materialized_script.reuse_key,
             "parameters_schema": materialized_script.parameters_schema,
         }
-    return dict(materialized_script)
-
-
-def _file_ref_for_script_path(path: Path, *, sha256: str | None, bytes_: int | None) -> dict[str, Any]:
-    resolved = path.resolve()
-    file_ref = {
-        "uri": resolved.as_uri(),
-        "mime": _mime_for_script_path(resolved),
-        "size_bytes": bytes_,
-        "display_name": resolved.name,
-        "digest": f"sha256:{sha256}" if sha256 else None,
-        "metadata": {
-            "materialization_kind": "script",
-            "source": "file_path",
-        },
-    }
-    return {key: value for key, value in file_ref.items() if value is not None}
-
-
-def _mime_for_script_path(path: Path) -> str:
-    suffix = path.suffix.lower()
-    if suffix == ".py":
-        return "text/x-python"
-    if suffix == ".mel":
-        return "text/x-mel"
-    if suffix == ".js":
-        return "text/javascript"
-    if suffix == ".ps1":
-        return "text/x-powershell"
-    return "text/plain"
+    context = dict(materialized_script)
+    context.setdefault("schema_version", 1)
+    context.setdefault("producer", "dcc-mcp-core.script_materialization")
+    return context
 
 
 class _CaptureStream(io.TextIOBase):
@@ -594,8 +586,25 @@ class ScriptExecutionResult:
         repr_fallback: bool | None = None,
         message: str = "Script executed successfully",
         materialized_script: MaterializedScript | FileBackedScriptExecutionParams | Mapping[str, Any] | None = None,
+        postcondition: Mapping[str, Any] | None = None,
+        scene_digest_before: SceneDigestSnapshot | None = None,
+        scene_digest_after: SceneDigestSnapshot | None = None,
+        verified: bool | None = None,
     ) -> dict[str, Any]:
         """Return a success envelope, or a strict serialization error envelope."""
+        digest_evidence = _scene_digest_postcondition(
+            scene_digest_before,
+            scene_digest_after,
+            postcondition=postcondition,
+            verified=verified,
+        )
+        if isinstance(digest_evidence, dict) and digest_evidence.get("success") is False:
+            if not isinstance(digest_evidence.get("message"), str) or not isinstance(digest_evidence.get("error"), str):
+                return ToolResultEnvelope.fail(
+                    "Scene digest evidence could not be normalized",
+                    error="invalid_scene_digest_evidence",
+                ).to_dict()
+            return digest_evidence
         use_repr = not strict_json if repr_fallback is None else repr_fallback
         try:
             normalized = _normalize_result(
@@ -604,12 +613,15 @@ class ScriptExecutionResult:
                 repr_fallback=use_repr,
             )
         except ScriptExecutionSerializationError as exc:
-            return ToolResultEnvelope.fail(
+            serialization_failure = ToolResultEnvelope.fail(
                 str(exc),
                 error="non_serializable_result",
                 stdout=stdout,
                 stderr=stderr,
             ).to_dict()
+            if digest_evidence is not None:
+                serialization_failure["postcondition"] = digest_evidence
+            return serialization_failure
 
         context = {
             "result": normalized,
@@ -618,7 +630,33 @@ class ScriptExecutionResult:
         }
         if materialized_script is not None:
             context["materialized_script"] = _materialized_script_context(materialized_script)
-        return ToolResultEnvelope.ok(message, **context).to_dict()
+        return ToolResultEnvelope.ok(message, postcondition=digest_evidence, **context).to_dict()
+
+    @staticmethod
+    def from_outcome(
+        outcome: SceneDigestExecution,
+        *,
+        stdout: str = "",
+        stderr: str = "",
+        strict_json: bool = True,
+        repr_fallback: bool | None = None,
+        message: str = "Script executed successfully",
+        materialized_script: MaterializedScript | FileBackedScriptExecutionParams | Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build an envelope from one before/after execution outcome."""
+        if not isinstance(outcome, SceneDigestExecution):
+            raise TypeError("outcome must be a SceneDigestExecution")
+        return ScriptExecutionResult.from_value(
+            outcome.value,
+            stdout=stdout,
+            stderr=stderr,
+            strict_json=strict_json,
+            repr_fallback=repr_fallback,
+            message=message,
+            materialized_script=materialized_script,
+            scene_digest_before=outcome.scene_digest_before,
+            scene_digest_after=outcome.scene_digest_after,
+        )
 
     @staticmethod
     def from_exception(
@@ -627,44 +665,46 @@ class ScriptExecutionResult:
         stdout: str = "",
         stderr: str = "",
         message: str | None = None,
+        scene_digest_before: SceneDigestSnapshot | None = None,
+        scene_digest_after: SceneDigestSnapshot | None = None,
+        readback_error: SceneDigestError | None = None,
     ) -> dict[str, Any]:
         """Return a structured failure envelope with traceback and captured output."""
-        error_type = type(exc).__name__
-        formatted_traceback = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-        return ToolResultEnvelope.fail(
-            message or f"Script execution failed: {exc}",
-            error="script_execution_error",
-            _meta={
-                "dcc.error": {
-                    "type": error_type,
-                    "message": str(exc),
-                    "traceback": formatted_traceback,
-                }
-            },
+        return _script_execution_failure(
+            exc,
             stdout=stdout,
             stderr=stderr,
-            exception_type=error_type,
-            exception_message=str(exc),
-            traceback=formatted_traceback,
-        ).to_dict()
+            message=message,
+            scene_digest_before=scene_digest_before,
+            scene_digest_after=scene_digest_after,
+            readback_error=readback_error,
+        )
 
 
 __all__ = [
     "FileBackedScriptExecutionParams",
+    "SceneDigestError",
+    "SceneDigestExecution",
+    "SceneDigestExecutionError",
+    "SceneDigestSnapshot",
     "ScriptExecutionCapture",
     "ScriptExecutionContext",
     "ScriptExecutionParams",
     "ScriptExecutionResult",
     "ScriptExecutionSerializationError",
+    "StateDigestProvider",
     "allow_script_materialization_root",
+    "capture_state_digest",
     "cleanup_temp_scripts",
     "clear_script_namespace",
     "execute_with_context",
+    "execute_with_state_digest",
     "get_default_script_execution_context",
     "get_script_namespace",
     "normalize_file_backed_script_execution_params",
     "normalize_script_execution_params",
     "register_dcc_namespace",
+    "register_state_digest_provider",
     "reset_default_script_execution_context_for_tests",
     "validate_script_file_path",
     "write_temp_script",
@@ -752,11 +792,34 @@ class ScriptExecutionContext:
         self._lock = threading.RLock()
         self._dcc_namespace: dict[str, Any] = {}
         self._script_namespace: dict[str, Any] = {}
+        self._state_digest_provider: StateDigestProvider | None = None
 
     def register_dcc_namespace(self, namespace: dict[str, Any]) -> None:
         """Use *namespace* as the live DCC globals for later executions."""
         with self._lock:
             self._dcc_namespace = namespace
+
+    def register_state_digest_provider(self, provider: StateDigestProvider | None) -> None:
+        """Enable or disable scene-digest capture for this server instance.
+
+        Passing ``None`` explicitly removes a provider during adapter shutdown
+        or reconfiguration.  This keeps the capability instance-owned and
+        avoids retaining a stale host callback after its DCC has gone away.
+        """
+        if provider is not None and not callable(provider):
+            raise TypeError("state digest provider must be callable or None")
+        with self._lock:
+            self._state_digest_provider = provider
+
+    def capture_state_digest(self) -> SceneDigestSnapshot:
+        """Read one bounded digest, failing closed when capability is absent."""
+        with self._lock:
+            if self._state_digest_provider is None:
+                raise SceneDigestError(
+                    "scene_digest_provider_missing",
+                    "No scene digest provider is registered for this script context",
+                )
+            return snapshot_from_provider(self._state_digest_provider)
 
     def script_namespace(self) -> dict[str, Any]:
         """Return a shallow copy of persistent variables."""
@@ -779,11 +842,51 @@ class ScriptExecutionContext:
             self._script_namespace.update(local_namespace)
             return local_namespace.get("result")
 
+    def execute_with_state_digest(
+        self,
+        code: str,
+        *,
+        filename: str = "<execute_python>",
+    ) -> SceneDigestExecution:
+        """Capture host state immediately before and after one script."""
+        with self._lock:
+            if _run_with_scene_digest_transaction is None:
+                raise SceneDigestError(
+                    "scene_digest_custody_unavailable",
+                    "Transactional in-process scene observations require the native custody boundary",
+                )
+            provider = self._state_digest_provider
+            if provider is None:
+                raise SceneDigestError(
+                    "scene_digest_provider_missing",
+                    "No scene digest provider is registered for this script context",
+                )
+            try:
+                transaction = _run_with_scene_digest_transaction(
+                    provider,
+                    _capture_scene_digest_wire,
+                    self._execute_digest_callback,
+                    code,
+                    filename,
+                )
+            finally:
+                # A script may reach this context through frame inspection, but
+                # provider changes made by that script cannot escape the active
+                # transaction or poison the next one.
+                self._state_digest_provider = provider
+
+            return _resolve_digest_transaction(transaction)
+
+    def _execute_digest_callback(self, code: str, filename: str) -> Any:
+        """Run one script while native code retains the before-state evidence."""
+        return self.execute(code, filename=filename)
+
     def reset_for_tests(self) -> None:
         """Clear both DCC and persistent script namespaces."""
         with self._lock:
             self._dcc_namespace = {}
             self._script_namespace.clear()
+            self._state_digest_provider = None
 
 
 _DEFAULT_SCRIPT_EXECUTION_CONTEXT = ScriptExecutionContext()
@@ -826,6 +929,23 @@ def register_dcc_namespace(
     _script_context(context).register_dcc_namespace(ns)
 
 
+def register_state_digest_provider(
+    provider: StateDigestProvider | None,
+    *,
+    context: ScriptExecutionContext | None = None,
+) -> None:
+    """Register one host-owned scene digest provider for an adapter instance."""
+    _script_context(context).register_state_digest_provider(provider)
+
+
+def capture_state_digest(
+    *,
+    context: ScriptExecutionContext | None = None,
+) -> SceneDigestSnapshot:
+    """Capture one validated digest through the registered capability."""
+    return _script_context(context).capture_state_digest()
+
+
 def get_script_namespace(*, context: ScriptExecutionContext | None = None) -> dict[str, Any]:
     """Return a copy of the persistent script namespace."""
     return _script_context(context).script_namespace()
@@ -851,3 +971,13 @@ def execute_with_context(
     that newly-assigned variables are visible to the next call.
     """
     return _script_context(context).execute(code, filename=filename)
+
+
+def execute_with_state_digest(
+    code: str,
+    *,
+    filename: str = "<execute_python>",
+    context: ScriptExecutionContext | None = None,
+) -> SceneDigestExecution:
+    """Execute code with fail-closed before/after scene digest evidence."""
+    return _script_context(context).execute_with_state_digest(code, filename=filename)

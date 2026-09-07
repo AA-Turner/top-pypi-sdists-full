@@ -36,6 +36,9 @@ from pymobiledevice3.tunneld.api import TUNNELD_DEFAULT_ADDRESS, TunneldAddress,
 from pymobiledevice3.utils import ask_prompt, get_asyncio_loop
 
 UDID_ENV_VAR = "PYMOBILEDEVICE3_UDID"
+# With `--reconnect`: accept the first available device on reconnect, even when its UDID differs
+# from the device the command originally targeted.
+RECONNECT_ANY_ENV_VAR = "PYMOBILEDEVICE3_RECONNECT_ANY"
 TUNNEL_ENV_VAR = "PYMOBILEDEVICE3_TUNNEL"
 USERSPACE_ENV_VAR = "PYMOBILEDEVICE3_USERSPACE"
 # macOS only: piggyback Apple's remoted tunnel via remotepairingd (no root, no Xcode).

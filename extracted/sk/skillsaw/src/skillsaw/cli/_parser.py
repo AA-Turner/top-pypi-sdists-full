@@ -10,11 +10,24 @@ from ..context import RepositoryType
 from ..formatters import EXTENSION_MAP, FORMATS
 from ._config import _get_version
 
+_DEFAULT_FEEDBACK_FILE_BYTES = 4 * 1024 * 1024
+_DEFAULT_FEEDBACK_TOTAL_BYTES = 16 * 1024 * 1024
+
 _COLOR_HELP = (
     "Force ANSI colors and terminal hyperlinks on (--color) or off "
     "(--no-color). Default: color only when stdout is a terminal; "
     "FORCE_COLOR and NO_COLOR are also honored."
 )
+
+
+def _positive_int(value: str) -> int:
+    try:
+        result = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a positive integer") from None
+    if result <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return result
 
 
 def _add_color_flag(subparser) -> None:
@@ -43,8 +56,6 @@ Examples:
   skillsaw lint /path/to/skills   # Lint specific directory
   skillsaw init                   # Generate default config
   skillsaw list-rules             # List available rules
-  skillsaw docs                   # Generate documentation
-  skillsaw add marketplace        # Scaffold a new marketplace
 
 For more information, visit: https://github.com/stbenjam/skillsaw
         """,
@@ -115,7 +126,8 @@ For more information, visit: https://github.com/stbenjam/skillsaw
         action="append",
         default=[],
         metavar="TYPE",
-        help="Override auto-detected repository type (repeatable). "
+        help="Replace packaging-type detection (repeatable). Tool types are "
+        "always detected from the checkout, and plugin-contributed types too. "
         "Values: "
         + ", ".join(t.value for t in RepositoryType if t is not RepositoryType.UNKNOWN)
         + ".",
@@ -126,7 +138,8 @@ For more information, visit: https://github.com/stbenjam/skillsaw
         action="append",
         default=[],
         metavar="RULE",
-        help="Only run these rules (repeatable). Config still comes from .skillsaw.yaml.",
+        help="Only run these rules and their validation dependencies (repeatable). "
+        "Config still comes from .skillsaw.yaml.",
     )
     lint_parser.add_argument(
         "--skip-rule",
@@ -199,7 +212,8 @@ For more information, visit: https://github.com/stbenjam/skillsaw
         action="append",
         default=[],
         metavar="RULE",
-        help="Only run these rules (repeatable). Config still comes from .skillsaw.yaml.",
+        help="Only run these rules and their validation dependencies (repeatable). "
+        "Config still comes from .skillsaw.yaml.",
     )
     fix_parser.add_argument(
         "--skip-rule",
@@ -242,6 +256,79 @@ For more information, visit: https://github.com/stbenjam/skillsaw
         help="Directory to create config in (default: current directory)",
     )
 
+    # --- feedback ---
+    feedback_parser = subparsers.add_parser(
+        "feedback",
+        help="Create a local diagnostic bundle for a bug report",
+        description=(
+            "Create a local, reviewable diagnostic bundle for a skillsaw bug report. "
+            "It never uploads data, and includes no repository files unless --include or "
+            "--config names them. Named files are copied verbatim: skillsaw does not scan "
+            "them for secrets, so review the ZIP before sharing it. Refused selections include "
+            "files whose name means credentials (.env, id_rsa, *.pem, ...), and "
+            "files already excluded by .gitignore, .dockerignore, .npmignore, .helmignore "
+            "or .gcloudignore. Selected files also have byte limits: 4 MiB per file and "
+            "16 MiB total by default; an oversized selection stops before diagnostic lint "
+            "and creates no bundle."
+        ),
+    )
+    feedback_parser.add_argument(
+        "path",
+        nargs="?",
+        type=Path,
+        default=Path.cwd(),
+        help="Repository to diagnose (default: current directory)",
+    )
+    feedback_parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        help="Path to .skillsaw.yaml config file to copy into the bundle verbatim (default: auto-discover only; review it for secrets yourself)",
+    )
+    feedback_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        default=None,
+        help="Bundle ZIP path (default: .skillsaw-feedback/ under the repository)",
+    )
+    feedback_parser.add_argument(
+        "--message",
+        default="",
+        help="Short description of the problem to include in the bundle",
+    )
+    feedback_parser.add_argument(
+        "--include",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="Copy a repository-relative UTF-8 text file into the bundle verbatim (repeatable; review it for secrets yourself)",
+    )
+    feedback_parser.add_argument(
+        "--max-file-bytes",
+        type=_positive_int,
+        default=_DEFAULT_FEEDBACK_FILE_BYTES,
+        metavar="BYTES",
+        help="Maximum raw bytes per --include/--config file (positive integer; default: 4194304 / 4 MiB)",
+    )
+    feedback_parser.add_argument(
+        "--max-total-bytes",
+        type=_positive_int,
+        default=_DEFAULT_FEEDBACK_TOTAL_BYTES,
+        metavar="BYTES",
+        help="Maximum retained --include/--config bytes across distinct ZIP members (positive integer; default: 16777216 / 16 MiB)",
+    )
+    feedback_parser.add_argument(
+        "--with-extensions",
+        action="store_true",
+        help="Run custom and installed plugin rules in the diagnostic lint run",
+    )
+    feedback_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the bundle result as JSON for agents and automation",
+    )
+
     # --- list-rules ---
     subparsers.add_parser("list-rules", help="List all available builtin and plugin rules")
 
@@ -278,12 +365,21 @@ For more information, visit: https://github.com/stbenjam/skillsaw
         help="Path to .skillsaw.yaml config file (default: auto-discover)",
     )
     _add_color_flag(explain_parser)
+    explain_parser.add_argument(
+        "--pager",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        dest="pager",
+        help="Use a pager (e.g. less) to display documentation (default: auto when tty present)",
+    )
 
     # --- docs ---
     docs_parser = subparsers.add_parser(
         "docs",
-        help="Generate documentation for a Claude or Codex plugin, marketplace, or .claude repository",
-        description="Generate documentation for a Claude or Codex plugin, marketplace, or .claude repository",
+        help="Deprecated: generate repository documentation",
+        description="Deprecated: Generate documentation for a Claude or Codex plugin, "
+        "marketplace, or .claude repository. This command will be removed in an "
+        "upcoming release.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     docs_parser.add_argument(
@@ -416,6 +512,11 @@ For more information, visit: https://github.com/stbenjam/skillsaw
         help="Path to .skillsaw.yaml config file",
     )
     baseline_parser.add_argument(
+        "--include-info",
+        action="store_true",
+        help="Include INFO findings (automatic with fail-on: info in config)",
+    )
+    baseline_parser.add_argument(
         "--no-custom-rules",
         action="store_true",
         dest="no_custom_rules",
@@ -485,7 +586,7 @@ For more information, visit: https://github.com/stbenjam/skillsaw
     # --- add ---
     subparsers.add_parser(
         "add",
-        help="Scaffold marketplaces, plugins, skills, commands, agents, and hooks",
+        help="Deprecated: scaffold marketplaces, plugins, and components",
         add_help=False,
     )
 

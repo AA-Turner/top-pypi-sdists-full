@@ -2,7 +2,7 @@
 
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .. import cpp as fstcpp
 from ..common import (
@@ -12,7 +12,11 @@ from ..common import (
 )
 from ..frameworks import FrameworkOpBase, TensorBase
 from ..st_types import Device, DeviceType, DType
-from .base import CopierInterface, validated_byte_ranges
+from .base import (
+    CopierInterface,
+    validated_byte_ranges,
+    validated_chunk_allocation_size,
+)
 from .registry import CopierConstructFunc, register_copier_constructor
 
 
@@ -40,6 +44,9 @@ class NoGdsFileCopier(CopierInterface):
         self.device = device
         self.reqs: List[int] = []
         self.byte_ranges: Optional[List[Tuple[int, int]]] = None
+        self._chunk_names: Optional[Set[str]] = None
+        self._chunk_allocation_size: Optional[int] = None
+        self._base_off = metadata.header_length
 
     def set_byte_ranges(self, byte_ranges: Optional[List[Tuple[int, int]]]) -> None:
         """Restrict reads to these ``[start, end)`` absolute file-offset runs.
@@ -51,26 +58,64 @@ class NoGdsFileCopier(CopierInterface):
         """
         self.byte_ranges = validated_byte_ranges(self.metadata, byte_ranges)
 
+    def set_chunk(
+        self,
+        byte_ranges: List[Tuple[int, int]],
+        names: Set[str],
+        allocation_size: Optional[int] = None,
+    ) -> None:
+        """Load ``names`` into a compact or fixed-size device buffer.
+
+        Unlike ``set_byte_ranges`` (which still allocates the whole data section
+        and leaves it sparsely filled), this allocates only
+        ``max_end - min_start`` by default, or ``allocation_size`` when set.
+        """
+        checked_ranges = validated_byte_ranges(self.metadata, byte_ranges)
+        assert checked_ranges is not None
+        self.byte_ranges = checked_ranges
+        self._chunk_names = names
+        self._chunk_allocation_size = validated_chunk_allocation_size(
+            checked_ranges, allocation_size
+        )
+
+    @classmethod
+    def chunk_transient_multiplier(cls, paths: List[str]) -> int:
+        """Per in-flight-chunk transient cost, as a multiple of chunk span: 1.
+
+        Reads land in the reader's fixed pool of host bounce buffers
+        (``bbuf_size_kb`` x ``max_threads``, sized independently of the chunk),
+        so the only device-side allocation that scales with a chunk is the
+        chunk buffer itself.
+        """
+        return 1
+
     def submit_io(
         self, use_buf_register: bool, max_copy_block_size: int
     ) -> fstcpp.gds_device_buffer:
         header_length = self.metadata.header_length
-        total_length = self.metadata.size_bytes - header_length
-        gbuf = self.framework.alloc_tensor_memory(total_length, self.device)
         # Default to a single run spanning the whole data section, which
         # reproduces the original full-file read.
         runs = self.byte_ranges
         if runs is None:
             runs = [(header_length, self.metadata.size_bytes)]
+        if self._chunk_names is not None:
+            # Compact chunk: allocate only the runs' span and map gbuf[0] to the
+            # first run's start, so peak memory tracks the chunk, not the shard.
+            base_off = min(s for s, _ in runs)
+            chunk_span = max(e for _, e in runs) - base_off
+            alloc_length = self._chunk_allocation_size or chunk_span
+        else:
+            base_off = header_length
+            alloc_length = self.metadata.size_bytes - header_length
+        self._base_off = base_off
+        gbuf = self.framework.alloc_tensor_memory(alloc_length, self.device)
         for start, end in runs:
             count = start
             while count < end:
                 l = end - count
                 if max_copy_block_size < l:
                     l = max_copy_block_size
-                req = self.reader.submit_read(
-                    self.fd, gbuf, count, l, count - header_length
-                )
+                req = self.reader.submit_read(self.fd, gbuf, count, l, count - base_off)
                 if req < 0:
                     raise Exception(f"submit_io: submit_nogds_read failed, err={req}")
                 self.reqs.append(req)
@@ -95,8 +140,8 @@ class NoGdsFileCopier(CopierInterface):
             self.fd = 0
         if len(failed) > 0:
             raise Exception(f"wait_io: wait_nogds_read failed, reqs={failed}")
-        return self.metadata.get_tensors(
-            gbuf, self.device, self.metadata.header_length, dtype=dtype
+        return self.metadata._get_tensors(
+            gbuf, self.device, self._base_off, dtype=dtype, names=self._chunk_names
         )
 
 
@@ -122,7 +167,7 @@ def load_library_func(framework=None):
     _loaded_library = True
 
 
-@register_copier_constructor("nogds")
+@register_copier_constructor("nogds", NoGdsFileCopier)
 def new_nogds_file_copier(
     device: Device,
     bbuf_size_kb: int = 16 * 1024,

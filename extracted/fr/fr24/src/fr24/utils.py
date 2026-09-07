@@ -5,6 +5,7 @@ import logging
 import re
 import sys
 import time
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,21 +15,19 @@ from typing import (
     Any,
     Callable,
     Generic,
-    Iterator,
     Literal,
     NamedTuple,
     Protocol,
-    Sequence,
     TypeVar,
     Union,
     overload,
-)
-
-from typing_extensions import (
-    assert_never,
-    dataclass_transform,
     runtime_checkable,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import assert_never, dataclass_transform
+else:
+    from typing_extensions import assert_never, dataclass_transform
 
 dataclass_opts: dict[str, bool] = {}
 if sys.version_info >= (3, 10):
@@ -37,10 +36,14 @@ if sys.version_info >= (3, 10):
 if TYPE_CHECKING:
     from typing import NoReturn
 
-    import httpx
     import polars as pl
-    from typing_extensions import TypeAlias
 
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias
+    else:
+        from typing_extensions import TypeAlias
+
+    from .clients import ResponseLike
     from .types import (
         IntFlightId,
         IntoFlightId,
@@ -166,9 +169,9 @@ def get_current_timestamp() -> TimestampS[int]:
 
 
 def parse_server_timestamp(
-    response: httpx.Response,
+    response: ResponseLike,
 ) -> TimestampS[int] | None:
-    server_date: str = response.headers.get("date")
+    server_date = response.headers.get("date")
     if server_date is not None:
         return int(email.utils.parsedate_to_datetime(server_date).timestamp())
     return None
@@ -289,9 +292,9 @@ def scan_table(
         file = format_bare_path(file, format)
 
     if format == "parquet":
-        return pl.scan_parquet(file, schema=schema)  # type: ignore[no-any-return]
+        return pl.scan_parquet(file, schema=schema)
     elif format == "csv":
-        return pl.scan_csv(file, schema=schema)  # type: ignore[no-any-return]
+        return pl.scan_csv(file, schema=schema)
     else:
         raise ValueError(f"unsupported format: `{format}`")
 

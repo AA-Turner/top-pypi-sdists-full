@@ -59,13 +59,11 @@ from trilogy.core.processing.nodes import (
     GroupNode,
     History,
     MergeNode,
-    MultiSelectMergeNode,
     SelectNode,
     StrategyNode,
     UnionNode,
     WindowNode,
 )
-from trilogy.core.processing.v4_node_generators import build_node
 from trilogy.utility import unique
 
 from .concept_graph import _relation_mates, _statement_scoped_relation_members
@@ -95,6 +93,7 @@ from .models import (
 from .projection import (
     concept_satisfiable,
     literal_producible,
+    output_rowset_base_keys,
     parent_output_addresses,
     renderable_addresses,
     row_lineage_arguments,
@@ -637,6 +636,10 @@ def _parent_nodes_for(
     multi-parent ambiguity for non-merge generators: no JOIN gets
     emitted and the SQL renderer references the dropped parent by name,
     yielding a binder error."""
+    # Imported here: `v4_node_generators` imports this package for its
+    # condition helpers, so a module-level import is a cycle.
+    from trilogy.core.processing.v4_node_generators import build_node
+
     candidates: list[tuple[str, StrategyNode]] = []
     for pgid in group_graph.predecessors(gid):
         if pgid == FINAL_NODE_ID:
@@ -1347,9 +1350,7 @@ def _subtree_pinned_addresses(
         return set()
     seen.add(id(node))
     pinned = _equality_pinned_addresses(node.conditions)
-    if isinstance(node, MultiSelectMergeNode) or not isinstance(
-        node, (SelectNode, GroupNode, FilterNode, WindowNode, MergeNode)
-    ):
+    if not isinstance(node, (SelectNode, GroupNode, FilterNode, WindowNode, MergeNode)):
         return pinned
     if isinstance(node, MergeNode):
         extended: set[str] = set()
@@ -1691,6 +1692,28 @@ def _unprojected_expression_mates(
         if reached >= 2:
             mates |= candidates.keys()
     return mates
+
+
+def _rowset_base_join_keys(
+    mandatory_list: list[BuildConcept],
+    environment: BuildEnvironment,
+    node: StrategyNode,
+    feeders: list[StrategyNode],
+) -> frozenset[str]:
+    """Output rowset boundaries' base grain keys that BOTH the assembled
+    contributor and every feeder can render.
+
+    A FINAL-hosted gate keyed by such an address (see
+    `condition_placement.PlacementReason.FINAL_ROWSET_BASE_KEY`) pairs to the
+    boundary on it; without the widening the merge has no shared column and
+    cross-joins, which the keyless-join guard rejects."""
+    base_keys = output_rowset_base_keys(mandatory_list, environment)
+    if not base_keys:
+        return frozenset()
+    available = renderable_addresses(node)
+    for feeder in feeders:
+        available &= renderable_addresses(feeder)
+    return frozenset(base_keys & available)
 
 
 def _widen_merge_join_keys(
@@ -2134,6 +2157,7 @@ def _pre_merge_parents(
     needed: set[str] | None = None,
     group_graph: nx.DiGraph | None = None,
     built: dict[str, StrategyNode] | None = None,
+    force_join_type: JoinType | None = None,
 ) -> list[StrategyNode]:
     """Collapse a multi-parent set into a single MergeNode that auto-joins
     on shared output concepts. Non-merging generators (GroupNode for
@@ -2141,7 +2165,12 @@ def _pre_merge_parents(
     renderer pick one parent as base, so multi-parent without a merge
     yields `Referenced table "X" not found` binder errors when the SELECT
     references the dropped parent. Wrapping here keeps the generators
-    simple and the join logic in one place."""
+    simple and the join logic in one place.
+
+    `force_join_type` overrides join inference; a caller merging in a FILTER
+    scan (a WHERE-only root a constraint edge feeds this consumer) passes
+    INNER, since a filter may only remove rows and a preserving join would
+    re-admit the rows it rejects."""
     if len(parents) <= 1:
         return parents
     parents = _fold_constant_parents(parents, needed or set())
@@ -2170,8 +2199,38 @@ def _pre_merge_parents(
         output_concepts=all_outputs,
         environment=environment,
         parents=parents,
+        force_join_type=force_join_type,
     )
     return [merged]
+
+
+def _union_arm_parents(
+    parent_builds: list[ParentBuild],
+    attrs: dict[str, GroupAttrs],
+    environment: BuildEnvironment,
+    needed: set[str],
+    group_graph: nx.DiGraph,
+    built: dict[str, StrategyNode],
+) -> list[StrategyNode]:
+    """One parent per union arm. Arms stack, so parents merge only WITHIN an
+    arm scope (a key scan beside a constant feeding the same arm), never
+    across arms: two arms share no key and their join would be a cross
+    product. Arm scopes are the parent groups' labels (see `union_arms`)."""
+    by_arm: dict[str, list[StrategyNode]] = {}
+    for parent in parent_builds:
+        by_arm.setdefault(attrs[parent.group_id].label, []).append(parent.node)
+    arms: list[StrategyNode] = []
+    for arm_parents in by_arm.values():
+        arms.extend(
+            _pre_merge_parents(
+                arm_parents,
+                environment,
+                needed=needed,
+                group_graph=group_graph,
+                built=built,
+            )
+        )
+    return arms
 
 
 def _contains_shape_barrier(node: StrategyNode) -> bool:
@@ -3619,6 +3678,15 @@ def _assemble_final_node(
         # feeder) with the authored members each side can render: a leaf
         # scan picks up the mate it binds, the boundary its member handle.
         # Feeders with no relation stay hidden cross-join inputs.
+        # A gate keyed by a base grain key of an output rowset boundary pairs
+        # to the boundary on that key; widen both sides so the merge joins on
+        # it instead of cross-joining.
+        if arg_nodes:
+            base_keys = _rowset_base_join_keys(
+                mandatory_list, environment, node, arg_nodes
+            )
+            if base_keys:
+                _widen_merge_join_keys([node, *arg_nodes], environment, base_keys)
         if arg_nodes and environment.scoped_join_key_groups:
             relation_keys: set[str] = set()
             for feeder in arg_nodes:
@@ -4181,10 +4249,14 @@ def build_strategy_node(
     history: History,
     complete_partials: bool = True,
     staged_conditions: list[BuildWhereClause] | None = None,
+    depth: int = 0,
 ) -> StrategyNode | None:
     """Walk groups in topological order, dispatching each to its v4 generator
     with explicit parent nodes. Returns the most-downstream built node, or
-    None if nothing built."""
+    None if nothing built. `depth` is the nesting of this plan inside rowset
+    bodies, for trace indentation."""
+    from trilogy.core.processing.v4_node_generators import build_node  # cycle
+
     built: dict[str, StrategyNode] = {}
     condition_hosts: dict[str, StrategyNode] = {}
     ownership = attrs[FINAL_NODE_ID].extent_ownership or ExtentOwnership()
@@ -4211,7 +4283,9 @@ def build_strategy_node(
             # (a deferred WHERE's args exposed through a scoped relation).
             # `resolve_rowset` plans the rowset of the first handle it sees, so
             # order this group's OWN handles (its primary members) first so a
-            # foreign condition-arg handle can't hijack the boundary.
+            # foreign condition-arg handle can't hijack the boundary. Permanent:
+            # a body is a statement planned in its own scope, so the boundary
+            # can never take a foreign handle from a parent.
             primary = set(a.primary_members)
             select_addrs = (
                 *(addr for addr in select_addrs if addr in primary),
@@ -4322,15 +4396,29 @@ def build_strategy_node(
         )
         parent_group_ids = {parent.group_id for parent in parent_builds}
         join_key_addresses = _input_contract_join_keys(a, parent_group_ids)
-        parents = _apply_input_contracts(parent_builds, a, needed, environment)
-        parents = _pre_merge_parents(
-            parents,
-            environment,
-            join_key_addresses=join_key_addresses,
-            needed=needed,
-            group_graph=group_graph,
-            built=built,
-        )
+        if derivation == Derivation.UNION:
+            parents = _union_arm_parents(
+                parent_builds, attrs, environment, needed, group_graph, built
+            )
+        else:
+            # A WHERE-only root scan a constraint edge feeds into this consumer
+            # (see `_attach_condition_roots_to_rowset_consumers`) is a filter on
+            # the input rows: it may only remove them, so the merge is INNER.
+            filter_scan = any(
+                attrs[parent.group_id].derivation == Derivation.ROOT
+                and edge_kind(group_edges, parent.group_id, gid) == EdgeKind.CONSTRAINT
+                for parent in parent_builds
+            )
+            parents = _apply_input_contracts(parent_builds, a, needed, environment)
+            parents = _pre_merge_parents(
+                parents,
+                environment,
+                join_key_addresses=join_key_addresses,
+                needed=needed,
+                group_graph=group_graph,
+                built=built,
+                force_join_type=JoinType.INNER if filter_scan else None,
+            )
         # ROOT scans source columns from datasources directly, not from their
         # group-graph predecessors. A `constraint`-edge predecessor (e.g. a
         # d1 aggregate feeding a HAVING-style filter on this root) is real
@@ -4338,12 +4426,12 @@ def build_strategy_node(
         # supply the root's primary scan columns. Pruning by parent outputs
         # there would strip every requested column and the root would never
         # build. A ROWSET boundary likewise sources from its own
-        # recursively-planned inner select (`gen_rowset` ignores parents);
+        # recursively-planned inner select (`gen_rowset` consumes no parents,
+        # permanently: a body is a statement planned in its own scope);
         # pruning it by a constraint-edge sibling would drop any handle the
         # sibling happens not to pseudonym-cover.
         if derivation not in (
             Derivation.ROOT,
-            Derivation.UNION,
             Derivation.UNNEST,
             Derivation.ROWSET,
         ):
@@ -4491,6 +4579,7 @@ def build_strategy_node(
             history=history,
             g=g,
             staged_conditions=staged_conditions,
+            depth=depth,
         )
         logger.info(
             f"[v4] built {gid} derivation={derivation} "

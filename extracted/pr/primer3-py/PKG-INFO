@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: primer3-py
-Version: 2.3.0
+Version: 2.3.1
 Summary: Simple primer design and analysis
 Author-email: Ben Pruitt <bpruittvt@gmail.com>, Nick Conway <a.grinner@gmail.com>
-License: GPLv2
+License: GPL-2.0-or-later
 Project-URL: Homepage, https://github.com/libnano/primer3-py
 Project-URL: Documentation, http://libnano.github.io/primer3-py
 Classifier: Programming Language :: C
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
-Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
+Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -52,9 +52,9 @@ Routine oligo analysis is simple:
 ```python
 >>> import primer3
 >>> primer3.calc_tm('GTAAAACGACGGCCAGT')
-49.16808228911765
+54.695494691112515
 >>> primer3.calc_hairpin('CCCCCATCCGATCAGGGGG')
-ThermoResult(structure_found=True, tm=34.15, dg=337.09, dh=-36300.00, ds=-118.13)
+ThermoResult(structure_found=True, tm=66.75, dg=-3176.92, dh=-36300.00, ds=-106.80)
 ```
 
 ... and `fast` (**~1000X** faster than traditional subprocess wrappers):

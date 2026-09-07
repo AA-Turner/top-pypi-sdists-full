@@ -4,7 +4,7 @@ use jsonschema::{
     canonical::{CanonicalSchema, CanonicalView, Containment, Satisfiability},
     Draft, JsonType,
 };
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 #[path = "generation/mod.rs"]
 mod generation;
@@ -45,7 +45,7 @@ fn drawn_length(tc: &TestCase) -> u64 {
 }
 
 // Divisors spanning each arithmetic `multipleOf` compiles to: exact modulo, rational division, and
-// the spellings on either side of the precision where they part ways.
+// the forms on either side of the precision where they part ways.
 const DIVISORS: &[&str] = &[
     "1",
     "2",
@@ -94,7 +94,7 @@ fn draw_format(tc: &TestCase) -> &'static str {
     ]))
 }
 
-// Key patterns that overlap each other and the drawn key pool, so a shield and a name constraint
+// Key patterns that overlap each other and the drawn key pool, so an `additionalProperties` and a name constraint
 // can each hold what the other turns away.
 fn draw_key_pattern(tc: &TestCase) -> &'static str {
     tc.draw(gs::sampled_from(vec!["^a", "b$", "^x", "^[ab]$", "^a.*"]))
@@ -127,7 +127,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
             let (min, max) = ordered(small_int(tc), small_int(tc));
             json!({ "type": "integer", "minimum": min, "maximum": max })
         }
-        // Draft 6+ spells exclusivity as a number; Draft 4 as a boolean modifier. Each is meta-invalid
+        // Draft 6+ writes exclusivity as a number; Draft 4 as a boolean modifier. Each is meta-invalid
         // under the other dialect, where the drawn document is simply rejected before modeling.
         14 => json!({ "type": "integer", "exclusiveMinimum": small_int(tc) }),
         15 => json!({ "type": "integer", "exclusiveMaximum": small_int(tc) }),
@@ -181,7 +181,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
             json!({ "type": "object", "properties": { "a": { "type": "string", "format": "unknown-fmt" } } })
         }
         // Object-valued members collide with the property leaves above, where Draft 4 aliases the
-        // nested number spellings apart.
+        // nested number forms apart.
         39 => json!({ "enum": [{ "a": small_int(tc) }] }),
         40 => json!({ "const": { "a": tc.draw(arbitrary_scalar()) } }),
         41 => json!({ "type": "array", "items": { "type": draw_type(tc) } }),
@@ -212,7 +212,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
             "type": "object",
             "patternProperties": { "^a": { "type": "string", "format": "unknown-fmt" } }
         }),
-        // An `integer` draw declines the complement, so both negate outcomes stay exercised.
+        // An `integer` draw declines the negation, so both negate outcomes stay exercised.
         50 => json!({ "not": { "type": draw_type(tc) } }),
         51 => json!({ "not": { "enum": [false, true] } }),
         52 => json!({ "type": "array", "contains": { "type": draw_type(tc) } }),
@@ -235,7 +235,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
             { "const": small_int(tc) },
             { "enum": [small_int(tc), small_int(tc)] }
         ] }),
-        // `then` alone needs the condition's complement; `else` alone needs none of it.
+        // `then` alone needs the condition's negation; `else` alone needs none of it.
         60 => json!({ "if": { "type": draw_type(tc) }, "then": { "type": draw_type(tc) } }),
         61 => json!({ "if": { "type": draw_type(tc) }, "else": { "type": draw_type(tc) } }),
         62 => json!({
@@ -267,7 +267,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
             "required": ["a"],
             "additionalProperties": false
         }),
-        // Shields: unnamed keys answer to the schema, so these collide with every object leaf
+        // `additionalProperties`: unnamed keys answer to the schema, so these collide with every object leaf
         // above; the named entry exercises the crossing in intersect.
         70 => json!({ "type": "object", "additionalProperties": { "type": draw_type(tc) } }),
         71 => json!({
@@ -277,7 +277,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
         }),
         72 => json!({ "type": "string", "contentMediaType": "application/json" }),
         73 => json!({ "type": "string", "contentEncoding": "base64" }),
-        // Same object composes decode-then-check, which this leaf's independent facets cannot spell.
+        // Same object composes decode-then-check, which this leaf's independent facets cannot express.
         74 => json!({
             "type": "string",
             "contentMediaType": "application/json",
@@ -292,7 +292,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
         }
         77 => json!({ "type": "object", "unevaluatedProperties": { "type": draw_type(tc) } }),
         // A pattern matching finitely many keys names them, which frees the `additionalProperties`
-        // pairing the unbounded spellings above keep raw.
+        // pairing the unbounded forms above keep raw.
         78 => {
             json!({ "type": "object", "patternProperties": { "^a$": { "type": draw_type(tc) } }, "additionalProperties": { "type": draw_type(tc) } })
         }
@@ -322,8 +322,8 @@ fn draw_leaf(tc: &TestCase) -> Value {
         86 => {
             json!({ "type": "array", "allOf": [{ "items": [{ "type": draw_type(tc) }] }], "unevaluatedItems": { "type": draw_type(tc) } })
         }
-        // Positional elements: 2020-12 spells the tuple `prefixItems` and the drafts before it
-        // spell it as an array-form `items`, each meta-invalid where the other one is the spelling.
+        // Positional elements: 2020-12 names the tuple `prefixItems` and the drafts before it
+        // name it as an array-form `items`, each meta-invalid where the other one is the keyword.
         87 => json!({ "type": "array", "prefixItems": [{ "type": draw_type(tc) }] }),
         88 => {
             json!({ "type": "array", "items": [{ "type": draw_type(tc) }, { "type": draw_type(tc) }] })
@@ -331,7 +331,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
         89 => {
             json!({ "type": "array", "items": [{ "type": draw_type(tc) }], "additionalItems": false })
         }
-        // A tail past a tuple, which the complement has no branch for.
+        // A tail past a tuple, which the negation has no branch for.
         90 => {
             json!({ "type": "array", "prefixItems": [{ "type": draw_type(tc) }], "items": { "type": draw_type(tc) } })
         }
@@ -347,7 +347,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
             };
             json!({ "type": types })
         }
-        // A repeat demand: the dual of distinctness, which only a complement spells.
+        // A repeat demand: the dual of distinctness, which only a negation expresses.
         92 => json!({ "not": { "type": "array", "uniqueItems": true } }),
         93 => {
             json!({ "type": "array", "allOf": [{ "not": { "type": "array", "uniqueItems": true } }] })
@@ -396,7 +396,7 @@ fn draw_leaf(tc: &TestCase) -> Value {
             "maxLength": small_length(tc),
             "contentEncoding": "base64"
         }),
-        // An element schema written as a complement: under Draft 4 its negation takes a whole number
+        // An element schema written as a negation: under Draft 4 its negation takes a whole number
         // that its own `type: integer` reading of the same value refuses.
         104 => json!({ "type": "array", "items": { "not": { "type": draw_type(tc) } } }),
         // A one-element array member beside a demand on that element, which negating the element
@@ -424,6 +424,8 @@ fn draw_reference_uri(tc: &TestCase) -> &'static str {
         "#/$defs/recursive_target",
         "#/$defs/object_target",
         "#/$defs/array_target",
+        "#/$defs/conditional_target",
+        "#/$defs/scoped_target",
     ]))
 }
 
@@ -496,10 +498,10 @@ fn draw_ref_unevaluated_leaf(tc: &TestCase) -> Value {
 
 fn draw_schema_node(tc: &TestCase, depth: u32) -> Value {
     if depth == 0 || tc.draw(gs::booleans()) {
-        return if tc.draw(gs::integers::<u8>().min_value(0).max_value(7)) == 0 {
-            draw_reference_leaf(tc)
-        } else {
-            draw_leaf(tc)
+        return match tc.draw(gs::integers::<u8>().min_value(0).max_value(7)) {
+            0 => draw_reference_leaf(tc),
+            1 => draw_conditional_leaf(tc),
+            _ => draw_leaf(tc),
         };
     }
     let count = tc.draw(gs::integers::<usize>().min_value(1).max_value(2));
@@ -526,7 +528,19 @@ fn shared_defs() -> Value {
             "properties": { "a": { "$ref": "#/$defs/recursive_target" } }
         },
         "object_target": { "type": "object", "properties": { "z": { "type": "integer" } } },
-        "array_target": { "type": "array", "prefixItems": [{ "type": "integer" }] }
+        "array_target": { "type": "array", "prefixItems": [{ "type": "integer" }] },
+        "conditional_target": {
+            "if": { "properties": { "k": { "const": "a" } }, "required": ["k"] },
+            "then": { "properties": { "p": {} } },
+            "else": { "maxLength": 1 }
+        },
+        // Its own base: a copied `then` would resolve `#/$defs/inner` against the root.
+        "scoped_target": {
+            "$id": "https://example.com/scoped",
+            "$defs": { "inner": { "properties": { "p": { "type": "integer" } } } },
+            "if": { "required": ["k"] },
+            "then": { "$ref": "#/$defs/inner" }
+        }
     })
 }
 
@@ -707,6 +721,8 @@ fn canonical_form_preserves_validation(tc: TestCase) {
     // set that lost or gained a member shows.
     let mut named = Vec::new();
     named_values(&schema, &mut named);
+    named.push(draw_conditional_instance(&tc));
+    named.push(draw_conditional_instance(&tc));
     for instance in named.iter().chain(std::iter::once(&instance)) {
         assert_eq!(
             raw.is_valid(instance),
@@ -739,11 +755,11 @@ fn named_values(schema: &Value, into: &mut Vec<Value>) {
     }
 }
 
-// The complement of a complement accepts what the schema accepts. Taking it through the algebra
-// runs both steps: spelling the pair as nested `not` keywords cancels them before either one runs,
+// The negation of a negation accepts what the schema accepts. Taking it through the algebra
+// runs both steps: writing the pair as nested `not` keywords cancels them before either one runs,
 // leaving nothing to check.
 #[hegel::test(test_cases = 5_000)]
-fn negating_a_complement_restores_the_accepted_values(tc: TestCase) {
+fn negating_a_negation_restores_the_accepted_values(tc: TestCase) {
     let draft = draw_draft(&tc);
     let validate_formats = tc.draw(gs::booleans());
     let schema = draw_schema(&tc, 2);
@@ -755,10 +771,10 @@ fn negating_a_complement_restores_the_accepted_values(tc: TestCase) {
     else {
         return;
     };
-    let Ok(complement) = canonical.negate() else {
+    let Ok(negation) = canonical.negate() else {
         return;
     };
-    let Ok(restored) = complement.negate() else {
+    let Ok(restored) = negation.negate() else {
         return;
     };
     let build = |value: &Value| {
@@ -898,7 +914,7 @@ fn set_operations_answer_about_the_values_their_operands_accept(tc: TestCase) {
 }
 
 /// The laws every operand obeys with itself and with the two constants, checked on the form each
-/// operation hands back: these are exact whatever the operands are spelled like, so a spelling the
+/// operation hands back: these are exact however the operands are written, so a form the
 /// engine reads through must not change the answer.
 fn assert_set_algebra_laws(operands: &[(&CanonicalSchema, &Value)], draft: Draft) {
     let constant = |value: Value| {
@@ -939,10 +955,10 @@ fn assert_set_algebra_laws(operands: &[(&CanonicalSchema, &Value)], draft: Draft
                 "a schema does not cover itself\n  a = {source}"
             );
         }
-        // The same laws against the same values spelled as a pointer. Asked against the node
+        // The same laws against the same values written as a pointer. Asked against the node
         // itself, the wrapper's identity shortcuts answer before the algebra runs.
         // From what the operand emits: it can be a handle on one target of the document `source`
-        // spells, and the twin has to hold the operand's values.
+        // names, and the twin has to hold the operand's values.
         let Some(twin) = pointer_twin(&side.to_json_schema()) else {
             continue;
         };
@@ -1033,7 +1049,7 @@ fn edited_defs(tc: &TestCase, replacement: Value) -> Value {
 }
 
 /// A handle on the document, or on one of the targets it carries: an operand reached through
-/// `definition` spells a pointer of its own and reads the rest of its document through it, which is
+/// `definition` holds a pointer of its own and reads the rest of its document through it, which is
 /// what makes two versions of one document tell each other apart.
 fn draw_operand(
     tc: &TestCase,
@@ -1146,9 +1162,9 @@ fn set_operations_over_two_versions_of_one_document_answer_or_decline(tc: TestCa
     }
 }
 
-// A pool in normal form keeps no leaf a sibling of its own kind already holds: an intersection that
+// A group in normal form keeps no leaf a sibling of its own kind already holds: an intersection that
 // leaves the leaf untouched proves every value it admits lies in the sibling, so the fold that
-// drops it was left undone. Leaves of different kinds sit in different pools, which the union
+// drops it was left undone. Leaves of different kinds sit in different groups, which the union
 // assembles side by side without weighing one against the other.
 #[hegel::test(test_cases = 5_000)]
 fn a_union_keeps_no_leaf_a_sibling_of_its_kind_already_holds(tc: TestCase) {
@@ -1180,21 +1196,21 @@ fn a_union_keeps_no_leaf_a_sibling_of_its_kind_already_holds(tc: TestCase) {
             continue;
         };
         for branch in &branches {
-            let Some(pool) = leaf_pool(branch) else {
+            let Some(pool) = leaf_group(branch) else {
                 continue;
             };
             for sibling in &branches {
-                if leaf_pool(sibling) != Some(pool) || sibling == branch {
+                if leaf_group(sibling) != Some(pool) || sibling == branch {
                     continue;
                 }
-                // One divisor standing for another is decided by the arithmetic their spellings
-                // share, which is a wider question than the facets a pool weighs.
+                // One divisor standing for another is decided by the arithmetic their texts
+                // share, which is a wider question than the facets a group weighs.
                 if divisors(branch) != divisors(sibling) {
                     continue;
                 }
                 // Minimization drops what a sibling absorbs, which is what intersecting the two
                 // back into the branch says. Coverage the difference decides - the empty string
-                // failing a media type, say - is a wider question than the facets a pool weighs.
+                // failing a media type, say - is a wider question than the facets a group weighs.
                 assert!(
                     !matches!(sibling.intersect(branch), Ok(shared) if &shared == branch),
                     "schema = {schema}\n  branch = {}\n  sibling = {}",
@@ -1215,9 +1231,9 @@ fn divisors(schema: &CanonicalSchema) -> (Vec<serde_json::Number>, Vec<serde_jso
     }
 }
 
-/// The pool a union collects this branch into, or `None` for a leaf whose pool weighs nested
+/// The group a union collects this branch into, or `None` for a leaf whose group weighs nested
 /// schemas rather than facets alone - the algebra compares a nested schema only against itself.
-fn leaf_pool(schema: &CanonicalSchema) -> Option<JsonType> {
+fn leaf_group(schema: &CanonicalSchema) -> Option<JsonType> {
     match schema.view() {
         CanonicalView::String(_) => Some(JsonType::String),
         CanonicalView::Integer(_) => Some(JsonType::Integer),
@@ -1278,7 +1294,7 @@ fn collect_nodes(schema: &CanonicalSchema, into: &mut Vec<CanonicalSchema>) {
 }
 
 // A value set intersected with an integer bound preserves validation on its own members and their
-// float spellings - the interaction that a dropped Draft 4 integer guard makes unsound.
+// float forms - the interaction that a dropped Draft 4 integer guard makes unsound.
 #[hegel::test(test_cases = 5_000)]
 fn integer_value_set_intersection_preserves_validation(tc: TestCase) {
     let draft = draw_draft(&tc);
@@ -1291,7 +1307,7 @@ fn integer_value_set_intersection_preserves_validation(tc: TestCase) {
             { "type": "integer", "minimum": min, "maximum": max },
         ]
     });
-    // An instance drawn from the members, spelled as an integer or as an integer-valued float.
+    // An instance drawn from the members, written as an integer or as an integer-valued float.
     let chosen = members[tc.draw(gs::integers::<usize>().min_value(0).max_value(count - 1))];
     let instance = if tc.draw(gs::booleans()) {
         json!(chosen)
@@ -1309,7 +1325,7 @@ fn integer_value_set_intersection_preserves_validation(tc: TestCase) {
 }
 
 // An object value set beside per-property schemas preserves validation on its members and the
-// float spellings of their numbers - the interaction a dropped Draft 4 guard makes unsound.
+// float forms of their numbers - the interaction a dropped Draft 4 guard makes unsound.
 #[hegel::test(test_cases = 5_000)]
 fn object_member_intersection_preserves_validation(tc: TestCase) {
     let draft = draw_draft(&tc);
@@ -1324,7 +1340,7 @@ fn object_member_intersection_preserves_validation(tc: TestCase) {
     } else {
         json!({ "anyOf": branches })
     };
-    // The member itself, spelled with the integer or its float alias.
+    // The member itself, written with the integer or its float alias.
     let instance = if tc.draw(gs::booleans()) {
         json!({ "a": chosen })
     } else {
@@ -1359,7 +1375,7 @@ fn canonicalize_never_panics(tc: TestCase) {
 }
 
 // Divisors combined under `allOf`/`anyOf` keep validation, including on the integers where the
-// arithmetic the validator picks per spelling starts to disagree with exact rationals.
+// arithmetic the validator picks per written form starts to disagree with exact rationals.
 #[hegel::test(test_cases = 5_000)]
 fn divisor_algebra_preserves_validation(tc: TestCase) {
     let draft = draw_draft(&tc);
@@ -1460,7 +1476,7 @@ fn rewrite_schema(tc: &TestCase, schema: &Value) -> Value {
     let (schema, definitions) = split_root_definitions(schema);
     let rewritten = match tc.draw(gs::integers::<u8>().min_value(0).max_value(5)) {
         0 => json!({ "allOf": [schema] }),
-        // The empty conjunct says nothing; unlike `true` it is meta-valid in every draft.
+        // The empty `allOf` branch says nothing; unlike `true` it is meta-valid in every draft.
         1 => json!({ "allOf": [schema, {}] }),
         // A union does not change when one branch appears twice.
         2 => match schema.get("anyOf").and_then(Value::as_array) {
@@ -1491,7 +1507,7 @@ fn rewrite_schema(tc: &TestCase, schema: &Value) -> Value {
             _ => json!({ "anyOf": [schema] }),
         },
         5 => split_keywords(&schema).unwrap_or_else(|| json!({ "allOf": [schema] })),
-        // A lone `type: [a, b]` admits the same values as the union of its single-type spellings.
+        // A lone `type: [a, b]` admits the same values as the union of its single-type forms.
         _ => match (
             schema.as_object(),
             schema.get("type").and_then(Value::as_array),
@@ -1562,10 +1578,10 @@ fn equality_preserving_rewrites_converge(tc: TestCase) {
     );
 }
 
-// The canonical complement rejects exactly what the schema accepts; the runtime validator is the
+// The canonical negation rejects exactly what the schema accepts; the runtime validator is the
 // independent ground truth. A raw result round-trips the document verbatim and carries no claim.
 #[hegel::test(test_cases = 5_000)]
-fn negation_complements_the_validator_verdict(tc: TestCase) {
+fn negation_negations_the_validator_verdict(tc: TestCase) {
     let draft = draw_draft(&tc);
     let validate_formats = tc.draw(gs::booleans());
     let schema = draw_schema(&tc, 2);
@@ -1600,7 +1616,7 @@ fn negation_complements_the_validator_verdict(tc: TestCase) {
     assert_eq!(
         raw.is_valid(&instance),
         !canonical.is_valid(&instance),
-        "schema = {schema}\n  complement = {emitted}\n  instance = {instance}"
+        "schema = {schema}\n  negation = {emitted}\n  instance = {instance}"
     );
 }
 
@@ -1744,8 +1760,8 @@ fn definition_body(link: Link, next: &str, second: &str) -> Value {
 ///
 /// Every target lands on the root or a definition, so the whole document is closed under the
 /// reference edges and `links` alone decides what the ring carries. [`WELL_FOUNDED_LINKS`] is the
-/// set the validator can serve as an oracle for: its own recursion guard is spelling-sensitive on
-/// an ill-founded cycle - reordering two `oneOf` branches flips its verdict with no
+/// set the validator can serve as a reference for: on an ill-founded cycle its own recursion guard
+/// depends on how the schema is written - reordering two `oneOf` branches flips its verdict with no
 /// canonicalization involved.
 #[hegel::composite]
 fn definition_graph(tc: &TestCase, links: &'static [Link]) -> Value {
@@ -1856,7 +1872,7 @@ fn a_demanding_reference_ring_admits_nothing(tc: TestCase) {
 }
 
 // A ring of bare references asserts nothing anywhere, so every value walks it forever without ever
-// meeting a constraint that could reject it. Its canonical form is `true`.
+// hitting a constraint that could reject it. Its canonical form is `true`.
 #[hegel::test(test_cases = 5_000)]
 fn a_bare_reference_ring_admits_everything(tc: TestCase) {
     let schema = tc.draw(definition_graph(BARE_LINKS));
@@ -1883,7 +1899,7 @@ fn recursive_reference_form_is_idempotent(tc: TestCase) {
 
 // Composed expressions answer about the values their operands accept, whatever the grouping: an
 // intermediate result re-enters the algebra as an operand, where a dispatch written per ordered
-// pair must not let the association or the spelling decide the answer.
+// pair must not let the association or the written form decide the answer.
 #[hegel::test(test_cases = 5_000)]
 fn composed_set_operations_answer_about_the_values_their_operands_accept(tc: TestCase) {
     let draft = draw_draft(&tc);
@@ -2098,7 +2114,7 @@ fn set_operations_agree_with_their_operands_over_a_pool(tc: TestCase) {
                 assert_eq!(
                     !*in_left,
                     validator.is_valid(instance),
-                    "the complement disagrees\n  left = {left_source}\n  complement = {emitted}\n  instance = {instance}"
+                    "the negation disagrees\n  left = {left_source}\n  negation = {emitted}\n  instance = {instance}"
                 );
             }
         }
@@ -2393,9 +2409,9 @@ fn metaschema_drawn_schemas_compile(tc: TestCase) {
         emitted,
         "not idempotent for {schema}"
     );
-    if let Ok(meet) = canonical.intersect(&canonical) {
+    if let Ok(intersection) = canonical.intersect(&canonical) {
         assert_eq!(
-            meet.to_json_schema(),
+            intersection.to_json_schema(),
             emitted,
             "self-intersection changed the form of {schema}"
         );
@@ -2597,7 +2613,7 @@ fn validation_modes_agree_on_drawn_instances(tc: TestCase) {
 
 // Draws from an algebra result land in the operand combination it names, and operand draws land
 // in the result exactly when the combination admits them - both directions over values the fixed
-// pools never reach.
+// groups never reach.
 #[hegel::test(test_cases = 3_000)]
 fn algebra_results_agree_with_drawn_instances(tc: TestCase) {
     let draft = draw_draft(&tc);
@@ -2680,4 +2696,345 @@ fn drawn_instances_decline_foreign_patterns(tc: TestCase) {
         .build(&canonical.to_json_schema())
         .expect("the canonical form compiles");
     let _ = draw_valid_instance(&tc, &canonical, &modeled);
+}
+
+// Instances draw from the keys the conditional schemas name.
+const CONDITIONAL_KEYS: [&str; 4] = ["k", "p", "q", "x"];
+
+fn draw_condition_constant(tc: &TestCase) -> Value {
+    tc.draw(gs::sampled_from(vec![
+        json!("a"),
+        json!("b"),
+        json!(null),
+        json!(true),
+        json!(1),
+        json!(1.0),
+    ]))
+}
+
+fn draw_condition(tc: &TestCase, key: &str) -> Value {
+    match tc.draw(gs::integers::<u8>().min_value(0).max_value(3)) {
+        0 => json!({ "required": [key] }),
+        1 => json!({
+            "properties": { key: { "const": draw_condition_constant(tc) } },
+            "required": [key]
+        }),
+        2 => json!({
+            "type": "object",
+            "properties": { key: { "const": draw_condition_constant(tc) } },
+            "required": [key]
+        }),
+        _ => json!({
+            "properties": { key: { "const": draw_condition_constant(tc) }, "x": {} },
+            "required": [key]
+        }),
+    }
+}
+
+fn draw_conditional_body(tc: &TestCase, depth: u32) -> Value {
+    match tc.draw(gs::integers::<u8>().min_value(0).max_value(6)) {
+        0 => json!({}),
+        1 => json!({ "properties": { "p": {} } }),
+        2 => json!({ "properties": { "p": { "type": "integer" } }, "required": ["p"] }),
+        3 => json!({ "maxLength": 1 }),
+        4 => json!({ "minItems": 1 }),
+        5 => json!({ "$ref": "#/$defs/object_target" }),
+        _ if depth > 0 => Value::Object(draw_conditional(tc, depth - 1)),
+        _ => json!({ "properties": { "q": {} } }),
+    }
+}
+
+fn draw_conditional(tc: &TestCase, depth: u32) -> Map<String, Value> {
+    let key = tc.draw(gs::sampled_from(vec!["k", "x"]));
+    let mut node = Map::new();
+    if tc.draw(gs::booleans()) {
+        node.insert(
+            "dependentSchemas".into(),
+            json!({ key: draw_conditional_body(tc, depth) }),
+        );
+        return node;
+    }
+    node.insert("if".into(), draw_condition(tc, key));
+    if tc.draw(gs::booleans()) {
+        node.insert("then".into(), draw_conditional_body(tc, depth));
+    }
+    if tc.draw(gs::booleans()) {
+        node.insert("else".into(), draw_conditional_body(tc, depth));
+    }
+    node
+}
+
+/// An `unevaluated*` node with conditionals wherever the split has to find them.
+fn draw_conditional_leaf(tc: &TestCase) -> Value {
+    let mut node = Map::new();
+    let mut branches = Vec::new();
+    let count = tc.draw(gs::integers::<u8>().min_value(1).max_value(3));
+    for index in 0..count {
+        match tc.draw(gs::integers::<u8>().min_value(0).max_value(5)) {
+            0 if !node.contains_key("if") && !node.contains_key("dependentSchemas") => {
+                node.extend(draw_conditional(tc, 1));
+            }
+            0 | 1 => branches.push(Value::Object(draw_conditional(tc, 1))),
+            2 => {
+                // Self-contained, so its references resolve; the copies could not.
+                let mut branch = draw_conditional(tc, 1);
+                branch.insert(
+                    "$id".into(),
+                    json!(format!("https://example.com/branch{index}")),
+                );
+                branch.insert(
+                    "$defs".into(),
+                    json!({ "object_target": shared_defs()["object_target"] }),
+                );
+                branches.push(Value::Object(branch));
+            }
+            3 => branches.push(json!({ "$ref": "#/$defs/conditional_target" })),
+            4 => branches.push(json!({ "$ref": "#/$defs/scoped_target" })),
+            _ => branches.push(json!({ "allOf": [Value::Object(draw_conditional(tc, 1))] })),
+        }
+    }
+    if tc.draw(gs::booleans()) {
+        branches.push(json!({ "properties": { "q": {} } }));
+    }
+    if !branches.is_empty() {
+        node.insert("allOf".into(), Value::Array(branches));
+    }
+    if tc.draw(gs::booleans()) {
+        node.insert("type".into(), json!("object"));
+    }
+    let keyword = if tc.draw(gs::integers::<u8>().min_value(0).max_value(4)) == 0 {
+        "unevaluatedItems"
+    } else {
+        "unevaluatedProperties"
+    };
+    node.insert(keyword.into(), json!(false));
+    Value::Object(node)
+}
+
+fn draw_conditional_schema(tc: &TestCase) -> Value {
+    attach_root_definitions(draw_conditional_leaf(tc), Some(shared_defs()))
+}
+
+fn draw_conditional_instance(tc: &TestCase) -> Value {
+    match tc.draw(gs::integers::<u8>().min_value(0).max_value(7)) {
+        0 => json!(null),
+        1 => json!(true),
+        2 => json!(1.5),
+        3 => tc.draw(gs::sampled_from(vec![json!(""), json!("a"), json!("abc")])),
+        4 => tc.draw(gs::sampled_from(vec![json!([]), json!([1]), json!([1, 2])])),
+        _ => {
+            let mut object = Map::new();
+            for key in CONDITIONAL_KEYS {
+                if tc.draw(gs::booleans()) {
+                    let value = tc.draw(gs::sampled_from(vec![
+                        json!("a"),
+                        json!("b"),
+                        json!("c"),
+                        json!(null),
+                        json!(true),
+                        json!(1),
+                        json!(1.0),
+                        json!(2),
+                    ]));
+                    object.insert(key.into(), value);
+                }
+            }
+            if tc.draw(gs::booleans()) {
+                object.insert("z".into(), json!(1));
+            }
+            Value::Object(object)
+        }
+    }
+}
+
+fn draw_unevaluated_draft(tc: &TestCase) -> Draft {
+    tc.draw(gs::sampled_from(vec![
+        Draft::Draft201909,
+        Draft::Draft202012,
+    ]))
+}
+
+fn canonicalize_or_panic(schema: &Value, draft: Draft) -> CanonicalSchema {
+    jsonschema::canonical::options()
+        .with_draft(draft)
+        .canonicalize(schema)
+        .unwrap_or_else(|error| panic!("canonicalize failed: {error}\n  schema = {schema}"))
+}
+
+// Every generated document is valid, so canonicalization answers, agrees with the document on
+// the values its cases turn on, and is idempotent.
+#[hegel::test(test_cases = 5_000)]
+fn conditionals_beside_unevaluated_canonicalize_and_agree(tc: TestCase) {
+    let draft = draw_unevaluated_draft(&tc);
+    let schema = draw_conditional_schema(&tc);
+    let emitted = canonicalize_or_panic(&schema, draft).to_json_schema();
+    let again = canonicalize_or_panic(&emitted, draft).to_json_schema();
+    assert_eq!(emitted, again, "schema = {schema}");
+    let build = |value: &Value| {
+        jsonschema::options()
+            .with_draft(draft)
+            .build(value)
+            .unwrap_or_else(|error| panic!("build failed: {error}\n  schema = {value}"))
+    };
+    let raw = build(&schema);
+    let modeled = build(&emitted);
+    let mut instances = Vec::new();
+    named_values(&schema, &mut instances);
+    for _ in 0..8 {
+        instances.push(draw_conditional_instance(&tc));
+    }
+    for instance in &instances {
+        assert_eq!(
+            raw.is_valid(instance),
+            modeled.is_valid(instance),
+            "{schema} vs {emitted} on {instance}"
+        );
+    }
+}
+
+/// Every `{"const": c}` as `{"enum": [c]}`: the same values, no condition left pinning a key.
+fn const_as_enum(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => {
+            if map.len() == 1 {
+                if let Some(constant) = map.get("const") {
+                    return json!({ "enum": [constant.clone()] });
+                }
+            }
+            Value::Object(
+                map.iter()
+                    .map(|(key, entry)| (key.clone(), const_as_enum(entry)))
+                    .collect(),
+            )
+        }
+        Value::Array(items) => Value::Array(items.iter().map(const_as_enum).collect()),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => value.clone(),
+    }
+}
+
+// The group cases and the plain forks are both exact, so the forms agree wherever both fit the
+// budget.
+#[hegel::test(test_cases = 5_000)]
+fn exclusive_groups_converge_with_the_plain_forks(tc: TestCase) {
+    let draft = draw_unevaluated_draft(&tc);
+    let schema = draw_conditional_schema(&tc);
+    let forked = const_as_enum(&schema);
+    let grouped = canonicalize_or_panic(&schema, draft);
+    let plain = canonicalize_or_panic(&forked, draft);
+    let raw = jsonschema::canonical::CanonicalKind::Raw;
+    if grouped.kind() == raw || plain.kind() == raw {
+        return;
+    }
+    assert_eq!(
+        grouped.to_json_schema(),
+        plain.to_json_schema(),
+        "schema = {schema}"
+    );
+}
+
+/// A body declaring no key and no index, so it reaches nothing a node does not already.
+fn draw_neutral_body(tc: &TestCase) -> Value {
+    tc.draw(gs::sampled_from(vec![
+        json!({}),
+        json!({ "maxLength": 1 }),
+        json!({ "minItems": 1 }),
+        json!({ "maxProperties": 4 }),
+        json!({ "required": ["k"] }),
+    ]))
+}
+
+/// A conditional whose condition and every body reach only keys the node declares.
+fn draw_neutral_conditional(tc: &TestCase) -> Value {
+    let key = tc.draw(gs::sampled_from(vec!["k", "p", "q"]));
+    if tc.draw(gs::booleans()) {
+        return json!({ "dependentSchemas": { key: draw_neutral_body(tc) } });
+    }
+    let condition = if tc.draw(gs::booleans()) {
+        json!({ "required": [key] })
+    } else {
+        json!({ "properties": { key: { "const": "a" } }, "required": [key] })
+    };
+    json!({ "if": condition, "then": draw_neutral_body(tc), "else": draw_neutral_body(tc) })
+}
+
+// One reaching nothing the node does not already evaluate keeps no case, so a document built only
+// from those canonicalizes wherever they sit - on the node, in a branch, or behind a reference.
+#[hegel::test(test_cases = 5_000)]
+fn neutral_conditionals_never_keep_the_document_raw(tc: TestCase) {
+    let mut node = Map::new();
+    node.insert("type".into(), json!("object"));
+    node.insert("properties".into(), json!({ "k": {}, "p": {}, "q": {} }));
+    let mut branches = Vec::new();
+    for _ in 0..tc.draw(gs::integers::<u8>().min_value(1).max_value(3)) {
+        match tc.draw(gs::integers::<u8>().min_value(0).max_value(2)) {
+            0 if !node.contains_key("if") && !node.contains_key("dependentSchemas") => {
+                if let Value::Object(conditional) = draw_neutral_conditional(&tc) {
+                    node.extend(conditional);
+                }
+            }
+            1 => branches.push(json!({ "$ref": "#/$defs/neutral" })),
+            _ => branches.push(draw_neutral_conditional(&tc)),
+        }
+    }
+    if !branches.is_empty() {
+        node.insert("allOf".into(), Value::Array(branches));
+    }
+    let keyword = if tc.draw(gs::integers::<u8>().min_value(0).max_value(4)) == 0 {
+        "unevaluatedItems"
+    } else {
+        "unevaluatedProperties"
+    };
+    node.insert(keyword.into(), json!(false));
+    node.insert(
+        "$defs".into(),
+        json!({ "neutral": { "if": { "required": ["k"] }, "then": { "maxProperties": 4 } } }),
+    );
+    let schema = Value::Object(node);
+    let canonical = canonicalize_or_panic(&schema, Draft::Draft202012);
+    assert_ne!(
+        canonical.kind(),
+        jsonschema::canonical::CanonicalKind::Raw,
+        "schema = {schema}"
+    );
+    let build = |value: &Value| {
+        jsonschema::options()
+            .with_draft(Draft::Draft202012)
+            .build(value)
+            .unwrap_or_else(|error| panic!("build failed: {error}\n  schema = {value}"))
+    };
+    let emitted = canonical.to_json_schema();
+    let (raw, modeled) = (build(&schema), build(&emitted));
+    let mut instances = vec![tc.draw(arbitrary_instance())];
+    for _ in 0..6 {
+        instances.push(draw_conditional_instance(&tc));
+    }
+    for instance in &instances {
+        assert_eq!(
+            raw.is_valid(instance),
+            modeled.is_valid(instance),
+            "{schema} vs {emitted} on {instance}"
+        );
+    }
+}
+
+// Two-way forks double the cases: eight conditions on distinct keys outgrow the per-node budget.
+// Each `then` names a key of its own, so every one of them keeps its case.
+#[hegel::test(test_cases = 200)]
+fn conditions_past_the_case_budget_stay_raw(tc: TestCase) {
+    let count = tc.draw(gs::integers::<u32>().min_value(1).max_value(10));
+    let branches: Vec<Value> = (0..count)
+        .map(|index| {
+            let key = format!("k{index}");
+            let property = format!("p{index}");
+            json!({ "if": { "required": [key] }, "then": { "properties": { property: {} } } })
+        })
+        .collect();
+    let schema = json!({ "type": "object", "allOf": branches, "unevaluatedProperties": false });
+    let canonical = canonicalize_or_panic(&schema, Draft::Draft202012);
+    let past_budget = 2u64.pow(count) > 128;
+    assert_eq!(
+        canonical.kind() == jsonschema::canonical::CanonicalKind::Raw,
+        past_budget,
+        "count = {count}"
+    );
 }

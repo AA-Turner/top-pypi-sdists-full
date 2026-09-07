@@ -146,6 +146,22 @@ class ApplicationPage:
         return f"<{self.application.name}({self.application.pid}) TYPE:{self.page.type_.value} URL:{self.page.web_url}>"
 
 
+@dataclass(frozen=True)
+class AutomaticInspectionCandidate:
+    """A debuggable an application just created and is holding, waiting for a debugger.
+
+    Offered by `webinspectord` (as `_rpc_reportAutomaticInspectionCandidate:`) to every connection
+    that enabled automatic inspection, one connection at a time. The application blocks the thread
+    creating the debuggable until the candidate is either accepted - a socket setup for the page,
+    followed by the frontend's `Inspector.initialized` - or rejected, and gives up on its own
+    after ten seconds. WebKit only offers JSContexts and service workers; web pages never block.
+    """
+
+    app_id: str
+    page_id: int
+    session_id: str
+
+
 class WebinspectorService(LockdownService):
     """Client for the `com.apple.webinspector` service (`webinspectord`).
 
@@ -178,8 +194,14 @@ class WebinspectorService(LockdownService):
             "_rpc_applicationConnected:": self._handle_application_connected,
             "_rpc_applicationSentData:": self._handle_application_sent_data,
             "_rpc_applicationDisconnected:": self._handle_application_disconnected,
+            "_rpc_reportAutomaticInspectionCandidate:": self._handle_report_automatic_inspection_candidate,
         }
         self._recv_task: Optional[asyncio.Task[None]] = None
+        # Queues handed out by subscribe_*: the receive task publishes into them without waiting,
+        # so a subscriber that reacts by talking to the device (whose answers arrive through this
+        # same receive task) never deadlocks it.
+        self._candidate_subscribers: list[asyncio.Queue[AutomaticInspectionCandidate]] = []
+        self._listing_subscribers: list[asyncio.Queue[str]] = []
 
     async def connect(self) -> None:
         """Establish the WebInspector session and start the background receive task.
@@ -368,14 +390,81 @@ class WebinspectorService(LockdownService):
         """
         await self._forward_socket_data(session_id, app_id, page_id, data)
 
-    async def setup_inspector_socket(self, session_id: str, app_id: str, page_id: int):
-        """Set up a forwarding socket for an inspector session without auto-pausing the target.
+    async def setup_inspector_socket(
+        self, session_id: str, app_id: str, page_id: int, automatically_pause: bool = False
+    ) -> None:
+        """Set up a forwarding socket for an inspector session.
 
         :param session_id: The session identifier to associate with the socket.
         :param app_id: The target application identifier.
         :param page_id: The target page identifier.
+        :param automatically_pause: Ask WebKit to pause the debuggable on its next statement once
+            the frontend reports itself initialized (`Inspector.initialized`) - Safari's
+            "Automatically Pause Connecting to JSContexts". Honoured by JSContexts, service
+            workers and legacy WebViews; a WKWebView's page ignores it.
         """
-        await self._forward_socket_setup(session_id, app_id, page_id, pause=False)
+        await self._forward_socket_setup(session_id, app_id, page_id, automatically_pause=automatically_pause)
+
+    async def set_automatic_inspection_enabled(self, enabled: bool) -> None:
+        """Ask `webinspectord` to offer this connection every debuggable an application creates,
+        before the application gets to run it (see `AutomaticInspectionCandidate`).
+
+        While any connection has this enabled, every application holds each new JSContext until
+        the candidate is answered; subscribe with `subscribe_automatic_inspection` first, and
+        switch it off again when done.
+
+        :param enabled: Whether to receive candidates.
+        """
+        await self._send_message(
+            "_rpc_forwardAutomaticInspectionConfiguration:", {"WIRAutomaticInspectionEnabledKey": enabled}
+        )
+
+    def subscribe_automatic_inspection(self) -> "asyncio.Queue[AutomaticInspectionCandidate]":
+        """Receive automatic-inspection candidates as they are offered.
+
+        A candidate is accepted by setting up an inspector socket for its page and completing the
+        frontend handshake, or declined with `reject_automatic_inspection`. Candidates offered while
+        nobody is subscribed are declined on the spot, so applications never wait on this client.
+
+        :returns: A queue the candidates are published into; hand it back to
+            `unsubscribe_automatic_inspection` when done.
+        """
+        queue: asyncio.Queue[AutomaticInspectionCandidate] = asyncio.Queue()
+        self._candidate_subscribers.append(queue)
+        return queue
+
+    def unsubscribe_automatic_inspection(self, queue: "asyncio.Queue[AutomaticInspectionCandidate]") -> None:
+        with contextlib.suppress(ValueError):
+            self._candidate_subscribers.remove(queue)
+
+    async def reject_automatic_inspection(self, candidate: AutomaticInspectionCandidate) -> None:
+        """Decline a candidate, letting the application resume (or be offered to the next debugger).
+
+        :param candidate: The candidate as published by `subscribe_automatic_inspection`.
+        """
+        await self._send_message(
+            "_rpc_forwardAutomaticInspectionRejection:",
+            {
+                "WIRApplicationIdentifierKey": candidate.app_id,
+                "WIRPageIdentifierKey": candidate.page_id,
+                "WIRAutomaticInspectionSessionIdentifierKey": candidate.session_id,
+            },
+        )
+
+    def subscribe_listings(self) -> "asyncio.Queue[str]":
+        """Be told whenever an application's page listing arrives - `webinspectord` relays one on
+        its own the moment a page opens, closes or navigates.
+
+        :returns: A queue the identifier of the application whose listing changed is published
+            into; hand it back to `unsubscribe_listings` when done.
+        """
+        queue: asyncio.Queue[str] = asyncio.Queue()
+        self._listing_subscribers.append(queue)
+        return queue
+
+    def unsubscribe_listings(self, queue: "asyncio.Queue[str]") -> None:
+        with contextlib.suppress(ValueError):
+            self._listing_subscribers.remove(queue)
 
     async def teardown_inspector_socket(self, session_id: str, app_id: str, page_id: int):
         """Tear down a forwarding socket previously set up for an inspector session.
@@ -462,6 +551,21 @@ class WebinspectorService(LockdownService):
             else:
                 pages[id_] = Page.from_page_dictionary(page)
         self.application_pages[app_id] = pages
+        for queue in self._listing_subscribers:
+            queue.put_nowait(app_id)
+
+    async def _handle_report_automatic_inspection_candidate(self, arg: dict[str, Any]) -> None:
+        candidate = AutomaticInspectionCandidate(
+            arg["WIRApplicationIdentifierKey"],
+            arg["WIRPageIdentifierKey"],
+            arg["WIRAutomaticInspectionSessionIdentifierKey"],
+        )
+        if not self._candidate_subscribers:
+            # Nobody to take it: decline now rather than let the application wait out its timeout.
+            await self.reject_automatic_inspection(candidate)
+            return
+        for queue in self._candidate_subscribers:
+            queue.put_nowait(candidate)
 
     async def _handle_application_updated(self, arg: dict[str, Any]):
         app = Application.from_application_dictionary(arg)
@@ -509,16 +613,20 @@ class WebinspectorService(LockdownService):
             },
         )
 
-    async def _forward_socket_setup(self, session_id: str, app_id: str, page_id: int, pause: bool = True):
-        message: dict[str, Any] = {
-            "WIRApplicationIdentifierKey": app_id,
-            "WIRPageIdentifierKey": page_id,
-            "WIRSenderKey": session_id,
-            "WIRMessageDataTypeChunkSupportedKey": 0,
-        }
-        if not pause:
-            message["WIRAutomaticallyPause"] = False
-        await self._send_message("_rpc_forwardSocketSetup:", message)
+    async def _forward_socket_setup(
+        self, session_id: str, app_id: str, page_id: int, automatically_pause: bool = False
+    ) -> None:
+        await self._send_message(
+            "_rpc_forwardSocketSetup:",
+            {
+                "WIRApplicationIdentifierKey": app_id,
+                "WIRPageIdentifierKey": page_id,
+                "WIRSenderKey": session_id,
+                "WIRMessageDataTypeChunkSupportedKey": 0,
+                # Read by inspection targets only; an automation target's setup ignores it.
+                "WIRAutomaticallyPause": automatically_pause,
+            },
+        )
 
     async def _forward_socket_data(self, session_id: str, app_id: str, page_id: int, data: dict[str, Any]):
         await self._send_message(

@@ -157,7 +157,7 @@ def list_structure_factory(type: type, converter: BaseConverter) -> StructureHoo
 def homogenous_tuple_structure_factory(
     type: type, converter: BaseConverter
 ) -> StructureHook:
-    """A hook factory for homogenous (all elements the same, indeterminate length) tuples.
+    """A hook factory for homogeneous (all elements the same, indeterminate length) tuples.
 
     Converts any given iterable into a tuple.
     """
@@ -178,7 +178,6 @@ def homogenous_tuple_structure_factory(
         handler = converter.structure
 
     if converter.detailed_validation:
-
         # We have to structure into a list first anyway.
         list_structure = list_structure_factory(type, converter)
 
@@ -218,7 +217,7 @@ def namedtuple_structure_factory(
     cl: type[tuple], converter: BaseConverter
 ) -> StructureHook:
     """A hook factory for structuring namedtuples from iterables."""
-    # We delegate to the existing infrastructure for heterogenous tuples.
+    # We delegate to the existing infrastructure for heterogeneous tuples.
     hetero_tuple_type = tuple[tuple(cl.__annotations__.values())]
     base_hook = converter.get_structure_hook(hetero_tuple_type)
     return lambda v, _: cl(*base_hook(v, hetero_tuple_type))
@@ -277,7 +276,7 @@ def namedtuple_dict_structure_factory(
             cl,
             converter,
             _cattrs_forbid_extra_keys=forbid_extra_keys,
-            _cattrs_use_detailed_validation=detailed_validation,
+            _cattrs_detailed_validation=detailed_validation,
             _cattrs_use_linecache=use_linecache,
             **kwargs,
         )

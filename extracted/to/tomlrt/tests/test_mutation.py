@@ -1205,6 +1205,22 @@ def test_array_setitem_slice() -> None:
     assert _reparses(out) == {"xs": [1, 22, 33, 44, 4]}
 
 
+def test_array_slice_normalizes_an_index_protocol_step_once() -> None:
+    class Step:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def __index__(self) -> int:
+            self.calls += 1
+            return 1
+
+    step = Step()
+    doc = tomlrt.loads("xs = [1, 2, 3]\n")
+    doc.array("xs")[slice(1, 2, step)] = [22, 33]
+    assert tomlrt.dumps(doc) == "xs = [1, 22, 33, 3]\n"
+    assert step.calls == 1
+
+
 def test_array_setitem_slice_matches_list_semantics() -> None:
     # Array slice-assignment should accept any iterable (matching plain
     # ``list``), and reject non-iterables with TypeError. The previous
@@ -1871,6 +1887,87 @@ def test_array_delete_contiguous_slice_keeps_seam_comments() -> None:
         """)
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_array_inserts_a_run_between_commented_items(newline: str) -> None:
+    doc = tomlrt.loads(
+        td("""
+        arr = [
+            "a", # eol a
+            # above b
+            "b", # eol b
+            # dangling
+        ]
+        """).replace("\n", newline)
+    )
+    doc.array("arr")[1:1] = [10, 20, 30]
+    expected = td("""
+        arr = [
+            "a", # eol a
+            10,
+            20,
+            30,
+            # above b
+            "b", # eol b
+            # dangling
+        ]
+        """).replace("\n", newline)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_array_splice_resamples_style_after_rehoming_the_first_comment() -> None:
+    doc = tomlrt.loads(
+        td("""
+        arr = [0,
+        # above
+          1,
+        2,3,4,5,
+          ]
+        """)
+    )
+    doc.array("arr")[:1] = [-1, -1]
+    expected = td("""
+        arr = [
+          -1,
+          -1,
+        # above
+          1,
+        2,3,4,5,
+          ]
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_inline_prefix_removal_keeps_disjoint_survivor_runs() -> None:
+    doc = tomlrt.loads(
+        td("""
+        t = {
+            drop.a = 0,
+            # above keep
+            keep = 1, # keep
+            drop.b = 2,
+            # above another
+            another = 3, # another
+            drop.c = 4,
+            # dangling
+        }
+        """)
+    )
+    del doc.table("t")["drop"]
+    expected = td("""
+        t = {
+            # above keep
+            keep = 1, # keep
+            # above another
+            another = 3, # another
+            # dangling
+        }
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
 def test_array_delete_strided_slice_keeps_every_seam_comment() -> None:
     """Two interior seams in one removal: each survivor keeps its own block."""
     doc = tomlrt.loads(_SEAM_ARRAY)
@@ -2197,6 +2294,37 @@ def test_aot_pop_first_entry_takes_owned_subsections_with_it() -> None:
     assert _reparses(out) == {"pkg": [{"name": "b"}, {"name": "c"}]}
 
 
+def test_aot_pop_keeps_the_entry_it_hands_back() -> None:
+    """A popped entry leaves with its own lines, as a popped section does.
+
+    Rebuilt from its data instead, it would come back as ``x = 1`` under
+    a bare header, having dropped every comment and the spelling of its
+    own number.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [[items]] # first
+        x = 0x01 # one
+
+        [[items]] # second
+        x = 0x02 # two
+        """)
+    )
+    items = doc.aot("items")
+
+    items.append(items.pop(0))
+
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]] # second
+        x = 0x02 # two
+
+        [[items]] # first
+        x = 0x01 # one
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
 def test_aot_pop_negative_index() -> None:
     doc = _aot_doc()
     aot = doc.aot("pkg")
@@ -2325,6 +2453,59 @@ def test_aot_delitem_slice_with_step() -> None:
     assert _reparses(out) == {"p": [{"n": 2}, {"n": 4}]}
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_aot_bulk_removal_keeps_foreign_refs_and_later_edits(newline: str) -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]] # first
+        id = 0
+
+        [other]
+        keep = 1
+
+        [[items]] # middle
+        id = 1
+
+        [items.nested]
+        keep = 10
+
+        [[items]] # last
+        id = 2
+
+        [tail]
+        keep = 3
+        """).replace("\n", newline)
+    )
+    items = doc.aot("items")
+    removed = items[::2]
+    del items[::2]
+    items[0]["extra"] = 4
+    items[0].table("nested")["extra"] = 5
+    doc.table("other")["extra"] = 6
+    doc.table("tail")["extra"] = 7
+    removed[0]["extra"] = 8
+    removed[1]["extra"] = 9
+    expected = td("""
+        [other]
+        keep = 1
+        extra = 6
+
+        [[items]] # middle
+        id = 1
+        extra = 4
+
+        [items.nested]
+        keep = 10
+        extra = 5
+
+        [tail]
+        keep = 3
+        extra = 7
+        """).replace("\n", newline)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
 def test_aot_setitem_replaces_entry() -> None:
     doc = _aot_doc()
     aot = doc.aot("pkg")
@@ -2363,6 +2544,770 @@ def test_aot_setitem_negative_index() -> None:
         replaced = true
         """)
     assert _reparses(rendered)["pkg"][-1] == {"replaced": True}
+
+
+def test_aot_extended_slice_captures_source_bodies() -> None:
+    src = td("""
+        [[items]] # first
+        x = 0x01 # one
+
+        [[items]] # second
+        x = 0x02 # two
+        """)
+    doc = tomlrt.loads(src)
+    assert tomlrt.dumps(doc) == src
+    items = doc.aot("items")
+    first, second = items
+    items[::-1] = items
+    first["held"] = True
+    second["held"] = False
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]] # first
+        x = 0x02 # two
+        held = true
+
+        [[items]] # second
+        x = 0x01 # one
+        held = false
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_slice_noop_entries_are_not_write_sites(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_snapshot(_doc: tomlrt.Document) -> tomlrt.Document:
+        pytest.fail("an unchanged source does not need a document snapshot")
+
+    monkeypatch.setattr(tomlrt.Document, "__copy__", unexpected_snapshot)
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+
+        [[items]]
+        x = 2
+        """)
+    )
+    items = doc.aot("items")
+    items[:] = [items[0], {"nested": items[0]}]
+    assert tomlrt.dumps(doc) == td("""
+        [[items]]
+        x = 0x01 # one
+
+        [[items]]
+
+        [items.nested]
+        x = 0x01 # one
+        """)
+
+
+@pytest.mark.parametrize("operation", ["add", "append", "insert", "replace", "resize"])
+@pytest.mark.parametrize(
+    ("kind", "source_text"),
+    [
+        (
+            "section",
+            td("""
+            [template] # source
+            'x'  =  0x01 # keep
+            """),
+        ),
+        (
+            "aot",
+            td("""
+            [[template]] # source
+            'x'  =  0x01 # keep
+            """),
+        ),
+        ("implicit", "template.'x'  =  0x01 # keep\n"),
+        ("document", "'x'  =  0x01 # keep\n"),
+    ],
+)
+def test_aot_whole_body_capture_preserves_layout_without_copying_document(
+    operation: str,
+    kind: str,
+    source_text: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unexpected_snapshot(_doc: tomlrt.Document) -> tomlrt.Document:
+        pytest.fail("capturing a whole body needs only its slots")
+
+    monkeypatch.setattr(tomlrt.Document, "__copy__", unexpected_snapshot)
+    source = tomlrt.loads(source_text)
+    body: tomlrt.Document | Table
+    if kind == "aot":
+        body = source.aot("template")[0]
+    elif kind == "document":
+        body = source
+    else:
+        body = source.table("template")
+    if operation in {"replace", "resize"}:
+        doc = tomlrt.loads("[[items]] # retained\nold = 0\n")
+    else:
+        doc = tomlrt.Document()
+        doc["items"] = AoT()
+    items = doc.aot("items")
+    if operation == "add":
+        items.add(body)
+    elif operation == "append":
+        items.append(body)
+    elif operation == "insert":
+        items.insert(0, body)
+    elif operation == "replace":
+        held = items[0]
+        items[0] = body
+        assert items[0] is held
+    else:
+        items[:] = [body, {"tail": 2}]
+    header = "[[items]]"
+    if operation == "replace":
+        header += " # retained"
+    elif kind in {"section", "aot"}:
+        header += " # source"
+    expected = f"{header}\n'x'  =  0x01 # keep\n"
+    if operation == "resize":
+        expected += td("""
+
+            [[items]]
+            tail = 2
+            """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    assert tomlrt.dumps(source) == source_text
+
+
+@pytest.mark.parametrize(
+    ("target", "tail"),
+    [
+        (
+            slice(0, 0),
+            td("""
+
+            [[items]] # first
+            x = 0x01 # one
+
+            [[items]] # second
+            x = 0x02 # two
+            """),
+        ),
+        (
+            slice(0, 1),
+            td("""
+
+            [[items]]
+            x = 3
+
+            [[items]] # second
+            x = 0x02 # two
+            """),
+        ),
+        (slice(0, 2), ""),
+    ],
+    ids=["insert", "grow", "shrink"],
+)
+@pytest.mark.parametrize("private", [False, True])
+def test_aot_resizing_slice_captures_array_source(
+    target: slice, tail: str, *, private: bool
+) -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]] # first
+        x = 0x01 # one
+
+        [[items]] # second
+        x = 0x02 # two
+        """)
+    )
+    items = doc.aot("items")
+    if private:
+        doc.pop("items")
+    values: list[dict[str, tomlrt.TomlInput]] = [{"nested": items}]
+    if target.stop == 1:
+        values.append({"x": 3})
+    items[target] = values
+    if private:
+        doc["items"] = items
+    out = tomlrt.dumps(doc)
+    assert out == (
+        td("""
+        [[items]]
+
+        [[items.nested]] # first
+        x = 0x01 # one
+
+        [[items.nested]] # second
+        x = 0x02 # two
+        """)
+        + tail
+    )
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_resizing_slice_captures_factory_inputs() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 1
+
+        [[items]]
+        x = 2
+        """)
+    )
+    items = doc.aot("items")
+    inline = Table.inline({"source": MappingProxyType(items[0])})
+    nested = AoT([{"source": items}])
+    body = Table.section({"inline": inline, "nested": nested})
+    items[:] = [body]
+    inline["held"] = True
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+        inline = { source = { x = 1 }, held = true }
+
+        [[items.nested]]
+
+        [[items.nested.source]]
+        x = 1
+
+        [[items.nested.source]]
+        x = 2
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert body["inline"] is inline
+    assert body["nested"] is nested
+
+
+def test_aot_resizing_slice_captures_whole_ancestor() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [parent] # source
+        x = 0x01 # one
+
+        [[parent.items]]
+        y = 0x02 # two
+        """)
+    )
+    parent = doc.table("parent")
+    parent.aot("items")[:0] = [parent]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [parent] # source
+        x = 0x01 # one
+
+        [[parent.items]] # source
+        x = 0x01 # one
+
+        [[parent.items.items]]
+        y = 0x02 # two
+
+        [[parent.items]]
+        y = 0x02 # two
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_slice_captures_empty_array_without_changing_its_kind() -> None:
+    doc = tomlrt.Document()
+    doc["items"] = AoT()
+    items = doc.aot("items")
+    items[:0] = [{"nested": items}]
+    items[0].aot("nested").append({"x": 1})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+
+        [[items.nested]]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_resizing_slice_captures_body_before_adopting_its_child() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+
+        [items.parent]
+        x = 0x01 # one
+
+        [items.parent.child]
+        y = 0x02 # two
+
+        [[items]]
+        x = 3
+        """)
+    )
+    items = doc.aot("items")
+    parent = items[0].table("parent")
+    child = parent.table("child")
+    items[:1] = [{"taken": child}, parent]
+    child["held"] = True
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+
+        [items.taken]
+        y = 0x02 # two
+        held = true
+
+        [[items]]
+        x = 0x01 # one
+
+        [items.child]
+        y = 0x02 # two
+
+        [[items]]
+        x = 3
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_extended_slice_captures_nested_source() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+
+        [[items]]
+        x = 0x02 # two
+
+        [[items]]
+        x = 0x03 # three
+        """)
+    )
+    items = doc.aot("items")
+    items[::2] = [items[2], {"nested": items[0]}]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+        x = 0x03 # three
+
+        [[items]]
+        x = 0x02 # two
+
+        [[items]]
+
+        [items.nested]
+        x = 0x01 # one
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_nested_self() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+        """)
+    )
+    items = doc.aot("items")
+    items[0] = {"nested": items[0]}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+
+        [items.nested]
+        x = 0x01 # one
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_inline_factory_inputs() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 1
+        """)
+    )
+    items = doc.aot("items")
+    child = Table.inline({"x": 2})
+    later = Table.inline({"child": child, "source": MappingProxyType(items[0])})
+    items[0] = {"first": child, "later": later}
+    child["x"] = 3
+    later["held"] = True
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+        first = { x = 3 }
+        later = { child = { x = 2 }, source = { x = 1 }, held = true }
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+@pytest.mark.parametrize("private", [False, True])
+def test_aot_extended_slice_positive_cycle(*, private: bool) -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+
+        [[items]]
+        x = 0x02 # two
+
+        [[items]]
+        x = 0x03 # three
+        """)
+    )
+    items = doc.aot("items")
+    if private:
+        doc.pop("items")
+    items[::2] = [items[2], items[0]]
+    if private:
+        doc["items"] = items
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+        x = 0x03 # three
+
+        [[items]]
+        x = 0x02 # two
+
+        [[items]]
+        x = 0x01 # one
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_two_ancestors_from_one_snapshot() -> None:
+    """Sources from one document are read from one copy of it."""
+    doc = tomlrt.loads(
+        td("""
+        [parent]
+        x = 0x01 # root
+
+        [[parent.items]]
+        y = 0x02 # entry
+        """)
+    )
+    parent = doc.table("parent")
+    parent.aot("items")[0] = {"one": parent, "two": parent}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [parent]
+        x = 0x01 # root
+
+        [[parent.items]]
+
+        [parent.items.one]
+        x = 0x01 # root
+
+        [[parent.items.one.items]]
+        y = 0x02 # entry
+
+        [parent.items.two]
+        x = 0x01 # root
+
+        [[parent.items.two.items]]
+        y = 0x02 # entry
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+@pytest.mark.parametrize("private", [False, True])
+def test_aot_integer_captures_source_array_ancestor(*, private: bool) -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]] # first
+        x = 0x01 # one
+
+        [[items]] # second
+        x = 0x02 # two
+        """)
+    )
+    items = doc.aot("items")
+    if private:
+        doc.pop("items")
+    items[0] = {"nested": items}
+    if private:
+        doc["items"] = items
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]] # first
+
+        [[items.nested]] # first
+        x = 0x01 # one
+
+        [[items.nested]] # second
+        x = 0x02 # two
+
+        [[items]] # second
+        x = 0x02 # two
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_document_ancestor_crlf() -> None:
+    src = td("""
+        x = 0x01 # root
+
+        [[items]]
+        y = 0x02 # entry
+        """).replace("\n", "\r\n")
+    doc = tomlrt.loads(src)
+    doc.aot("items")[0] = {"nested": doc}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        x = 0x01 # root
+
+        [[items]]
+
+        [items.nested]
+        x = 0x01 # root
+
+        [[items.nested.items]]
+        y = 0x02 # entry
+        """).replace("\n", "\r\n")
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_forward_declared_ancestor() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [parent.child]
+        z = 0x03 # child
+
+        [parent] # parent
+        x = 0x01 # root
+
+        [[parent.items]]
+        y = 0x02 # entry
+        """)
+    )
+    parent = doc.table("parent")
+    parent.aot("items")[0] = {"nested": parent}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [parent.child]
+        z = 0x03 # child
+
+        [parent] # parent
+        x = 0x01 # root
+
+        [[parent.items]]
+
+        [parent.items.nested.child]
+        z = 0x03 # child
+
+        [parent.items.nested] # parent
+        x = 0x01 # root
+
+        [[parent.items.nested.items]]
+        y = 0x02 # entry
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_implicit_ancestor() -> None:
+    """A header-less ancestor arrives in the shape it has at home.
+
+    Its own keys are dotted KVs in the entry body and each sub-section
+    is a block below, separated as any freshly placed section is.
+    """
+    doc = tomlrt.loads(
+        td("""
+        [parent.child.deep]
+        z = 0x03 # deep
+
+        [parent]
+        child.x = 0x01 # root
+
+        [[parent.child.items]]
+        y = 0x02 # entry
+        """)
+    )
+    parent = doc.table("parent").table("child")
+    parent.aot("items")[0] = {"nested": parent}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [parent.child.deep]
+        z = 0x03 # deep
+
+        [parent]
+        child.x = 0x01 # root
+
+        [[parent.child.items]]
+        nested.x = 0x01 # root
+
+        [parent.child.items.nested.deep]
+        z = 0x03 # deep
+
+        [[parent.child.items.nested.items]]
+        y = 0x02 # entry
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_section_factory_inputs() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+        """)
+    )
+    items = doc.aot("items")
+    section = Table.section({"entry": items[0], "proxy": MappingProxyType(items[0])})
+    items[0] = {"first": section, "later": section}
+    section["held"] = True
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+
+        [items.first]
+        proxy = { x = 1 }
+        held = true
+
+        [items.first.entry]
+        x = 0x01 # one
+
+        [items.later]
+        proxy = { x = 1 }
+
+        [items.later.entry]
+        x = 0x01 # one
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_parent_before_adopting_displaced_child() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+
+        [items.child]
+        y = 0x02 # two
+        """)
+    )
+    items = doc.aot("items")
+    child = items[0].table("child")
+    items[0] = {"nested": items[0], "kept": child}
+    child["y"] = 9
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+
+        [items.nested]
+        x = 0x01 # one
+
+        [items.nested.child]
+        y = 0x02 # two
+
+        [items.kept]
+        y = 9 # two
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_aot_factory_inputs() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+        """)
+    )
+    items = doc.aot("items")
+    nested = AoT([{"entry": items[0]}])
+    held = nested[0]
+    items[0] = {"first": nested, "later": nested}
+    held["held"] = True
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+
+        [[items.first]]
+        held = true
+
+        [items.first.entry]
+        x = 0x01 # one
+
+        [[items.later]]
+
+        [items.later.entry]
+        x = 0x01 # one
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_captures_wrapped_inline_inputs() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 0x01 # one
+        data = [ 2,  3 ]
+        """)
+    )
+    items = doc.aot("items")
+    data = items[0].array("data")
+    items[0] = {"wrapped": [{"proxy": MappingProxyType(items[0])}], "data": data}
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+        wrapped = [{ proxy = { x = 1, data = [ 2,  3 ] } }]
+        data = [ 2,  3 ]
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_integer_capture_keeps_owned_inline_values() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+        x = 1
+        """)
+    )
+    standalone = Array([{"y": 2}])
+    child = standalone.table(0)
+    factory = Table.inline(
+        {"child": child, "source": MappingProxyType(doc.aot("items")[0])}
+    )
+    doc.aot("items")[0] = {"factory": factory}
+    child["y"] = 3
+    factory["held"] = True
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]]
+        factory = { child = { y = 2 }, source = { x = 1 }, held = true }
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_aot_extended_slice_captures_nested_entry_blocks() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]] # first
+        x = 0x01
+
+        [[items.sub]]
+        n = 0x11 # one
+
+        [[items]] # second
+        x = 0x02
+
+        [[items.sub]]
+        n = 0x22 # two
+        """)
+    )
+    items = doc.aot("items")
+    displaced = items[0].aot("sub")
+    items[::-1] = items
+    displaced[0]["n"] = 99
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[items]] # first
+        x = 0x02
+
+        [[items.sub]]
+        n = 0x22 # two
+
+        [[items]] # second
+        x = 0x01
+
+        [[items.sub]]
+        n = 0x11 # one
+        """)
+    assert _reparses(out) == doc.to_dict()
 
 
 def test_aot_setitem_out_of_range_raises() -> None:
@@ -4852,8 +5797,41 @@ def test_aot_insert_before_value_equal_entry() -> None:
         """)
 
 
+def test_aot_slice_assign_of_equal_length_leaves_the_document_alone() -> None:
+    """Assigning a slice is assigning its entries, one by one.
+
+    The array's entries need not be contiguous in the document. As long
+    as the slice assigns as many as it covers, nothing moves, so what
+    lies between them stays where it is.
+    """
+    src = td("""
+        [[xs]]
+        a=1
+        [other]
+        b=2
+        [[xs]]
+        c=3
+        """)
+    doc = tomlrt.loads(src)
+    doc.aot("xs")[0:1] = [{"k": 9}]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[xs]]
+        k = 9
+        [other]
+        b=2
+        [[xs]]
+        c=3
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
 def test_aot_slice_assign_before_value_equal_entry() -> None:
-    """Slice assignment places by index even when entries compare equal."""
+    """A slice that assigns as many entries as it covers replaces them.
+
+    Each entry is replaced where it stands, so nothing is placed and
+    entries that compare equal cannot be confused for one another.
+    """
     src = td("""
         [[a]] # first
         x = 1
@@ -4864,13 +5842,7 @@ def test_aot_slice_assign_before_value_equal_entry() -> None:
     doc = tomlrt.loads(src)
     aot = doc.aot("a")
     aot[0:1] = [{"x": 1}]
-    assert tomlrt.dumps(doc) == td("""
-        [[a]]
-        x = 1
-
-        [[a]] # second
-        x = 1
-        """)
+    assert tomlrt.dumps(doc) == src
 
 
 def test_aot_tail_insert_leaves_interleaved_section_alone() -> None:
@@ -5729,8 +6701,7 @@ def test_clone_with_forward_declared_nested_supports_later_insert_into_it() -> N
 def test_clone_section_with_forward_declared_nested_past_foreign_section() -> None:
     # As above, but with an unrelated section physically between the
     # forward-declared nested descendant and `a`'s own header, so
-    # recovering doc-stream order must skip a foreign slot while
-    # walking backward from `a`'s header, not just forward from it.
+    # recovering doc-stream order must exclude the foreign slots.
     src = td("""
         [a.b]
         x = 1
@@ -5753,6 +6724,72 @@ def test_clone_section_with_forward_declared_nested_past_foreign_section() -> No
         better = 2
         """)
     assert _reparses(out) == {"moved": {"better": 2, "b": {"x": 1}}}
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_clone_interleaved_block_before_another_section(newline: str) -> None:
+    source = (
+        td("""
+        [source.child] # child
+        x = 0x1
+
+        [unrelated]
+        keep = 2
+
+        [source]
+        y = 'three' # no final newline
+        """)
+        .rstrip("\n")
+        .replace("\n", newline)
+    )
+    donor = tomlrt.loads(source)
+    doc = tomlrt.loads(
+        td("""
+        [before]
+        keep = 1
+
+        [after]
+        keep = 2
+        """).replace("\n", newline)
+    )
+    doc.table("before")["copy"] = donor.table("source")
+    expected = td("""
+        [before]
+        keep = 1
+
+        [before.copy.child] # child
+        x = 0x1
+
+        [before.copy]
+        y = 'three' # no final newline
+
+        [after]
+        keep = 2
+        """).replace("\n", newline)
+    assert tomlrt.dumps(doc) == expected
+    assert tomlrt.dumps(donor) == source
+    assert _reparses(expected) == doc.to_dict()
+
+    copied = doc.table("before").table("copy")
+    copied["extra"] = 3
+    copied.table("child")["extra"] = 4
+    del copied.table("child")["x"]
+    expected = td("""
+        [before]
+        keep = 1
+
+        [before.copy.child] # child
+        extra = 4
+
+        [before.copy]
+        y = 'three' # no final newline
+        extra = 3
+
+        [after]
+        keep = 2
+        """).replace("\n", newline)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
 
 
 def test_overwrite_scalar_anchors_past_forward_declared_nested_predecessor() -> None:
@@ -5844,7 +6881,7 @@ def test_overwrite_ancestor_into_own_descendant_snapshots_before_delete() -> Non
         [x.k16]
 
         [x.k16.w]
-        [x.k16.w.w]
+        w = {}
         """)
     assert doc.to_dict() == {"x": {"k16": {"w": {"w": {}}}}}
     assert _reparses(out) == doc.to_dict()
@@ -5990,13 +7027,9 @@ def test_overwrite_ancestor_with_own_nested_aot_preserves_nested_entries() -> No
     into ancestor) must preserve nested `[[a.x]]` entries living inside
     that AoT's own entries, not just their own direct/dotted content.
 
-    ``_attach_aot``'s private-orphan rehome path gathers each preserved
-    entry's slots via ``clone_aot_entry``'s bare-``AoTEntry`` branch,
-    which only sees the entry's *own* ``entry_slots`` membership, not
-    slots owned by AoT entries nested inside its body. The full subtree
-    must be gathered while the entry is still live, before
-    ``_reset_table_for_rehome`` clears the ``_refs`` that gathering
-    depends on.
+    ``_attach_aot`` must capture the full preserved subtree while the
+    entry is still live, before ``_reset_table_for_rehome`` clears the
+    ``_refs`` that gathering depends on.
     """
     doc = tomlrt.loads(
         td("""
@@ -6066,6 +7099,8 @@ def test_clone_as_aot_entry_hoists_own_content_past_forward_declared_nested() ->
     # entry can never be reopened (unlike a plain table), so the source's
     # own direct content (`better`) must be hoisted ahead of the nested
     # descendant's block (`b`) rather than kept in true doc-stream order.
+    # Capture also keeps the source separator preceding that descendant,
+    # before consuming the empty array's placeholder changes the doc head.
     src = td("""
         [a.b]
         x = 1
@@ -6086,6 +7121,7 @@ def test_clone_as_aot_entry_hoists_own_content_past_forward_declared_nested() ->
 
         [[arr]]
         better = 2
+
         [arr.b]
         x = 1
         """)
@@ -9121,8 +10157,7 @@ def test_aot_self_assign_is_noop() -> None:
 
 
 def test_aot_cross_doc_assign_negative_index() -> None:
-    """Assigning a foreign AoT entry to a negative index normalises the
-    index (line 2769 in replace_aot_entry_with_clone)."""
+    """A foreign entry can replace the entry at a negative index."""
     src_doc = tomlrt.loads("[[s]]\nv = 99\n")
     dst_doc = tomlrt.loads(
         td("""
@@ -9647,7 +10682,11 @@ def test_overwrite_with_own_grandchild_then_clone_elsewhere() -> None:
     must snapshot before the old subtree is deleted — deleting it would
     otherwise unlink the descendant's own backing slots before they are
     read, corrupting the clone or (if it later becomes a clone source
-    itself) leaving stale host-path bookkeeping behind."""
+    itself) leaving stale host-path bookkeeping behind.
+
+    The snapshot is the source in a copy of its own document, so each
+    copied key keeps the header-less shape and the leading blank line
+    it has at home."""
     doc = tomlrt.loads(
         td("""
         name.first = "Arthur"
@@ -9665,19 +10704,15 @@ def test_overwrite_with_own_grandchild_then_clone_elsewhere() -> None:
         name.first = "Arthur"
         "name".'last' = "Dent"
 
+        many.dots.dot = 42
+
+        many.k96 = 1
+
         k9 = -7
 
-        [name.k75]
-        k96 = 1
+        name.k75.k96 = 1
 
-        [name.k75.dots]
-        dot = 42
-
-        [many]
-        k96 = 1
-
-        [many.dots]
-        dot = 42
+        name.k75.dots.dot = 42
         """)
     assert _reparses(out) == doc.to_dict()
 
@@ -9717,7 +10752,10 @@ def test_clone_section_into_fresh_implicit_intermediate_anchors_locally() -> Non
     entry that has no other content) must anchor via the nearest
     header-bearing ancestor's own extent, not fall through to a
     ``None`` anchor that lands the block at the document's absolute
-    tail — letting a later sibling AoT entry capture it on re-parse."""
+    tail — letting a later sibling AoT entry capture it on re-parse.
+
+    The source here is header-less, so the copy is dotted keys in the
+    entry's own body, which no later entry can capture."""
     doc = tomlrt.loads(
         td("""
         [[a]]
@@ -9733,10 +10771,8 @@ def test_clone_section_into_fresh_implicit_intermediate_anchors_locally() -> Non
         [[a]]
         a.b.c = 1
         a.b.d = 2
-
-        [a.a.k34.b]
-        c = 1
-        d = 2
+        a.k34.b.c = 1
+        a.k34.b.d = 2
 
         [[a]]
         a.b = { x = 1 }
@@ -9828,7 +10864,8 @@ def test_adopt_private_section_unfiles_stale_bindings_for_nested_headers() -> No
     out = tomlrt.dumps(doc)
     assert out == td("""
         [albums]
-          [albums.name.k2]
+            [albums.name]
+        [albums.name.k2]
         w = 1
         """)
     assert _reparses(out) == doc.to_dict()
@@ -10355,16 +11392,47 @@ def test_adopt_private_section_adds_terminator_when_not_at_doc_tail() -> None:
     assert _reparses(out) == doc.to_dict()
 
 
-def test_reposition_install_scattered_source_via_disjoint_span_fallback() -> None:
-    """``_recorded_install_span`` detects when an implicit source's
-    recorded slots don't form one contiguous doc-stream span — the
-    direct KVs and structural children land at different anchors, e.g.
-    because the destination promoted from headerless to header-bearing
-    partway through — and signals ``reposition_install`` to leave the
-    fresh install where it landed rather than risk moving the wrong
-    range. Exercises both of its rejection paths: more than one
-    candidate span head, and a span head whose forward walk doesn't
-    reach every recorded slot."""
+def test_reposition_install_leaves_a_scattered_install_where_it_landed() -> None:
+    """A header-less source spells itself in two places at once.
+
+    Its own keys are dotted KVs in the destination's body and its
+    array-of-tables is a block after it, so the install records two
+    runs with other slots between them. ``_recorded_install_span``
+    reports no single span and ``reposition_install`` leaves both runs
+    where they landed rather than move a range that spans slots it
+    never installed.
+    """
+    doc = tomlrt.loads(
+        td("""
+        x = 1
+        a.p = 2
+
+        [[a.q]]
+        r = 3
+        """)
+    )
+    doc["x"] = doc["a"]
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        a.p = 2
+        x.p = 2
+
+        [[a.q]]
+        r = 3
+
+        [[x.q]]
+        r = 3
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_repeated_overlapping_installs_keep_the_source_header_less() -> None:
+    """Each install copies the source as it is spelled where it lives.
+
+    Every one of these sources is header-less, and every copy of one is
+    header-less too, however many times the document has already been
+    written into itself.
+    """
     doc = tomlrt.loads(
         td("""
         name = "Orange"
@@ -10380,22 +11448,14 @@ def test_reposition_install_scattered_source_via_disjoint_span_fallback() -> Non
     doc["name"] = doc["site"]
     out = tomlrt.dumps(doc)
     assert out == td("""
+        name."google.com" = true
+        name.k96."google.com"."google.com" = true
+        name.k96."google.com".k96."google.com" = true
         physical.color = "orange"
         physical.shape."google.com" = true
         site."google.com" = true
-        name."google.com" = true
-
-        [site.k96."google.com"]
-        "google.com" = true
-
-        [site.k96."google.com".k96]
-        "google.com" = true
-
-        [name.k96."google.com"]
-        "google.com" = true
-
-        [name.k96."google.com".k96]
-        "google.com" = true
+        site.k96."google.com"."google.com" = true
+        site.k96."google.com".k96."google.com" = true
         """)
     assert _reparses(out) == doc.to_dict()
 
@@ -10421,7 +11481,6 @@ def test_overwrite_aot_entry_key_with_ancestor_aot_snapshots_first() -> None:
         [[a]]
         [[a.b]]
         b = 1
-
         [[a.b]]
         b = 2
         [[a]]

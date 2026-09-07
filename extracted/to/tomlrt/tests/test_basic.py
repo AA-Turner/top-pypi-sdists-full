@@ -8,7 +8,7 @@ from textwrap import dedent
 import pytest
 
 import tomlrt
-from _helpers import td
+from _helpers import reparses, td
 
 UTC = timezone.utc
 
@@ -125,6 +125,35 @@ ROUND_TRIP_CORPUS: list[str] = [
 def test_round_trip(src: str) -> None:
     doc = tomlrt.loads(src)
     assert tomlrt.dumps(doc) == src
+
+
+@pytest.mark.parametrize("kind", ["dotted", "inline", "section", "aot"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_deep_mixed_key_preserves_spelling(kind: str, newline: str) -> None:
+    spellings = ("bare{}", '"quoted.{}"', "'literal {}'")
+    parts = [spellings[i % len(spellings)].format(i) for i in range(128)]
+    separators = (" . ", ".\t", "\t. ")
+    key = parts[0] + "".join(
+        separators[i % len(separators)] + part for i, part in enumerate(parts[1:])
+    )
+    if kind == "dotted":
+        src = f"{key}\t= 0x2a # value\n"
+    elif kind == "inline":
+        src = f"root = {{ {key}\t= 0x2a }} # value\n"
+    elif kind == "section":
+        src = td(f"""
+            [ {key}\t]
+            value = 0x2a # value
+            """)
+    else:
+        src = td(f"""
+            [[ {key}\t]]
+            value = 0x2a # value
+            """)
+    src = src.replace("\n", newline)
+    doc = tomlrt.loads(src)
+    assert tomlrt.dumps(doc) == src
+    assert doc.to_dict() == reparses(src)
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +491,60 @@ def test_parse_error_is_value_error() -> None:
 def test_parse_error_messages(src: str, message: str) -> None:
     with pytest.raises(tomlrt.TOMLParseError, match=message):
         tomlrt.loads(src)
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["{ b = 1 }", "{ b.c = 1 }", "{ b = { c = 1 } }", "{ b = {} }"],
+)
+@pytest.mark.parametrize("key", ["a.b", "a.b.c", "a.new"])
+@pytest.mark.parametrize(
+    ("scope", "parent"),
+    [("", "a"), ("[section]\n", "section.a"), ("[[items]]\n", "items.a")],
+)
+def test_inline_table_descendants_are_sealed(
+    value: str, key: str, scope: str, parent: str
+) -> None:
+    first = f"{scope}a = {value}\n"
+    with pytest.raises(tomlrt.TOMLParseError) as exc_info:
+        tomlrt.loads(f"{first}{key} = 2\n")
+    err = exc_info.value
+    line = first.count("\n") + 1
+    assert (
+        str(err) == f"key {parent!r} already defined as a value (line {line}, column 1)"
+    )
+    assert (err.line, err.col, err.offset) == (line, 1, len(first))
+
+
+@pytest.mark.parametrize(
+    "src",
+    [
+        td("""
+            [[items]]
+            a = { b = 1 }
+            [[items]]
+            a.b = 2
+            """),
+        td("""
+            [[items]]
+            [items.settings]
+            a = { b.c = 1 }
+            [[items]]
+            [items.settings]
+            a.b = 2
+            """),
+        td("""
+            [[items]]
+            a.b = 1
+            [[items]]
+            a = { b = 2 }
+            """),
+    ],
+)
+def test_inline_table_seals_reset_between_aot_entries(src: str) -> None:
+    doc = tomlrt.loads(src)
+    assert tomlrt.dumps(doc) == src
+    assert doc.to_dict() == reparses(src)
 
 
 @pytest.mark.parametrize(

@@ -83,7 +83,7 @@ async def test_get_colors(
     calendar_service = await calendar_service_cb()
     result = await calendar_service.async_get_colors()
     assert result == Colors(
-        updated=datetime.datetime(2012, 4, 26, tzinfo=datetime.timezone.utc),
+        updated=datetime.datetime(2012, 4, 26, tzinfo=datetime.UTC),
         calendar={"1": ColorDefinition(background="#ac725e", foreground="#1d1d1d")},
         event={"11": ColorDefinition(background="#dc2127", foreground="#1d1d1d")},
     )
@@ -110,6 +110,16 @@ async def test_list_calendars(
                     "summary": "Calendar 2",
                     "accessRole": "owner",
                 },
+                {
+                    "id": "calendar-id-3",
+                    "summary": "Calendar 3",
+                    "accessRole": "writerWithoutPrivateAccess",
+                },
+                {
+                    "id": "calendar-id-4",
+                    "summary": "Calendar 4",
+                    "accessRole": "unexpectedRole",
+                },
             ]
         }
     )
@@ -121,6 +131,16 @@ async def test_list_calendars(
         ),
         Calendar(
             id="calendar-id-2", summary="Calendar 2", access_role=AccessRole.OWNER
+        ),
+        Calendar(
+            id="calendar-id-3",
+            summary="Calendar 3",
+            access_role=AccessRole.WRITER_WITHOUT_PRIVATE_ACCESS,
+        ),
+        Calendar(
+            id="calendar-id-4",
+            summary="Calendar 4",
+            access_role=AccessRole.UNKNOWN,
         ),
     ]
 
@@ -260,8 +280,7 @@ async def test_list_events(
         ListEventsRequest(calendar_id="some-calendar-id")
     )
     assert url_request() == [
-        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}"
-        "&timeMin=2022-04-30T01:31:02Z"
+        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}&timeMin=2022-04-30T01:31:02Z"
     ]
     assert result.items == [
         Event(
@@ -313,8 +332,7 @@ async def test_list_events_with_date_limit(
         ),
     )
     assert url_request() == [
-        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}"
-        "&timeMin=2022-04-13T07:30:12-06:00&timeMax=2022-04-13T09:30:12-06:00"
+        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}&timeMin=2022-04-13T07:30:12-06:00&timeMax=2022-04-13T09:30:12-06:00"
     ]
 
 
@@ -366,8 +384,7 @@ async def test_list_events_with_all_day_event_in_resource_calendar(
         ListEventsRequest(calendar_id="some-calendar-id@resource.calendar.google.com")
     )
     assert url_request() == [
-        f"/calendars/some-calendar-id@resource.calendar.google.com/events?{EVENT_LIST_PARAMS}"
-        "&timeMin=2022-04-30T01:31:02Z"
+        f"/calendars/some-calendar-id@resource.calendar.google.com/events?{EVENT_LIST_PARAMS}&timeMin=2022-04-30T01:31:02Z"
     ]
     assert result.items == [
         Event(
@@ -633,14 +650,11 @@ async def test_list_events_multiple_pages_with_iterator(
 
     assert url_request() == [
         # Request #1
-        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}"
-        "&timeMin=2022-04-30T01:31:02Z",
+        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}&timeMin=2022-04-30T01:31:02Z",
         # Request #2
-        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}"
-        "&pageToken=page-token-1&timeMin=2022-04-30T01:31:02Z",
+        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}&pageToken=page-token-1&timeMin=2022-04-30T01:31:02Z",
         # Request #3
-        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}"
-        "&pageToken=page-token-2&timeMin=2022-04-30T01:31:02Z",
+        f"/calendars/some-calendar-id/events?{EVENT_LIST_PARAMS}&pageToken=page-token-2&timeMin=2022-04-30T01:31:02Z",
     ]
     assert items == [
         Event(
@@ -681,8 +695,7 @@ async def test_list_event_url_encoding(
         ListEventsRequest(calendar_id="en.usa#holiday@group.v.calendar.google.com")
     )
     assert url_request() == [
-        f"/calendars/en.usa#holiday@group.v.calendar.google.com/events?{EVENT_LIST_PARAMS}"
-        "&timeMin=2022-04-30T01:31:02Z"
+        f"/calendars/en.usa#holiday@group.v.calendar.google.com/events?{EVENT_LIST_PARAMS}&timeMin=2022-04-30T01:31:02Z"
     ]
 
 

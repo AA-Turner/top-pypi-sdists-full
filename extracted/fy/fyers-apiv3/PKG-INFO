@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyers_apiv3
-Version: 3.1.16
+Version: 3.1.17
 Summary: Fyers trading APIs.
 Home-page: https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python
 Author: Fyers-Tech
@@ -380,6 +380,50 @@ print(fyers.quotes(data))
 
 data = {"symbol":"NSE:SBIN-EQ","ohlcv_flag":"1"}
 print(fyers.depth(data))
+
+
+## Futures Chain
+
+data = {"symbol": "NSE:NIFTY50-INDEX"}
+print(fyers.futures_chain(data))
+
+## Expired F&O — Expiry Dates
+
+data = {
+    "symbol": "NSE:NIFTY50-INDEX",
+    "range_from": "2024-01-01",
+    "range_to": "2024-12-31",
+    "date_format": "1"
+}
+response = fyers.expiry_dates(data)
+print(response)
+print(response["data"]["expiry_dates"]["futures"])
+print(response["data"]["expiry_dates"]["options"])
+
+## Expired F&O — Underlying Symbols
+
+data = {
+    "symbol": "NSE:NIFTY50-INDEX",
+    "expiry_date": "2024-11-28"
+}
+response = fyers.history_underlying_symbols(data)
+print(response)
+print(response["data"]["contracts"]["futures"])
+print(response["data"]["contracts"]["options"])
+
+## Expired F&O — Historical Data
+
+data = {
+    "symbol": "NSE:NIFTY24NOV22500CE",
+    "resolution": "5",
+    "date_format": "1",
+    "range_from": "2024-11-01",
+    "range_to": "2024-11-28",
+    "greeks": "1"
+}
+response = fyers.fno_historical_data(data)
+print(response)
+print(response["candles"])
 
 
 #################################################################################################################

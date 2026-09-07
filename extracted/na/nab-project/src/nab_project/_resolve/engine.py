@@ -15,7 +15,7 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict
 
 from nab_index.cache import ARCHIVE_BUCKET, VCS_BUCKET
 from nab_provider._vendor.packaging.ranges import VersionRange
@@ -27,7 +27,8 @@ from nab_resolver.errors import ResolutionError
 from nab_resolver.resolver import Resolver, ResolverObserver
 from nab_resolver.types import IncompatibilityCause
 
-from ..lockfile import build_target_lock
+from .._compat import override
+from ..lockfile import ArtifactMemo, build_target_lock
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
     from nab_provider.provider import ResolutionStrategy
     from nab_provider.resolver_inputs import MarkerHolds
     from nab_provider.target import ResolveTarget
-    from nab_resolver.types import Incompatibility
+    from nab_resolver.types import Incompatibility, RangeProtocol
 
     from ..fetch import FetchCoordinator
     from ..inputs import ResolveInputs
@@ -79,11 +80,13 @@ class _ResolveObserver(ResolverObserver[str, "Version"]):
     def __init__(self, sink: ProgressSink | None) -> None:
         self._sink = sink
 
+    @override
     def on_decision(self, package: str, version: Version, level: int) -> None:
         _logger.debug("pinned %s %s", package, version)
         if self._sink is not None:
             self._sink.on_pin(level)
 
+    @override
     def on_backjump(self, from_level: int, to_level: int) -> None:
         _logger.debug("backjumped from level %d to %d", from_level, to_level)
         if self._sink is not None:
@@ -496,9 +499,16 @@ class _EngineSettings:
     # of the listing filter reads are fixed for the run.
     listing_filter_cache: ListingFilterCache = field(default_factory=ListingFilterCache)
 
+    # Whether the wheel-tag filter may release what it refuses; see
+    # ``resolve_with_coordinator``.
+    release_refused_wheels: bool = False
+
     # The (kind, text) pairs already reported, so an entry read once per
     # target per fork and again in the base pass warns once.
     warned_dropped_markers: set[tuple[str, str]] = field(default_factory=set)
+
+    # Lock artifacts shared by the targets of one resolve.
+    artifacts: ArtifactMemo = field(default_factory=ArtifactMemo)
 
 
 def _threaded_preferences(
@@ -598,6 +608,7 @@ def _resolve_one_target(
         ),
         preferences=dict(preferences),
         listing_filter_cache=settings.listing_filter_cache,
+        release_refused_wheels=settings.release_refused_wheels,
     )
 
     observer = _ResolveObserver(settings.progress)
@@ -649,6 +660,7 @@ def _resolve_one_target(
             resolved_keys=raw,
             base_roots=base_roots,
             selector_roots=selector_roots,
+            artifacts=settings.artifacts,
         ),
         wall_time=elapsed,
         **_target_stats(resolver, provider),
@@ -662,8 +674,8 @@ def _install_context_roots(
 ) -> tuple[frozenset[str] | None, dict[tuple[str, str], frozenset[str]] | None]:
     """Return the lock writer's install-context roots for one target.
 
-    ``(None, None)`` gates nothing: no selection to name, and no name for
-    the project's own dependencies.  A requirement whose marker fails this
+    ``(None, None)`` adds no conditions because no selection or
+    project name exists. A requirement whose marker fails this
     target's environment is dropped, as the resolve dropped it.
     """
     if contexts is None or not (contexts.selectors or contexts.name_project):
@@ -716,9 +728,18 @@ def _consulted_markers(
     return frozenset(consulted)
 
 
-def _target_stats(
-    resolver: Resolver[str, Version], provider: Provider
-) -> dict[str, int]:
+class _TargetStats(TypedDict):
+    """The counters a :class:`TargetResult` carries."""
+
+    rounds: int
+    decisions: int
+    conflicts: int
+    backjumps: int
+    metadata_fetched: int
+    distributions_seen: int
+
+
+def _target_stats(resolver: Resolver[str, Version], provider: Provider) -> _TargetStats:
     """Return the resolver and provider counters for a :class:`TargetResult`."""
     return {
         "rounds": resolver.stats.rounds,
@@ -762,32 +783,21 @@ def _raise_for_source_python(
 
 
 def _augment_resolution_error(exc: ResolutionError, provider: Provider) -> None:
-    """Append per-package no-versions diagnostics to ``exc`` in-place.
+    """Attach short and verbose no-versions diagnostics to exc.
 
-    Reasons are keyed by package name and outlive the ask that recorded
-    them, so a package keeps its hint even when the tree names it over a
-    later range.
-
-    Both depths are attached: ``str(exc)`` carries the one line per package
-    a default run prints, and :attr:`~nab_resolver.errors.ResolutionError.
-    verbose_message` carries the same report with each package's clauses and
-    ``note:`` in place of its ``try:`` line.  The host picks by verbosity;
-    a host that only prints the exception gets the short one.
+    Combine repeated packages' ranges before filtering permanent bans.
     """
     if exc.incompatibility is None:
         return
 
-    packages: list[str] = []
-    seen: set[str] = set()
-    for package in _walk_no_versions_packages(exc.incompatibility):
-        if package in seen:
-            continue
-        seen.add(package)
-        packages.append(package)
+    failed: dict[str, RangeProtocol[Version]] = {}
+    for package, clause_range in _walk_no_versions_packages(exc.incompatibility):
+        earlier = failed.get(package)
+        failed[package] = clause_range if earlier is None else earlier | clause_range
 
     entries: list[tuple[str, Diagnostic]] = []
-    for package in packages:
-        diagnostic = provider.get_no_versions_reason(package)
+    for package, failed_range in failed.items():
+        diagnostic = provider.get_no_versions_reason(package, failed_range)
         if diagnostic is not None:
             entries.append((package, diagnostic))
     if not entries:
@@ -836,18 +846,12 @@ def _rules_out_candidate(node: Incompatibility[Any, Any]) -> bool:
 
 def _walk_no_versions_packages(
     incompatibility: Incompatibility[Any, Any],
-) -> list[str]:
-    """Return the packages a no-versions diagnostic may name.
+) -> list[tuple[str, RangeProtocol[Any]]]:
+    """Collect package/range pairs from clauses that exclude candidates.
 
-    NO_VERSIONS clauses name every package they carry.  A dependency clause
-    that rules its own candidate's versions out names that candidate: a union
-    widened over the whole listing conflicts during propagation, with no
-    second ``choose_version`` ask to raise a NO_VERSIONS clause.
-
-    The walk is iterative: the tree gains a level per conflict, and recursion
-    would overflow on a deeply backtracked resolve.
+    Walk iteratively because backtracking can produce a deep cause graph.
     """
-    out: list[str] = []
+    out: list[tuple[str, RangeProtocol[Any]]] = []
     seen_ids: set[int] = set()
     stack: list[Incompatibility[Any, Any]] = [incompatibility]
 
@@ -861,11 +865,12 @@ def _walk_no_versions_packages(
             for term in node.terms:
                 pkg = term.package
                 if isinstance(pkg, str):
-                    out.append(pkg)
+                    out.append((pkg, term.constraint))
         elif _rules_out_candidate(node):
-            pkg = node.terms[0].package
+            candidate = node.terms[0]
+            pkg = candidate.package
             if isinstance(pkg, str):
-                out.append(pkg)
+                out.append((pkg, candidate.constraint))
 
         # Right before left, so the left cause pops first and names keep their order.
         if node.cause_right is not None:

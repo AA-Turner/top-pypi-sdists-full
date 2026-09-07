@@ -383,6 +383,48 @@ type RangeBounds = ((u32, u32), (u32, u32));
 /// for `resolve_pending_number_formats`'s "effective" (edits applied) return value.
 type StyleIndexMap = std::collections::HashMap<String, std::collections::HashMap<(u32, u32), u32>>;
 
+fn pending_cell_style_sheets(vm: &Vm) -> std::collections::HashSet<String> {
+    vm.pending_number_formats
+        .keys()
+        .chain(vm.pending_style_attrs.keys())
+        .chain(vm.pending_style_copies.keys())
+        .filter(|key| {
+            vm.pending_number_formats
+                .get(*key)
+                .is_some_and(|edits| !edits.is_empty())
+                || vm
+                    .pending_style_attrs
+                    .get(*key)
+                    .is_some_and(|edits| !edits.is_empty())
+                || vm
+                    .pending_style_copies
+                    .get(*key)
+                    .is_some_and(|edits| !edits.is_empty())
+        })
+        .cloned()
+        .collect()
+}
+
+fn clone_pending_cell_style_sheets(
+    vm: &Vm,
+    starting: &StyleIndexMap,
+    sheets: &std::collections::HashSet<String>,
+) -> StyleIndexMap {
+    sheets
+        .iter()
+        .map(|sheet| {
+            (
+                sheet.clone(),
+                starting
+                    .get(sheet)
+                    .or_else(|| vm.cell_style_indices.get(sheet))
+                    .cloned()
+                    .unwrap_or_default(),
+            )
+        })
+        .collect()
+}
+
 /// `<cols>` emission's merge-by-exact-range accumulator (`write_xlsx_sheet`) --
 /// `(hidden, width, style)`, one entry per exact `(min,max)` range.
 type ColAttrsMap = std::collections::BTreeMap<(u32, u32), (bool, Option<f64>, Option<u32>)>;
@@ -870,11 +912,58 @@ impl PyVm {
             .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
     }
 
+    /// Register a simple sheet-local A1 named range for formula evaluation.
+    fn set_sheet_named_range(&mut self, sheet: &str, name: &str, address: &str) -> PyResult<()> {
+        self.inner
+            .set_sheet_named_range(sheet, name, address)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
     /// Re-evaluate all cells that have a stored formula.
     fn recalculate(&mut self) -> PyResult<()> {
         self.inner
             .recalculate_all()
             .map_err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>)
+    }
+
+    /// Undo the most recent explicit cell/range value or formula edit.
+    /// Returns ``True`` when an edit was restored, otherwise ``False``.
+    fn undo(&mut self) -> bool {
+        self.inner.undo_edit()
+    }
+
+    /// Redo the most recently undone explicit cell/range value or formula edit.
+    /// Returns ``True`` when an edit was restored, otherwise ``False``.
+    fn redo(&mut self) -> bool {
+        self.inner.redo_edit()
+    }
+
+    #[getter]
+    fn can_undo(&self) -> bool {
+        self.inner.can_undo_edit()
+    }
+
+    #[getter]
+    fn can_redo(&self) -> bool {
+        self.inner.can_redo_edit()
+    }
+
+    /// Start a transaction for cell/range value and formula edits.
+    fn begin_transaction(&mut self) -> PyResult<()> {
+        self.inner
+            .begin_edit_transaction()
+            .map_err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>)
+    }
+
+    /// Commit the active edit transaction. Returns ``False`` when none exists.
+    fn commit_transaction(&mut self) -> bool {
+        self.inner.commit_edit_transaction()
+    }
+
+    /// Abort the active edit transaction and restore all edited cells/formulas.
+    /// Returns ``False`` when none exists.
+    fn abort_transaction(&mut self) -> bool {
+        self.inner.abort_edit_transaction()
     }
 
     /// Set multiple cell formulas at once.
@@ -1016,8 +1105,7 @@ impl PyVm {
     /// ``{"MyRange": "Sheet1!$A$1:$A$3"}``).
     ///
     /// *raw_text* is the exact formula-text content, **not** resolved into a
-    /// sheet+address — elixcee's formula engine has no cross-sheet reference
-    /// syntax (``=Sheet2!A1``) to resolve it against. Sheet-scoped and
+    /// sheet+address. Sheet-scoped and
     /// workbook-scoped names are not distinguished; on a name collision
     /// across scopes, whichever the reader encounters last wins.
     ///
@@ -1400,12 +1488,9 @@ impl PyVm {
     /// - a reference that lands inside a *deleted* band becomes ``#REF!`` on
     ///   :meth:`delete_rows` (the sheet qualifier, if any, is preserved —
     ///   only the coordinate becomes ``#REF!``)
-    /// - **cross-sheet formula evaluation is a separate, still-unsupported
-    ///   concern** — a qualified reference now parses and its coordinate
-    ///   rewrites correctly, but the formula's cached VALUE is never
-    ///   recomputed against another sheet's cells; :meth:`set_cell_formula`
-    ///   still raises for any formula containing one, since it requires
-    ///   evaluating immediately
+    /// - cross-sheet formula evaluation is handled by workbook-wide
+    ///   :meth:`recalculate`; :meth:`set_cell_formula` stores a qualified
+    ///   formula with an Empty cached value until that recalculation runs
     /// - a formula that couldn't be parsed at all (external workbook
     ///   references like ``[Book2.xlsx]Sheet1!A1``, 3D references like
     ///   ``Sheet1:Sheet3!A1``, and anything else outside same-workbook `A1`
@@ -1418,10 +1503,9 @@ impl PyVm {
     /// the row itself, not to the moved cell content. Does not recompute any
     /// cached formula value — call :meth:`recalculate` afterwards if you need
     /// fresh values
-    /// (note it recalculates the *active* sheet, so switch sheets first if
-    /// the sheet you need refreshed isn't already active; a cross-sheet
-    /// formula is skipped by recalculation entirely, same as one that fails
-    /// to parse). See docs/openpyxl-gap-audit.md and ROADMAP.md's known gaps.
+    /// (the workbook-wide qualified-reference path recalculates all sheets;
+    /// the fast path for unqualified formulas remains active-sheet scoped).
+    /// See docs/openpyxl-gap-audit.md and ROADMAP.md's known gaps.
     ///
     /// Parameters
     /// ----------
@@ -3241,6 +3325,8 @@ fn load_workbook(
     vm.error_on_msgbox = on_msgbox == "error";
     vm.populate_from_sheets(sheets);
     vm.loaded_workbook_path = Some(path.to_string());
+    vm.load_simple_defined_names(path)
+        .map_err(PyErr::new::<pyo3::exceptions::PyIOError, _>)?;
 
     if let Some(s) = sheet {
         vm.set_active_sheet(&s.to_lowercase())
@@ -3308,6 +3394,20 @@ fn create_stream(
     max_columns: Option<usize>,
 ) -> PyResult<stream::PyStreamWriter> {
     stream::stream_writer_from_path(path, max_pending_bytes, max_rows, max_columns)
+}
+
+/// Append-only output with separate per-row and cumulative work admission limits.
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(signature = (path, *, max_row_bytes = 16_777_216, max_work_bytes = 1_073_741_824, max_rows = 1_048_576, max_columns = 16_384))]
+fn create_stream_bounded(
+    path: &str,
+    max_row_bytes: usize,
+    max_work_bytes: usize,
+    max_rows: usize,
+    max_columns: usize,
+) -> PyResult<stream::PyStreamWriter> {
+    stream::bounded_writer_from_path(path, max_row_bytes, max_work_bytes, max_rows, max_columns)
 }
 
 fn save_workbook_impl(vm: &Vm, path: &str) -> Result<(), String> {
@@ -3405,8 +3505,22 @@ fn write_output_atomically(path: &str, data: &[u8]) -> Result<(), String> {
     publish_atomic_output(path, &temporary)
 }
 
+/// Owns only a newly created temporary path, never the destination. Declare before
+/// file/ZIP handles so early-return cleanup happens after those handles close.
+#[cfg(feature = "python")]
+struct TemporaryOutput(std::path::PathBuf);
+
+#[cfg(feature = "python")]
+impl Drop for TemporaryOutput {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
+
 fn create_atomic_output_temp(path: &str) -> Result<(std::path::PathBuf, std::fs::File), String> {
     use std::fs::OpenOptions;
+
+    reject_symlink_output(path)?;
 
     let output = std::path::Path::new(path);
     let parent = output.parent().unwrap_or_else(|| std::path::Path::new("."));
@@ -3427,11 +3541,14 @@ fn create_atomic_output_temp(path: &str) -> Result<(std::path::PathBuf, std::fs:
 
     for attempt in 0..100u32 {
         let temporary = parent.join(format!("{prefix}-{attempt}"));
-        let file = match OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
         {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let file = match options.open(&temporary) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(format!("cannot create temporary output: {error}")),
@@ -3451,22 +3568,10 @@ fn create_atomic_output_temp(path: &str) -> Result<(std::path::PathBuf, std::fs:
 
 fn publish_atomic_output(path: &str, temporary: &std::path::Path) -> Result<(), String> {
     let output = std::path::Path::new(path);
-    let result = {
-        #[cfg(not(windows))]
-        {
-            std::fs::rename(temporary, output)
-        }
-        #[cfg(windows)]
-        {
-            match std::fs::rename(temporary, output) {
-                Ok(()) => Ok(()),
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                    std::fs::remove_file(output).and_then(|_| std::fs::rename(temporary, output))
-                }
-                Err(error) => Err(error),
-            }
-        }
-    };
+    // std::fs::rename supports replacement on Windows too. Never delete the
+    // destination first: failure must leave the original output intact.
+    let result = reject_symlink_output(path)
+        .and_then(|_| std::fs::rename(temporary, output).map_err(|error| error.to_string()));
     if let Err(error) = result {
         let _ = std::fs::remove_file(temporary);
         return Err(format!("cannot publish output: {error}"));
@@ -3805,6 +3910,129 @@ fn carry_over_rels(
         .collect()
 }
 
+/// Rewrites relationship ids inside the raw workbook-level external-reference owner.
+/// The writer assigns fresh ids after its own worksheet/sharedStrings/styles/vba entries;
+/// preserving the source r:id could therefore create a dangling or misbound reference.
+/// Returning None for an unresolved source id deliberately omits the unsupported owner.
+fn rewrite_external_references_xml(
+    raw_owner: &str,
+    source_rels_xml: &str,
+    carried_rels: &[(String, String)],
+    first_carried_id: usize,
+) -> Option<String> {
+    let source = reader::workbook_rels_decls_with_ids(source_rels_xml);
+    let mut replacements = std::collections::HashMap::new();
+    let mut generated_ids = std::collections::HashSet::new();
+    for (index, (ty, target)) in carried_rels.iter().enumerate() {
+        let generated_id = format!("rId{}", first_carried_id + index);
+        generated_ids.insert(generated_id.clone());
+        replacements.insert((ty.as_str(), target.as_str()), generated_id);
+    }
+    let mut out = raw_owner.to_string();
+    for (source_id, ty, target) in source {
+        let Some(new_id) = replacements.get(&(ty.as_str(), target.as_str())) else {
+            if raw_owner.contains(&format!(":id=\"{source_id}\"")) {
+                return None;
+            }
+            continue;
+        };
+        for prefix in ["r:id=\"", "rel:id=\""] {
+            let old = format!("{prefix}{source_id}\"");
+            let new = format!("{prefix}{new_id}\"");
+            out = out.replace(&old, &new);
+        }
+    }
+    // Every relationship id referenced by the owner must now be a generated id.
+    let mut remainder = out.as_str();
+    while let Some(start) = remainder.find(":id=\"") {
+        let value_start = start + ":id=\"".len();
+        let end = remainder[value_start..].find('"')?;
+        let id = &remainder[value_start..value_start + end];
+        if !generated_ids.contains(id) {
+            return None;
+        }
+        remainder = &remainder[value_start + end + 1..];
+    }
+    Some(out)
+}
+
+/// Confirms that every relationship id in an owner element resolves to an internal
+/// target that will still be present in the output package. This is intentionally a
+/// structural check only; it does not fetch or interpret external targets.
+fn relationship_owner_graph_is_connected(
+    owner_xml: &str,
+    root_rels_xml: &str,
+    rels_name: &str,
+    relationship_parts: &std::collections::HashMap<String, String>,
+    surviving_parts: &std::collections::HashSet<String>,
+) -> bool {
+    let mut pending = vec![];
+    let mut visited_rels = std::collections::HashSet::new();
+    let visit = |current_rels_name: &str,
+                 rels_xml: &str,
+                 owner: Option<&str>,
+                 pending: &mut Vec<String>,
+                 visited_rels: &mut std::collections::HashSet<String>| {
+        if !visited_rels.insert(current_rels_name.to_string()) {
+            return true;
+        }
+        let declarations = reader::workbook_rels_decls_with_ids(rels_xml);
+        let mut by_id = std::collections::HashMap::new();
+        for (id, _ty, target) in declarations {
+            if by_id.insert(id, target).is_some() {
+                return false;
+            }
+        }
+        let mut ids = vec![];
+        if let Some(owner_xml) = owner {
+            let mut remainder = owner_xml;
+            while let Some(start) = remainder.find(":id=\"") {
+                let value_start = start + ":id=\"".len();
+                let Some(end) = remainder[value_start..].find('"') else {
+                    return false;
+                };
+                ids.push(remainder[value_start..value_start + end].to_string());
+                remainder = &remainder[value_start + end + 1..];
+            }
+        } else {
+            ids.extend(by_id.keys().cloned());
+        }
+        for id in ids {
+            let Some(target) = by_id.get(&id) else {
+                return false;
+            };
+            if target.starts_with("http://") || target.starts_with("https://") {
+                continue;
+            }
+            let resolved =
+                normalize_part_path(&format!("{}{}", rels_target_dir(current_rels_name), target));
+            if !surviving_parts.contains(&resolved) {
+                return false;
+            }
+            pending.push(resolved);
+        }
+        true
+    };
+    if !visit(
+        rels_name,
+        root_rels_xml,
+        Some(owner_xml),
+        &mut pending,
+        &mut visited_rels,
+    ) {
+        return false;
+    }
+    while let Some(part) = pending.pop() {
+        let rels_path = part_rels_name(&part);
+        if let Some(rels_xml) = relationship_parts.get(&rels_path)
+            && !visit(&rels_path, rels_xml, None, &mut pending, &mut visited_rels)
+        {
+            return false;
+        }
+    }
+    true
+}
+
 /// Rewrites `container_xml` (the raw `<definedNames>...</definedNames>` blob already
 /// cleared to pass through -- see the deletion/move gate right above this function's only
 /// call site) for every sheet rename in `renames`, splicing each `<definedName>` element's
@@ -3868,7 +4096,6 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
 
     // Collect shared strings (insertion-ordered, deduplicated)
     let mut str_index: HashMap<String, usize> = HashMap::new();
-    let mut shared_strings: Vec<String> = Vec::new();
     for sheet_name in &sheet_names {
         if let Some(cells) = vm.get_sheet_cells(sheet_name) {
             // Only strings need deterministic shared-string indices. Keep
@@ -3888,8 +4115,11 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 // shared-string indexed -- confirmed against real Excel-authored output,
                 // which never puts e.g. "#VALUE!" in xl/sharedStrings.xml either.
                 if !str_index.contains_key(value.as_str()) {
-                    str_index.insert(value.clone(), shared_strings.len());
-                    shared_strings.push(value.clone());
+                    // Keep the owning String only in the index. The previous implementation
+                    // retained a second String in `shared_strings` for the entire save, which
+                    // doubled the payload memory for high-cardinality text workbooks.
+                    let next_index = str_index.len();
+                    str_index.insert(value.clone(), next_index);
                 }
             }
         }
@@ -3908,6 +4138,7 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     let is_xlsm_output = path.to_lowercase().ends_with(".xlsm");
 
     let mut passthrough: Vec<(String, Vec<u8>)> = Vec::new();
+    let mut passthrough_source_names: Vec<String> = Vec::new();
     let mut has_vba = false;
     let mut carried_overrides: Vec<(String, String)> = Vec::new();
     // Other workbook-level relationships (theme, calcChain, etc.) whose target part
@@ -3919,6 +4150,12 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     // one). (Type, Target) pairs; Target is re-relativized against "xl/" by
     // build_xlsx_workbook_rels, matching how workbook.xml.rels' own Target values work.
     let mut carried_rels: Vec<(String, String)> = Vec::new();
+    let mut source_workbook_rels_xml: Option<String> = None;
+    let mut source_worksheet_rels: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    let mut source_relationship_parts: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    let mut surviving_source_parts = std::collections::HashSet::new();
     // Same idea as `carried_rels`, but for the root `_rels/.rels` file (docProps/core.xml,
     // docProps/app.xml, ...) -- see `carried_rels`'s own comment below for why this is
     // needed at all.
@@ -3939,6 +4176,9 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     // `WorksheetOrigin` whose `original_part_name` resolves to a real passthrough
     // entry; a new sheet (no origin) or an .ods source (no `raw_entries` at all)
     // falls back to `write_xlsx_sheet`'s hardcoded minimal defaults.
+    // Worksheet source XML is consumed one sheet at a time during output. Keeping
+    // ownership here (rather than cloning fragments) lets completed sheets release
+    // their full source text before the next sheet is streamed.
     let mut sheet_source_xml: HashMap<String, String> = HashMap::new();
     // Original xl/workbook.xml text -- the source for 0.10.0-C's opaque-fragment
     // passthrough (see `OpaqueWorkbookFragments`), same mechanism as `sheet_source_xml`
@@ -3958,12 +4198,17 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     let mut reserved_table_part_numbers: Vec<u32> = Vec::new();
 
     if let Some(source_path) = passthrough_source {
-        let raw_entries = reader::read_raw_zip_entries(source_path)?;
-        has_vba = is_xlsm_output && raw_entries.keys().any(|n| n.starts_with("xl/vbaProject"));
-        passthrough_styles = raw_entries.get("xl/styles.xml").cloned();
-        workbook_source_xml = raw_entries
-            .get("xl/workbook.xml")
+        let mut raw_entries = reader::read_raw_zip_entries(source_path)?;
+        source_workbook_rels_xml = raw_entries
+            .get("xl/_rels/workbook.xml.rels")
             .and_then(|bytes| String::from_utf8(bytes.clone()).ok());
+        has_vba = is_xlsm_output && raw_entries.keys().any(|n| n.starts_with("xl/vbaProject"));
+        // These parts are writer-owned or parsed into dedicated structures. Move
+        // them out of the raw map instead of cloning them while retaining the map.
+        passthrough_styles = raw_entries.remove("xl/styles.xml");
+        workbook_source_xml = raw_entries
+            .remove("xl/workbook.xml")
+            .and_then(|bytes| String::from_utf8(bytes).ok());
         reserved_sheet_part_numbers = raw_entries
             .keys()
             .filter_map(|name| parse_sheet_part_number(name))
@@ -3973,18 +4218,9 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             .filter_map(|name| parse_table_part_number(name))
             .collect();
 
-        for (sheet_key, origin) in &vm.worksheet_origins {
-            if let Some(part) = &origin.original_part_name
-                && let Some(bytes) = raw_entries.get(part)
-                && let Ok(text) = String::from_utf8(bytes.clone())
-            {
-                sheet_source_xml.insert(sheet_key.clone(), text);
-            }
-        }
-
         let (defaults, overrides) = raw_entries
-            .get("[Content_Types].xml")
-            .and_then(|b| String::from_utf8(b.clone()).ok())
+            .remove("[Content_Types].xml")
+            .and_then(|b| String::from_utf8(b).ok())
             .map(|xml| reader::content_type_decls(&xml))
             .unwrap_or_default();
 
@@ -3997,6 +4233,18 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         let prunable_parts =
             deleted_sheet_prunable_parts(&raw_entries, &vm.worksheet_origins, &sheet_names);
 
+        // Worksheet XML is writer-owned after its opaque fragments have been
+        // captured. Move it out only after the deletion graph has consumed the
+        // raw entry names, avoiding a second copy while preserving that analysis.
+        for (sheet_key, origin) in &vm.worksheet_origins {
+            if let Some(part) = &origin.original_part_name
+                && let Some(bytes) = raw_entries.remove(part)
+                && let Ok(text) = String::from_utf8(bytes)
+            {
+                sheet_source_xml.insert(sheet_key.clone(), text);
+            }
+        }
+
         // 0.16.0-A2: `edit_table`/structural-edit shifts record `TableEditOp`s against
         // the table's own `source_part` rather than mutating `xl/tables/*.xml` directly
         // (surgical patch, not reserialize -- see `TableDef::pending_edits`'s doc
@@ -4008,6 +4256,15 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             .filter(|t| !t.pending_edits.is_empty() && !t.source_part.is_empty())
             .map(|t| (t.source_part.as_str(), t.pending_edits.as_slice()))
             .collect();
+        // Existing worksheet rels are copied byte-for-byte unless a fresh table
+        // needs to append a new relationship to one of them below. In the common
+        // no-new-table path, defer their payload just like images and unchanged
+        // table parts; the relationship graph has already consumed the source bytes.
+        let has_new_table = vm
+            .tables
+            .values()
+            .flatten()
+            .any(|table| table.source_part.is_empty());
 
         let passthrough_names: Vec<String> = raw_entries
             .keys()
@@ -4016,6 +4273,29 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             .filter(|name| !prunable_parts.contains(*name))
             .cloned()
             .collect();
+        surviving_source_parts.extend(passthrough_names.iter().cloned());
+        for name in passthrough_names
+            .iter()
+            .filter(|name| name.starts_with("xl/worksheets/_rels/") && name.ends_with(".rels"))
+        {
+            if let Some(xml) = raw_entries
+                .get(name)
+                .and_then(|bytes| String::from_utf8(bytes.clone()).ok())
+            {
+                source_worksheet_rels.insert(name.clone(), xml);
+            }
+        }
+        for name in passthrough_names
+            .iter()
+            .filter(|name| name.ends_with(".rels"))
+        {
+            if let Some(xml) = raw_entries
+                .get(name)
+                .and_then(|bytes| String::from_utf8(bytes.clone()).ok())
+            {
+                source_relationship_parts.insert(name.clone(), xml);
+            }
+        }
 
         // Carry relationship metadata before consuming `raw_entries`; the byte payloads
         // themselves are moved into `passthrough` below, avoiding a second in-memory copy.
@@ -4058,7 +4338,26 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 }
                 None => bytes,
             };
-            passthrough.push((name.clone(), bytes));
+            // Analysis/structural XML remains in memory. Other parts are copied
+            // on demand from the source ZIP at the final output stage, avoiding
+            // a second resident payload.
+            let needed_for_save = (name.ends_with(".rels")
+                && !(name.starts_with("xl/worksheets/_rels/") && !has_new_table))
+                || name == "[Content_Types].xml"
+                || name == "xl/workbook.xml"
+                || name == "xl/styles.xml"
+                || name.starts_with("xl/worksheets/")
+                // An untouched table can be copied directly from the source ZIP;
+                // retain its XML only when a surgical TableEditOp needs to patch it.
+                || (name.starts_with("xl/tables/") && table_edits.contains_key(name.as_str()))
+                || (has_new_table
+                    && name.starts_with("xl/worksheets/_rels/")
+                    && name.ends_with(".rels"));
+            if needed_for_save {
+                passthrough.push((name.clone(), bytes));
+            } else {
+                passthrough_source_names.push(name.clone());
+            }
 
             // Resolve this part's real declared content type from the source's
             // own [Content_Types].xml — exact Override first, then extension
@@ -4107,6 +4406,7 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         // missing the exact same way theme/calcChain were.
         // Deterministic, reviewable output order.
         passthrough.sort_by(|a, b| a.0.cmp(&b.0));
+        passthrough_source_names.sort();
         carried_overrides.sort_by(|a, b| a.0.cmp(&b.0));
         carried_rels.sort_by(|a, b| a.1.cmp(&b.1));
         carried_root_rels.sort_by(|a, b| a.1.cmp(&b.1));
@@ -4126,9 +4426,6 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     // even when the ORIGINAL source had no `.rels` for those to safely reference (a
     // malformed-source edge case, but exactly the dangling-`r:id` failure mode
     // `rels_survived`'s own gate exists to prevent).
-    let originally_survived_rels: std::collections::HashSet<String> =
-        passthrough.iter().map(|(name, _)| name.clone()).collect();
-
     // 0.16.0-A3: `create_table` leaves a new `TableDef` with `source_part` empty -- the
     // signal 0.16.0-A2 already established for "no raw bytes to patch". Assign each one a
     // fresh `xl/tables/tableN.xml` part number here (walking `worksheet_plans`' own stable
@@ -4208,6 +4505,34 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 ));
         }
     }
+    // A new table only patches the rels of its owning sheet. Once those rels are
+    // known, defer every other worksheet rels payload even when the workbook has
+    // a new table elsewhere.
+    let rels_needing_patch: std::collections::HashSet<&str> = worksheet_plans
+        .iter()
+        .filter(|plan| new_table_parts_by_sheet.contains_key(&plan.sheet_key))
+        .map(|plan| plan.output_rels_name.as_str())
+        .collect();
+    let mut retained_passthrough = Vec::with_capacity(passthrough.len());
+    for (name, bytes) in passthrough.drain(..) {
+        let defer = name.starts_with("xl/worksheets/_rels/")
+            && name.ends_with(".rels")
+            && !rels_needing_patch.contains(name.as_str());
+        if defer {
+            passthrough_source_names.push(name);
+        } else {
+            retained_passthrough.push((name, bytes));
+        }
+    }
+    passthrough = retained_passthrough;
+    let mut originally_survived_rels: std::collections::HashSet<String> =
+        passthrough.iter().map(|(name, _)| name.clone()).collect();
+    originally_survived_rels.extend(
+        passthrough_source_names
+            .iter()
+            .filter(|name| name.ends_with(".rels"))
+            .cloned(),
+    );
     // Re-sort: new/patched entries above were appended, not inserted in order.
     passthrough.sort_by(|a, b| a.0.cmp(&b.0));
     carried_overrides.sort_by(|a, b| a.0.cmp(&b.0));
@@ -4252,6 +4577,34 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     let calc_pr = workbook_source_xml
         .as_deref()
         .and_then(|xml| reader::extract_raw_element(xml, "calcPr"));
+    let external_references = workbook_source_xml
+        .as_deref()
+        .and_then(|xml| reader::extract_raw_element(xml, "externalReferences"))
+        .and_then(|owner| {
+            let rels = source_workbook_rels_xml.as_deref()?;
+            let first_carried_id = worksheet_plans.len() + 3 + usize::from(has_vba);
+            rewrite_external_references_xml(&owner, rels, &carried_rels, first_carried_id)
+        });
+    let pivot_caches = workbook_source_xml
+        .as_deref()
+        .and_then(|xml| reader::extract_raw_element(xml, "pivotCaches"))
+        .and_then(|owner| {
+            if vm.ooxml_structural_edit_dirty {
+                return None;
+            }
+            let rels = source_workbook_rels_xml.as_deref()?;
+            let first_carried_id = worksheet_plans.len() + 3 + usize::from(has_vba);
+            if !relationship_owner_graph_is_connected(
+                &owner,
+                rels,
+                "xl/_rels/workbook.xml.rels",
+                &source_relationship_parts,
+                &surviving_source_parts,
+            ) {
+                return None;
+            }
+            rewrite_external_references_xml(&owner, rels, &carried_rels, first_carried_id)
+        });
     let ext_lst = workbook_source_xml
         .as_deref()
         .and_then(|xml| reader::extract_raw_element(xml, "extLst"));
@@ -4276,6 +4629,7 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         workbook_source_xml
             .as_deref()
             .and_then(|xml| reader::extract_raw_element(xml, "definedNames"))
+            .map(|xml| xml.to_owned())
     } else {
         None
     };
@@ -4290,6 +4644,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         root_attrs: workbook_root_attrs.as_deref(),
         workbook_pr: workbook_pr.as_deref(),
         book_views: book_views.as_deref(),
+        pivot_caches: pivot_caches.as_deref(),
+        external_references: external_references.as_deref(),
         defined_names: defined_names.as_deref(),
         calc_pr: calc_pr.as_deref(),
         ext_lst: ext_lst.as_deref(),
@@ -4299,6 +4655,9 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     zip.write_all(build_xlsx_workbook(&worksheet_plans, &workbook_fragments).as_bytes())
         .map_err(|e| e.to_string())?;
+    // Every workbook fragment now owns its own extracted text; the original
+    // workbook XML no longer needs to remain resident while sheets are written.
+    drop(workbook_source_xml);
 
     zip.start_file("xl/_rels/workbook.xml.rels", deflated)
         .map_err(|e| e.to_string())?;
@@ -4311,65 +4670,82 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     // rather than at that write site is what lets each sheet's own `<c s="N">` emission
     // below see the EFFECTIVE (possibly-edited) index instead of `vm.cell_style_indices`'
     // original one.
-    let styles_source = passthrough_styles
-        .as_deref()
-        .unwrap_or_else(|| XLSX_STYLES.as_bytes());
-    let mut new_styles_bytes: Option<Vec<u8>> = None;
-    let mut effective_style_indices: Option<StyleIndexMap> = None;
-    if let Some((new_xml, indices)) = resolve_pending_number_formats(vm, styles_source) {
-        new_styles_bytes = Some(new_xml.into_bytes());
-        effective_style_indices = Some(indices);
-    }
-    // `set_style` (0.15.0-B) resolution, CHAINED after the number-format pass above (see
-    // `resolve_pending_style_attrs`'s own doc comment for why an independent second pass
-    // starting fresh from `styles_source` would silently discard whichever of the two
-    // features ran first on a cell touched by both).
-    {
-        let chained_source: &[u8] = new_styles_bytes.as_deref().unwrap_or(styles_source);
-        let chained_indices: &StyleIndexMap = effective_style_indices
-            .as_ref()
-            .unwrap_or(&vm.cell_style_indices);
-        if let Some((new_xml, indices)) =
-            resolve_pending_style_attrs(vm, chained_source, chained_indices)?
+    let (new_styles_bytes, effective_style_indices, effective_row_styles, effective_column_styles) = {
+        let styles_source = passthrough_styles
+            .as_deref()
+            .unwrap_or_else(|| XLSX_STYLES.as_bytes());
+        let mut new_styles_bytes: Option<Vec<u8>> = None;
+        let mut effective_style_indices: Option<StyleIndexMap> = None;
+        if let Some((new_xml, indices)) = resolve_pending_number_formats(vm, styles_source) {
+            new_styles_bytes = Some(new_xml.into_bytes());
+            effective_style_indices = Some(indices);
+        }
+        // `set_style` (0.15.0-B) resolution, CHAINED after the number-format pass above (see
+        // `resolve_pending_style_attrs`'s own doc comment for why an independent second pass
+        // starting fresh from `styles_source` would silently discard whichever of the two
+        // features ran first on a cell touched by both).
         {
-            new_styles_bytes = Some(new_xml.into_bytes());
-            effective_style_indices = Some(indices);
+            let chained_source: &[u8] = new_styles_bytes.as_deref().unwrap_or(styles_source);
+            let chained_indices: &StyleIndexMap = effective_style_indices
+                .as_ref()
+                .unwrap_or(&vm.cell_style_indices);
+            if let Some((new_xml, indices)) =
+                resolve_pending_style_attrs(vm, chained_source, chained_indices)?
+            {
+                new_styles_bytes = Some(new_xml.into_bytes());
+                effective_style_indices = Some(indices);
+            }
         }
-    }
-    // `copy_style` (0.15.0-C1) resolution, CHAINED after the two passes above -- pure
-    // index aliasing (see `resolve_pending_style_copies`'s own doc comment). Never
-    // produces new styles.xml bytes, so `new_styles_bytes` is deliberately left
-    // untouched here.
-    {
-        let chained_indices: &StyleIndexMap = effective_style_indices
-            .as_ref()
-            .unwrap_or(&vm.cell_style_indices);
-        if let Some(indices) = resolve_pending_style_copies(vm, chained_indices) {
-            effective_style_indices = Some(indices);
+        // `copy_style` (0.15.0-C1) resolution, CHAINED after the two passes above -- pure
+        // index aliasing (see `resolve_pending_style_copies`'s own doc comment). Never
+        // produces new styles.xml bytes, so `new_styles_bytes` is deliberately left
+        // untouched here.
+        {
+            let chained_indices: &StyleIndexMap = effective_style_indices
+                .as_ref()
+                .unwrap_or(&vm.cell_style_indices);
+            if let Some(indices) = resolve_pending_style_copies(vm, chained_indices) {
+                effective_style_indices = Some(indices);
+            }
         }
-    }
-    // `set_row_style`/`set_column_style` (0.15.0-C2) resolution, CHAINED LAST -- shares
-    // the same font/fill/border/cellXf tables `resolve_pending_style_attrs` may have
-    // already grown above (see `resolve_pending_row_column_styles`'s own doc comment).
-    let mut effective_row_styles: Option<RowStyleIndexMap> = None;
-    let mut effective_column_styles: Option<ColumnStyleRangeMap> = None;
-    {
-        let chained_source: &[u8] = new_styles_bytes.as_deref().unwrap_or(styles_source);
-        if let Some((new_xml, rows, cols)) = resolve_pending_row_column_styles(
-            vm,
-            chained_source,
-            &vm.row_styles,
-            &vm.column_styles,
-        )? {
-            new_styles_bytes = Some(new_xml.into_bytes());
-            effective_row_styles = Some(rows);
-            effective_column_styles = Some(cols);
+        // `set_row_style`/`set_column_style` (0.15.0-C2) resolution, CHAINED LAST -- shares
+        // the same font/fill/border/cellXf tables `resolve_pending_style_attrs` may have
+        // already grown above (see `resolve_pending_row_column_styles`'s own doc comment).
+        let mut effective_row_styles: Option<RowStyleIndexMap> = None;
+        let mut effective_column_styles: Option<ColumnStyleRangeMap> = None;
+        {
+            let chained_source: &[u8] = new_styles_bytes.as_deref().unwrap_or(styles_source);
+            if let Some((new_xml, rows, cols)) = resolve_pending_row_column_styles(
+                vm,
+                chained_source,
+                &vm.row_styles,
+                &vm.column_styles,
+            )? {
+                new_styles_bytes = Some(new_xml.into_bytes());
+                effective_row_styles = Some(rows);
+                effective_column_styles = Some(cols);
+            }
         }
+
+        (
+            new_styles_bytes,
+            effective_style_indices,
+            effective_row_styles,
+            effective_column_styles,
+        )
+    };
+    let defer_source_styles =
+        new_styles_bytes.is_none() && passthrough_source.is_some() && passthrough_styles.is_some();
+    if defer_source_styles {
+        // Style resolution has completed; avoid retaining the source stylesheet
+        // while the worksheet XML is being streamed.
+        drop(passthrough_styles);
     }
 
     for plan in &worksheet_plans {
         let sheet_name = &plan.sheet_key;
-        let source_xml = sheet_source_xml.get(&sheet_name.to_lowercase());
+        let source_xml_owned = sheet_source_xml.remove(&sheet_name.to_lowercase());
+        let source_xml = source_xml_owned.as_deref();
         let style_override = effective_style_indices
             .as_ref()
             .and_then(|m| m.get(&sheet_name.to_lowercase()));
@@ -4420,6 +4796,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         // a dangling `r:id`, a real Excel repair warning.
         let rels_survived =
             plan.is_existing && originally_survived_rels.contains(&plan.output_rels_name);
+        let relationship_owners_safe = rels_survived && !vm.ooxml_structural_edit_dirty;
+        let rels_xml = source_worksheet_rels.get(&plan.output_rels_name);
         // Location-only hyperlinks are always kept; r:id-bearing ones only when
         // rels_survived (see extract_hyperlinks' own doc comment).
         let hyperlinks = source_xml
@@ -4428,8 +4806,36 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
         let (existing_table_parts, drawing, legacy_drawing) = if rels_survived {
             (
                 source_xml.and_then(|xml| reader::extract_raw_element(xml, "tableParts")),
-                source_xml.and_then(|xml| reader::extract_raw_element(xml, "drawing")),
-                source_xml.and_then(|xml| reader::extract_raw_element(xml, "legacyDrawing")),
+                source_xml
+                    .and_then(|xml| reader::extract_raw_element(xml, "drawing"))
+                    .filter(|owner| {
+                        relationship_owners_safe && {
+                            rels_xml.is_some_and(|rels| {
+                                relationship_owner_graph_is_connected(
+                                    owner,
+                                    rels,
+                                    &plan.output_rels_name,
+                                    &source_relationship_parts,
+                                    &surviving_source_parts,
+                                )
+                            })
+                        }
+                    }),
+                source_xml
+                    .and_then(|xml| reader::extract_raw_element(xml, "legacyDrawing"))
+                    .filter(|owner| {
+                        relationship_owners_safe && {
+                            rels_xml.is_some_and(|rels| {
+                                relationship_owner_graph_is_connected(
+                                    owner,
+                                    rels,
+                                    &plan.output_rels_name,
+                                    &source_relationship_parts,
+                                    &surviving_source_parts,
+                                )
+                            })
+                        }
+                    }),
             )
         } else {
             (None, None, None)
@@ -4498,18 +4904,45 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     zip.start_file("xl/sharedStrings.xml", deflated)
         .map_err(|e| e.to_string())?;
     let mut strings_sink = std::io::BufWriter::with_capacity(64 * 1024, &mut zip);
-    write_xlsx_shared_strings(&mut strings_sink, &shared_strings).map_err(|e| e.to_string())?;
+    write_xlsx_shared_strings_from_index(&mut strings_sink, &str_index)
+        .map_err(|e| e.to_string())?;
     strings_sink.into_inner().map_err(|e| e.to_string())?;
 
     zip.start_file("xl/styles.xml", deflated)
         .map_err(|e| e.to_string())?;
-    zip.write_all(new_styles_bytes.as_deref().unwrap_or(styles_source))
-        .map_err(|e| e.to_string())?;
+    if let Some(bytes) = new_styles_bytes.as_deref() {
+        zip.write_all(bytes).map_err(|e| e.to_string())?;
+    } else if defer_source_styles {
+        let source_path = passthrough_source.expect("deferred styles require a source path");
+        let source_file = std::fs::File::open(source_path).map_err(|e| e.to_string())?;
+        let mut source_archive = zip::ZipArchive::new(source_file).map_err(|e| e.to_string())?;
+        reader::validate_raw_zip_archive(&mut source_archive)?;
+        reader::copy_raw_zip_entry(&mut source_archive, "xl/styles.xml", &mut zip)?;
+    } else {
+        zip.write_all(XLSX_STYLES.as_bytes())
+            .map_err(|e| e.to_string())?;
+    }
 
-    for (name, bytes) in &passthrough {
+    // Consume retained passthrough XML as it is written. This keeps the save-time
+    // tail from holding every analysis payload after the worksheet stream is done.
+    for (name, bytes) in passthrough.drain(..) {
         zip.start_file(name.as_str(), deflated)
             .map_err(|e| e.to_string())?;
-        zip.write_all(bytes).map_err(|e| e.to_string())?;
+        zip.write_all(&bytes).map_err(|e| e.to_string())?;
+    }
+
+    // Binary passthrough payloads are reopened one at a time. This keeps the
+    // source package's large images/VBA project out of the save-time heap while
+    // preserving their exact decompressed bytes in the output package.
+    if let Some(source_path) = passthrough_source {
+        let source_file = std::fs::File::open(source_path).map_err(|e| e.to_string())?;
+        let mut source_archive = zip::ZipArchive::new(source_file).map_err(|e| e.to_string())?;
+        reader::validate_raw_zip_archive(&mut source_archive)?;
+        for name in &passthrough_source_names {
+            zip.start_file(name.as_str(), deflated)
+                .map_err(|e| e.to_string())?;
+            reader::copy_raw_zip_entry(&mut source_archive, name, &mut zip)?;
+        }
     }
 
     let mut file = zip.finish().map_err(|e| e.to_string())?.into_inner();
@@ -4580,11 +5013,11 @@ pub(crate) const XLSX_STYLES: &str = concat!(
 /// to, never rewritten) and `<cellXfs>` (existing entries copied byte-for-byte, new ones
 /// appended) change.
 ///
-/// Returns the effective per-sheet style-index map alongside the new document text
-/// (a full clone of `vm.cell_style_indices` with just the touched cells overridden) --
-/// `vm.cell_style_indices` itself is never mutated here (`save_xlsx_impl` takes `&Vm`,
-/// not `&mut Vm`), so calling `save_workbook()` twice in a row re-resolves from the exact
-/// same starting point both times and produces identical output.
+/// Returns an effective per-sheet style-index overlay alongside the new document text;
+/// only sheets participating in any pending cell-style operation are cloned. Unchanged
+/// sheets fall back to `vm.cell_style_indices` during emission. The VM map itself is never
+/// mutated here (`save_xlsx_impl` takes `&Vm`, not `&mut Vm`), so repeated saves remain
+/// deterministic.
 fn resolve_pending_number_formats(
     vm: &Vm,
     starting_styles: &[u8],
@@ -4607,7 +5040,9 @@ fn resolve_pending_number_formats(
     let numfmts_container = reader::extract_raw_element(&xml, "numFmts");
     let mut new_numfmt_entries = String::new();
 
-    let mut effective = vm.cell_style_indices.clone();
+    let pending_sheets = pending_cell_style_sheets(vm);
+    let mut effective =
+        clone_pending_cell_style_sheets(vm, &vm.cell_style_indices, &pending_sheets);
 
     for (sheet_key, edits) in &vm.pending_number_formats {
         if edits.is_empty() {
@@ -4736,6 +5171,22 @@ fn extract_style_tables(xml: &str) -> (Vec<String>, Vec<String>, Vec<String>, Ve
         xfs.push("<xf/>".to_string());
     }
     (fonts, fills, borders, xfs)
+}
+
+fn style_edit_touches_shared_table(edit: &vm::StyleAttrEdit) -> bool {
+    edit.font.is_some() || edit.fill.is_some() || edit.border.is_some()
+}
+
+fn reserialize_cell_xfs(xml: String, xfs: &[String]) -> String {
+    let new_cell_xfs = format!(
+        "<cellXfs count=\"{}\">{}</cellXfs>",
+        xfs.len(),
+        xfs.concat()
+    );
+    match reader::extract_raw_element(&xml, "cellXfs") {
+        Some(old) => xml.replacen(old.as_str(), &new_cell_xfs, 1),
+        None => xml.replacen("</styleSheet>", &format!("{new_cell_xfs}</styleSheet>"), 1),
+    }
 }
 
 /// Re-serializes the four style tables back into `xml`'s `<styleSheet>`, replacing each
@@ -4909,10 +5360,28 @@ fn resolve_pending_style_attrs(
         return Ok(None);
     }
     let xml = String::from_utf8_lossy(starting_styles).into_owned();
-    let (mut fonts, mut fills, mut borders, mut xfs) = extract_style_tables(&xml);
+    let touches_shared_tables = vm
+        .pending_style_attrs
+        .values()
+        .flatten()
+        .any(|(_, edit)| style_edit_touches_shared_table(edit));
+    let (mut fonts, mut fills, mut borders, mut xfs) = if touches_shared_tables {
+        extract_style_tables(&xml)
+    } else {
+        (
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            reader::extract_cell_xfs(&xml),
+        )
+    };
+    if xfs.is_empty() {
+        xfs.push("<xf/>".to_string());
+    }
     let cell_style_xfs = reader::extract_records(&xml, "cellStyleXfs", "xf");
 
-    let mut effective = starting_indices.clone();
+    let pending_sheets = pending_cell_style_sheets(vm);
+    let mut effective = clone_pending_cell_style_sheets(vm, starting_indices, &pending_sheets);
 
     for (sheet_key, edits) in &vm.pending_style_attrs {
         if edits.is_empty() {
@@ -4935,12 +5404,30 @@ fn resolve_pending_style_attrs(
         }
     }
 
-    let new_xml = reserialize_style_tables(xml, &fonts, &fills, &borders, &xfs);
+    let new_xml = if touches_shared_tables {
+        reserialize_style_tables(xml, &fonts, &fills, &borders, &xfs)
+    } else {
+        reserialize_cell_xfs(xml, &xfs)
+    };
     Ok(Some((new_xml, effective)))
 }
 
 type RowStyleIndexMap = std::collections::HashMap<String, std::collections::HashMap<u32, u32>>;
 type ColumnStyleRangeMap = std::collections::HashMap<String, Vec<(u32, u32, u32)>>;
+
+fn pending_row_column_style_sheets(vm: &Vm) -> std::collections::HashSet<String> {
+    vm.pending_row_styles
+        .iter()
+        .filter(|(_, edits)| !edits.is_empty())
+        .map(|(sheet, _)| sheet.clone())
+        .chain(
+            vm.pending_column_styles
+                .iter()
+                .filter(|(_, edits)| !edits.is_empty())
+                .map(|(sheet, _)| sheet.clone()),
+        )
+        .collect()
+}
 
 /// Resolves `vm.pending_row_styles`/`vm.pending_column_styles` (`set_row_style`/
 /// `set_column_style`, 0.15.0-C2) -- chained after `resolve_pending_style_attrs` at save
@@ -4968,11 +5455,49 @@ fn resolve_pending_row_column_styles(
         return Ok(None);
     }
     let xml = String::from_utf8_lossy(starting_styles).into_owned();
-    let (mut fonts, mut fills, mut borders, mut xfs) = extract_style_tables(&xml);
+    let touches_shared_tables = vm
+        .pending_row_styles
+        .values()
+        .flatten()
+        .chain(vm.pending_column_styles.values().flatten())
+        .any(|(_, edit)| style_edit_touches_shared_table(edit));
+    let (mut fonts, mut fills, mut borders, mut xfs) = if touches_shared_tables {
+        extract_style_tables(&xml)
+    } else {
+        (
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            reader::extract_cell_xfs(&xml),
+        )
+    };
+    if xfs.is_empty() {
+        xfs.push("<xf/>".to_string());
+    }
     let cell_style_xfs = reader::extract_records(&xml, "cellStyleXfs", "xf");
 
-    let mut effective_rows = starting_row_styles.clone();
-    let mut effective_cols = starting_column_styles.clone();
+    let pending_sheets = pending_row_column_style_sheets(vm);
+    let mut effective_rows: RowStyleIndexMap = pending_sheets
+        .iter()
+        .map(|sheet| {
+            (
+                sheet.clone(),
+                starting_row_styles.get(sheet).cloned().unwrap_or_default(),
+            )
+        })
+        .collect();
+    let mut effective_cols: ColumnStyleRangeMap = pending_sheets
+        .iter()
+        .map(|sheet| {
+            (
+                sheet.clone(),
+                starting_column_styles
+                    .get(sheet)
+                    .cloned()
+                    .unwrap_or_default(),
+            )
+        })
+        .collect();
 
     for (sheet_key, edits) in &vm.pending_row_styles {
         if edits.is_empty() {
@@ -5034,7 +5559,11 @@ fn resolve_pending_row_column_styles(
         }
     }
 
-    let new_xml = reserialize_style_tables(xml, &fonts, &fills, &borders, &xfs);
+    let new_xml = if touches_shared_tables {
+        reserialize_style_tables(xml, &fonts, &fills, &borders, &xfs)
+    } else {
+        reserialize_cell_xfs(xml, &xfs)
+    };
     Ok(Some((new_xml, effective_rows, effective_cols)))
 }
 
@@ -5060,7 +5589,8 @@ fn resolve_pending_style_copies(
     if vm.pending_style_copies.values().all(|m| m.is_empty()) {
         return None;
     }
-    let mut effective = starting_indices.clone();
+    let pending_sheets = pending_cell_style_sheets(vm);
+    let mut effective = clone_pending_cell_style_sheets(vm, starting_indices, &pending_sheets);
     for (sheet_key, copies) in &vm.pending_style_copies {
         if copies.is_empty() {
             continue;
@@ -5170,6 +5700,8 @@ struct OpaqueWorkbookFragments<'a> {
     root_attrs: Option<&'a str>,
     workbook_pr: Option<&'a str>,
     book_views: Option<&'a str>,
+    pivot_caches: Option<&'a str>,
+    external_references: Option<&'a str>,
     defined_names: Option<&'a str>,
     calc_pr: Option<&'a str>,
     ext_lst: Option<&'a str>,
@@ -5213,6 +5745,8 @@ fn build_xlsx_workbook(
     // CT_Workbook order (§8): ... sheets, functionGroups, externalReferences,
     // definedNames, calcPr, ...
     for fragment in [
+        fragments.pivot_caches,
+        fragments.external_references,
         fragments.defined_names,
         fragments.calc_pr,
         fragments.ext_lst,
@@ -5452,12 +5986,8 @@ fn write_xlsx_sheet<W: XmlSink>(
     }
 
     let sheet_key = sheet_name.to_lowercase();
-    // `style_override` (0.15.0-A `set_number_format`) is a full clone of
-    // `vm.cell_style_indices` with just the edited cells' indices replaced -- present
-    // for EVERY sheet whenever any pending edit exists anywhere in the workbook (styles
-    // are workbook-global), so a lookup miss here means this sheet genuinely has no
-    // style-index entries at all, same as the direct `vm.cell_style_indices` fallback
-    // would report.
+    // `style_override` contains only sheets participating in a pending cell-style
+    // operation. A missing sheet falls back to the unchanged VM map below.
     let style_indices = style_override.or_else(|| vm.cell_style_indices.get(&sheet_key));
     let visibility = vm.sheet_visibility.get(&sheet_key);
     let hidden_columns = visibility
@@ -5863,18 +6393,29 @@ fn write_cell_value<W: XmlSink, T: std::fmt::Display>(
     Ok(())
 }
 
-fn write_xlsx_shared_strings<W: std::io::Write>(
+/// Write the shared-string table directly from its owning index.
+///
+/// `HashMap<String, usize>` is the authoritative store during a save. Sorting a
+/// temporary vector of references preserves the insertion-assigned indices
+/// without cloning every string into a second long-lived `Vec<String>`.
+fn write_xlsx_shared_strings_from_index<W: std::io::Write>(
     out: &mut W,
-    strings: &[String],
+    index: &std::collections::HashMap<String, usize>,
 ) -> std::io::Result<()> {
-    let count = strings.len();
+    let count = index.len();
     write!(
         out,
         "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n\
          <sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" \
          count=\"{count}\" uniqueCount=\"{count}\">\n"
     )?;
-    for s in strings {
+
+    let mut ordered: Vec<(&String, usize)> = index
+        .iter()
+        .map(|(value, &position)| (value, position))
+        .collect();
+    ordered.sort_unstable_by_key(|(_, position)| *position);
+    for (s, _) in ordered {
         if s.trim() != s.as_str() {
             writeln!(
                 out,
@@ -5916,7 +6457,8 @@ fn build_xlsx_shared_strings(strings: &[String]) -> String {
 
 #[cfg(test)]
 mod shared_strings_tests {
-    use super::build_xlsx_shared_strings;
+    use super::{build_xlsx_shared_strings, write_xlsx_shared_strings_from_index};
+    use std::collections::HashMap;
 
     #[test]
     fn marks_leading_or_trailing_whitespace_as_xml_space_preserve() {
@@ -5928,6 +6470,24 @@ mod shared_strings_tests {
         assert!(xml.contains("<si><t>plain</t></si>"));
         assert!(xml.contains("<si><t xml:space=\"preserve\"> leading and trailing </t></si>"));
         assert!(xml.contains("<si><t xml:space=\"preserve\">trailing </t></si>"));
+    }
+
+    #[test]
+    fn index_writer_preserves_insertion_assigned_order() {
+        let values = [
+            "plain".to_string(),
+            " leading ".to_string(),
+            "escaped & value".to_string(),
+        ];
+        let index = values
+            .iter()
+            .enumerate()
+            .map(|(position, value)| (value.clone(), position))
+            .collect::<HashMap<_, _>>();
+        let expected = build_xlsx_shared_strings(&values);
+        let mut actual = Vec::new();
+        write_xlsx_shared_strings_from_index(&mut actual, &index).unwrap();
+        assert_eq!(String::from_utf8(actual).unwrap(), expected);
     }
 }
 
@@ -6563,8 +7123,8 @@ mod elixcee {
     use super::stream::{PyStreamReader, PyStreamWriter};
     #[pymodule_export]
     use super::{
-        PyExcelError, PyReadCancellation, PyVm, create_stream, diagnose_macro, hello,
-        load_workbook, open_stream, run_macro,
+        PyExcelError, PyReadCancellation, PyVm, create_stream, create_stream_bounded,
+        diagnose_macro, hello, load_workbook, open_stream, run_macro,
     };
 }
 
@@ -8353,6 +8913,56 @@ mod tests {
             xml.contains("<sheet name=\"b\" sheetId=\"2\" r:id=\"rId2\"/>"),
             "{xml}"
         );
+    }
+
+    #[test]
+    fn external_references_rewrite_to_fresh_carried_relationship_ids() {
+        let owner = r#"<externalReferences xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><externalReference r:id="rId9"/></externalReferences>"#;
+        let rels = r#"<Relationships><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink" Target="externalLinks/externalLink1.xml"/></Relationships>"#;
+        let carried = vec![(
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink"
+                .to_string(),
+            "externalLinks/externalLink1.xml".to_string(),
+        )];
+        let rewritten =
+            rewrite_external_references_xml(owner, rels, &carried, 8).expect("owner should map");
+        assert!(rewritten.contains(r#"r:id="rId8""#), "{rewritten}");
+        assert!(!rewritten.contains(r#"r:id="rId9""#), "{rewritten}");
+    }
+
+    #[test]
+    fn external_references_are_dropped_when_their_relationship_is_not_carried() {
+        let owner = r#"<externalReferences xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><externalReference r:id="rId9"/></externalReferences>"#;
+        let rels = r#"<Relationships><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink" Target="https://example.invalid/book.xlsx"/></Relationships>"#;
+        assert!(rewrite_external_references_xml(owner, rels, &[], 8).is_none());
+    }
+
+    #[test]
+    fn relationship_owner_requires_a_surviving_internal_target() {
+        let owner = r#"<drawing xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId4"/>"#;
+        let rels = r#"<Relationships><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>"#;
+        let mut surviving = std::collections::HashSet::new();
+        surviving.insert("xl/drawings/drawing1.xml".to_string());
+        let mut relationship_parts = std::collections::HashMap::new();
+        relationship_parts.insert(
+            "xl/drawings/_rels/drawing1.xml.rels".to_string(),
+            "<Relationships/>".to_string(),
+        );
+        assert!(relationship_owner_graph_is_connected(
+            owner,
+            rels,
+            "xl/worksheets/_rels/sheet1.xml.rels",
+            &relationship_parts,
+            &surviving
+        ));
+        surviving.clear();
+        assert!(!relationship_owner_graph_is_connected(
+            owner,
+            rels,
+            "xl/worksheets/_rels/sheet1.xml.rels",
+            &relationship_parts,
+            &surviving
+        ));
     }
 
     #[test]

@@ -98,7 +98,6 @@ class _Directive:
 class ContentRepeatedDirectiveRule(Rule):
     """Detect the same directive stated more than once within a file"""
 
-    formats = None
     repo_types = None  # instruction content appears in every repo type
     default_enabled = "auto"
     since = "0.17.0"
@@ -256,7 +255,11 @@ class ContentRepeatedDirectiveRule(Rule):
         return "Detect the same directive stated more than once within a file"
 
     def default_severity(self) -> Severity:
-        return Severity.WARNING
+        # Advice, not correctness: whether two similar directives are one
+        # instruction stated twice or two deliberately-scoped rules is a
+        # judgement call the linter cannot make.  Raise the severity in
+        # `.skillsaw.yaml` to hold a repo to a stricter line.
+        return Severity.INFO
 
     _REFERENCE_BLOCK_TYPES = (SkillRefBlock,)
 

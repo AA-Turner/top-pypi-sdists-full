@@ -2,7 +2,7 @@
 
 import operator
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from .. import cpp as fstcpp
 from ..common import SafeTensorsMetadata
@@ -59,6 +59,33 @@ def validated_byte_ranges(
     return checked
 
 
+def validated_chunk_allocation_size(
+    byte_ranges: List[Tuple[int, int]], allocation_size: Optional[int]
+) -> Optional[int]:
+    """Validate an optional allocation size for a compact chunk."""
+    if allocation_size is None:
+        return None
+    if isinstance(allocation_size, bool):
+        raise ValueError(f"allocation_size must be int, got {allocation_size!r}")
+    try:
+        allocation_size = operator.index(allocation_size)
+    except TypeError:
+        raise ValueError(
+            f"allocation_size must be int, got {allocation_size!r}"
+        ) from None
+    if allocation_size <= 0:
+        raise ValueError(f"allocation_size must be positive, got {allocation_size}")
+    if byte_ranges:
+        span = max(end for _, end in byte_ranges) - min(
+            start for start, _ in byte_ranges
+        )
+        if allocation_size < span:
+            raise ValueError(
+                f"allocation_size={allocation_size} is smaller than chunk span={span}"
+            )
+    return allocation_size
+
+
 class CopierInterface(ABC):
     metadata: SafeTensorsMetadata
 
@@ -74,6 +101,46 @@ class CopierInterface(ABC):
         means full read.
         """
         validated_byte_ranges(self.metadata, byte_ranges)
+
+    def set_chunk(
+        self,
+        byte_ranges: List[Tuple[int, int]],
+        names: Set[str],
+        allocation_size: Optional[int] = None,
+    ) -> None:
+        """Load only ``names``, allocating just those runs' span (sub-file
+        chunking for ``ParallelLoader(max_batch_bytes=...)``).
+
+        ``allocation_size`` may pad the buffer without expanding the read.
+        Unlike ``set_byte_ranges``, a chunk plan cannot be a no-op: silently
+        loading the whole file per chunk-batch would break the memory bound
+        and multiply full-file reads, so the default refuses. Partial-read
+        copiers (``nogds``, ``unified``) override this.
+        """
+        raise NotImplementedError(
+            f"sub-file chunking (max_batch_bytes) requires a copier that "
+            f"overrides set_chunk; {type(self).__name__} loads whole files. "
+            f"Use the nogds or unified copier, or unset max_batch_bytes."
+        )
+
+    @classmethod
+    def chunk_transient_multiplier(cls, paths: List[str]) -> int:
+        """Transient device bytes this copier holds per in-flight chunk, as a
+        multiple of the chunk's span, when loading *paths*.
+
+        The fit planner (``ParallelLoader(device_memory_budget=...)``) charges
+        every live buffer this multiple of its budget, so a copier that stages
+        a chunk twice must say so or the plan under-counts and OOMs. Fixed
+        overheads that do not scale with chunk size (bounce-buffer pools,
+        reader thread pools) are not counted here. Like ``set_chunk``, the
+        default refuses rather than guessing: chunking copiers override it.
+        """
+        raise NotImplementedError(
+            f"device_memory_budget needs a copier that overrides "
+            f"chunk_transient_multiplier; {cls.__name__} does not implement "
+            f"sub-file chunking. Use the nogds or unified copier, or unset "
+            f"device_memory_budget."
+        )
 
     @abstractmethod
     def submit_io(

@@ -142,7 +142,7 @@ READ_ONLY_FIELDS: frozenset[str] = frozenset(
 _LEGACY_V1_FIREWALL_FIELDS = frozenset({"ruleset", "rule_index", "src_address", "dst_address", "src_port", "dst_port"})
 _LEGACY_V1_ACTIONS = frozenset({"accept", "drop", "reject"})
 _LEGACY_MIGRATION_ERROR = (
-    "Legacy V1 firewall fields are no longer supported (#210). "
+    "Legacy V1 firewall fields are no longer supported. "
     "Use V2 zone-based fields: action (ALLOW/BLOCK/REJECT), source "
     "(zone_id + matching_target), destination (zone_id + matching_target). "
     "See unifi_list_firewall_policies for examples of valid V2 shape."
@@ -517,6 +517,26 @@ def to_controller_update(fields: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in fields.items() if k in MUTABLE_FIELDS and v is not None}
 
 
+def validate_policy_port_targeting(fields: Dict[str, Any]) -> None:
+    """Reject malformed V2 create-policy ports before preview or controller I/O.
+
+    Endpoints remain opaque controller dictionaries. Validate the confirmed
+    SPECIFIC port contract without changing other targeting modes or values.
+    """
+    for direction in ("source", "destination"):
+        endpoint = fields.get(direction)
+        if not isinstance(endpoint, dict):
+            continue
+        if "ports" in endpoint:
+            raise ValueError(
+                "%s.ports is not a valid field; the controller expects %s.port as a single "
+                "string (e.g. '445'), not a plural 'ports' array." % (direction, direction)
+            )
+        port = endpoint.get("port")
+        if endpoint.get("port_matching_type") == "SPECIFIC" and not (isinstance(port, str) and port.strip()):
+            raise ValueError("%s.port must be a non-empty string when port_matching_type is 'SPECIFIC'." % direction)
+
+
 def legacy_policy_error(fields: Dict[str, Any]) -> str | None:
     """Return the actionable V1-to-V2 migration error when legacy input is detected."""
     if _LEGACY_V1_FIREWALL_FIELDS & set(fields):
@@ -562,9 +582,17 @@ def normalize_policy_update(fields: Dict[str, Any]) -> Dict[str, Any]:
     """Validate and normalize a public V2 firewall-policy partial update.
 
     This is the shared mutation boundary for MCP and API callers. It rejects
-    retired V1 fields, normalizes the controller's upper-case enums, and drops
-    unknown/read-only fields through :func:`to_controller_update`.
+    ``index`` (ordering is a separate tool family), rejects retired V1 fields,
+    normalizes the controller's upper-case enums, and drops unknown/read-only
+    fields through :func:`to_controller_update`.
     """
+    if "index" in fields:
+        # The V2 policy endpoint accepts index and silently ignores it, so the
+        # caller would get a partly applied update. Ordering is its own tool family.
+        raise ValueError(
+            "index cannot be changed with unifi_update_firewall_policy; the controller "
+            "ignores it on this endpoint. Use unifi_reorder_firewall_policies to change policy order."
+        )
     if error := legacy_policy_error(fields):
         raise ValueError(error)
     normalized = normalize_policy_enums(fields)

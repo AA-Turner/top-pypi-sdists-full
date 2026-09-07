@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.28.1
+Version: 1.0.0
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -42,14 +42,15 @@ Requires-Dist: python-frontmatter>=1.1.0
 Requires-Dist: marko>=2.0
 Requires-Dist: xmltodict>=0.14.2
 Requires-Dist: tiktoken>=0.9.0
+Requires-Dist: openai==3.3.1
 Requires-Dist: psutil>=5.9
 Requires-Dist: semantic-text-splitter<1.0,>=0.30
 Requires-Dist: jsonschema>=4.20
 Requires-Dist: regex>=2023.0
 Requires-Dist: navconfig[default]>=2.2.2
-Requires-Dist: navigator-auth>0.20.9
+Requires-Dist: navigator-auth>=0.24.0
 Requires-Dist: navigator-session>=0.6.5
-Requires-Dist: navigator-api[google,locale,uvloop]>=3.1.2
+Requires-Dist: navigator-api[google,locale,uvloop]>=3.2.2
 Requires-Dist: asyncdb>=2.11.6
 Requires-Dist: ormsgpack>=1.5
 Requires-Dist: rich>=13.0
@@ -107,6 +108,9 @@ Requires-Dist: flowtask>=5.12.14; extra == "flowtask"
 Provides-Extra: graphindex
 Requires-Dist: tree-sitter>=0.23; extra == "graphindex"
 Requires-Dist: tree-sitter-languages>=1.10; extra == "graphindex"
+Provides-Extra: graphindex-postgres
+Requires-Dist: asyncpg>=0.29; extra == "graphindex-postgres"
+Requires-Dist: pgvector>=0.2; extra == "graphindex-postgres"
 Provides-Extra: wiki-languages
 Requires-Dist: tree-sitter>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-php>=0.23; extra == "wiki-languages"
@@ -114,6 +118,7 @@ Requires-Dist: tree-sitter-typescript>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-javascript>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-rust>=0.23; extra == "wiki-languages"
 Requires-Dist: tree-sitter-perl>=0.23; extra == "wiki-languages"
+Requires-Dist: tree-sitter-luau>=1.2; extra == "wiki-languages"
 Provides-Extra: wiki-structural
 Requires-Dist: ast-grep-py>=0.45; extra == "wiki-structural"
 Provides-Extra: leiden
@@ -121,7 +126,11 @@ Requires-Dist: leidenalg>=0.10; extra == "leiden"
 Requires-Dist: python-igraph>=0.10; extra == "leiden"
 Provides-Extra: wiki
 Requires-Dist: ai-parrot[graphindex,leiden,wiki-languages,wiki-structural]; extra == "wiki"
-Requires-Dist: pymupdf>=1.27; extra == "wiki"
+Requires-Dist: ai-parrot-loaders[documents]>=0.4.1; extra == "wiki"
+Provides-Extra: bookstore
+Requires-Dist: bm25s>=0.2; extra == "bookstore"
+Requires-Dist: pymupdf>=1.27; extra == "bookstore"
+Requires-Dist: pymupdf4llm>=0.0.27; extra == "bookstore"
 Provides-Extra: scheduler
 Requires-Dist: apscheduler==3.11.2; extra == "scheduler"
 Provides-Extra: server
@@ -213,7 +222,6 @@ Requires-Dist: zeep[async]==4.3.3; extra == "agents-lite"
 Requires-Dist: branca==0.8.2; extra == "agents-lite"
 Requires-Dist: opensearch-py==3.1.0; extra == "agents-lite"
 Provides-Extra: mcp
-Requires-Dist: google-genai>=2.18.1; extra == "mcp"
 Requires-Dist: openai==3.3.1; extra == "mcp"
 Requires-Dist: yfinance==0.2.54; extra == "mcp"
 Requires-Dist: youtube_search==2.1.2; extra == "mcp"
@@ -256,38 +264,60 @@ Requires-Dist: transformers<5.0,>=4.48.0; extra == "images"
 Requires-Dist: ffmpeg==1.4; extra == "images"
 Requires-Dist: ipywidgets==8.1.0; extra == "images"
 Provides-Extra: anthropic
-Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.109.0; extra == "anthropic"
+Requires-Dist: ai-parrot-client-anthropic; extra == "anthropic"
 Provides-Extra: bedrock
-Requires-Dist: anthropic[aiohttp,aws]<1.0.0,>=0.109.0; extra == "bedrock"
+Requires-Dist: ai-parrot-client-anthropic; extra == "bedrock"
 Provides-Extra: bedrock-native
-Requires-Dist: aioboto3>=13.2.0; extra == "bedrock-native"
+Requires-Dist: ai-parrot-client-amazon; extra == "bedrock-native"
 Provides-Extra: claude-agent
-Requires-Dist: claude-agent-sdk>=0.1.68; extra == "claude-agent"
+Requires-Dist: ai-parrot-client-anthropic; extra == "claude-agent"
 Provides-Extra: codex-agent
-Requires-Dist: openai-codex>=0.1.0; extra == "codex-agent"
-Requires-Dist: mcp<2,>=1.28.1; extra == "codex-agent"
-Requires-Dist: starlette>=0.37; extra == "codex-agent"
-Requires-Dist: uvicorn>=0.30; extra == "codex-agent"
+Requires-Dist: ai-parrot-client-openai[bridge]; extra == "codex-agent"
 Provides-Extra: openai
-Requires-Dist: openai==3.3.1; extra == "openai"
-Requires-Dist: tiktoken==0.9.0; extra == "openai"
+Requires-Dist: ai-parrot-client-openai; extra == "openai"
 Provides-Extra: google
+Requires-Dist: ai-parrot-client-google; extra == "google"
 Requires-Dist: google-api-python-client<=2.177.0,>=2.166.0; extra == "google"
 Requires-Dist: google-cloud-texttospeech==2.27.0; extra == "google"
-Requires-Dist: google-genai>=2.18.1; extra == "google"
 Requires-Dist: google-cloud-aiplatform>=1.153.0; extra == "google"
 Provides-Extra: groq
-Requires-Dist: groq==0.33.0; extra == "groq"
+Requires-Dist: ai-parrot-client-groq; extra == "groq"
 Provides-Extra: zai
-Requires-Dist: zai-sdk>=0.2.3; extra == "zai"
+Requires-Dist: ai-parrot-client-zai; extra == "zai"
+Provides-Extra: grok
+Requires-Dist: ai-parrot-client-grok; extra == "grok"
+Provides-Extra: gemma4
+Requires-Dist: ai-parrot-client-gemma4; extra == "gemma4"
+Provides-Extra: hf
+Requires-Dist: ai-parrot-client-hf; extra == "hf"
+Provides-Extra: nvidia
+Requires-Dist: ai-parrot-client-nvidia; extra == "nvidia"
+Provides-Extra: moonshot
+Requires-Dist: ai-parrot-client-moonshot; extra == "moonshot"
+Provides-Extra: openrouter
+Requires-Dist: ai-parrot-client-openrouter; extra == "openrouter"
+Provides-Extra: local
+Requires-Dist: ai-parrot-client-local; extra == "local"
+Provides-Extra: vllm
+Requires-Dist: ai-parrot-client-vllm; extra == "vllm"
+Provides-Extra: meta
+Requires-Dist: ai-parrot-client-meta; extra == "meta"
 Provides-Extra: llms
-Requires-Dist: google-genai>=2.18.1; extra == "llms"
-Requires-Dist: openai==3.3.1; extra == "llms"
-Requires-Dist: groq==0.33.0; extra == "llms"
-Requires-Dist: ai-parrot[anthropic,bedrock]; extra == "llms"
-Requires-Dist: claude-agent-sdk>=0.1.68; extra == "llms"
-Requires-Dist: xai-sdk>=1.12.0; extra == "llms"
-Requires-Dist: zai-sdk>=0.2.3; extra == "llms"
+Requires-Dist: ai-parrot-client-openai; extra == "llms"
+Requires-Dist: ai-parrot-client-meta; extra == "llms"
+Requires-Dist: ai-parrot-client-anthropic; extra == "llms"
+Requires-Dist: ai-parrot-client-amazon; extra == "llms"
+Requires-Dist: ai-parrot-client-google; extra == "llms"
+Requires-Dist: ai-parrot-client-gemma4; extra == "llms"
+Requires-Dist: ai-parrot-client-hf; extra == "llms"
+Requires-Dist: ai-parrot-client-groq; extra == "llms"
+Requires-Dist: ai-parrot-client-grok; extra == "llms"
+Requires-Dist: ai-parrot-client-zai; extra == "llms"
+Requires-Dist: ai-parrot-client-nvidia; extra == "llms"
+Requires-Dist: ai-parrot-client-moonshot; extra == "llms"
+Requires-Dist: ai-parrot-client-openrouter; extra == "llms"
+Requires-Dist: ai-parrot-client-local; extra == "llms"
+Requires-Dist: ai-parrot-client-vllm; extra == "llms"
 Provides-Extra: integrations
 Requires-Dist: querysource>=4.1.11; extra == "integrations"
 Requires-Dist: async-notify[all]>=1.6.0; extra == "integrations"
@@ -300,7 +330,7 @@ Requires-Dist: pytector==0.2.0; extra == "security"
 Requires-Dist: onnxruntime>=1.16; extra == "security"
 Requires-Dist: huggingface_hub<1.0,>=0.24; extra == "security"
 Provides-Extra: xai
-Requires-Dist: xai-sdk>=1.12.0; extra == "xai"
+Requires-Dist: ai-parrot-client-grok; extra == "xai"
 Provides-Extra: deploy
 Requires-Dist: gunicorn>=23.0.0; extra == "deploy"
 Provides-Extra: docling

@@ -1,1 +1,0 @@
-import{i as e}from"./bundle-mjs-NviOedTj.js";import{t}from"./utils-D7OyjWHx.js";var n=e();function r({className:e,...r}){return(0,n.jsx)(`div`,{"data-slot":`skeleton`,className:t(`bg-muted rounded-xl animate-pulse`,e),...r})}export{r as t};

@@ -610,8 +610,6 @@ class ToolRunner:
             tool_message = await self._agent.run_tools(
                 self._pending_tool_request, request_params=self._request_params
             )
-        except asyncio.CancelledError:
-            raise
         except Exception as exc:
             tool_calls = self._pending_tool_request.tool_calls or {}
             tool_call_ids = list(tool_calls.keys())

@@ -26,6 +26,11 @@ class InstructionBlock(FileContentBlock):
 
 
 @dataclass(eq=False)
+class DevinGlobalRuleBlock(InstructionBlock):
+    """A Devin or legacy Windsurf ``global_rules.md`` instruction file."""
+
+
+@dataclass(eq=False)
 class ClaudeMdBlock(InstructionBlock):
     """CLAUDE.md instruction file."""
 
@@ -51,6 +56,66 @@ class QwenMdBlock(InstructionBlock):
     """QWEN.md instruction file."""
 
     category: str = "qwen-md"
+
+
+@dataclass(eq=False)
+class AntigravityRuleBlock(InstructionBlock):
+    """``<customization root>/rules/**/*.md`` — Antigravity's always-on prose.
+
+    One of the four customization roots — ``.agents/``, ``.agent/``,
+    ``_agents/``, ``_agent/`` — read recursively. Always-on context, so it
+    is budgeted as ``instruction`` like every peer tool's rules directory;
+    a category of its own would appear in no lookup table and silently
+    exempt the file from ``context-budget``, ``content-instruction-drift``
+    and ``content-progressive-disclosure``.
+    """
+
+    category: str = "instruction"
+
+
+@dataclass(eq=False)
+class AgentMemoryIndexBlock(FileContentBlock):
+    """``.agents/memory/MEMORY.md`` — the index of committed project memory.
+
+    Team notes checked into the repository for whatever agent reads it, the
+    shared counterpart of Claude Code's per-developer auto memory. The index
+    is the entry point: one line per topic file by convention, loaded whole
+    by the agents that read it — Muse Code injects it at session start, even
+    in an untrusted workspace, alongside the paths of the other Markdown
+    files in the directory.
+
+    Not an :class:`InstructionBlock`: the instruction-file rules check
+    conventions of the CLAUDE.md family that a memory index does not follow.
+    """
+
+    category: str = "memory"
+
+
+@dataclass(eq=False)
+class AgentMemoryBlock(FileContentBlock):
+    """A topic file under ``.agents/memory/``.
+
+    Listed rather than loaded with the index — Muse Code lists the path of
+    every Markdown file in the directory at session start, whether or not
+    the index mentions it, and reads the file when a topic comes up — so it
+    is on-demand prose that still lands whole in a context window. Every
+    content and security rule reads it.
+    """
+
+    category: str = "memory"
+
+
+@dataclass(eq=False)
+class GrokRuleBlock(FileContentBlock):
+    """.grok/rules/*.md — Grok Build's always-on project instructions.
+
+    Grok reports these beside ``AGENTS.md`` under "Project Instructions" and
+    loads them whether or not the folder is trusted, so they are always-on
+    context and budgeted as ``instruction``. Plain Markdown: the directory
+    is read flat, and no frontmatter is defined for it.
+    """
+
+    category: str = "instruction"
 
 
 @dataclass(eq=False)

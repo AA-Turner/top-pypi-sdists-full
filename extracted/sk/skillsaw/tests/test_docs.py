@@ -12,6 +12,7 @@ from skillsaw.docs.extractor import extract_docs
 from skillsaw.docs.html_renderer import render_html, COLOR_THEMES
 from skillsaw.docs.markdown_renderer import render_markdown
 from skillsaw.docs.models import DocsOutput, MarketplaceDoc, PluginDoc
+from skillsaw.formats.mcp_registry import MCP_REGISTRY_SCHEMA_ID
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -140,6 +141,49 @@ class TestExtractor:
         assert len(plugin.rules) == 1
         assert plugin.rules[0].name == "style"
         assert plugin.rules[0].globs == ["src/**/*.py"]
+
+    def test_hook_entries_publish_no_internal_fields(self, dot_claude_repo):
+        """A cross-host guard, on a Claude fixture.
+
+        ``command_variants`` defaults to ``[]`` rather than ``None``, so
+        before the filter it leaked into every host's published hook entry.
+        ``source_line`` and ``type_line`` are the linter's own bookkeeping
+        and belong in no published document either.
+        """
+        docs = extract_docs(RepositoryContext(dot_claude_repo))
+        published = [
+            handler
+            for plugin in docs.plugins
+            for hook in plugin.hooks
+            for entry in hook.entries
+            for handler in entry.hooks
+        ]
+
+        assert published
+        for handler in published:
+            assert "command_variants" not in handler
+            assert "source_line" not in handler
+            assert "type_line" not in handler
+            assert handler["type"] == "command"
+
+    def test_extract_standalone_devin_skills_with_optional_frontmatter(self, temp_dir):
+        plain = temp_dir / ".devin" / "skills" / "review"
+        plain.mkdir(parents=True)
+        (plain / "SKILL.md").write_text("# Review\n\nReview the current changes.\n")
+        configured = temp_dir / ".windsurf" / "skills" / "deploy"
+        configured.mkdir(parents=True)
+        (configured / "SKILL.md").write_text(
+            "---\nname: deploy-prod\ndescription: Deploy a reviewed release.\n---\n"
+            "# Deploy\n\nDeploy safely.\n"
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        by_name = {s.name: s for s in docs.skills}
+        assert set(by_name) == {"deploy-prod", "review"}
+        assert by_name["review"].description == ""
+        assert by_name["review"].body == "# Review\n\nReview the current changes."
+        assert by_name["deploy-prod"].description == "Deploy a reviewed release."
 
     def test_extract_flat_marketplace(self, flat_structure_marketplace):
         ctx = RepositoryContext(flat_structure_marketplace)
@@ -460,6 +504,17 @@ class TestAgentPluginExtractor:
         # The package's skills belong to it, not to the repository at large.
         assert docs.skills == []
 
+    def test_package_owns_nested_devin_skill(self, temp_dir):
+        write_agent_plugin(temp_dir, "acme.release-tools")
+        native = temp_dir / ".devin" / "skills" / "release-review"
+        native.mkdir(parents=True)
+        (native / "SKILL.md").write_text("Review the release evidence.\n")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert [s.name for s in docs.plugins[0].skills] == ["demo", "release-review"]
+        assert docs.skills == []
+
     def test_root_package_mcp_servers(self, temp_dir):
         """The portable mcp.json is published like any other MCP config."""
         write_agent_plugin(temp_dir, "acme.release-tools")
@@ -572,9 +627,554 @@ class TestAgentPluginExtractor:
         assert "release-auditor" in html
 
 
+class TestAntigravityExtractor:
+    """``skillsaw docs`` on Antigravity packaging.
+
+    The endpoint column reads whichever key the host spells it with, so a
+    remote server declared with ``serverUrl`` is not rendered as a process
+    with no command.
+    """
+
+    def _plugin(self, root: Path, mcp: dict) -> Path:
+        (root / "AGENTS.md").write_text("# Ferrymark\n\nRun `make test`.\n")
+        plugin = root / ".agents" / "plugins" / "berth-tools"
+        plugin.mkdir(parents=True)
+        (plugin / "plugin.json").write_text(json.dumps({"name": "berth-tools"}, indent=2))
+        (plugin / "mcp_config.json").write_text(json.dumps(mcp, indent=2))
+        return plugin
+
+    def test_a_manifest_without_a_name_falls_back_to_the_directory_name(self, temp_dir):
+        """Documentation can still name an incomplete plugin by its directory."""
+        self._plugin(temp_dir, {"mcpServers": {}})
+        (temp_dir / ".agents" / "plugins" / "berth-tools" / "plugin.json").write_text("{}")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert [p.name for p in docs.plugins] == ["berth-tools"]
+        assert docs.plugins[0].description == ""
+
+    def test_a_dual_claimed_plugin_is_documented_once(self, temp_dir):
+        """A directory both ecosystems claim gets one entry, not two.
+
+        The ``documented`` bookkeeping in the Antigravity leg is the only
+        thing preventing ``_extract_agent_plugins`` from listing it again.
+        """
+        from tests.antigravity._helpers import copy_fixture
+
+        from skillsaw.lint_target import AgentPluginConfigNode, AntigravityPluginConfigNode
+
+        repo = copy_fixture("antigravity/dual-manifest", temp_dir)
+        context = RepositoryContext(repo)
+        assert len(context.lint_tree.find(AgentPluginConfigNode)) == 1
+        assert len(context.lint_tree.find(AntigravityPluginConfigNode)) == 1
+        assert context.provenance(repo / "plugins/route-kit").ecosystems == {
+            "agent-plugin",
+            "antigravity",
+        }
+        docs = extract_docs(context)
+
+        assert [p.name for p in docs.plugins] == ["route-kit"]
+
+    @pytest.mark.parametrize("empty", ("", None))
+    def test_empty_server_url_preserves_the_command(self, temp_dir, empty):
+        self._plugin(
+            temp_dir,
+            {"mcpServers": {"local": {"command": "echo", "args": ["ok"], "serverUrl": empty}}},
+        )
+        docs = extract_docs(RepositoryContext(temp_dir))
+        server = docs.plugins[0].mcp_servers[0]
+        assert server.server_type == "stdio"
+        assert server.config["command"] == "echo"
+        assert server.config["args"] == ["ok"]
+        assert "| local | `stdio` | `echo` |" in render_markdown(docs)["README.md"]
+
+    def test_published_hooks_list_only_what_dispatches(self, temp_dir):
+        """``events`` over-reports for the scanners; a document must not."""
+        plugin = self._plugin(temp_dir, {"mcpServers": {}})
+        (plugin / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "audit": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "run_command",
+                                "command": "ignored-by-agy",
+                                "hooks": [{"command": "make lint"}],
+                            }
+                        ],
+                        "Stop": [{"command": "make test", "hooks": [{"command": "also-ignored"}]}],
+                    }
+                },
+                indent=2,
+            )
+        )
+
+        hooks = extract_docs(RepositoryContext(temp_dir)).plugins[0].hooks
+        published = {
+            hook.event_type: sorted(
+                handler["command"] for entry in hook.entries for handler in entry.hooks
+            )
+            for hook in hooks
+        }
+
+        assert published == {"PreToolUse": ["make lint"], "Stop": ["make test"]}
+
+    def test_server_url_is_published_as_the_endpoint(self, temp_dir):
+        self._plugin(
+            temp_dir,
+            {
+                "mcpServers": {
+                    "remote": {"serverUrl": "https://feeds.example/mcp/sse"},
+                    "local": {"command": "./bin/db"},
+                }
+            },
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+        by_name = {s.name: s for s in docs.plugins[0].mcp_servers}
+
+        assert by_name["remote"].config["url"] == "https://feeds.example/mcp/sse"
+        # Measured: ``serverUrl`` with no ``type`` loads as ``http``.
+        assert by_name["remote"].server_type == "http"
+        assert by_name["local"].server_type == "stdio"
+        assert by_name["local"].config["command"] == "./bin/db"
+
+    def test_disabled_hooks_are_scanned_but_not_published(self, temp_dir):
+        from skillsaw.blocks.json_config import AntigravityHooksBlock
+
+        plugin = self._plugin(temp_dir, {"mcpServers": {}})
+        (plugin / "hooks.json").write_text(
+            json.dumps({"audit": {"enabled": False, "Stop": [{"command": "make lint"}]}}),
+            encoding="utf-8",
+        )
+        context = RepositoryContext(temp_dir)
+        assert context.lint_tree.find(AntigravityHooksBlock)[0].events
+        assert extract_docs(context).plugins[0].hooks == []
+
+    def test_server_url_takes_precedence_over_url(self, temp_dir):
+        self._plugin(
+            temp_dir,
+            {
+                "mcpServers": {
+                    "remote": {
+                        "serverUrl": "https://primary.example/mcp",
+                        "url": "https://fallback.example/mcp",
+                    }
+                }
+            },
+        )
+        server = extract_docs(RepositoryContext(temp_dir)).plugins[0].mcp_servers[0]
+        assert server.server_type == "http"
+        assert server.config["url"] == "https://primary.example/mcp"
+
+    def test_registry_root_plugin_owns_pre_attached_hooks(self, temp_dir):
+        root = temp_dir / ".agents"
+        root.mkdir()
+        (root / "plugins.json").write_text('{"entries": [{"path": ".agents"}]}', encoding="utf-8")
+        (root / "plugin.json").write_text('{"name": "berth-tools"}', encoding="utf-8")
+        (root / "hooks.json").write_text(
+            '{"audit": {"Stop": [{"command": "make lint"}]}}', encoding="utf-8"
+        )
+        docs = extract_docs(RepositoryContext(temp_dir))
+        assert len(docs.plugins) == 1
+        assert [hook.event_type for hook in docs.plugins[0].hooks] == ["Stop"]
+
+    def test_an_explicit_type_is_not_overridden(self, temp_dir):
+        self._plugin(
+            temp_dir,
+            {"mcpServers": {"remote": {"serverUrl": "https://feeds.example/mcp", "type": "sse"}}},
+        )
+
+        servers = extract_docs(RepositoryContext(temp_dir)).plugins[0].mcp_servers
+
+        assert servers[0].server_type == "sse"
+
+    def test_a_server_naming_both_publishes_the_one_that_runs(self, temp_dir):
+        """Measured: ``serverUrl`` wins over ``command``.
+
+        Both renderers pick ``command`` before ``url``, so leaving it would
+        publish the command ``agy`` ignores as the endpoint of an ``http``
+        server.
+        """
+        self._plugin(
+            temp_dir,
+            {
+                "mcpServers": {
+                    "both": {
+                        "command": "./bin/db",
+                        "args": ["--ro"],
+                        "serverUrl": "https://feeds.example/mcp",
+                    }
+                }
+            },
+        )
+
+        servers = extract_docs(RepositoryContext(temp_dir)).plugins[0].mcp_servers
+
+        assert servers[0].server_type == "http"
+        assert servers[0].config["url"] == "https://feeds.example/mcp"
+        assert "command" not in servers[0].config
+        assert "args" not in servers[0].config
+
+    def test_the_portable_key_still_supplies_the_endpoint(self, temp_dir):
+        """``url`` alone supplies a remote endpoint."""
+        self._plugin(
+            temp_dir,
+            {
+                "mcpServers": {
+                    "remote": {
+                        "url": "https://portable.example/mcp",
+                    }
+                }
+            },
+        )
+
+        servers = extract_docs(RepositoryContext(temp_dir)).plugins[0].mcp_servers
+
+        assert servers[0].config["url"] == "https://portable.example/mcp"
+        # Measured: a bare ``url`` loads as ``http`` for this host too.
+        assert servers[0].server_type == "http"
+
+    def test_the_portable_key_beside_a_command_is_left_alone(self, temp_dir):
+        """Unmeasured for every host, so the established reading stands."""
+        self._plugin(
+            temp_dir,
+            {"mcpServers": {"mixed": {"command": "./bin/db", "url": "https://e.example/mcp"}}},
+        )
+
+        servers = extract_docs(RepositoryContext(temp_dir)).plugins[0].mcp_servers
+
+        assert servers[0].config["command"] == "./bin/db"
+        assert servers[0].config["url"] == "https://e.example/mcp"
+
+
 # ---------------------------------------------------------------------------
 # HTML renderer tests
 # ---------------------------------------------------------------------------
+
+
+class TestGrokExtractor:
+    """``skillsaw docs`` on Grok Build packaging.
+
+    A Grok-only plugin has no ``PluginNode`` and no Codex manifest, so its
+    ``GrokPluginConfigNode`` is the only thing that names it — without an
+    extraction of its own the package is absent and its skills surface as
+    the repository's own top-level content.
+    """
+
+    MANIFEST = {
+        "name": "tide-charts",
+        "version": "1.2.0",
+        "description": "Shoreline survey windows from NOAA tide predictions.",
+        "author": "Harbour Tools",
+        "homepage": "https://example.com/plugins/tide-charts",
+        "license": "Apache-2.0",
+        "keywords": ["tides", "survey"],
+    }
+
+    def _plugin(self, plugin_dir, manifest=None, skill="tide-window"):
+        marker = plugin_dir / ".grok-plugin"
+        marker.mkdir(parents=True)
+        (marker / "plugin.json").write_text(
+            json.dumps(manifest if manifest is not None else self.MANIFEST), encoding="utf-8"
+        )
+        (plugin_dir / "README.md").write_text("# Tide charts\n\nSurvey windows.\n")
+        (plugin_dir / "skills" / skill).mkdir(parents=True)
+        (plugin_dir / "skills" / skill / "SKILL.md").write_text(
+            f"---\nname: {skill}\ndescription: Find the low-tide survey windows.\n---\n\n# W\n",
+            encoding="utf-8",
+        )
+        (plugin_dir / "commands").mkdir()
+        (plugin_dir / "commands" / "tide-report.md").write_text(
+            "---\ndescription: Summarize this week's windows\n---\n\n# Report\n",
+            encoding="utf-8",
+        )
+        return plugin_dir
+
+    def test_a_root_plugin_is_published_with_its_content(self, temp_dir):
+        self._plugin(temp_dir)
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert [p.name for p in docs.plugins] == ["tide-charts"]
+        plugin = docs.plugins[0]
+        assert plugin.version == "1.2.0"
+        assert plugin.author == {"name": "Harbour Tools"}
+        assert plugin.license == "Apache-2.0"
+        assert plugin.keywords == ["tides", "survey"]
+        assert plugin.has_readme is True
+        assert [s.name for s in plugin.skills] == ["tide-window"]
+        assert [c.name for c in plugin.commands] == ["tide-report"]
+        # The plugin's skills belong to it, not to the repository at large.
+        assert docs.skills == []
+
+    def test_a_manifest_less_plugin_falls_back_to_its_directory_name(self, temp_dir):
+        """Grok installs such a directory under a synthesized name; the
+        directory is what it is addressed by here."""
+        plugin = temp_dir / "plugins" / "almanac"
+        (temp_dir / ".grok-plugin").mkdir(parents=True)
+        (temp_dir / ".grok-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": "harbour-plugins",
+                    "plugins": [{"name": "almanac", "source": "./plugins/almanac"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        plugin.mkdir(parents=True)
+        (plugin / "skills" / "ebb-window").mkdir(parents=True)
+        (plugin / "skills" / "ebb-window" / "SKILL.md").write_text(
+            "---\nname: ebb-window\ndescription: Find the ebb windows.\n---\n\n# E\n",
+            encoding="utf-8",
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert [p.name for p in docs.plugins] == ["almanac"]
+        assert [s.name for s in docs.plugins[0].skills] == ["ebb-window"]
+        assert docs.skills == []
+
+    def test_the_catalog_is_published_as_a_marketplace(self, temp_dir):
+        (temp_dir / ".grok-plugin").mkdir(parents=True)
+        (temp_dir / ".grok-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": "harbour-plugins",
+                    "plugins": [
+                        {
+                            "name": "tide-charts",
+                            "category": "productivity",
+                            "source": "./plugins/tide-charts",
+                        },
+                        {
+                            "name": "bathymetry",
+                            "description": "Depth overlays, cloned at install.",
+                            "source": {
+                                "source": "url",
+                                "url": "https://example.invalid/bathymetry.git",
+                            },
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        self._plugin(temp_dir / "plugins" / "tide-charts")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert docs.marketplace is not None
+        assert docs.marketplace.name == "harbour-plugins"
+        assert [p.name for p in docs.marketplace.plugins] == ["tide-charts", "bathymetry"]
+        # The category lives only in the catalog, as it does for Codex.
+        assert docs.marketplace.plugins[0].category == "productivity"
+
+    def test_a_dual_manifest_plugin_is_published_once(self, temp_dir):
+        plugin = self._plugin(temp_dir / "plugins" / "tide-charts")
+        (plugin / ".claude-plugin").mkdir()
+        (plugin / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "tide-charts", "version": "1.2.0"}), encoding="utf-8"
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert [p.name for p in docs.plugins] == ["tide-charts"]
+
+    def test_a_source_escaping_the_marketplace_root_lists_nothing(self, temp_dir):
+        """Grok drops such an entry, and resolving it loosely would match a
+        sibling package the walk found on its own and publish it as this
+        catalog's listing."""
+        (temp_dir / "pkg-a" / ".grok-plugin").mkdir(parents=True)
+        (temp_dir / "pkg-a" / ".grok-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": "harbour-plugins",
+                    "plugins": [{"name": "tide-charts", "source": "../pkg-b/plugins/tide-charts"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        self._plugin(temp_dir / "pkg-b" / "plugins" / "tide-charts")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert docs.marketplace is not None
+        assert docs.marketplace.plugins == []
+        # The sibling is still its own Grok plugin; what it is not is this
+        # catalog's entry.
+        assert [p.name for p in docs.plugins] == ["tide-charts"]
+
+    def test_a_remote_entry_pinned_to_something_unusable_is_not_published(self, temp_dir):
+        """An absent ``sha`` clones the default branch and installs. A branch
+        name is refused at installation, so publishing a page for it
+        advertises a plugin nobody can get."""
+        (temp_dir / ".grok-plugin").mkdir(parents=True)
+        (temp_dir / ".grok-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": "harbour-plugins",
+                    "plugins": [
+                        {
+                            "name": "unpinned",
+                            "source": {
+                                "source": "url",
+                                "url": "https://example.invalid/unpinned.git",
+                            },
+                        },
+                        {
+                            "name": "branch-pinned",
+                            "source": {
+                                "source": "url",
+                                "url": "https://example.invalid/branch.git",
+                                "sha": "main",
+                            },
+                        },
+                        {
+                            "name": "number-pinned",
+                            "source": {
+                                "source": "url",
+                                "url": "https://example.invalid/number.git",
+                                "sha": 12345,
+                            },
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert docs.marketplace is not None
+        assert [p.name for p in docs.marketplace.plugins] == ["unpinned"]
+
+    def test_two_catalogs_may_each_publish_a_remote_plugin_of_one_name(self, temp_dir):
+        """The validator permits matching names across separate
+        marketplaces, and the renderer allocates collision-safe filenames —
+        so keying the dedup on the name alone would drop the second."""
+        for package, host in (("pkg-a", "a"), ("pkg-b", "b")):
+            (temp_dir / package / ".grok-plugin").mkdir(parents=True)
+            (temp_dir / package / ".grok-plugin" / "marketplace.json").write_text(
+                json.dumps(
+                    {
+                        "name": f"harbour-{package}",
+                        "plugins": [
+                            {
+                                "name": "bathymetry",
+                                "description": f"Depth overlays from {host}.",
+                                "source": {
+                                    "source": "url",
+                                    "url": f"https://{host}.invalid/bathymetry.git",
+                                },
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert docs.marketplace is not None
+        assert [p.description for p in docs.marketplace.plugins] == [
+            "Depth overlays from a.",
+            "Depth overlays from b.",
+        ]
+
+    def test_a_grok_catalog_beside_a_claude_one_is_published_too(self, temp_dir):
+        """The branches are additive: an if/elif chain would publish the
+        Claude catalog and drop the Grok one entirely."""
+        (temp_dir / ".claude-plugin").mkdir(parents=True)
+        (temp_dir / ".claude-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": "claude-cat",
+                    "owner": {"name": "Harbour Tools"},
+                    "plugins": [{"name": "berth-notes", "source": "./plugins/berth-notes"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        claude_plugin = temp_dir / "plugins" / "berth-notes"
+        (claude_plugin / ".claude-plugin").mkdir(parents=True)
+        (claude_plugin / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "berth-notes", "version": "1.0.0"}), encoding="utf-8"
+        )
+        (temp_dir / ".grok-plugin").mkdir()
+        (temp_dir / ".grok-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": "grok-cat",
+                    "plugins": [
+                        {"name": "tide-charts", "source": "./plugins/tide-charts"},
+                        {
+                            "name": "bathymetry",
+                            "source": {
+                                "source": "url",
+                                "url": "https://example.invalid/bathymetry.git",
+                            },
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        self._plugin(temp_dir / "plugins" / "tide-charts")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert docs.marketplace is not None
+        # The Claude catalog keeps its name, owner and position.
+        assert docs.marketplace.name == "claude-cat"
+        assert docs.marketplace.owner == {"name": "Harbour Tools"}
+        assert [p.name for p in docs.marketplace.plugins] == [
+            "berth-notes",
+            "tide-charts",
+            "bathymetry",
+        ]
+
+    def test_a_catalog_grok_cannot_parse_publishes_nothing(self, temp_dir):
+        """A document Grok's parser refuses lists nothing, and publishing a
+        page from it would advertise plugins no install can deliver."""
+        (temp_dir / ".grok-plugin").mkdir(parents=True)
+        (temp_dir / ".grok-plugin" / "marketplace.json").write_text(
+            '{"name": "harbour-plugins", "plugins": [{"name": "tide-charts", '
+            '"source": "./plugins/tide-charts"}], "generated": NaN}',
+            encoding="utf-8",
+        )
+        self._plugin(temp_dir / "plugins" / "tide-charts")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert docs.marketplace is None
+        # The plugin is still its own declaration; what the catalog loses is
+        # the listing.
+        assert [p.name for p in docs.plugins] == ["tide-charts"]
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            {"source": "url", "sha": "1f9d0c73a86b24e510" + "7cad3f88b90250e6c147da"},
+            {"url": None},
+            {"source": "url", "url": ""},
+        ],
+        ids=["absent", "null", "empty"],
+    )
+    def test_a_url_entry_with_no_url_is_not_published(self, temp_dir, source):
+        """It names no repository to clone, so there is nothing to list."""
+        (temp_dir / ".grok-plugin").mkdir(parents=True)
+        (temp_dir / ".grok-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {"name": "harbour-plugins", "plugins": [{"name": "bathymetry", "source": source}]}
+            ),
+            encoding="utf-8",
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert docs.marketplace is not None
+        assert docs.marketplace.plugins == []
 
 
 class TestHtmlRenderer:
@@ -1171,6 +1771,37 @@ class TestDocsCLI:
         result = self._run(str(valid_plugin), "--format", "markdown", "--output", str(out_dir))
         assert result.returncode == 0
         assert (out_dir / "README.md").exists()
+
+    @pytest.mark.parametrize("fixture", ("workspace-clean", "shared-plugin-hooks"))
+    def test_docs_recognizes_antigravity_repositories(self, temp_dir, fixture):
+        from tests.antigravity._helpers import copy_fixture
+        from tests.cli_runner import run_cli
+
+        repo = copy_fixture(f"antigravity/{fixture}", temp_dir)
+        out_dir = temp_dir / "out"
+        result = run_cli(["docs", str(repo), "--output", str(out_dir)])
+        assert result.returncode == 0
+        assert "doesn't appear to be a recognized repository" not in result.stderr
+        assert (out_dir / "index.html").exists()
+
+    def test_docs_warns_for_registry_only_repository(self, temp_dir):
+        (temp_dir / "server.json").write_text(
+            json.dumps(
+                {
+                    "$schema": MCP_REGISTRY_SCHEMA_ID,
+                    "name": "com.example/weather",
+                    "description": "An MCP Registry publisher document.",
+                    "version": "1.0.0",
+                }
+            ),
+            encoding="utf-8",
+        )
+        out_dir = temp_dir / "out"
+
+        result = self._run(str(temp_dir), "--output", str(out_dir))
+
+        assert result.returncode == 0
+        assert "doesn't appear to be a recognized repository" in result.stderr
 
     def test_docs_default_output_refuses_symlinked_page(self, valid_plugin, temp_dir):
         output_dir = temp_dir / "skillsaw-docs"

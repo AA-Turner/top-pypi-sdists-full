@@ -12,7 +12,6 @@ from openai.types.responses import (
     ResponseTextDeltaEvent,
 )
 
-from fast_agent.core.exceptions import ProviderSafetyBufferingError
 from fast_agent.core.logging.json_serializer import snapshot_json_value
 from fast_agent.core.logging.logger import get_logger
 from fast_agent.event_progress import ProgressAction
@@ -70,8 +69,7 @@ _ARGUMENT_DELTA_EVENT_TYPES = {
 type _ResponsesToolKind = Literal["tool", "server_tool", "web_search"]
 _DEFAULT_TOOL_KIND: _ResponsesToolKind = "tool"
 _SAFETY_BUFFERING_NOTICE = (
-    "Codex is safety-buffering this request. Fast-agent stopped the turn instead of "
-    "waiting or retrying the same request.\n\n"
+    "Codex is safety-buffering this request. Waiting for the original stream to continue.\n\n"
 )
 _TOOL_KIND_BY_ACTIVITY_FAMILY: dict[ToolActivityFamily, _ResponsesToolKind] = {
     "web_search": "web_search",
@@ -192,12 +190,6 @@ class ResponsesStreamingMixin(OpenAIToolNotificationMixin):
             },
         )
         self._notify_stream_listeners(StreamChunk(text=_SAFETY_BUFFERING_NOTICE, is_reasoning=True))
-        raise ProviderSafetyBufferingError(
-            model,
-            retry_model=retry_model if isinstance(retry_model, str) else None,
-            reasons=normalized_reasons,
-            use_cases=normalized_use_cases,
-        )
 
     def _tool_family_for_responses_item(
         self,
