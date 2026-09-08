@@ -38,14 +38,17 @@ AccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"
 AlternateContactTypeType = Literal["BILLING", "OPERATIONS", "SECURITY"]
 AwsAccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "SUSPENDED"]
 ListRegionsPaginatorName = Literal["list_regions"]
-PrimaryEmailUpdateStatusType = Literal["ACCEPTED", "PENDING"]
+PrimaryEmailUpdateStatusType = Literal["ACCEPTED", "COMPLETED", "FAILED", "PENDING"]
 RegionOptStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLED_BY_DEFAULT", "ENABLING"]
 AccountServiceName = Literal["account"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -350,6 +353,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

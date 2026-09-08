@@ -67,6 +67,8 @@ from .paginator import (
 )
 from .type_defs import (
     AcceptDelegationRequestRequestTypeDef,
+    AcquireRoleRequestTypeDef,
+    AcquireRoleResponseTypeDef,
     AddClientIDToOpenIDConnectProviderRequestTypeDef,
     AddRoleToInstanceProfileRequestTypeDef,
     AddUserToGroupRequestTypeDef,
@@ -148,6 +150,7 @@ from .type_defs import (
     GetAccountAuthorizationDetailsRequestTypeDef,
     GetAccountAuthorizationDetailsResponseTypeDef,
     GetAccountPasswordPolicyResponseTypeDef,
+    GetAccountPropertiesResponseTypeDef,
     GetAccountSummaryResponseTypeDef,
     GetContextKeysForCustomPolicyRequestTypeDef,
     GetContextKeysForPolicyResponseTypeDef,
@@ -180,6 +183,8 @@ from .type_defs import (
     GetRolePolicyResponseTypeDef,
     GetRoleRequestTypeDef,
     GetRoleResponseTypeDef,
+    GetRoleTemplateVersionRequestTypeDef,
+    GetRoleTemplateVersionResponseTypeDef,
     GetSAMLProviderRequestTypeDef,
     GetSAMLProviderResponseTypeDef,
     GetServerCertificateRequestTypeDef,
@@ -265,6 +270,7 @@ from .type_defs import (
     ListUserTagsResponseTypeDef,
     ListVirtualMFADevicesRequestTypeDef,
     ListVirtualMFADevicesResponseTypeDef,
+    PutAccountPropertiesRequestTypeDef,
     PutGroupPolicyRequestTypeDef,
     PutRolePermissionsBoundaryRequestTypeDef,
     PutRolePolicyRequestTypeDef,
@@ -363,6 +369,7 @@ class Exceptions(BaseClientExceptions):
     LimitExceededException: type[BotocoreClientError]
     MalformedCertificateException: type[BotocoreClientError]
     MalformedPolicyDocumentException: type[BotocoreClientError]
+    NameConflictException: type[BotocoreClientError]
     NoSuchEntityException: type[BotocoreClientError]
     OpenIdIdpCommunicationErrorException: type[BotocoreClientError]
     OrganizationNotFoundException: type[BotocoreClientError]
@@ -371,6 +378,8 @@ class Exceptions(BaseClientExceptions):
     PolicyEvaluationException: type[BotocoreClientError]
     PolicyNotAttachableException: type[BotocoreClientError]
     ReportGenerationLimitExceededException: type[BotocoreClientError]
+    RoleModifiedException: type[BotocoreClientError]
+    RoleTemplateDisabledException: type[BotocoreClientError]
     ServiceAccessNotEnabledException: type[BotocoreClientError]
     ServiceFailureException: type[BotocoreClientError]
     ServiceNotSupportedException: type[BotocoreClientError]
@@ -421,6 +430,16 @@ class IAMClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/accept_delegation_request.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#accept_delegation_request)
+        """
+
+    async def acquire_role(
+        self, **kwargs: Unpack[AcquireRoleRequestTypeDef]
+    ) -> AcquireRoleResponseTypeDef:
+        """
+        Creates an IAM role from the specified role template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/acquire_role.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#acquire_role)
         """
 
     async def add_client_id_to_open_id_connect_provider(
@@ -1065,6 +1084,15 @@ class IAMClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#get_account_password_policy)
         """
 
+    async def get_account_properties(self) -> GetAccountPropertiesResponseTypeDef:
+        """
+        Retrieves the account-level properties for the caller's Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_account_properties.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#get_account_properties)
+        """
+
     async def get_account_summary(self) -> GetAccountSummaryResponseTypeDef:
         """
         Retrieves information about IAM entity usage and IAM quotas in the Amazon Web
@@ -1250,6 +1278,16 @@ class IAMClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_role_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#get_role_policy)
+        """
+
+    async def get_role_template_version(
+        self, **kwargs: Unpack[GetRoleTemplateVersionRequestTypeDef]
+    ) -> GetRoleTemplateVersionResponseTypeDef:
+        """
+        Retrieves information about a version of the specified role template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/get_role_template_version.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#get_role_template_version)
         """
 
     async def get_saml_provider(
@@ -1706,6 +1744,16 @@ class IAMClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/list_virtual_mfa_devices.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#list_virtual_mfa_devices)
+        """
+
+    async def put_account_properties(
+        self, **kwargs: Unpack[PutAccountPropertiesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Sets account-level properties for the caller's Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam/client/put_account_properties.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/client/#put_account_properties)
         """
 
     async def put_group_policy(

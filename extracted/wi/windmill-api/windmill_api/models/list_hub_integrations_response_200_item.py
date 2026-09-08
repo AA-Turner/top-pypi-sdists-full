@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ListHubIntegrationsResponse200Item")
 
@@ -11,13 +13,16 @@ class ListHubIntegrationsResponse200Item:
     """
     Attributes:
         name (str):
+        picks (Union[Unset, int]): how often the integration has been picked, absent on a hub that does not count picks
     """
 
     name: str
+    picks: Union[Unset, int] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         name = self.name
+        picks = self.picks
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -26,6 +31,8 @@ class ListHubIntegrationsResponse200Item:
                 "name": name,
             }
         )
+        if picks is not UNSET:
+            field_dict["picks"] = picks
 
         return field_dict
 
@@ -34,8 +41,11 @@ class ListHubIntegrationsResponse200Item:
         d = src_dict.copy()
         name = d.pop("name")
 
+        picks = d.pop("picks", UNSET)
+
         list_hub_integrations_response_200_item = cls(
             name=name,
+            picks=picks,
         )
 
         list_hub_integrations_response_200_item.additional_properties = d

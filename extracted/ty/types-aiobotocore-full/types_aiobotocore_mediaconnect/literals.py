@@ -36,6 +36,7 @@ __all__ = (
     "EncodingNameType",
     "EncodingProfileType",
     "EntitlementStatusType",
+    "FabricLatencyModeType",
     "FailoverInputSourcePriorityModeType",
     "FailoverModeType",
     "FlowActiveWaiterName",
@@ -136,6 +137,7 @@ EncoderProfileType = Literal["high", "main"]
 EncodingNameType = Literal["jxsv", "pcm", "raw", "smpte291"]
 EncodingProfileType = Literal["CONTRIBUTION_H264_DEFAULT", "DISTRIBUTION_H264_DEFAULT"]
 EntitlementStatusType = Literal["DISABLED", "ENABLED"]
+FabricLatencyModeType = Literal["BALANCED", "LOW_LATENCY"]
 FailoverInputSourcePriorityModeType = Literal["NO_PRIORITY", "PRIMARY_SECONDARY"]
 FailoverModeType = Literal["FAILOVER", "MERGE"]
 FlowActiveWaiterName = Literal["flow_active"]
@@ -255,8 +257,11 @@ MediaConnectServiceName = Literal["mediaconnect"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -561,6 +566,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

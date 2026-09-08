@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "caio"
-version = "0.12.2"
+version = "0.12.4"
 license = "Apache-2.0"
 license-files = ["COPYING"]
 description = "Asynchronous file IO for Linux MacOS or Windows."
@@ -47,7 +47,7 @@ develop = [
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.setuptools.packages.find]
-include = ["caio*", "tests"]
+include = ["caio*"]
 
 [tool.ruff]
 line-length = 80

@@ -69,7 +69,7 @@ def voxelize(  # noqa: PLR0917
     density : float | array_like[float]
         The uniform size of the voxels when single float passed.
         A list of densities along x,y,z directions.
-        Defaults to 1/100th of the mesh length.
+        Defaults to 1/100 of the mesh length.
 
     check_surface : bool, default: True
         Specify whether to check the surface for closure. If on, then the
@@ -84,7 +84,7 @@ def voxelize(  # noqa: PLR0917
     fit_bounds : bool, default: False
         If enabled, the end bound of the input mesh is used as the end bound of the
         voxel grid and the density is updated to the closest compatible one. Otherwise,
-        the end bound is excluded. Has no effect if `enclosed` is enabled.
+        the end bound is excluded. Has no effect if ``enclosed`` is enabled.
 
     Returns
     -------
@@ -171,7 +171,7 @@ def _voxelize_legacy(
 ):
     """Voxelize mesh to UnstructuredGrid.
 
-    The public `voxelize` function is deprecated but we need to keep it for
+    The public :func:`~pyvista.voxelize` function is deprecated but we need to keep it for
     generating the PyVista logo.
 
     """
@@ -216,9 +216,9 @@ def _voxelize_legacy(
             y = np.linspace(y_min, y_max, nof_voxels_y + 1)
             z = np.linspace(z_min, z_max, nof_voxels_z + 1)
         else:
-            x = np.arange(x_min, x_max, density_x)
-            y = np.arange(y_min, y_max, density_y)
-            z = np.arange(z_min, z_max, density_z)
+            x = np.arange(x_min, x_max, density_x)  # type: ignore[arg-type]
+            y = np.arange(y_min, y_max, density_y)  # type: ignore[arg-type]
+            z = np.arange(z_min, z_max, density_z)  # type: ignore[arg-type]
 
     x, y, z = np.meshgrid(x, y, z, indexing='ij')
     # indexing='ij' is used here in order to make grid and ugrid with x-y-z ordering,
@@ -279,7 +279,7 @@ def voxelize_volume(  # noqa: PLR0917
     density : float | array_like[float]
         The uniform size of the voxels when single float passed.
         Nonuniform voxel size if a list of values are passed along x,y,z directions.
-        Defaults to 1/100th of the mesh length.
+        Defaults to 1/100 of the mesh length.
 
     check_surface : bool, default: True
         Specify whether to check the surface for closure. If on, then the
@@ -294,7 +294,7 @@ def voxelize_volume(  # noqa: PLR0917
     fit_bounds : bool, default: False
         If enabled, the end bound of the input mesh is used as the end bound of the
         voxel grid and the density is updated to the closest compatible one. Otherwise,
-        the end bound is excluded. Has no effect if `enclosed` is enabled.
+        the end bound is excluded. Has no effect if ``enclosed`` is enabled.
 
     Returns
     -------
@@ -327,7 +327,7 @@ def voxelize_volume(  # noqa: PLR0917
     Create an equal density voxel volume and plot the result.
 
     >>> vox = pv.voxelize_volume(mesh, density=0.15)  # doctest:+SKIP
-    >>> cpos = [(15, 3, 15), (0, 0, 0), (0, 0, 0)]  # doctest:+SKIP
+    >>> cpos = [(15, 3, 15), (0, 0, 0), (0, 1, 0)]  # doctest:+SKIP
     >>> vox.plot(scalars='InsideMesh', show_edges=True, cpos=cpos)  # doctest:+SKIP
 
     Slice the voxel volume to view ``InsideMesh``.
@@ -456,9 +456,14 @@ def grid_from_sph_coords(theta, phi, r):
     pyvista.StructuredGrid
         Structured grid.
 
-    See Also
-    --------
-    :ref:`spherical_example`
+    Notes
+    -----
+    The returned grid has no point normals. Warping it with
+    :func:`~pyvista.DataSetFilters.warp_by_scalar` therefore moves every point
+    along a single fixed direction rather than radially outward -- see that
+    filter's notes. For a radial warp, use
+    :func:`~pyvista.DataSetFilters.warp_by_vector` with the (normalized) point
+    coordinates as the vector array instead.
 
     """
     x, y, z = np.meshgrid(np.radians(theta), np.radians(phi), r)
@@ -472,7 +477,7 @@ def grid_from_sph_coords(theta, phi, r):
 
 @_deprecate_positional_args
 def transform_vectors_sph_to_cart(theta, phi, r, u, v, w):  # noqa: PLR0917  # numpydoc ignore=RT02
-    """Transform vectors from spherical (r, phi, theta) to cartesian coordinates (z, y, x).
+    """Transform vectors from spherical (r, phi, theta) to Cartesian coordinates (z, y, x).
 
     Note the "reverse" order of arrays's axes, commonly used in geosciences.
 
@@ -610,14 +615,15 @@ def merge(  # noqa: PLR0917
     merge_points : bool, default: True
         Merge equivalent points when ``True``.
 
-    main_has_priority : bool, default: True
+    main_has_priority : bool, optional
         When this parameter is ``True`` and ``merge_points=True``, the arrays
         of the merging grids will be overwritten by the original main mesh.
 
         .. deprecated:: 0.46
 
-            This keyword will be removed in a future version. The main mesh
-            always has priority with VTK 9.5.0 or later.
+            Omit this keyword; the main mesh already has priority. ``False`` raises
+            :class:`ValueError` with VTK 9.5.0 or later and still selects the other
+            mesh with older VTK. It will be removed in a future version.
 
     progress_bar : bool, default: False
         Display a progress bar to indicate progress.
@@ -703,11 +709,6 @@ def perlin_noise(amplitude, freq: Sequence[float], phase: Sequence[float]):
     :vtk:`vtkPerlinNoise`
         Instance of :vtk:`vtkPerlinNoise` to a Perlin noise field as an
         implicit function. Use with :func:`~pyvista.sample_function`.
-
-    See Also
-    --------
-    :ref:`perlin_noise_2d_example`
-    :ref:`perlin_noise_3d_example`
 
     Examples
     --------
@@ -825,9 +826,6 @@ def sample_function(  # noqa: PLR0917
     >>> noise = pv.perlin_noise(0.1, (5, 5, 5), (0, 0, 0))
     >>> surf = pv.sample_function(noise, dim=(200, 200, 1))
     >>> surf.plot()
-
-    See :ref:`perlin_noise_2d_example` and :ref:`perlin_noise_3d_example`
-    for a full example using this function.
 
     """
     # internal import to avoid circular dependency

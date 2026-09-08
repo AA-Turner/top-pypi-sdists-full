@@ -19,10 +19,8 @@ env:
   FORCE_COLOR: 3
   # Some common environment variables for both GNU/Linux and macOS jobs
   MPLBACKEND: Agg
-  CYTHON_TRACE: 1
-  CYTHONSPEC: cython
-  NUMPY_MIN: numpy==1.25.0
-  CYTHON_MIN: cython==3.0.4
+  NUMPY_MIN: numpy==1.26.4
+  CYTHON_MIN: cython==3.1.3
 
 jobs:
   test_pywavelets_linux:
@@ -33,37 +31,45 @@ jobs:
       fail-fast: false
       matrix:
         runs-on: [ubuntu-latest] # Arm runner tested separately, see below
-        python-version: ["3.11", "3.13"]
+        python-version: ["3.12", "3.14"]
         MINIMUM_REQUIREMENTS: [0]
         USE_SDIST: [0]
         REFGUIDE_CHECK: [1]
+        INSTALL_MATPLOTLIB: [1]
         PIP_FLAGS: [""]
         OPTIONS_NAME: ["default"]
         include:
           # Linux arm64
           - runs-on: ubuntu-22.04-arm
-            python-version: "3.13"
+            python-version: "3.14"
+          # Linux arm64, MSVC-style struct complex types forced, to exercise
+          # the operator-free complex code path on a C99-complex compiler
+          # (see PYWT_TEST_STRUCT_COMPLEX in pywt/_extensions/c/common.h)
+          - runs-on: ubuntu-22.04-arm
+            python-version: "3.14"
+            OPTIONS_NAME: "struct-complex"
           # Linux amd64
           - runs-on: ubuntu-latest
-            python-version: "3.11"
+            python-version: "3.12"
             MINIMUM_REQUIREMENTS: 1
             OPTIONS_NAME: "minimum-req"
           - runs-on: ubuntu-latest
-            python-version: "3.11"
+            python-version: "3.12"
           - runs-on: ubuntu-latest
-            python-version: "3.14-dev"
+            python-version: "3.15-dev"
             USE_SDIST: 1
+            INSTALL_MATPLOTLIB: 0
             OPTIONS_NAME: "install-from-sdist"
           - runs-on: ubuntu-latest
-            python-version: "3.13"
+            python-version: "3.14"
             PIP_FLAGS: "--pre"
             OPTIONS_NAME: "pre-releases"
           - runs-on: ubuntu-latest
-            python-version: "3.13"
+            python-version: "3.14"
             OPTIONS_NAME: "editable-install"
     steps:
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4.1.2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.5.0
         with:
           python-version: ${{ matrix.python-version}}
           allow-prereleases: true
@@ -75,6 +81,7 @@ jobs:
           PIP_FLAGS: ${{ matrix.PIP_FLAGS }}
           USE_SDIST: ${{ matrix.USE_SDIST }}
           REFGUIDE_CHECK: ${{ matrix.REFGUIDE_CHECK }}
+          INSTALL_MATPLOTLIB: ${{ matrix.INSTALL_MATPLOTLIB }}
           OPTIONS_NAME: ${{ matrix.OPTIONS_NAME }}
         run: |
           uname -a
@@ -93,7 +100,10 @@ jobs:
               pip install ${PIP_FLAGS} cython
               pip install ${PIP_FLAGS} numpy
           fi
-          pip install ${PIP_FLAGS} matplotlib pytest
+          pip install ${PIP_FLAGS} pytest
+          if [ "${INSTALL_MATPLOTLIB}" != "0" ]; then
+              pip install ${PIP_FLAGS} matplotlib
+          fi
 
             set -o pipefail
             if [ "${USE_SDIST}" == "1" ]; then
@@ -102,6 +112,8 @@ jobs:
             elif [ "${REFGUIDE_CHECK}" == "1" ]; then
                 pip install sphinx numpydoc scipy-doctest
                 pip install . -v
+            elif [ "${OPTIONS_NAME}" == "struct-complex" ]; then
+                pip install . -v -Csetup-args=-Dc_args=-DPYWT_TEST_STRUCT_COMPLEX
             else
                 pip install . -v
             fi
@@ -142,10 +154,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13t", "3.14t-dev"]
+        python-version: ["3.14t", "3.15t-dev"]
     steps:
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4.1.2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.5.0
         with:
           python-version: ${{ matrix.python-version}}
 
@@ -168,23 +180,23 @@ jobs:
       # Ensure that a wheel builder finishes even if another fails
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.13"]
+        python-version: ["3.12", "3.14"]
         MINIMUM_REQUIREMENTS: [0]
         USE_SDIST: [0]
         REFGUIDE_CHECK: [0]
         PIP_FLAGS: [""]
         OPTIONS_NAME: ["default"]
         include:
-          - python-version: "3.11"
+          - python-version: "3.12"
             MINIMUM_REQUIREMENTS: 1
             OPTIONS_NAME: "osx-minimum-req"
-          - python-version: "3.13"
+          - python-version: "3.14"
             PIP_FLAGS: "--pre"
             OPTIONS_NAME: "pre-releases"
 
     steps:
-      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4.1.2
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v5.5.0
         with:
           python-version: ${{ matrix.python-version}}
           allow-prereleases: true
@@ -243,3 +255,62 @@ jobs:
               pytest --pyargs pywt
           fi
           popd
+
+  clang_ASan_UBSan:
+    name: Test under ASan and UBSan
+    runs-on: ubuntu-latest
+    container:
+      # Prebuilt ASan-instrumented CPython 3.14 + clang-21, from
+      # https://github.com/nascheme/cpython_sanity. To refresh the digest:
+      #   docker pull ghcr.io/nascheme/cpython-asan:3.14 && \
+      #   docker inspect --format='{{index .RepoDigests 0}}' ghcr.io/nascheme/cpython-asan:3.14
+      image: ghcr.io/nascheme/cpython-asan:3.14@sha256:5e7cfa58bbaff0a31efc199d7d39902b80f99ab526c9c74104cd909ff075fd0a
+      options: --shm-size=2g
+    env:
+      # LeakSanitizer is on by default under ASan on Linux (unlike on macOS, where it is
+      # unsupported). Without this, every Python subprocess spawned during the build exits
+      # non-zero over small leaks in CPython's own startup/import code - which breaks meson's
+      # `run_command(py, ..., check: true)` probe for numpy's include dir. Leak checking for
+      # the test run itself is configured in the "Test" step below.
+      ASAN_OPTIONS: detect_leaks=0
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v4.2.2
+        with:
+          submodules: recursive
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Trust working directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install NumPy dependencies from PyPI
+        run: |
+          pip install meson-python ninja cython
+
+      - name: Build NumPy with ASan
+        run: |
+          pip install numpy --no-binary numpy --no-build-isolation -Csetup-args="-Db_sanitize=address" -v
+          # pyenv only creates shims for newly installed scripts on rehash; without this
+          # `numpy-config` is not on PATH and meson falls back to probing the interpreter
+          pyenv rehash
+
+      - name: Install dependencies from PyPI
+        run: |
+          pip install spin pytest pytest-timeout
+
+      - name: Build PyWavelets with ASan and UBSan
+        run: |
+          export CFLAGS=-fno-sanitize=function  # suppressed upstream, see cython#7437
+          # -j2 rather than -j4: ASan builds are memory-hungry and OOM in CI otherwise
+          spin build -j2 -- -Db_sanitize=address,undefined -Db_lundef=false
+
+      - name: Test
+        run: |
+          # pass -s to pytest to see ASAN errors and warnings, otherwise pytest captures them
+          export ASAN_OPTIONS=detect_leaks=0:symbolize=1:strict_init_order=true:allocator_may_return_null=1:use_sigaltstack=0
+          export UBSAN_OPTIONS=halt_on_error=1
+          # test_swt2_iswt2_integration takes ~3.5 minutes under ASan and adds little here:
+          # it loops swt2/iswt2 over every discrete wavelet, but the same C code is already
+          # covered by test_swt2_iswt2_quick and test_swtn_iswtn_integration
+          spin test -- -v -s --timeout=600 --durations=10 \
+            -k "not test_swt2_iswt2_integration"

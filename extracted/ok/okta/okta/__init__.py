@@ -21,7 +21,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.4.4"
+__version__ = "3.4.5"
 
 import importlib as _importlib
 import threading as _threading
@@ -1898,6 +1898,7 @@ _LAZY_IMPORT_MAP = {
     "UserTypeLinksAllOfSchema": "okta.models.user_type_links_all_of_schema",
     "UserTypePostRequest": "okta.models.user_type_post_request",
     "UserTypePutRequest": "okta.models.user_type_put_request",
+    "UserTypeRef": "okta.models.user_type_ref",
     "UserVerificationEnum": "okta.models.user_verification_enum",
     "UsersLink": "okta.models.users_link",
     "UsersUpdateRequestSchema": "okta.models.users_update_request_schema",

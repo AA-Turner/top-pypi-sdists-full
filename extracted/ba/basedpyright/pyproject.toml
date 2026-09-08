@@ -9,19 +9,17 @@ readme = "README.md"
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "nodejs-wheel-binaries>=20.13.1",
 ]
-version = "1.39.10"
+version = "1.40.0"
 
 [project.urls]
 repository = "https://github.com/detachhead/basedpyright"
@@ -39,12 +37,11 @@ dev = [
     "typing_extensions>=4.12.2",
     "pytest>=8.2.2",
     "pytest-github-actions-annotate-failures>=0.2.0",
-    "mkdocs-material>=9.5.37",
-    "mkdocs-awesome-pages-plugin>=2.9.2",
     "mike>=2.1.3",
     "mkdocs-macros-plugin>=1.2.0",
     "lsp-devtools>=0.2.3",
     "zizmor>=1.2.0",
+    "zensical>=0.0.58",
 ]
 docstubs = [
     "docify>=1.0.0",
@@ -68,14 +65,14 @@ default-groups = [
     "docstubs",
     "lochelper",
 ]
-no-build-package = [
-    "libcst",
-]
-exclude-newer = "1 week"
+exclude-newer = "4 days"
+
+[tool.uv.sources.mike]
+git = "https://github.com/squidfunk/mike.git"
 
 [tool.pdm.version]
 source = "call"
-getter = "build.py3_8.version:get"
+getter = "build.py_old.version:get"
 
 [tool.pdm.build]
 excludes = [
@@ -208,7 +205,7 @@ score = "no"
 max-line-length = 200
 
 [tool.basedpyright]
-pythonVersion = "3.8"
+pythonVersion = "3.10"
 ignore = [
     "basedpyright/dist",
     "packages",
@@ -235,7 +232,7 @@ executionEnvironments = [
 ]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py310"
 respect-gitignore = true
 line-length = 100
 preview = true

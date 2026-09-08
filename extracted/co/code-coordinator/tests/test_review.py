@@ -2107,6 +2107,271 @@ def test_dispatch_review_flags_coordinator_owned_docs_without_config(
     assert "CLAUDE.md" in payload["briefing"]
 
 
+# ── #3180: mechanical short-circuit — record request-changes directly,      ─
+# never dispatch a review leg for a violation the coordinator already knows ─
+# about at prompt-assembly time. ─────────────────────────────────────────────
+
+
+def test_dispatch_review_mechanical_short_circuit_for_coordinator_doc(
+    two_machine_config: Config,
+) -> None:
+    """#3180 acceptance: a diff touching CLAUDE.md (a coordinator-owned doc,
+    on by default per COORDINATOR_OWNED_DOC_DEFAULTS) must record
+    request-changes WITHOUT a review leg ever being dispatched — not just a
+    briefing that says so (that's the whole point of this issue: the old
+    behavior already computed this and then paid a full review leg to be
+    told what it just computed)."""
+    from coord.issue_store import _read_verdict_source_local  # noqa: PLC0415
+    from coord.state import load_assignment_review_verdict  # noqa: PLC0415
+
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "should-never-be-used"})
+    diff = (
+        "diff --git a/CLAUDE.md b/CLAUDE.md\n"
+        "--- a/CLAUDE.md\n"
+        "+++ b/CLAUDE.md\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+A new coordinator rule the worker added itself.\n"
+    )
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 42, "url": "https://github.com/acme/api/pull/42", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    # The real dispatch path: no HTTP POST to any agent at all. A string
+    # assertion on a prompt nobody ever sent proves nothing — this is the
+    # actual proof no review leg was spent.
+    assert client.calls == []
+
+    assert result is not None
+    assert result.type == "review"
+    assert result.status == "done"
+    assert result.review_verdict == "request-changes"
+    assert result.verdict_source == "mechanical"
+    assert "CLAUDE.md" in (result.verdict_source_reason or "")
+    assert "COORDINATOR-OWNED DOC EDITED" in result.briefing
+
+    # The verdict is durably recorded, not just returned in-memory — read it
+    # back from the DB the same way `coord gates` would.
+    review_state, review_verdict = load_assignment_review_verdict(result.assignment_id)
+    assert review_verdict == "request-changes"
+    source, reason = _read_verdict_source_local(result.assignment_id)
+    assert source == "mechanical"
+    assert reason and "CLAUDE.md" in reason
+
+    # And it was propagated onto the parent work row, exactly like a real
+    # reviewer's request-changes would be.
+    assert completed.review_state == "done"
+    assert completed.review_verdict == "request-changes"
+
+
+def test_dispatch_review_mechanical_short_circuit_for_sealed_path(
+    two_machine_config: Config,
+) -> None:
+    """#3180 acceptance: same short-circuit for a sealed-path tamper hit,
+    for a plain type="work" diff (no SEALED_PATH_AUTHOR_TYPES carve-out
+    applies to it)."""
+    from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+    cfg = replace(
+        two_machine_config,
+        acceptance=AcceptanceConfig(drivers={
+            "api": AcceptanceDriverConfig(kind="tui-tuidriver", run="cargo test"),
+        }),
+    )
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "should-never-be-used"})
+    diff = (
+        "diff --git a/tests/acceptance/ms01/foo.rs b/tests/acceptance/ms01/foo.rs\n"
+        "--- a/tests/acceptance/ms01/foo.rs\n"
+        "+++ b/tests/acceptance/ms01/foo.rs\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+cheated = True\n"
+    )
+
+    result = dispatch_review(
+        completed, board, cfg,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 43, "url": "https://github.com/acme/api/pull/43", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    assert client.calls == []
+    assert result is not None
+    assert result.review_verdict == "request-changes"
+    assert result.verdict_source == "mechanical"
+    assert "tests/acceptance/" in (result.verdict_source_reason or "")
+    assert "SEALED ORACLE TAMPER DETECTED" in result.briefing
+    assert completed.review_state == "done"
+    assert completed.review_verdict == "request-changes"
+
+
+def test_dispatch_review_mechanical_short_circuit_respects_sealed_author_carveout(
+    two_machine_config: Config,
+) -> None:
+    """#3180 acceptance: the sealed-path mechanical check must respect the
+    existing SEALED_PATH_AUTHOR_TYPES carve-out — a test-author diff
+    confined to the sealed tree is its JOB, not tamper, so it must NOT
+    short-circuit and must get a normal review exactly as before."""
+    from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+    cfg = replace(
+        two_machine_config,
+        acceptance=AcceptanceConfig(drivers={
+            "api": AcceptanceDriverConfig(kind="tui-tuidriver", run="cargo test"),
+        }),
+    )
+    board = Board()
+    completed = replace(
+        _completed_assignment(machine="laptop"),
+        type="test-author",
+        assignment_id="ta-42",
+        branch="ms-01-test-author",
+    )
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "review-id-ta"})
+    diff = (
+        "diff --git a/tests/acceptance/ms01/foo.rs b/tests/acceptance/ms01/foo.rs\n"
+        "--- a/tests/acceptance/ms01/foo.rs\n"
+        "+++ b/tests/acceptance/ms01/foo.rs\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+new_slice = True\n"
+    )
+
+    result = dispatch_review(
+        completed, board, cfg,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 44, "url": "https://github.com/acme/api/pull/44", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    # A real review leg WAS dispatched — the confined-to-sealed-tree diff is
+    # expected for this assignment type, never a mechanical request-changes.
+    assert len(client.calls) == 1
+    assert result is not None
+    assert result.status == "running"
+    assert result.verdict_source is None
+
+
+def test_dispatch_review_mechanical_short_circuit_fires_for_author_scope_violation(
+    two_machine_config: Config,
+) -> None:
+    """#3180: the OTHER mandatory sealed-path shape — a test-author diff
+    that touches something OUTSIDE the sealed tree — must also
+    short-circuit (the #1175 'SCOPE VIOLATION' banner)."""
+    from coord.config import AcceptanceConfig, AcceptanceDriverConfig
+
+    cfg = replace(
+        two_machine_config,
+        acceptance=AcceptanceConfig(drivers={
+            "api": AcceptanceDriverConfig(kind="tui-tuidriver", run="cargo test"),
+        }),
+    )
+    board = Board()
+    completed = replace(
+        _completed_assignment(machine="laptop"),
+        type="test-author",
+        assignment_id="ta-43",
+        branch="ms-01-test-author",
+    )
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "should-never-be-used"})
+    diff = (
+        "diff --git a/tests/acceptance/ms01/foo.rs b/tests/acceptance/ms01/foo.rs\n"
+        "--- a/tests/acceptance/ms01/foo.rs\n"
+        "+++ b/tests/acceptance/ms01/foo.rs\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+new_slice = True\n"
+        "diff --git a/coord/agent.py b/coord/agent.py\n"
+        "--- a/coord/agent.py\n"
+        "+++ b/coord/agent.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+sneaky_edit = True\n"
+    )
+
+    result = dispatch_review(
+        completed, board, cfg,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 45, "url": "https://github.com/acme/api/pull/45", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    assert client.calls == []
+    assert result is not None
+    assert result.review_verdict == "request-changes"
+    assert result.verdict_source == "mechanical"
+    assert "coord/agent.py" in (result.verdict_source_reason or "")
+    assert "SEALED ORACLE SCOPE VIOLATION" in result.briefing
+
+
+def test_dispatch_review_unaffected_when_no_mechanical_violation(
+    two_machine_config: Config,
+) -> None:
+    """#3180 acceptance: a diff touching neither a coordinator-owned doc nor
+    a sealed path is unaffected — a normal review is still dispatched."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    board.completed.append(completed)
+    client = _FakeHTTPClient({"id": "review-id-normal"})
+    diff = (
+        "diff --git a/coord/agent.py b/coord/agent.py\n"
+        "--- a/coord/agent.py\n"
+        "+++ b/coord/agent.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+ordinary_change = True\n"
+    )
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 46, "url": "https://github.com/acme/api/pull/46", "existed": True,
+        },
+        claude_md_reader=lambda p: None,
+        issue_body_fetcher=lambda repo, num: "",
+        now=123.0,
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+    )
+
+    assert len(client.calls) == 1
+    assert result is not None
+    assert result.status == "running"
+    assert result.verdict_source is None
+    assert completed.review_state != "done"
+
+
 def test_dispatch_review_threads_assignment_type_for_test_author_exemption(
     two_machine_config: Config,
 ) -> None:
@@ -2394,6 +2659,296 @@ def test_dispatch_review_patch_id_hashes_untruncated_diff(
     assert "[diff truncated at 60000 chars" in payload["briefing"]
     assert "cut off mid-diff (f.py)" in payload["briefing"]
     assert len(payload["briefing"]) < len(big_diff)
+
+
+def test_dispatch_review_replaces_stale_diff_that_names_an_untouched_file(
+    two_machine_config: Config,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """#3196 regression: a reviewer was briefed with a diff that showed
+    CLAUDE.md as changed when the PR (one commit ahead of main) never
+    touched it — content from an earlier, already-merged commit (the repo's
+    seed commit) leaking in because `gh pr diff` disagreed with the
+    branch's real merge-base diff. Reproduces that shape: `diff_fetcher`
+    (standing in for a stale `pr_diff`/`gh pr diff` result) returns a diff
+    naming a file the branch never touched, while a fresh compare of the
+    branch's own current refs (`compare_files_fetcher`) reports only the
+    file the branch actually changed. Asserts the briefed diff is replaced
+    wholesale by the compare-derived diff, so the reviewer only ever sees
+    the branch's own files."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    client = _FakeHTTPClient({"id": "stale-diff-review-1"})
+
+    # What `pr_diff`/`gh pr diff` returned: a spurious CLAUDE.md addition —
+    # content from the repo's seed commit, not this branch — alongside the
+    # branch's real change.
+    stale_diff = (
+        "diff --git a/CLAUDE.md b/CLAUDE.md\n"
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        "+++ b/CLAUDE.md\n"
+        "@@ -0,0 +1 @@\n"
+        "+# Project rules\n"
+        "diff --git a/converter.py b/converter.py\n"
+        "--- a/converter.py\n"
+        "+++ b/converter.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+def convert():\n"
+        "+    return None\n"
+    )
+    # What the branch's own commit(s) actually touched, per a fresh compare
+    # of its current refs.
+    fresh_diff = (
+        "diff --git a/converter.py b/converter.py\n"
+        "--- a/converter.py\n"
+        "+++ b/converter.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+def convert():\n"
+        "+    return None\n"
+    )
+
+    compare_calls: list[tuple] = []
+
+    def _compare_files(repo_github: str, base: str, head: str) -> list[str]:
+        compare_calls.append((repo_github, base, head))
+        return ["converter.py"]
+
+    def _compare_diff(repo_github: str, base: str, head: str) -> str:
+        compare_calls.append((repo_github, base, head))
+        return fresh_diff
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 31, "url": "https://github.com/acme/api/pull/31", "existed": True,
+        },
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: stale_diff,
+        compare_files_fetcher=_compare_files,
+        compare_diff_fetcher=_compare_diff,
+    )
+
+    assert result is not None
+    assert client.calls, "expected a dispatch POST"
+    _, payload = client.calls[0]
+    briefing = payload["briefing"]
+
+    # The reviewer must never see a diff hunk for CLAUDE.md — the file the
+    # PR never touched — only one for the branch's own file. (CLAUDE.md
+    # still appears elsewhere in the briefing's boilerplate coordinator-doc
+    # reminder — that's unrelated to the embedded diff and expected.)
+    assert "diff --git a/CLAUDE.md" not in briefing
+    assert "diff --git a/converter.py" in briefing
+    assert briefing.count("diff --git") == 1
+
+    # Both the file-list and the replacement-diff cross-checks ran against
+    # the branch's own current refs (base branch, `completed.branch`), not
+    # some cached/stale base.
+    assert compare_calls
+    for _repo, base, head in compare_calls:
+        assert base == two_machine_config.repo("api").default_branch
+        assert head == completed.branch
+
+    # The mismatch is logged so the coordinator's own log carries a record
+    # of the stale-diff replacement.
+    matching = [rec for rec in caplog.records if "stale/incorrect diff base" in rec.message]
+    assert matching, caplog.text
+
+
+def test_dispatch_review_keeps_diff_when_compare_agrees(
+    two_machine_config: Config,
+) -> None:
+    """#3196: the cross-check must be silent (no replacement) when the
+    fetched diff's files already match a fresh compare of the branch's
+    current refs — the common case, where `pr_diff` was correct all along."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    client = _FakeHTTPClient({"id": "agreeing-diff-review-1"})
+    diff = (
+        "diff --git a/converter.py b/converter.py\n"
+        "--- a/converter.py\n"
+        "+++ b/converter.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+def convert():\n"
+        "+    return None\n"
+    )
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("compare_diff_fetcher must not be called when files agree")
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 32, "url": "https://github.com/acme/api/pull/32", "existed": True,
+        },
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+        compare_files_fetcher=lambda repo, base, head: ["converter.py"],
+        compare_diff_fetcher=_boom,
+    )
+
+    assert result is not None
+    _, payload = client.calls[0]
+    assert "converter.py" in payload["briefing"]
+
+
+def test_dispatch_review_pure_rename_does_not_trigger_false_stale_diff_replacement(
+    two_machine_config: Config,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """#3196 review follow-up: a pure rename (`git mv old new`, no content
+    change) makes `diff_file_paths` report BOTH `old.py` and `new.py` as
+    "touched" — the `diff --git a/old b/new` header line alone carries no
+    signal they're the same content moving. GitHub's compare API only ever
+    reports the NEW path under `.files[].filename` (`previous_filename` is a
+    separate field the cross-check doesn't read), so `old.py` is legitimately
+    absent from `known_files` even though nothing is stale. This must NOT be
+    treated as an unexpected file and must NOT trigger a diff replacement —
+    unlike the genuinely-stale case in
+    `test_dispatch_review_replaces_stale_diff_that_names_an_untouched_file`."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    client = _FakeHTTPClient({"id": "pure-rename-review-1"})
+
+    # A pure rename `foo.py` -> `bar.py` with no content change, exactly as
+    # `git mv foo.py bar.py` produces: no `---`/`+++` lines at all.
+    rename_diff = (
+        "diff --git a/foo.py b/bar.py\n"
+        "similarity index 100%\n"
+        "rename from foo.py\n"
+        "rename to bar.py\n"
+    )
+
+    def _boom(*args, **kwargs):
+        raise AssertionError(
+            "compare_diff_fetcher must not be called — the rename is not a "
+            "genuine mismatch and must not trigger a replacement"
+        )
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 33, "url": "https://github.com/acme/api/pull/33", "existed": True,
+        },
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: rename_diff,
+        # A fresh compare only ever reports the rename's NEW path — GitHub's
+        # `previous_filename` field is never surfaced through this seam.
+        compare_files_fetcher=lambda repo, base, head: ["bar.py"],
+        compare_diff_fetcher=_boom,
+    )
+
+    assert result is not None
+    _, payload = client.calls[0]
+    assert "diff --git a/foo.py b/bar.py" in payload["briefing"]
+    # No false-positive "stale/incorrect diff base" log for a routine rename.
+    matching = [rec for rec in caplog.records if "stale/incorrect diff base" in rec.message]
+    assert not matching, caplog.text
+
+
+def test_dispatch_review_cross_check_fails_open_when_compare_files_unavailable(
+    two_machine_config: Config,
+) -> None:
+    """#3196 review follow-up: when `compare_files_fetcher` itself fails
+    (raises, or the compare API is unreachable), the cross-check must fail
+    open — dispatch proceeds with the original `full_diff_text` untouched
+    rather than blocking review dispatch on an unrelated GitHub outage."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    client = _FakeHTTPClient({"id": "compare-files-unavailable-1"})
+    diff = (
+        "diff --git a/converter.py b/converter.py\n"
+        "--- a/converter.py\n"
+        "+++ b/converter.py\n"
+        "@@ -1,2 +1,3 @@\n"
+        "+def convert():\n"
+        "+    return None\n"
+    )
+
+    def _compare_files_boom(*args, **kwargs):
+        raise RuntimeError("gh api compare: rate limited")
+
+    def _compare_diff_boom(*args, **kwargs):
+        raise AssertionError("compare_diff_fetcher must not be called — cross-check skipped")
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 34, "url": "https://github.com/acme/api/pull/34", "existed": True,
+        },
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: diff,
+        compare_files_fetcher=_compare_files_boom,
+        compare_diff_fetcher=_compare_diff_boom,
+    )
+
+    assert result is not None
+    _, payload = client.calls[0]
+    # The original diff is embedded verbatim — the cross-check never ran.
+    assert "diff --git a/converter.py" in payload["briefing"]
+
+
+def test_dispatch_review_keeps_stale_diff_when_compare_diff_replacement_unavailable(
+    two_machine_config: Config,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """#3196 review follow-up: a genuine mismatch is detected (the compare
+    confirms the diff is stale), but the replacement fetch
+    (`compare_diff_fetcher`) itself fails. This must fail SAFE — keep the
+    original (untrusted) diff rather than crash dispatch — while still
+    logging the mismatch so it's visible in the coordinator's own log."""
+    board = Board()
+    completed = _completed_assignment(machine="laptop")
+    client = _FakeHTTPClient({"id": "compare-diff-unavailable-1"})
+    # A plain source file (not a coordinator-owned doc, which would instead
+    # trip the separate mechanical #3180 short-circuit and never dispatch a
+    # review leg at all — irrelevant to what this test is checking).
+    stale_diff = (
+        "diff --git a/spurious.py b/spurious.py\n"
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        "+++ b/spurious.py\n"
+        "@@ -0,0 +1 @@\n"
+        "+SPURIOUS = True\n"
+    )
+
+    def _compare_diff_boom(*args, **kwargs):
+        raise RuntimeError("gh api compare: rate limited")
+
+    result = dispatch_review(
+        completed, board, two_machine_config,
+        http_client=client,
+        pr_lookup=lambda repo_github, **kw: {
+            "number": 35, "url": "https://github.com/acme/api/pull/35", "existed": True,
+        },
+        claude_md_reader=lambda p: "",
+        issue_body_fetcher=lambda repo, num: "",
+        remote_branch_checker=lambda repo, branch: True,
+        diff_fetcher=lambda repo, num, **kw: stale_diff,
+        compare_files_fetcher=lambda repo, base, head: ["converter.py"],
+        compare_diff_fetcher=_compare_diff_boom,
+    )
+
+    assert result is not None
+    _, payload = client.calls[0]
+    # Replacement was unavailable, so the original (untrusted) diff rides
+    # along — the mismatch is logged rather than silently swallowed.
+    assert "diff --git a/spurious.py" in payload["briefing"]
+    matching = [rec for rec in caplog.records if "stale/incorrect diff base" in rec.message]
+    assert matching, caplog.text
 
 
 def test_dispatch_review_logs_missing_test_coverage_but_still_dispatches(

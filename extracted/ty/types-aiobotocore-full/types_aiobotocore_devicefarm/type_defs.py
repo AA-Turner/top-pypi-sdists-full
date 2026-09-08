@@ -38,6 +38,7 @@ from .literals import (
     InteractionModeType,
     NetworkProfileTypeType,
     OfferingTransactionTypeType,
+    ReportStatusType,
     RuleOperatorType,
     SampleTypeType,
     TestGridSessionArtifactCategoryType,
@@ -144,6 +145,9 @@ __all__ = (
     "InstallToRemoteAccessSessionRequestTypeDef",
     "InstallToRemoteAccessSessionResultTypeDef",
     "InstanceProfileTypeDef",
+    "JobInsightsTypeDef",
+    "JobReportMetricsTypeDef",
+    "JobReportTypeDef",
     "JobTypeDef",
     "ListArtifactsRequestPaginateTypeDef",
     "ListArtifactsRequestTypeDef",
@@ -234,6 +238,7 @@ __all__ = (
     "ResolutionTypeDef",
     "ResponseMetadataTypeDef",
     "RuleTypeDef",
+    "RunInsightsTypeDef",
     "RunTypeDef",
     "SampleTypeDef",
     "ScheduleRunConfigurationTypeDef",
@@ -256,6 +261,8 @@ __all__ = (
     "TestGridVpcConfigOutputTypeDef",
     "TestGridVpcConfigTypeDef",
     "TestGridVpcConfigUnionTypeDef",
+    "TestReportMetricsTypeDef",
+    "TestReportTypeDef",
     "TestTypeDef",
     "TimestampTypeDef",
     "TrialMinutesTypeDef",
@@ -637,6 +644,19 @@ class InstallToRemoteAccessSessionRequestTypeDef(TypedDict):
     appArn: str
 
 
+class JobReportMetricsTypeDef(TypedDict):
+    jobsTotal: NotRequired[int]
+    jobsPassed: NotRequired[int]
+    jobsFailed: NotRequired[int]
+    jobsSkipped: NotRequired[int]
+    jobsErrored: NotRequired[int]
+    jobsStopped: NotRequired[int]
+    jobsPassedPercentage: NotRequired[float]
+    totalJobExecutionDurationSeconds: NotRequired[float]
+    averageJobExecutionDurationSeconds: NotRequired[float]
+    medianJobExecutionDurationSeconds: NotRequired[float]
+
+
 ListArtifactsRequestTypeDef = TypedDict(
     "ListArtifactsRequestTypeDef",
     {
@@ -877,6 +897,18 @@ class TestGridVpcConfigTypeDef(TypedDict):
     securityGroupIds: Sequence[str]
     subnetIds: Sequence[str]
     vpcId: str
+
+
+class TestReportMetricsTypeDef(TypedDict):
+    testsTotal: NotRequired[int]
+    testsPassed: NotRequired[int]
+    testsFailed: NotRequired[int]
+    testsSkipped: NotRequired[int]
+    testsErrored: NotRequired[int]
+    testsOther: NotRequired[int]
+    testsPassedPercentage: NotRequired[float]
+    totalTestExecutionDurationSeconds: NotRequired[float]
+    medianTestExecutionDurationSeconds: NotRequired[float]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -1262,6 +1294,12 @@ class ListTestGridSessionsResultTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class JobReportTypeDef(TypedDict):
+    message: NotRequired[str]
+    metrics: NotRequired[JobReportMetricsTypeDef]
+    jobDetailsUrl: NotRequired[str]
+
+
 class ListOfferingPromotionsResultTypeDef(TypedDict):
     offeringPromotions: list[OfferingPromotionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1331,6 +1369,14 @@ class TestGridProjectTypeDef(TypedDict):
 
 
 TestGridVpcConfigUnionTypeDef = Union[TestGridVpcConfigTypeDef, TestGridVpcConfigOutputTypeDef]
+
+
+class TestReportTypeDef(TypedDict):
+    message: NotRequired[str]
+    metrics: NotRequired[TestReportMetricsTypeDef]
+    testDetailsUrl: NotRequired[str]
+
+
 VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
 
 
@@ -1424,48 +1470,7 @@ class ScheduleRunConfigurationTypeDef(TypedDict):
     billingMethod: NotRequired[BillingMethodType]
     environmentVariables: NotRequired[Sequence[EnvironmentVariableTypeDef]]
     executionRoleArn: NotRequired[str]
-
-
-RunTypeDef = TypedDict(
-    "RunTypeDef",
-    {
-        "arn": NotRequired[str],
-        "name": NotRequired[str],
-        "type": NotRequired[TestTypeType],
-        "platform": NotRequired[DevicePlatformType],
-        "created": NotRequired[datetime],
-        "status": NotRequired[ExecutionStatusType],
-        "result": NotRequired[ExecutionResultType],
-        "started": NotRequired[datetime],
-        "stopped": NotRequired[datetime],
-        "counters": NotRequired[CountersTypeDef],
-        "message": NotRequired[str],
-        "totalJobs": NotRequired[int],
-        "completedJobs": NotRequired[int],
-        "billingMethod": NotRequired[BillingMethodType],
-        "deviceMinutes": NotRequired[DeviceMinutesTypeDef],
-        "networkProfile": NotRequired[NetworkProfileTypeDef],
-        "deviceProxy": NotRequired[DeviceProxyTypeDef],
-        "parsingResultUrl": NotRequired[str],
-        "resultCode": NotRequired[ExecutionResultCodeType],
-        "seed": NotRequired[int],
-        "appUpload": NotRequired[str],
-        "eventCount": NotRequired[int],
-        "jobTimeoutMinutes": NotRequired[int],
-        "devicePoolArn": NotRequired[str],
-        "locale": NotRequired[str],
-        "radios": NotRequired[RadiosTypeDef],
-        "location": NotRequired[LocationTypeDef],
-        "customerArtifactPaths": NotRequired[CustomerArtifactPathsOutputTypeDef],
-        "webUrl": NotRequired[str],
-        "skipAppResign": NotRequired[bool],
-        "testSpecArn": NotRequired[str],
-        "deviceSelectionResult": NotRequired[DeviceSelectionResultTypeDef],
-        "vpcConfig": NotRequired[VpcConfigOutputTypeDef],
-        "executionRoleArn": NotRequired[str],
-        "environmentVariables": NotRequired[list[EnvironmentVariableTypeDef]],
-    },
-)
+    insightsTypes: NotRequired[Sequence[Literal["TEST_REPORT"]]]
 
 
 class DeviceSelectionConfigurationTypeDef(TypedDict):
@@ -1505,6 +1510,11 @@ class ListTestsResultTypeDef(TypedDict):
     tests: list[TestTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class RunInsightsTypeDef(TypedDict):
+    status: NotRequired[ReportStatusType]
+    jobReport: NotRequired[JobReportTypeDef]
 
 
 OfferingTypeDef = TypedDict(
@@ -1574,6 +1584,11 @@ class UpdateTestGridProjectRequestTypeDef(TypedDict):
     vpcConfig: NotRequired[TestGridVpcConfigUnionTypeDef]
 
 
+class JobInsightsTypeDef(TypedDict):
+    status: NotRequired[ReportStatusType]
+    testReport: NotRequired[TestReportTypeDef]
+
+
 class CreateProjectRequestTypeDef(TypedDict):
     name: str
     defaultJobTimeoutMinutes: NotRequired[int]
@@ -1600,28 +1615,6 @@ class DevicePoolCompatibilityResultTypeDef(TypedDict):
 class GetDeviceResultTypeDef(TypedDict):
     device: DeviceTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-JobTypeDef = TypedDict(
-    "JobTypeDef",
-    {
-        "arn": NotRequired[str],
-        "name": NotRequired[str],
-        "type": NotRequired[TestTypeType],
-        "created": NotRequired[datetime],
-        "status": NotRequired[ExecutionStatusType],
-        "result": NotRequired[ExecutionResultType],
-        "started": NotRequired[datetime],
-        "stopped": NotRequired[datetime],
-        "counters": NotRequired[CountersTypeDef],
-        "message": NotRequired[str],
-        "device": NotRequired[DeviceTypeDef],
-        "instanceArn": NotRequired[str],
-        "deviceMinutes": NotRequired[DeviceMinutesTypeDef],
-        "videoEndpoint": NotRequired[str],
-        "videoCapture": NotRequired[bool],
-    },
-)
 
 
 class ListDevicesResultTypeDef(TypedDict):
@@ -1672,27 +1665,6 @@ class GetDevicePoolCompatibilityRequestTypeDef(TypedDict):
     projectArn: NotRequired[str]
 
 
-class GetRunResultTypeDef(TypedDict):
-    run: RunTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListRunsResultTypeDef(TypedDict):
-    runs: list[RunTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ScheduleRunResultTypeDef(TypedDict):
-    run: RunTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class StopRunResultTypeDef(TypedDict):
-    run: RunTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class ScheduleRunRequestTypeDef(TypedDict):
     projectArn: str
     test: ScheduleRunTestTypeDef
@@ -1702,6 +1674,50 @@ class ScheduleRunRequestTypeDef(TypedDict):
     name: NotRequired[str]
     configuration: NotRequired[ScheduleRunConfigurationTypeDef]
     executionConfiguration: NotRequired[ExecutionConfigurationTypeDef]
+
+
+RunTypeDef = TypedDict(
+    "RunTypeDef",
+    {
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "type": NotRequired[TestTypeType],
+        "platform": NotRequired[DevicePlatformType],
+        "created": NotRequired[datetime],
+        "status": NotRequired[ExecutionStatusType],
+        "result": NotRequired[ExecutionResultType],
+        "started": NotRequired[datetime],
+        "stopped": NotRequired[datetime],
+        "counters": NotRequired[CountersTypeDef],
+        "message": NotRequired[str],
+        "totalJobs": NotRequired[int],
+        "completedJobs": NotRequired[int],
+        "billingMethod": NotRequired[BillingMethodType],
+        "deviceMinutes": NotRequired[DeviceMinutesTypeDef],
+        "networkProfile": NotRequired[NetworkProfileTypeDef],
+        "deviceProxy": NotRequired[DeviceProxyTypeDef],
+        "parsingResultUrl": NotRequired[str],
+        "resultCode": NotRequired[ExecutionResultCodeType],
+        "seed": NotRequired[int],
+        "appUpload": NotRequired[str],
+        "eventCount": NotRequired[int],
+        "jobTimeoutMinutes": NotRequired[int],
+        "devicePoolArn": NotRequired[str],
+        "locale": NotRequired[str],
+        "radios": NotRequired[RadiosTypeDef],
+        "location": NotRequired[LocationTypeDef],
+        "customerArtifactPaths": NotRequired[CustomerArtifactPathsOutputTypeDef],
+        "webUrl": NotRequired[str],
+        "skipAppResign": NotRequired[bool],
+        "testSpecArn": NotRequired[str],
+        "deviceSelectionResult": NotRequired[DeviceSelectionResultTypeDef],
+        "vpcConfig": NotRequired[VpcConfigOutputTypeDef],
+        "executionRoleArn": NotRequired[str],
+        "environmentVariables": NotRequired[list[EnvironmentVariableTypeDef]],
+        "insightsTypes": NotRequired[list[Literal["TEST_REPORT"]]],
+        "insights": NotRequired[RunInsightsTypeDef],
+    },
+)
 
 
 class ListOfferingsResultTypeDef(TypedDict):
@@ -1719,27 +1735,32 @@ OfferingStatusTypeDef = TypedDict(
         "effectiveOn": NotRequired[datetime],
     },
 )
+JobTypeDef = TypedDict(
+    "JobTypeDef",
+    {
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "type": NotRequired[TestTypeType],
+        "created": NotRequired[datetime],
+        "status": NotRequired[ExecutionStatusType],
+        "result": NotRequired[ExecutionResultType],
+        "started": NotRequired[datetime],
+        "stopped": NotRequired[datetime],
+        "counters": NotRequired[CountersTypeDef],
+        "message": NotRequired[str],
+        "device": NotRequired[DeviceTypeDef],
+        "instanceArn": NotRequired[str],
+        "deviceMinutes": NotRequired[DeviceMinutesTypeDef],
+        "videoEndpoint": NotRequired[str],
+        "videoCapture": NotRequired[bool],
+        "insights": NotRequired[JobInsightsTypeDef],
+    },
+)
 
 
 class GetDevicePoolCompatibilityResultTypeDef(TypedDict):
     compatibleDevices: list[DevicePoolCompatibilityResultTypeDef]
     incompatibleDevices: list[DevicePoolCompatibilityResultTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetJobResultTypeDef(TypedDict):
-    job: JobTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListJobsResultTypeDef(TypedDict):
-    jobs: list[JobTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class StopJobResultTypeDef(TypedDict):
-    job: JobTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1769,6 +1790,27 @@ class StopRemoteAccessSessionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetRunResultTypeDef(TypedDict):
+    run: RunTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListRunsResultTypeDef(TypedDict):
+    runs: list[RunTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ScheduleRunResultTypeDef(TypedDict):
+    run: RunTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopRunResultTypeDef(TypedDict):
+    run: RunTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetOfferingStatusResultTypeDef(TypedDict):
     current: dict[str, OfferingStatusTypeDef]
     nextPeriod: dict[str, OfferingStatusTypeDef]
@@ -1782,6 +1824,22 @@ class OfferingTransactionTypeDef(TypedDict):
     offeringPromotionId: NotRequired[str]
     createdOn: NotRequired[datetime]
     cost: NotRequired[MonetaryAmountTypeDef]
+
+
+class GetJobResultTypeDef(TypedDict):
+    job: JobTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListJobsResultTypeDef(TypedDict):
+    jobs: list[JobTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class StopJobResultTypeDef(TypedDict):
+    job: JobTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListUniqueProblemsResultTypeDef(TypedDict):

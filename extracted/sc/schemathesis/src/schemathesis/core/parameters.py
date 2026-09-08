@@ -1,4 +1,5 @@
 from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar
 from urllib.parse import quote
@@ -15,6 +16,24 @@ LOCATION_TO_CONTAINER: dict[str, ContainerName] = {
     "cookie": "cookies",
     "body": "body",
 }
+
+
+@dataclass(frozen=True, slots=True)
+class SkippedParameter:
+    """A parameter left out of an operation because its schema could not be parsed."""
+
+    location: str
+    # `None` for an OpenAPI 3 request body, which is unnamed.
+    name: str | None
+    reference: str
+    # Only a required request body can be skipped; every other required parameter is a schema error.
+    required: bool = False
+
+    @property
+    def label(self) -> str:
+        if self.name is None:
+            return f"`{self.location}`"
+        return f"`{self.location}` parameter `{self.name}`"
 
 
 class RawQueryString(str):

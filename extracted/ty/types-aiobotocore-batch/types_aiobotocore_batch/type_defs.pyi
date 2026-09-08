@@ -26,6 +26,7 @@ from .literals import (
     CEStateType,
     CEStatusType,
     CETypeType,
+    ContainerInsightsType,
     CRAllocationStrategyType,
     CRTypeType,
     CRUpdateAllocationStrategyType,
@@ -139,6 +140,7 @@ __all__ = (
     "EcsPropertiesOverrideTypeDef",
     "EcsPropertiesTypeDef",
     "EcsPropertiesUnionTypeDef",
+    "EcsSettingsTypeDef",
     "EcsTaskDetailsTypeDef",
     "EcsTaskPropertiesOutputTypeDef",
     "EcsTaskPropertiesTypeDef",
@@ -346,6 +348,9 @@ class CancelJobRequestTypeDef(TypedDict):
 class CapacityLimitTypeDef(TypedDict):
     maxCapacity: NotRequired[int]
     capacityUnit: NotRequired[str]
+
+class EcsSettingsTypeDef(TypedDict):
+    containerInsights: NotRequired[ContainerInsightsType]
 
 class EksConfigurationTypeDef(TypedDict):
     eksClusterArn: str
@@ -1673,6 +1678,7 @@ ComputeEnvironmentDetailTypeDef = TypedDict(
         "containerOrchestrationType": NotRequired[OrchestrationTypeType],
         "uuid": NotRequired[str],
         "context": NotRequired[str],
+        "ecsSettings": NotRequired[EcsSettingsTypeDef],
     },
 )
 ComputeResourceTypeDef = TypedDict(
@@ -1837,6 +1843,7 @@ CreateComputeEnvironmentRequestTypeDef = TypedDict(
         "tags": NotRequired[Mapping[str, str]],
         "eksConfiguration": NotRequired[EksConfigurationTypeDef],
         "context": NotRequired[str],
+        "ecsSettings": NotRequired[EcsSettingsTypeDef],
     },
 )
 
@@ -1848,6 +1855,7 @@ class UpdateComputeEnvironmentRequestTypeDef(TypedDict):
     serviceRole: NotRequired[str]
     updatePolicy: NotRequired[UpdatePolicyTypeDef]
     context: NotRequired[str]
+    ecsSettings: NotRequired[EcsSettingsTypeDef]
 
 class NodeRangePropertyOutputTypeDef(TypedDict):
     targetNodes: str

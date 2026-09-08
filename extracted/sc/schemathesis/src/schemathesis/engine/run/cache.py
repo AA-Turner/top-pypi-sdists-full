@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import TYPE_CHECKING, cast
 
@@ -26,9 +26,12 @@ from schemathesis.core.cache import (
 )
 from schemathesis.core.error_feedback import ObservationKind
 from schemathesis.core.error_feedback.collector import parse_observations
+from schemathesis.core.errors import IncorrectUsage
 from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.timing import format_timestamp
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine.recorder import ScenarioRecorder
+from schemathesis.wfc.escalation import identity_assignments, restore_identity_assignments
 
 if TYPE_CHECKING:
     from schemathesis.core.transport import HttpMethod, Response
@@ -105,6 +108,7 @@ def _run(ctx: EngineContext) -> CacheReport | None:
         # Cache file is present but unreadable — surface this so the user notices.
         return CacheReport(available=False)
     manifest, entries = loaded
+    restore_identity_assignments(ctx.schema, manifest.auth_identities)
 
     # Sort entries so the least-recently-replayed come first; newly-written
     # entries (`last_replayed_run == 0`) are picked up before anything that
@@ -148,7 +152,8 @@ def _flush(ctx: EngineContext, writer: CacheWriter) -> None:
     """Merge newly discovered entries into the on-disk cache; errors swallowed (advisory)."""
     if not ctx.config.cache.enabled:
         return
-    if not writer.has_pending:
+    identities = identity_assignments(ctx.schema)
+    if not writer.has_pending and not identities:
         return
 
     directory = effective_directory(ctx.config.cache.directory, _active_project_title(ctx))
@@ -160,11 +165,12 @@ def _flush(ctx: EngineContext, writer: CacheWriter) -> None:
             schemathesis_version=SCHEMATHESIS_VERSION,
             schema_location=ctx.schema.location or "",
             base_url=ctx.config.base_url or "",
-            created_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            created_at=format_timestamp(time.time()),
         )
         entries: list[Entry] = []
     else:
         manifest, entries = loaded
+    manifest.auth_identities.update(identities)
 
     # Track which observation keys each (kind, operation) bucket already covers, plus which
     # (kind, operation) buckets already have the singleton entry (for auth_required / 405).
@@ -271,6 +277,8 @@ def _verify_auth_required(ctx: EngineContext, entry: Entry, operation: APIOperat
     if ctx.error_feedback is None:
         return _Outcome.SKIPPED
     case = _build_case(operation, entry.request)
+    if case is None:
+        return _Outcome.SKIPPED
     unauth_response = _send_without_auth(ctx, case, operation)
     if unauth_response is None:
         return _Outcome.SKIPPED
@@ -310,21 +318,28 @@ def _verify_method_not_allowed(ctx: EngineContext, entry: Entry, operation: APIO
     return _Outcome.CONFIRMED
 
 
-def _build_case(operation: APIOperation, request: Request) -> Case:
+def _build_case(operation: APIOperation, request: Request) -> Case | None:
+    """`None` when a cached request carries a body but no media type the operation accepts unambiguously."""
     body = request.body if request.body is not None else NOT_SET
-    return operation.Case(
-        # Persisted methods originate from `case.method` (already `HttpMethod`); on load we trust the file.
-        method=cast("HttpMethod", request.method),
-        path_parameters=request.path_parameters,
-        query=request.query,
-        headers=request.headers,
-        cookies=request.cookies,
-        body=body,
-    )
+    try:
+        return operation.Case(
+            # Persisted methods originate from `case.method` (already `HttpMethod`); on load we trust the file.
+            method=cast("HttpMethod", request.method),
+            path_parameters=request.path_parameters,
+            query=request.query,
+            headers=request.headers,
+            cookies=request.cookies,
+            body=body,
+            media_type=request.media_type,
+        )
+    except IncorrectUsage:
+        return None
 
 
 def _replay(ctx: EngineContext, entry: Entry, operation: APIOperation) -> tuple[Case, Response] | None:
     case = _build_case(operation, entry.request)
+    if case is None:
+        return None
     kwargs = ctx.get_transport_kwargs(operation=operation)
     try:
         response = case.call(**kwargs)

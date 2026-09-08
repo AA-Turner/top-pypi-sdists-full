@@ -118,10 +118,13 @@ SigningAlgorithmType = Literal[
     "ML_DSA_87",
     "SHA256WITHECDSA",
     "SHA256WITHRSA",
+    "SHA256WITHRSA_PSS",
     "SHA384WITHECDSA",
     "SHA384WITHRSA",
+    "SHA384WITHRSA_PSS",
     "SHA512WITHECDSA",
     "SHA512WITHRSA",
+    "SHA512WITHRSA_PSS",
     "SM3WITHSM2",
 ]
 ValidityPeriodTypeType = Literal["ABSOLUTE", "DAYS", "END_DATE", "MONTHS", "YEARS"]
@@ -129,8 +132,11 @@ ACMPCAServiceName = Literal["acm-pca"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -435,6 +441,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

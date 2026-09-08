@@ -47,7 +47,7 @@ PROVIDERCONFIG_ANY_OF_SCHEMAS = ["AzureBlobConfig", "BackblazeConfig", "BoxConfi
 
 class ProviderConfig(BaseModel):
     """
-    REQUIRED. Provider-specific configuration payload including credentials. Type depends on provider_type (GoogleDriveConfig, S3Config, etc.). SECURITY: Sensitive credential fields are encrypted at rest via MongoDB client-side field level encryption (CSFLE). Credentials never appear in API responses or logs. See provider_configs.py for detailed schemas.
+    REQUIRED. Provider-specific configuration payload including credentials. Type depends on provider_type (GoogleDriveConfig, S3Config, etc.). SECURITY: Sensitive credential fields are secret and redacted on read. Credentials never appear in API responses or logs. See provider_configs.py for detailed schemas.
     """
 
     # data type: GoogleDriveConfig

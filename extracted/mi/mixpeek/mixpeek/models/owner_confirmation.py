@@ -27,7 +27,7 @@ class OwnerConfirmation(BaseModel):
     """
     An owner's explicit agreement to the line that names them.  Absent means unconfirmed, which is not the same as wrong: most entries have simply never been put to their owner. Recording the agreement where the file can see it is what stops the same lane being asked twice.
     """ # noqa: E501
-    by: StrictStr = Field(description="Lane that confirmed, as they identified.")
+    by: StrictStr = Field(description="Who confirmed, as they identified themselves.")
     at: StrictStr = Field(description="ISO date of the confirmation.")
     ref: Optional[StrictStr] = Field(default=None, description="Where they said it: a tracker id, or a commit sha.")
     note: Optional[StrictStr] = Field(default=None, description="Anything they qualified the agreement with.")

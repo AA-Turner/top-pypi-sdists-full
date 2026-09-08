@@ -39,6 +39,8 @@ from .paginator import (
 from .type_defs import (
     AssociateWhatsAppBusinessAccountInputTypeDef,
     AssociateWhatsAppBusinessAccountOutputTypeDef,
+    CreateWhatsAppDatasetInputTypeDef,
+    CreateWhatsAppDatasetOutputTypeDef,
     CreateWhatsAppFlowInputTypeDef,
     CreateWhatsAppFlowOutputTypeDef,
     CreateWhatsAppMessageTemplateFromLibraryInputTypeDef,
@@ -81,6 +83,8 @@ from .type_defs import (
     PostWhatsAppMessageMediaOutputTypeDef,
     PublishWhatsAppFlowInputTypeDef,
     PutWhatsAppBusinessAccountEventDestinationsInputTypeDef,
+    SendWhatsAppConversionEventInputTypeDef,
+    SendWhatsAppConversionEventOutputTypeDef,
     SendWhatsAppMessageInputTypeDef,
     SendWhatsAppMessageOutputTypeDef,
     TagResourceInputTypeDef,
@@ -156,6 +160,16 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/associate_whatsapp_business_account.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#associate_whatsapp_business_account)
+        """
+
+    async def create_whatsapp_dataset(
+        self, **kwargs: Unpack[CreateWhatsAppDatasetInputTypeDef]
+    ) -> CreateWhatsAppDatasetOutputTypeDef:
+        """
+        Creates a Meta Conversions API dataset for a WhatsApp Business Account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/create_whatsapp_dataset.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#create_whatsapp_dataset)
         """
 
     async def create_whatsapp_flow(
@@ -403,6 +417,17 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/put_whatsapp_business_account_event_destinations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#put_whatsapp_business_account_event_destinations)
+        """
+
+    async def send_whatsapp_conversion_event(
+        self, **kwargs: Unpack[SendWhatsAppConversionEventInputTypeDef]
+    ) -> SendWhatsAppConversionEventOutputTypeDef:
+        """
+        Sends a conversion event to Meta's Conversions API for the specified WhatsApp
+        Business Account dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/send_whatsapp_conversion_event.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#send_whatsapp_conversion_event)
         """
 
     async def send_whatsapp_message(

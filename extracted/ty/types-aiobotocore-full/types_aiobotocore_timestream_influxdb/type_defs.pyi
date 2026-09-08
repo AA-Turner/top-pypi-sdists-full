@@ -19,10 +19,14 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Union
 
 from .literals import (
+    AutomatedDbBackupTypeType,
     ClusterStatusType,
     DataFusionRuntimeTypeType,
+    DbBackupStatusType,
+    DbBackupTypeType,
     DbInstanceTypeType,
     DbStorageTypeType,
     DeploymentTypeType,
@@ -32,6 +36,9 @@ from .literals import (
     InstanceModeType,
     LogLevelType,
     NetworkTypeType,
+    ResourceDeploymentTypeType,
+    ResourceTypeType,
+    RestoreModeType,
     StatusType,
     TracingTypeType,
 )
@@ -43,22 +50,31 @@ else:
 
 __all__ = (
     "ClusterConfigurationTypeDef",
+    "CreateDbBackupInputTypeDef",
+    "CreateDbBackupOutputTypeDef",
     "CreateDbClusterInputTypeDef",
     "CreateDbClusterOutputTypeDef",
     "CreateDbInstanceInputTypeDef",
     "CreateDbInstanceOutputTypeDef",
     "CreateDbParameterGroupInputTypeDef",
     "CreateDbParameterGroupOutputTypeDef",
+    "DbBackupConfigurationOutputTypeDef",
+    "DbBackupConfigurationTypeDef",
+    "DbBackupSummaryTypeDef",
     "DbClusterSummaryTypeDef",
     "DbInstanceForClusterSummaryTypeDef",
     "DbInstanceSummaryTypeDef",
     "DbParameterGroupSummaryTypeDef",
+    "DeleteDbBackupInputTypeDef",
+    "DeleteDbBackupOutputTypeDef",
     "DeleteDbClusterInputTypeDef",
     "DeleteDbClusterOutputTypeDef",
     "DeleteDbInstanceInputTypeDef",
     "DeleteDbInstanceOutputTypeDef",
     "DurationTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "GetDbBackupInputTypeDef",
+    "GetDbBackupOutputTypeDef",
     "GetDbClusterInputTypeDef",
     "GetDbClusterOutputTypeDef",
     "GetDbInstanceInputTypeDef",
@@ -68,6 +84,9 @@ __all__ = (
     "InfluxDBv2ParametersTypeDef",
     "InfluxDBv3CoreParametersTypeDef",
     "InfluxDBv3EnterpriseParametersTypeDef",
+    "ListDbBackupsInputPaginateTypeDef",
+    "ListDbBackupsInputTypeDef",
+    "ListDbBackupsOutputTypeDef",
     "ListDbClustersInputPaginateTypeDef",
     "ListDbClustersInputTypeDef",
     "ListDbClustersOutputTypeDef",
@@ -92,8 +111,11 @@ __all__ = (
     "RebootDbInstanceInputTypeDef",
     "RebootDbInstanceOutputTypeDef",
     "ResponseMetadataTypeDef",
+    "RestoreFromDbBackupInputTypeDef",
+    "RestoreFromDbBackupOutputTypeDef",
     "S3ConfigurationTypeDef",
     "TagResourceRequestTypeDef",
+    "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateDbClusterInputTypeDef",
     "UpdateDbClusterOutputTypeDef",
@@ -106,6 +128,12 @@ class ClusterConfigurationTypeDef(TypedDict):
     queryOnlyInstances: NotRequired[int]
     dedicatedCompactor: NotRequired[bool]
 
+class CreateDbBackupInputTypeDef(TypedDict):
+    name: str
+    dbResourceId: str
+    retentionDays: NotRequired[int]
+    tags: NotRequired[Mapping[str, str]]
+
 class MaintenanceScheduleTypeDef(TypedDict):
     timezone: str
     preferredMaintenanceWindow: str
@@ -117,6 +145,41 @@ class ResponseMetadataTypeDef(TypedDict):
     RetryAttempts: int
     HostId: NotRequired[str]
 
+DbBackupConfigurationTypeDef = TypedDict(
+    "DbBackupConfigurationTypeDef",
+    {
+        "type": AutomatedDbBackupTypeType,
+        "retentionDays": int,
+        "enabled": bool,
+        "customSchedule": NotRequired[str],
+    },
+)
+DbBackupConfigurationOutputTypeDef = TypedDict(
+    "DbBackupConfigurationOutputTypeDef",
+    {
+        "type": AutomatedDbBackupTypeType,
+        "retentionDays": int,
+        "enabled": bool,
+        "customSchedule": NotRequired[str],
+        "nextAutomatedBackupTime": NotRequired[datetime],
+    },
+)
+DbBackupSummaryTypeDef = TypedDict(
+    "DbBackupSummaryTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "name": NotRequired[str],
+        "status": NotRequired[DbBackupStatusType],
+        "createdAt": NotRequired[datetime],
+        "expiresAfter": NotRequired[str],
+        "dbResourceId": NotRequired[str],
+        "type": NotRequired[DbBackupTypeType],
+        "engineType": NotRequired[EngineTypeType],
+        "deploymentType": NotRequired[ResourceDeploymentTypeType],
+        "kmsKeyId": NotRequired[str],
+    },
+)
 DbClusterSummaryTypeDef = TypedDict(
     "DbClusterSummaryTypeDef",
     {
@@ -179,15 +242,23 @@ DbParameterGroupSummaryTypeDef = TypedDict(
     },
 )
 
+class DeleteDbBackupInputTypeDef(TypedDict):
+    identifier: str
+
 class DeleteDbClusterInputTypeDef(TypedDict):
     dbClusterId: str
+    retainAutomatedBackups: NotRequired[bool]
 
 class DeleteDbInstanceInputTypeDef(TypedDict):
     identifier: str
+    retainAutomatedBackups: NotRequired[bool]
 
 class DurationTypeDef(TypedDict):
     durationType: DurationTypeType
     value: int
+
+class GetDbBackupInputTypeDef(TypedDict):
+    identifier: str
 
 class GetDbClusterInputTypeDef(TypedDict):
     dbClusterId: str
@@ -206,6 +277,11 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class ListDbBackupsInputTypeDef(TypedDict):
+    dbResourceId: NotRequired[str]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListDbClustersInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
@@ -238,6 +314,8 @@ class RebootDbClusterInputTypeDef(TypedDict):
 class RebootDbInstanceInputTypeDef(TypedDict):
     identifier: str
 
+TimestampTypeDef = Union[datetime, str]
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -266,9 +344,22 @@ class RebootDbClusterOutputTypeDef(TypedDict):
     dbClusterStatus: ClusterStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RestoreFromDbBackupOutputTypeDef(TypedDict):
+    restoredDbResourceId: str
+    restoreStatus: Literal["RESTORING"]
+    resourceType: ResourceTypeType
+    engineType: EngineTypeType
+    deploymentType: ResourceDeploymentTypeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateDbClusterOutputTypeDef(TypedDict):
     dbClusterStatus: ClusterStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListDbBackupsOutputTypeDef(TypedDict):
+    items: list[DbBackupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListDbClustersOutputTypeDef(TypedDict):
     items: list[DbClusterSummaryTypeDef]
@@ -425,6 +516,10 @@ class InfluxDBv3EnterpriseParametersTypeDef(TypedDict):
     replicationInterval: NotRequired[DurationTypeDef]
     catalogSyncInterval: NotRequired[DurationTypeDef]
 
+class ListDbBackupsInputPaginateTypeDef(TypedDict):
+    dbResourceId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDbClustersInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -446,6 +541,38 @@ class ParametersTypeDef(TypedDict):
     InfluxDBv3Core: NotRequired[InfluxDBv3CoreParametersTypeDef]
     InfluxDBv3Enterprise: NotRequired[InfluxDBv3EnterpriseParametersTypeDef]
 
+CreateDbBackupOutputTypeDef = TypedDict(
+    "CreateDbBackupOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": DbBackupStatusType,
+        "createdAt": datetime,
+        "expiresAfter": str,
+        "dbResourceId": str,
+        "type": DbBackupTypeType,
+        "engineType": EngineTypeType,
+        "deploymentType": ResourceDeploymentTypeType,
+        "kmsKeyId": str,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
+        "dbParameterGroupId": str,
+        "dbInstanceType": DbInstanceTypeType,
+        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "failoverMode": FailoverModeType,
+        "dbStorageType": DbStorageTypeType,
+        "allocatedStorage": int,
+        "vpcSubnetIds": list[str],
+        "vpcSecurityGroupIds": list[str],
+        "publiclyAccessible": bool,
+        "port": int,
+        "networkType": NetworkTypeType,
+        "influxAuthParametersSecretArn": str,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
 class CreateDbClusterInputTypeDef(TypedDict):
     name: str
     dbInstanceType: DbInstanceTypeType
@@ -465,6 +592,8 @@ class CreateDbClusterInputTypeDef(TypedDict):
     failoverMode: NotRequired[FailoverModeType]
     logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
     maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
+    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
+    kmsKeyId: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 class CreateDbInstanceInputTypeDef(TypedDict):
@@ -486,6 +615,8 @@ class CreateDbInstanceInputTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     port: NotRequired[int]
     networkType: NotRequired[NetworkTypeType]
+    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
+    kmsKeyId: NotRequired[str]
 
 CreateDbInstanceOutputTypeDef = TypedDict(
     "CreateDbInstanceOutputTypeDef",
@@ -515,6 +646,39 @@ CreateDbInstanceOutputTypeDef = TypedDict(
         "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "lastMaintenanceTime": datetime,
         "nextMaintenanceTime": datetime,
+        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
+        "kmsKeyId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DeleteDbBackupOutputTypeDef = TypedDict(
+    "DeleteDbBackupOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": DbBackupStatusType,
+        "createdAt": datetime,
+        "expiresAfter": str,
+        "dbResourceId": str,
+        "type": DbBackupTypeType,
+        "engineType": EngineTypeType,
+        "deploymentType": ResourceDeploymentTypeType,
+        "kmsKeyId": str,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
+        "dbParameterGroupId": str,
+        "dbInstanceType": DbInstanceTypeType,
+        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "failoverMode": FailoverModeType,
+        "dbStorageType": DbStorageTypeType,
+        "allocatedStorage": int,
+        "vpcSubnetIds": list[str],
+        "vpcSecurityGroupIds": list[str],
+        "publiclyAccessible": bool,
+        "port": int,
+        "networkType": NetworkTypeType,
+        "influxAuthParametersSecretArn": str,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -546,6 +710,39 @@ DeleteDbInstanceOutputTypeDef = TypedDict(
         "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "lastMaintenanceTime": datetime,
         "nextMaintenanceTime": datetime,
+        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
+        "kmsKeyId": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetDbBackupOutputTypeDef = TypedDict(
+    "GetDbBackupOutputTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "arn": str,
+        "status": DbBackupStatusType,
+        "createdAt": datetime,
+        "expiresAfter": str,
+        "dbResourceId": str,
+        "type": DbBackupTypeType,
+        "engineType": EngineTypeType,
+        "deploymentType": ResourceDeploymentTypeType,
+        "kmsKeyId": str,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
+        "dbParameterGroupId": str,
+        "dbInstanceType": DbInstanceTypeType,
+        "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "failoverMode": FailoverModeType,
+        "dbStorageType": DbStorageTypeType,
+        "allocatedStorage": int,
+        "vpcSubnetIds": list[str],
+        "vpcSecurityGroupIds": list[str],
+        "publiclyAccessible": bool,
+        "port": int,
+        "networkType": NetworkTypeType,
+        "influxAuthParametersSecretArn": str,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -576,6 +773,8 @@ GetDbClusterOutputTypeDef = TypedDict(
         "vpcSecurityGroupIds": list[str],
         "failoverMode": FailoverModeType,
         "clusterConfiguration": ClusterConfigurationTypeDef,
+        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
+        "kmsKeyId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -607,6 +806,8 @@ GetDbInstanceOutputTypeDef = TypedDict(
         "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "lastMaintenanceTime": datetime,
         "nextMaintenanceTime": datetime,
+        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
+        "kmsKeyId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -638,9 +839,28 @@ RebootDbInstanceOutputTypeDef = TypedDict(
         "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "lastMaintenanceTime": datetime,
         "nextMaintenanceTime": datetime,
+        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
+        "kmsKeyId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+class RestoreFromDbBackupInputTypeDef(TypedDict):
+    name: str
+    dbBackupId: str
+    restoreToTime: NotRequired[TimestampTypeDef]
+    restoreMode: NotRequired[RestoreModeType]
+    vpcSubnetIds: NotRequired[Sequence[str]]
+    vpcSecurityGroupIds: NotRequired[Sequence[str]]
+    publiclyAccessible: NotRequired[bool]
+    logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
+    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+    port: NotRequired[int]
+    networkType: NotRequired[NetworkTypeType]
+    deploymentType: NotRequired[ResourceDeploymentTypeType]
+    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
+    kmsKeyId: NotRequired[str]
 
 class UpdateDbClusterInputTypeDef(TypedDict):
     dbClusterId: str
@@ -650,6 +870,7 @@ class UpdateDbClusterInputTypeDef(TypedDict):
     dbInstanceType: NotRequired[DbInstanceTypeType]
     failoverMode: NotRequired[FailoverModeType]
     maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
+    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
 
 class UpdateDbInstanceInputTypeDef(TypedDict):
     identifier: str
@@ -661,6 +882,7 @@ class UpdateDbInstanceInputTypeDef(TypedDict):
     dbStorageType: NotRequired[DbStorageTypeType]
     allocatedStorage: NotRequired[int]
     maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
+    dbBackupConfigurations: NotRequired[Sequence[DbBackupConfigurationTypeDef]]
 
 UpdateDbInstanceOutputTypeDef = TypedDict(
     "UpdateDbInstanceOutputTypeDef",
@@ -690,6 +912,8 @@ UpdateDbInstanceOutputTypeDef = TypedDict(
         "maintenanceSchedule": MaintenanceScheduleTypeDef,
         "lastMaintenanceTime": datetime,
         "nextMaintenanceTime": datetime,
+        "dbBackupConfigurations": list[DbBackupConfigurationOutputTypeDef],
+        "kmsKeyId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

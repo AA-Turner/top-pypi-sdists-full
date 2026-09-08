@@ -25,15 +25,15 @@ from typing_extensions import Self
 
 class BoxJWTCredentials(BaseModel):
     """
-    Credentials for Box JWT (JSON Web Token) authentication.  JWT provides server-to-server authentication using a public/private key pair. Recommended for enterprise integrations requiring high security.  Prerequisites:     - Create a Box application with Server Authentication (with JWT)     - Generate a public/private key pair in the Developer Console     - Authorize the application in the Box Admin Console     - Download the JSON configuration file  Security:     - private_key encrypted at rest via CSFLE     - RSA key pair used for signing JWT assertions     - No user interaction required
+    Credentials for Box JWT (JSON Web Token) authentication.  JWT provides server-to-server authentication using a public/private key pair. Recommended for enterprise integrations requiring high security.  Prerequisites:     - Create a Box application with Server Authentication (with JWT)     - Generate a public/private key pair in the Developer Console     - Authorize the application in the Box Admin Console     - Download the JSON configuration file  Security:     - private_key is a secret credential, redacted on read     - RSA key pair used for signing JWT assertions     - No user interaction required
     """ # noqa: E501
     type: Optional[StrictStr] = 'jwt'
     client_id: StrictStr = Field(description="REQUIRED. Box application client ID.")
-    client_secret: StrictStr = Field(description="REQUIRED. Box application client secret. SECURITY: Encrypted at rest via CSFLE.")
+    client_secret: StrictStr = Field(description="REQUIRED. Box application client secret. SECURITY: Secret credential, redacted on read. Never log or expose.")
     enterprise_id: StrictStr = Field(description="REQUIRED. Box enterprise ID for JWT authentication. Find in: Box Admin Console > Enterprise Settings.")
     jwt_key_id: StrictStr = Field(description="REQUIRED. Public key ID registered with Box. Found in the JSON config file as 'publicKeyID'.")
-    private_key: StrictStr = Field(description="REQUIRED. PEM-encoded RSA private key for JWT signing. SECURITY: Encrypted at rest via CSFLE. Never log or expose. Found in the JSON config file as 'privateKey'.")
-    private_key_passphrase: Optional[StrictStr] = Field(default=None, description="Passphrase for the private key if it is encrypted. SECURITY: Encrypted at rest via CSFLE.")
+    private_key: StrictStr = Field(description="REQUIRED. PEM-encoded RSA private key for JWT signing. SECURITY: Secret credential, redacted on read. Never log or expose. Found in the JSON config file as 'privateKey'.")
+    private_key_passphrase: Optional[StrictStr] = Field(default=None, description="Passphrase for the private key if it is encrypted. SECURITY: Secret credential, redacted on read. Never log or expose.")
     __properties: ClassVar[List[str]] = ["type", "client_id", "client_secret", "enterprise_id", "jwt_key_id", "private_key", "private_key_passphrase"]
 
     @field_validator('type')

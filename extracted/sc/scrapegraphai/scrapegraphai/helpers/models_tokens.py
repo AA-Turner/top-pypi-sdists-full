@@ -140,6 +140,11 @@ models_tokens = {
         "gemini-2.0-flash-latest": 1000000,
         "gemini-2.0-flash-exp": 1000000,
         "gemini-2.0-pro-exp": 2000000,
+        "gemini-2.5-flash": 1000000,
+        "gemini-2.5-flash-latest": 1000000,
+        "gemini-2.5-flash-lite": 1000000,
+        "gemini-2.5-pro": 1000000,
+        "gemini-flash-latest": 1000000,
         "models/embedding-001": 2048,
     },
     "google_vertexai": {
@@ -150,6 +155,10 @@ models_tokens = {
         "gemini-2.0-flash-exp": 1048576,
         "gemini-2.0-pro": 2000000,
         "gemini-2.0-pro-exp": 2000000,
+        "gemini-2.5-flash": 1048576,
+        "gemini-2.5-flash-lite": 1048576,
+        "gemini-2.5-pro": 1048576,
+        "gemini-flash-latest": 1048576,
     },
     "ollama": {
         "command-r": 12800,

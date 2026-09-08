@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from contextlib import suppress
 from dataclasses import dataclass
 from functools import lru_cache
 from itertools import cycle, islice
@@ -32,7 +31,13 @@ from schemathesis.generation.jsonschema import Alphabet, build
 from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.schemas import APIOperation
-from schemathesis.specs.openapi._hypothesis import _build_custom_formats, openapi_cases, snapped_float32_clone
+from schemathesis.specs.openapi._hypothesis import (
+    _build_custom_formats,
+    jsonify_python_specific_types,
+    jsonify_query_parameters,
+    openapi_cases,
+    snapped_float32_clone,
+)
 from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameterSet
 
 if TYPE_CHECKING:
@@ -66,11 +71,10 @@ def merge_kwargs(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     mergeable_keys = {"path_parameters", "headers", "cookies", "query", "body"}
 
     for key, value in right.items():
-        if key in mergeable_keys and key in left:
-            if isinstance(left[key], dict) and isinstance(value, dict):
-                # kwargs takes precedence
-                left[key] = {**left[key], **value}
-                continue
+        if key in mergeable_keys and key in left and isinstance(left[key], dict) and isinstance(value, dict):
+            # kwargs takes precedence
+            left[key] = {**left[key], **value}
+            continue
         left[key] = value
 
     return left
@@ -154,6 +158,15 @@ def _build_location_schema(
     return schema
 
 
+# Parameter locations `serialize_components` rewrites into their wire form.
+_RENDERED_LOCATIONS = (
+    ParameterLocation.PATH,
+    ParameterLocation.QUERY,
+    ParameterLocation.HEADER,
+    ParameterLocation.COOKIE,
+)
+
+
 def get_strategies_from_examples(
     operation: OpenApiOperation,
     extra_data_source: OpenApiExtraDataSource | None = None,
@@ -162,6 +175,7 @@ def get_strategies_from_examples(
 ) -> list[SearchStrategy[Case]]:
     """Build strategies from schema examples, augmented with pool values where available."""
     maps = operation.get_parameter_serializers()
+    optional_query = frozenset(parameter.name for parameter in operation.query if not parameter.is_required)
 
     def serialize_components(case: Case) -> Case:
         """Applies special serialization rules for case components.
@@ -171,6 +185,15 @@ def get_strategies_from_examples(
         for container, map_func in maps.items():
             value = getattr(case, container)
             setattr(case, container, map_func(value))
+        # A spec example carries Python values; the URL renders them as text, so booleans and nulls
+        # need the same JSON spelling every other phase sends.
+        case.query = jsonify_query_parameters(case.query, optional_query)
+        case.path_parameters = jsonify_python_specific_types(case.path_parameters)
+        if case._meta is not None:
+            # Rendering a value for the wire does not change the data that was generated, and
+            # re-checking the rendered form against the typed schema would call the example negative.
+            for location in _RENDERED_LOCATIONS:
+                case._meta.clear_dirty(location)
         return case
 
     # Extract all top-level examples from the `examples` & `example` fields (`x-` prefixed versions in Open API 2)
@@ -503,9 +526,11 @@ def _unpack_example_object(example: dict[str, Any], schema: OpenApiSchema) -> Ge
     if "value" in example:
         yield example["value"]
     elif "externalValue" in example:
-        with suppress(requests.RequestException):
+        try:
             # Report a warning if not available?
             yield load_external_example(example["externalValue"])
+        except requests.RequestException:
+            pass
     elif example:
         yield example
 

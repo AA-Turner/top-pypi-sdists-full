@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zha
-Version: 2.2.1
+Version: 2.2.2
 Summary: Library implementing ZHA for Home Assistant
 Author-email: "David F. Mulcahey" <david.mulcahey@icloud.com>
 License: Apache-2.0
@@ -16,7 +16,7 @@ Requires-Dist: zigpy-deconz==1.0.0
 Requires-Dist: zigpy-xbee==0.22.0
 Requires-Dist: zigpy-zigate==0.14.0
 Requires-Dist: zigpy-ziggurat==1.1.1
-Requires-Dist: zigpy==2.1.0
+Requires-Dist: zigpy==2.2.0
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: coloredlogs; extra == "testing"

@@ -446,6 +446,7 @@ class CertificateBasedAuthPropertiesTypeDef(TypedDict):
 class ClientPropertiesTypeDef(TypedDict):
     ReconnectEnabled: NotRequired[ReconnectEnumType]
     LogUploadEnabled: NotRequired[LogUploadEnumType]
+    ClientExperiencePolicy: NotRequired[str]
 
 
 class ComputeTypeTypeDef(TypedDict):
@@ -1541,6 +1542,7 @@ class WorkspacePropertiesOutputTypeDef(TypedDict):
     Protocols: NotRequired[list[ProtocolType]]
     OperatingSystemName: NotRequired[OperatingSystemNameType]
     GlobalAccelerator: NotRequired[GlobalAcceleratorForWorkSpaceTypeDef]
+    NestedVirtualizationEnabled: NotRequired[bool]
 
 
 class WorkspacePropertiesTypeDef(TypedDict):
@@ -1552,6 +1554,7 @@ class WorkspacePropertiesTypeDef(TypedDict):
     Protocols: NotRequired[Sequence[ProtocolType]]
     OperatingSystemName: NotRequired[OperatingSystemNameType]
     GlobalAccelerator: NotRequired[GlobalAcceleratorForWorkSpaceTypeDef]
+    NestedVirtualizationEnabled: NotRequired[bool]
 
 
 class RegisterWorkspaceDirectoryRequestTypeDef(TypedDict):

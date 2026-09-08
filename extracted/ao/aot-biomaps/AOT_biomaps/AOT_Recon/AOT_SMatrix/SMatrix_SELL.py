@@ -204,29 +204,36 @@ class SMatrix_SELL(SMatrix):
                 cp.cuda.Stream.null.synchronize()
 
     def _allocate_cpu(self):
-        """Allocate and fill the SELL matrix on CPU."""
+        """Allocate and fill the SELL matrix on CPU with vectorized block processing."""
         num_rows = int(self.N * self.T)
         num_cols = int(self.Z * self.X)
         self.total_nnz = 0
         C = int(self.slice_height)
         dtype = self._get_dtype()
+        br = getattr(self, 'block_rows', 128)
 
-        # 1) Count NNZ per physical row
+        # 1) Count NNZ per physical row (par blocs vectorisés)
         row_nnz = np.zeros(num_rows, dtype=np.int32)
-        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Count NNZ per row ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
-            if self.isComplexSMatrix:
-                n_idx = global_row // self.T
-                key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
-                t_idx = global_row % self.T
-                row = self.experiment.AcousticFields_demodulated[key][t_idx].flatten()
-            else:
-                n_idx = global_row // self.T
-                t_idx = global_row % self.T
-                row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+        sorted_keys = sorted(list(self.experiment.AcousticFields_demodulated.keys())) if self.isComplexSMatrix else None
 
-            row_max = np.max(np.abs(row))  # Works for both real and complex
+        for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Count NNZ per row ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
+            current_rows = min(br, num_rows - b)
+            dense_block = np.empty((current_rows, num_cols), dtype=dtype)
+
+            for r in range(current_rows):
+                global_row = b + r
+                n_idx = global_row // self.T
+                t_idx = global_row % self.T
+                if self.isComplexSMatrix:
+                    key = sorted_keys[n_idx]
+                    dense_block[r] = self.experiment.AcousticFields_demodulated[key][t_idx].flatten()
+                else:
+                    dense_block[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+
+            abs_block = np.abs(dense_block)
+            row_max = np.max(abs_block, axis=1, keepdims=True)
             thr = row_max * self.relative_threshold
-            row_nnz[global_row] = int(np.count_nonzero(np.abs(row) > thr))
+            row_nnz[b : b + current_rows] = np.count_nonzero(abs_block > thr, axis=1)
 
         # 2) Apply SELL-C-sigma sorting
         row_nnz = self._apply_sigma_sorting(row_nnz, num_rows)
@@ -253,41 +260,58 @@ class SMatrix_SELL(SMatrix):
         self.sell_values = np.zeros(self.total_storage, dtype=dtype)
         self.sell_colinds = np.zeros(self.total_storage, dtype=np.uint32)
 
-        # 4) Fill SELL arrays using permuted order
-        for sorted_row in trange(num_rows, desc=f'[AOT-biomaps] Fill SELL ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
-            physical_row = int(self.row_perm[sorted_row])
-            if self.isComplexSMatrix:
+        # 4) Fill SELL arrays using permuted order via batched processing
+        for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Fill SELL ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
+            current_rows = min(br, num_rows - b)
+            dense_block = np.empty((current_rows, num_cols), dtype=dtype)
+
+            for r in range(current_rows):
+                sorted_row = b + r
+                physical_row = int(self.row_perm[sorted_row])
                 n_idx = physical_row // self.T
-                key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
                 t_idx = physical_row % self.T
-                row = self.experiment.AcousticFields_demodulated[key][t_idx].flatten()
-            else:
-                n_idx = physical_row // self.T
-                t_idx = physical_row % self.T
-                row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+                if self.isComplexSMatrix:
+                    key = sorted_keys[n_idx]
+                    dense_block[r] = self.experiment.AcousticFields_demodulated[key][t_idx].flatten()
+                else:
+                    dense_block[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
-            row_max = np.max(np.abs(row))
-            thr = row_max * self.relative_threshold
+            abs_block = np.abs(dense_block)
+            row_max = np.max(abs_block, axis=1, keepdims=True)
+            thr_block = row_max * self.relative_threshold
 
-            slice_id = sorted_row // C
-            row_in_slice = sorted_row % C
-            base = int(self.slice_ptr[slice_id])
-            len_slice = int(self.slice_len[slice_id])
+            for r in range(current_rows):
+                sorted_row = b + r
+                row = dense_block[r]
+                thr = thr_block[r, 0]
 
-            k = 0
-            for col in range(num_cols):
-                if np.abs(row[col]) > thr:
-                    pos = base + row_in_slice + k * C
-                    if pos < self.total_storage:
-                        self.sell_values[pos] = row[col]
-                        self.sell_colinds[pos] = col
-                    k += 1
+                slice_id = sorted_row // C
+                row_in_slice = sorted_row % C
+                base = int(self.slice_ptr[slice_id])
+                len_slice = int(self.slice_len[slice_id])
 
-            for k_pad in range(k, len_slice):
-                pos = base + row_in_slice + k_pad * C
-                if pos < self.total_storage:
-                    self.sell_values[pos] = 0.0 if not self.isComplexSMatrix else 0.0 + 0.0j
-                    self.sell_colinds[pos] = 0
+                valid_cols = np.flatnonzero(np.abs(row) > thr)
+                k = len(valid_cols)
+
+                if k > 0:
+                    pos_indices = base + row_in_slice + np.arange(k) * C
+                    valid_mask = pos_indices < self.total_storage
+                    self.sell_values[pos_indices[valid_mask]] = row[valid_cols[valid_mask]]
+                    self.sell_colinds[pos_indices[valid_mask]] = valid_cols[valid_mask]
+
+                if k < len_slice:
+                    pad_indices = base + row_in_slice + np.arange(k, len_slice) * C
+                    pad_mask = pad_indices < self.total_storage
+                    self.sell_values[pad_indices[pad_mask]] = 0.0
+                    self.sell_colinds[pad_indices[pad_mask]] = 0
+
+        self.sell_rowinds = np.zeros(self.total_storage, dtype=np.int32)
+        for s in range(num_slices):
+            base = int(self.slice_ptr[s])
+            length = int(self.slice_len[s])
+            if length > 0:
+                rows_in_slice = np.arange(s * C, s * C + C, dtype=np.int32)
+                self.sell_rowinds[base:base + length * C] = np.tile(rows_in_slice, length)
 
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """Perform forward projection: q = P^-1 * (A_sell * theta)."""
@@ -315,26 +339,15 @@ class SMatrix_SELL(SMatrix):
                 return q_gpu_permuted[self.inv_row_perm_gpu]
         else:
             theta_cpu = np.asarray(theta, dtype=dtype) if not isinstance(theta, np.ndarray) else theta
-            if theta_cpu.dtype != dtype:
-                theta_cpu = theta_cpu.astype(dtype)
+            
+            valid = self.sell_values != 0
+            v_vals = self.sell_values[valid]
+            v_cols = self.sell_colinds[valid]
+            v_rows = self.sell_rowinds[valid]
 
             q_permuted = np.zeros(self.N * self.T, dtype=dtype)
-            for row in range(self.N * self.T):
-                slice_id = row // self.slice_height
-                row_in_slice = row % self.slice_height
-                base = int(self.slice_ptr[slice_id])
-                len_slice = int(self.slice_len[slice_id])
-                acc = 0.0 if not self.isComplexSMatrix else 0.0 + 0.0j
-                pos = base + row_in_slice
-
-                for j in range(len_slice):
-                    idx = pos + j * self.slice_height
-                    if idx < self.total_storage:
-                        val = self.sell_values[idx]
-                        if val != (0.0 if not self.isComplexSMatrix else 0.0 + 0.0j):
-                            col = int(self.sell_colinds[idx])
-                            acc += val * theta_cpu[col]
-                q_permuted[row] = acc
+            np.add.at(q_permuted, v_rows, v_vals * theta_cpu[v_cols])
+            
             return q_permuted[self.inv_row_perm]
 
     def backward_projection(self, e: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
@@ -368,29 +381,15 @@ class SMatrix_SELL(SMatrix):
                 return c_gpu
         else:
             e_cpu = np.asarray(e, dtype=dtype) if not isinstance(e, np.ndarray) else e
-            if e_cpu.dtype != dtype:
-                e_cpu = e_cpu.astype(dtype)
-
             e_cpu_permuted = e_cpu[self.row_perm]
             c = np.zeros(self.Z * self.X, dtype=dtype)
 
-            for row in range(self.N * self.T):
-                e_val = e_cpu_permuted[row]
-                if e_val == (0.0 if not self.isComplexSMatrix else 0.0 + 0.0j):
-                    continue
-                slice_id = row // self.slice_height
-                row_in_slice = row % self.slice_height
-                base = int(self.slice_ptr[slice_id])
-                len_slice = int(self.slice_len[slice_id])
-                pos = base + row_in_slice
+            valid = self.sell_values != 0
+            v_vals = self.sell_values[valid]
+            v_cols = self.sell_colinds[valid]
+            v_rows = self.sell_rowinds[valid]
 
-                for j in range(len_slice):
-                    idx = pos + j * self.slice_height
-                    if idx < self.total_storage:
-                        val = self.sell_values[idx]
-                        if val != (0.0 if not self.isComplexSMatrix else 0.0 + 0.0j):
-                            col = int(self.sell_colinds[idx])
-                            c[col] += val * e_val
+            np.add.at(c, v_cols.astype(np.int64), v_vals * e_cpu_permuted[v_rows])
             return c
 
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
@@ -423,16 +422,13 @@ class SMatrix_SELL(SMatrix):
                     self.sell_values[i] *= window_cpu[col]
 
     def compute_norm_factor(self):
-        """Compute normalization factor for SELL matrix using GPU kernels."""
+        """Compute normalization factor for SELL matrix using GPU kernels or vectorized CPU."""
         ZX = self.Z * self.X
 
-        if check_gpu_available(self) and self.sell_values_gpu is not None:
+        if check_gpu_available(self) and getattr(self, 'sell_values_gpu', None) is not None:
             with cp.cuda.Device(self.gpu_index):
                 # Allocate GPU memory for column sums
-                if self.isComplexSMatrix:
-                    col_sum_gpu = cp.zeros(ZX, dtype=cp.float32)  # For norms (real values)
-                else:
-                    col_sum_gpu = cp.zeros(ZX, dtype=cp.float32)
+                col_sum_gpu = cp.zeros(ZX, dtype=cp.float32)
 
                 # Select the appropriate kernel
                 kernel_name = "accumulate_columns_atomic__COMPLEX" if self.isComplexSMatrix else "accumulate_columns_atomic__REAL"
@@ -442,41 +438,26 @@ class SMatrix_SELL(SMatrix):
                 threads = 256
                 blocks = (self.total_storage + threads - 1) // threads
 
-                if self.isComplexSMatrix:
-                    # For complex: pass sell_values_gpu (float2) and accumulate norms
-                    acc_kernel(
-                        grid=(blocks, 1, 1),
-                        block=(threads, 1, 1),
-                        args=[
-                            self.sell_values_gpu,  # float2 array
-                            self.sell_colinds_gpu,
-                            np.int64(self.total_storage),
-                            col_sum_gpu  # Output: float array (norms)
-                        ]
-                    )
-                else:
-                    # For real: pass sell_values_gpu (float)
-                    acc_kernel(
-                        grid=(blocks, 1, 1),
-                        block=(threads, 1, 1),
-                        args=[
-                            self.sell_values_gpu,  # float array
-                            self.sell_colinds_gpu,
-                            np.int64(self.total_storage),
-                            col_sum_gpu  # Output: float array
-                        ]
-                    )
+                acc_kernel(
+                    grid=(blocks, 1, 1),
+                    block=(threads, 1, 1),
+                    args=[
+                        self.sell_values_gpu,  # float or float2 array
+                        self.sell_colinds_gpu,
+                        np.int64(self.total_storage),
+                        col_sum_gpu  # Output: float array (norms)
+                    ]
+                )
 
                 cp.cuda.Stream.null.synchronize()
                 self.norm_factor_inv_gpu = 1.0 / (col_sum_gpu + 1e-10)
                 self.norm_factor_inv = cp.asnumpy(self.norm_factor_inv_gpu)
         else:
-            self.norm_factor_inv = np.ones(ZX, dtype=np.float32)
-            col_sums = np.zeros(ZX, dtype=np.float32)
-
-            for i in trange(self.total_storage, desc="[AOT-biomaps] Computing normalization factor (CPU)"):
-                col = int(self.sell_colinds[i])
-                col_sums[col] += np.abs(self.sell_values[i])
+            col_sums = np.zeros(ZX, dtype=cp.float32)
+            if self.isComplexSMatrix:
+                np.add.at(col_sums, self.sell_colinds.astype(np.int64), np.abs(self.sell_values))
+            else:
+                np.add.at(col_sums, self.sell_colinds.astype(np.int64), np.abs(self.sell_values))
 
             self.norm_factor_inv = 1.0 / (col_sums + 1e-10)
 

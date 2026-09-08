@@ -16,6 +16,10 @@ use sase_core::{
         AgentArtifactScanOptionsWire, AgentMetaWire, DoneMarkerWire,
         FamilyShellWire,
     },
+    fleet_attention::{
+        FLEET_ATTENTION_CAPABILITY_ANSWER_QUESTION,
+        FLEET_ATTENTION_CAPABILITY_APPROVE_GATE,
+    },
     fleet_contract::{
         classify_cursor_replay, count_logical_agents,
         cursor_replay_reason_to_resync_reason, ensure_installation_identity,
@@ -47,6 +51,10 @@ use sase_core::{
         ResolvedAgentDetailWire, ResolvedAgentProjectionRequestWire,
         ResourceRevisionWire, StoreCursorWire, FLEET_CONTRACT_SCHEMA_VERSION,
         FLEET_INITIAL_CURSOR_GENERATION, FLEET_READ_DEFAULT_REPLAY_EVENTS,
+    },
+    fleet_mutation::{
+        FLEET_MUTATION_CAPABILITY_FORK, FLEET_MUTATION_CAPABILITY_RETRY,
+        FLEET_MUTATION_CAPABILITY_STOP,
     },
     list_project_records, query_agent_artifact_index,
 };
@@ -605,16 +613,6 @@ fn resolve_record(
         .map_err(FleetReadError::from)?;
     let (content_handles, content_sources) =
         content_handles_for_record(record, &logical_key, &row_revision)?;
-    let resource_caps = if content_handles.is_empty() {
-        Vec::new()
-    } else {
-        let mut caps =
-            vec!["content.range".to_string(), "content.read".to_string()];
-        if content_handles.iter().any(|handle| handle.supports_growth) {
-            caps.push("content.tail".to_string());
-        }
-        caps
-    };
     let liveness = owner_liveness_for_record(record);
     let row_kind = row_kind_for_record(record);
     let is_terminal = record.done.is_some()
@@ -624,6 +622,13 @@ fn resolve_record(
                 "completed" | "failed" | "cancelled" | "noop"
             )
         });
+    let resource_caps = lifecycle_and_content_capabilities(
+        row_kind,
+        is_terminal,
+        liveness,
+        &content_handles,
+        record.pending_question.is_some(),
+    );
     let detail =
         project_resolved_agent_detail(&ResolvedAgentProjectionRequestWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
@@ -746,6 +751,37 @@ fn family_shell<'a>(
 ) -> Option<&'a FamilyShellWire> {
     meta.and_then(|value| value.family_shell.as_ref())
         .or_else(|| done.and_then(|value| value.family_shell.as_ref()))
+}
+
+fn lifecycle_and_content_capabilities(
+    row_kind: FleetRowKindWire,
+    is_terminal: bool,
+    liveness: OwnerLivenessWire,
+    content_handles: &[ContentHandleWire],
+    has_pending_question: bool,
+) -> Vec<String> {
+    let mut caps = Vec::new();
+    if row_kind == FleetRowKindWire::AgentShell && !is_terminal {
+        caps.push(FLEET_MUTATION_CAPABILITY_RETRY.to_string());
+        caps.push(FLEET_MUTATION_CAPABILITY_FORK.to_string());
+        if liveness == OwnerLivenessWire::Alive {
+            caps.push(FLEET_MUTATION_CAPABILITY_STOP.to_string());
+        }
+    }
+    if !is_terminal && has_pending_question {
+        caps.push(FLEET_ATTENTION_CAPABILITY_ANSWER_QUESTION.to_string());
+    }
+    if !is_terminal && row_kind == FleetRowKindWire::Gate {
+        caps.push(FLEET_ATTENTION_CAPABILITY_APPROVE_GATE.to_string());
+    }
+    if !content_handles.is_empty() {
+        caps.push("content.range".to_string());
+        caps.push("content.read".to_string());
+        if content_handles.iter().any(|handle| handle.supports_growth) {
+            caps.push("content.tail".to_string());
+        }
+    }
+    caps
 }
 
 fn owner_liveness_for_record(

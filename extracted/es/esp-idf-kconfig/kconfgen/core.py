@@ -33,6 +33,63 @@ from esp_kconfiglib.constants import build_idf_min_config_header
 from esp_kconfiglib.constants import build_idf_sdkconfig_header
 from esp_kconfiglib.deprecated import DeprecatedOptions
 from esp_kconfiglib.deprecated import load_rename_files_from_env
+from esp_kconfiglib.kconfig_grammar import KconfigParseError
+from esp_kconfiglib.legacy_constructs import find_legacy_constructs
+
+_PARSER_DIAG_EXCEPTIONS = (kconfiglib.KconfigError, KconfigParseError)
+
+
+def _v1_accepts(kconfig: str) -> bool:
+    try:
+        kconfiglib.Kconfig(kconfig, parser_version=1, print_report=False)
+    except _PARSER_DIAG_EXCEPTIONS:
+        return False
+    except Exception:
+        return False
+    return True
+
+
+def _diagnose_v2_parse_failure(exc: BaseException, kconfig: str) -> None:
+    """
+    Try to find out why parser v2 failed.
+
+    v1 accepts
+    -> check for legacy constructs near the error (find_legacy_constructs()):
+        * legacy/known unsupported constructs found
+          -> intended failure, log.die() with explanation and temporary workaround
+        * no legacy constructs found
+          -> probably genuine v2 bug, do not diagnose further
+    v1 rejects -> probably genuine Kconfig file error, do not diagnose further
+    """
+    if not _v1_accepts(kconfig):
+        # Both parsers reject the tree — let the caller handle that.
+        return
+
+    filename = getattr(exc, "file", None)
+    linenum = getattr(exc, "line", None)
+    if filename and linenum:
+        matches = find_legacy_constructs(filename, linenum)
+    else:
+        matches = []
+
+    if matches:
+        details = "\n".join(
+            f"  {escape(str(getattr(exc, 'file', kconfig)))}:{match.line_nr}: {match.description}" for match in matches
+        )
+        log.die(
+            f"{escape(str(exc))}\n\n"
+            "This parse failure is intended: parser v2 does not support the "
+            "following Kconfig legacy constructs near the error location:\n"
+            f"{details}\n"
+            "Temporary workaround: export KCONFIG_PARSER_VERSION=1 and retry."
+        )
+
+    log.die(
+        f"{escape(str(exc))}\n\n"
+        "This Kconfig tree parses successfully with the legacy parser (v1) "
+        "but fails with the new parser (v2). This may indicate a parser bug.\n"
+        "Workaround: export KCONFIG_PARSER_VERSION=1 and retry."
+    )
 
 
 def write_config(config: kconfiglib.Kconfig, filename: str, write_deprecated: bool = True) -> None:
@@ -310,17 +367,17 @@ def append_deprecated_doc(
                                 f_o.write("    - {}\n".format(", ".join(dep_names)))
 
 
-def write_docs(config: kconfiglib.Kconfig, filename: str, write_deprecated: bool = True) -> None:
+def write_docs(kconfig: kconfiglib.Kconfig, filename: str, write_deprecated: bool = True) -> None:
     """Write Kconfig documentation in RST format, optionally with deprecated options section."""
     try:
         target = os.environ["IDF_TARGET"]
     except KeyError:
         log.die("IDF_TARGET environment variable must be defined!")
 
-    visibility = gen_kconfig_doc.ConfigTargetVisibility(config, target)
-    gen_kconfig_doc.write_docs(config, visibility, filename)
-    if write_deprecated and config.deprecated_options:
-        append_deprecated_doc(config.deprecated_options, config, visibility, filename)
+    visibility = gen_kconfig_doc.ConfigTargetVisibility(kconfig, target)
+    gen_kconfig_doc.write_docs(kconfig, visibility, filename)
+    if write_deprecated and kconfig.deprecated_options:
+        append_deprecated_doc(kconfig.deprecated_options, kconfig, visibility, filename)
 
 
 def write_report(config: kconfiglib.Kconfig, filename: str, write_deprecated: bool = True) -> None:
@@ -463,15 +520,20 @@ def main(
     # TODO Once ESP-IDF will fully support kconfig report, we should switch to "quiet" as default
     #      to avoid printing the report several times during the build.
     print_report = os.environ.get("KCONFIG_REPORT_VERBOSITY", "default") != "quiet"
-    config = kconfiglib.Kconfig(
-        kconfig,
-        parser_version=parser_version,
-        print_report=(
-            print_report
-            and not (sdkconfig_file and os.path.exists(sdkconfig_file))  # report after sdkconfig loaded (if any)
-            and len(defaults) == 0  # if defaults are loaded, report will be printed after that
-        ),
-    )
+    try:
+        config = kconfiglib.Kconfig(
+            kconfig,
+            parser_version=parser_version,
+            print_report=(
+                print_report
+                and not (sdkconfig_file and os.path.exists(sdkconfig_file))  # report after sdkconfig loaded (if any)
+                and len(defaults) == 0  # if defaults are loaded, report will be printed after that
+            ),
+        )
+    except _PARSER_DIAG_EXCEPTIONS as e:
+        if parser_version == 2:
+            _diagnose_v2_parse_failure(e, kconfig)
+        raise
     kconfig_encoding = config._encoding
 
     load_rename_files_from_env(
@@ -523,7 +585,20 @@ def main(
         # Local import keeps non-interactive kconfgen runs free of textual.
         from esp_menuconfig import menuconfig as run_menuconfig
 
-        run_menuconfig(config)
+        needs_save = run_menuconfig(config)
+        if not needs_save:
+            # The user exited menuconfig without saving: nothing to do.
+            return
+
+        # Edge case: save, then edit more, then discard. run_menuconfig returns
+        # True, but three states exist:
+        # 1. config (Kconfig object) — still holds the discarded later edits
+        # 2. sdkconfig — last saved state (correct)
+        # 3. other files (.h, .cmake, ...) — pre-menuconfig state
+        # Reload sdkconfig so discarded edits are dropped before regenerating
+        # the other outputs.
+        if sdkconfig_file and os.path.exists(sdkconfig_file):
+            config.load_config(sdkconfig_file, replace=True, print_report=False)
 
     write_deprecated = not dont_write_deprecated
 

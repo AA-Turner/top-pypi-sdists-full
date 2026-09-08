@@ -274,9 +274,12 @@ __all__ = (
     "ThrottlingExceptionTypeDef",
     "TimestampTypeDef",
     "TokenUsageTypeDef",
+    "ToolAdditionBlockTypeDef",
     "ToolChoiceTypeDef",
     "ToolConfigurationTypeDef",
     "ToolInputSchemaTypeDef",
+    "ToolReferenceTypeDef",
+    "ToolRemovalBlockTypeDef",
     "ToolResultBlockDeltaTypeDef",
     "ToolResultBlockOutputTypeDef",
     "ToolResultBlockStartTypeDef",
@@ -699,6 +702,15 @@ class TagTypeDef(TypedDict):
 class SystemToolTypeDef(TypedDict):
     name: str
 
+ToolReferenceTypeDef = TypedDict(
+    "ToolReferenceTypeDef",
+    {
+        "type": NotRequired[str],
+        "name": NotRequired[str],
+        "serverName": NotRequired[str],
+    },
+)
+
 class ToolInputSchemaTypeDef(TypedDict):
     json: NotRequired[Mapping[str, Any]]
 
@@ -1003,6 +1015,12 @@ ToolChoiceTypeDef = TypedDict(
     },
 )
 
+class ToolAdditionBlockTypeDef(TypedDict):
+    tool: ToolReferenceTypeDef
+
+class ToolRemovalBlockTypeDef(TypedDict):
+    tool: ToolReferenceTypeDef
+
 class ToolSpecificationTypeDef(TypedDict):
     name: str
     inputSchema: ToolInputSchemaTypeDef
@@ -1288,6 +1306,7 @@ class InvokeGuardrailChecksResponseTypeDef(TypedDict):
 
 class OutputConfigTypeDef(TypedDict):
     textFormat: NotRequired[OutputFormatTypeDef]
+    effort: NotRequired[str]
 
 class ToolConfigurationTypeDef(TypedDict):
     tools: Sequence[ToolTypeDef]
@@ -1357,6 +1376,8 @@ class ContentBlockOutputTypeDef(TypedDict):
     reasoningContent: NotRequired[ReasoningContentBlockOutputTypeDef]
     citationsContent: NotRequired[CitationsContentBlockOutputTypeDef]
     searchResult: NotRequired[SearchResultBlockOutputTypeDef]
+    toolAddition: NotRequired[ToolAdditionBlockTypeDef]
+    toolRemoval: NotRequired[ToolRemovalBlockTypeDef]
 
 class ToolResultContentBlockTypeDef(TypedDict):
     json: NotRequired[Mapping[str, Any]]
@@ -1447,6 +1468,8 @@ class ContentBlockTypeDef(TypedDict):
     reasoningContent: NotRequired[ReasoningContentBlockUnionTypeDef]
     citationsContent: NotRequired[CitationsContentBlockUnionTypeDef]
     searchResult: NotRequired[SearchResultBlockUnionTypeDef]
+    toolAddition: NotRequired[ToolAdditionBlockTypeDef]
+    toolRemoval: NotRequired[ToolRemovalBlockTypeDef]
 
 class ConverseStreamMetadataEventTypeDef(TypedDict):
     usage: TokenUsageTypeDef

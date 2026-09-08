@@ -7,13 +7,13 @@
 //!
 //! - Unix domain sockets use native async syscalls via the async driver when available.
 //! - When io_uring completion is available, operations complete directly.
-//! - For platforms without native async support, operations fall back to synchronous std::os::unix::net calls.
-//! - The runtime must be active when calling these types' methods; otherwise they will panic.
+//! - Poll mode uses nonblocking socket calls and driver readiness notifications.
+//! - Register sockets and drive async I/O inside a runtime. Registration without
+//!   one returns an error; direct address/option queries need no current runtime.
 
 use std::future::poll_fn;
 use std::io;
-use std::mem::ManuallyDrop;
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 use std::os::unix::net::{
     SocketAddr, UnixListener as StdUnixListener, UnixStream as StdUnixStream,
 };
@@ -33,29 +33,29 @@ use crate::vibeio::op::AcceptUnixOp;
 ///
 /// - Unix domain sockets use native async syscalls via the async driver when available.
 /// - When io_uring completion is available, operations complete directly.
-/// - For platforms without native async support, operations fall back to synchronous std::os::unix::net calls.
-/// - The runtime must be active when calling these methods; otherwise they will panic.
+/// - Poll mode uses nonblocking socket calls and driver readiness notifications.
+/// - Registration needs an entered runtime and returns an error without one.
+///   Drive async I/O inside a runtime; direct socket queries need no current runtime.
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::net::UnixListener;
-///
-/// let listener = UnixListener::bind("/tmp/mysocket").await?;
-/// loop {
-///     let (stream, addr) = listener.accept().await?;
-///     println!("Connection from: {:?}", addr);
-/// }
-/// ```
+/// See "Unix socket exchange and path cleanup" in
+/// `tools/vibeio-check/EXAMPLES.md`. Bind is synchronous; accepting is async.
+/// Dropping a listener closes its socket but does not unlink its pathname.
 pub struct UnixListener {
+    // Deregister before closing the socket (field declaration order).
+    handle: InnerRawHandle,
     inner: StdUnixListener,
-    handle: ManuallyDrop<InnerRawHandle>,
 }
 
 impl UnixListener {
     /// Creates a new `UnixListener` which will be bound to the specified path.
     ///
-    /// This is the async version of [`std::os::unix::net::UnixListener::bind`].
+    /// Binding is synchronous; the returned listener supports async accepts.
+    /// A missing runtime is rejected before binding creates a socket pathname.
+    /// As with the standard listener, dropping it does not unlink that pathname.
+    /// A later setup or driver-registration failure can also leave it in place;
+    /// callers remain responsible for cleanup of paths they own.
     ///
     /// # Errors
     ///
@@ -67,6 +67,15 @@ impl UnixListener {
     /// - The runtime is not active
     #[inline]
     pub fn bind(path: impl AsRef<Path>) -> Result<Self, io::Error> {
+        // Reject this known setup failure before bind mutates the filesystem.
+        // Do not unlink on error: a pathname may have been replaced by another
+        // process, and from_std must never remove a caller-owned listener path.
+        crate::vibeio::executor::current_driver().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotConnected,
+                "can't register I/O handle outside runtime",
+            )
+        })?;
         let inner = StdUnixListener::bind(path)?;
         Self::from_std(inner)
     }
@@ -78,7 +87,7 @@ impl UnixListener {
     /// This function will return an error if registration with the async driver fails.
     #[inline]
     pub fn from_std(inner: StdUnixListener) -> Result<Self, io::Error> {
-        let handle = ManuallyDrop::new(InnerRawHandle::new(inner.as_raw_fd(), Interest::READABLE)?);
+        let handle = InnerRawHandle::new(inner.as_raw_fd(), Interest::READABLE)?;
         inner.set_nonblocking(!handle.uses_completion())?;
         Ok(Self { inner, handle })
     }
@@ -105,8 +114,8 @@ impl UnixListener {
     #[inline]
     pub async fn accept(&self) -> Result<(UnixStream, SocketAddr), io::Error> {
         let mut op = AcceptUnixOp::new(&self.handle);
-        let raw = poll_fn(move |cx| self.handle.poll_op(cx, &mut op)).await?;
-        let std_stream = unsafe { StdUnixStream::from_raw_fd(raw) };
+        let fd = poll_fn(move |cx| self.handle.poll_op(cx, &mut op)).await?;
+        let std_stream = StdUnixStream::from(fd);
         let address = std_stream.peer_addr()?;
         let stream = UnixStream::from_std(std_stream)?;
         Ok((stream, address))
@@ -123,23 +132,52 @@ impl AsRawFd for UnixListener {
 impl IntoRawFd for UnixListener {
     #[inline]
     fn into_raw_fd(self) -> RawFd {
-        let mut this = ManuallyDrop::new(self);
-
-        // Safety: `this` will not be dropped, so we must drop the registration handle manually.
-        // We then move out the inner std stream and transfer its fd ownership to the caller.
-        unsafe {
-            ManuallyDrop::drop(&mut this.handle);
-            std::ptr::read(&this.inner).into_raw_fd()
-        }
+        let Self { handle, inner } = self;
+        drop(handle);
+        inner.into_raw_fd()
     }
 }
 
-impl Drop for UnixListener {
-    #[inline]
-    fn drop(&mut self) {
-        // Safety: The struct is dropped after the handle is dropped.
-        unsafe {
-            ManuallyDrop::drop(&mut self.handle);
+#[cfg(test)]
+mod bind_tests {
+    use super::*;
+    use crate::vibeio::driver::AnyDriver;
+
+    #[test]
+    fn bind_without_runtime_does_not_create_a_socket_path() {
+        struct Scratch(std::path::PathBuf);
+        impl Drop for Scratch {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_file(self.0.join("socket"));
+                let _ = std::fs::remove_dir(&self.0);
+            }
         }
+
+        assert!(crate::vibeio::executor::current_driver().is_none());
+        // Keep the path short enough for macOS sockaddr_un as well as Linux.
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory =
+            std::path::PathBuf::from(format!("/tmp/vb-bind-{}-{stamp:x}", std::process::id()));
+        std::fs::create_dir(&directory).unwrap();
+        let scratch = Scratch(directory);
+        let path = scratch.0.join("socket");
+        assert!(matches!(UnixListener::bind(&path), Err(error)
+            if error.kind() == io::ErrorKind::NotConnected));
+        assert!(
+            matches!(std::fs::symlink_metadata(&path), Err(error)
+                if error.kind() == io::ErrorKind::NotFound),
+            "missing runtime must be rejected before creating the socket path"
+        );
+        std::fs::write(&path, b"caller-owned contents").unwrap();
+        assert!(matches!(UnixListener::bind(&path), Err(error)
+            if error.kind() == io::ErrorKind::NotConnected));
+        assert_eq!(std::fs::read(&path).unwrap(), b"caller-owned contents");
+        std::fs::remove_file(&path).unwrap();
+        // Retrying in a valid runtime must not encounter our stale socket.
+        let runtime = crate::vibeio::executor::Runtime::new(AnyDriver::new_mio().unwrap());
+        runtime.block_on(async move { drop(UnixListener::bind(path).unwrap()) });
     }
 }

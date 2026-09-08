@@ -4,12 +4,14 @@ import itertools
 import json
 import socket
 import threading
+import time
 import urllib.request
 import uuid
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
+from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Optional
+from typing import Any, Optional, cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -28,9 +30,14 @@ from pymobiledevice3.services.web_protocol.cdp_server import (
     _fetch,
     _frontend_base,
     app,
+    bridge_version,
     targets_html,
 )
-from pymobiledevice3.services.web_protocol.cdp_target import JS_CONTEXT_EXECUTION_ID, CdpTarget
+from pymobiledevice3.services.web_protocol.cdp_target import (
+    JS_CONTEXT_EXECUTION_ID,
+    REPLY_WAKE_INTERVAL,
+    CdpTarget,
+)
 from pymobiledevice3.services.web_protocol.session_protocol import SessionProtocol
 from pymobiledevice3.services.webinspector import SAFARI, Application, AutomationAvailability, Page, WebinspectorService
 
@@ -1077,6 +1084,549 @@ async def testp_cdp_server_carries_a_user_gesture_through(lockdown: LockdownClie
             await client.close()
 
 
+async def testp_cdp_server_frees_a_withheld_evaluate_reply(lockdown: LockdownClient) -> None:
+    """
+    iOS 26 WebKit occasionally holds a Runtime.evaluate reply until the next message reaches the
+    page, which hung a client's console evaluate - and stalled stepping - until the user's next
+    action. The bridge nudges the page while such a reply is outstanding, so an evaluate returns on
+    its own with nothing sent after it. A large expression source most reliably triggers the hold.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        try:
+            await client.command(1, "Runtime.enable", {})
+            await client.command(2, "Page.navigate", {"url": "https://example.com/"})
+            await asyncio.sleep(3)
+            big = "(() => { let s = 0; " + "s = s + 1; " * 10000 + "return s; })()"
+            # Nothing follows the evaluate; before the fix it hung until the next command. Bound the
+            # wait well under the 30s a genuine hang would take, but above the bridge's nudge cadence.
+            reply = await asyncio.wait_for(
+                client.command(3, "Runtime.evaluate", {"expression": big, "returnByValue": True}),
+                REPLY_WAKE_INTERVAL * 8,
+            )
+            assert reply["result"]["result"]["value"] == 10000, reply
+        finally:
+            await client.close()
+
+
+async def testp_cdp_server_debugs_a_megabyte_script_responsively(lockdown: LockdownClient) -> None:
+    """
+    The whole debugging surface on a ~1 MB script, each step bounded so a regression shows as a
+    failure rather than a slow test: the script defines, a `debugger;` hits, the scope's properties
+    all come back (a large scope's list used to be silently emptied by an internal five-second
+    wait that also stalled event delivery), step-over/into/out land where they should with
+    correct values in scope, a breakpoint set by URL is hit, the script completes with the right
+    result, an armed manual pause stops the next code that runs, and the bridge does not burn CPU
+    while the debugger sits idle at a breakpoint. WebKit withholds a step's reply and paused
+    event until the next message about half the time on a script this size; the watchdog frees
+    them, which is what keeps every bound here tight.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        paused_events: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+        async def reader() -> None:
+            while True:
+                message = await client.receive()
+                if "id" in message and message["id"] in pending and not pending[message["id"]].done():
+                    pending[message["id"]].set_result(message)
+                elif message.get("method") == "Debugger.paused":
+                    paused_events.put_nowait(message["params"])
+
+        reader_task = asyncio.create_task(reader())
+
+        async def call(method: str, params: dict[str, Any], budget: float = TIMEOUT) -> dict[str, Any]:
+            id_ = next(message_ids)
+            future: asyncio.Future[dict[str, Any]] = asyncio.get_event_loop().create_future()
+            pending[id_] = future
+            await client.send({"id": id_, "method": method, "params": params})
+            return await asyncio.wait_for(future, budget)
+
+        async def paused(budget: float = TIMEOUT) -> dict[str, Any]:
+            return await asyncio.wait_for(paused_events.get(), budget)
+
+        def value(reply: dict[str, Any]) -> Any:
+            return reply.get("result", {}).get("result", {}).get("value")
+
+        def top(frame_event: dict[str, Any]) -> dict[str, Any]:
+            return frame_event["callFrames"][0]
+
+        try:
+            for method in ("Runtime.enable", "Page.enable", "Debugger.enable"):
+                await call(method, {})
+            await call("Page.navigate", {"url": "https://example.com/"})
+            await asyncio.sleep(3)
+            while not paused_events.empty():
+                paused_events.get_nowait()
+
+            # ~1 MB: a nested function to step into, a `debugger;` to hit, and 45k hoisted vars.
+            var_count = 45000
+            filler = "\n".join(f"  var v{i} = {i} + 1;" for i in range(var_count))
+            source = (
+                "function inner(x){ let y = x*2; return y+1; }\n"
+                "function bigwork(){\n  let a = 1;\n  let b = 2;\n  debugger;\n  let c = a + b;\n"
+                "  let d = inner(c);\n  let e = d + 1;\n" + filler + "\n  return e;\n}\n//# sourceURL=bigwork.js"
+            )
+            return_line = 8 + var_count
+            assert len(source) > 1_000_000, len(source)
+            defined = await call("Runtime.evaluate", {"expression": source, "returnByValue": True}, 60)
+            assert "error" not in defined, defined
+
+            await call("Runtime.evaluate", {"expression": "setTimeout(() => { window.__r = bigwork(); }, 200); 1"})
+            hit = await paused()
+            assert top(hit).get("functionName") == "bigwork" and top(hit)["location"]["lineNumber"] == 4, top(hit)
+
+            # Idle at the breakpoint: the bridge must not spin a core waiting for nothing.
+            cpu_before, wall_before = time.process_time(), time.perf_counter()
+            await asyncio.sleep(3)
+            cpu_share = (time.process_time() - cpu_before) / (time.perf_counter() - wall_before)
+            assert cpu_share < 0.15, f"bridge burned {cpu_share:.0%} of a core idling at a breakpoint"
+
+            assert (
+                value(
+                    await call(
+                        "Debugger.evaluateOnCallFrame",
+                        {"callFrameId": top(hit)["callFrameId"], "expression": "a+b", "returnByValue": True},
+                    )
+                )
+                == 3
+            )
+
+            # Every non-global scope's properties, as the Sources panel fetches them on each pause.
+            started = time.perf_counter()
+            total = 0
+            for scope in top(hit)["scopeChain"]:
+                object_id = scope["object"].get("objectId")
+                if scope.get("type") == "global" or not object_id:
+                    continue
+                reply = await call("Runtime.getProperties", {"objectId": object_id, "ownProperties": True}, 60)
+                total += len(reply.get("result", {}).get("result", []))
+            assert total >= var_count, f"scope properties truncated: {total} < {var_count}"
+            assert time.perf_counter() - started < 10, "fetching the scope took too long"
+
+            stepped: dict[str, Any] = {}
+            for _ in range(2):  # to the inner() call line
+                started = time.perf_counter()
+                await call("Debugger.stepOver", {})
+                stepped = await paused()
+                assert time.perf_counter() - started < 2, "step-over stalled"
+            assert top(stepped)["location"]["lineNumber"] == 6, top(stepped)
+
+            await call("Debugger.stepInto", {})
+            inside = await paused()
+            assert top(inside).get("functionName") == "inner" and len(inside["callFrames"]) >= 3, top(inside)
+            assert (
+                value(
+                    await call(
+                        "Debugger.evaluateOnCallFrame",
+                        {"callFrameId": top(inside)["callFrameId"], "expression": "x", "returnByValue": True},
+                    )
+                )
+                == 3
+            )
+
+            await call("Debugger.stepOut", {})
+            back = await paused()
+            assert top(back).get("functionName") == "bigwork", top(back)
+
+            for _ in range(3):  # through the big body
+                started = time.perf_counter()
+                await call("Debugger.stepOver", {})
+                await paused()
+                assert time.perf_counter() - started < 2, "step-over in the large body stalled"
+
+            # A breakpoint by URL on the return line must be hit on resume, with the value in scope.
+            set_reply = await call("Debugger.setBreakpointByUrl", {"lineNumber": return_line, "url": "bigwork.js"})
+            assert "error" not in set_reply, set_reply
+            await call("Debugger.resume", {})
+            at_return = await paused()
+            assert top(at_return)["location"]["lineNumber"] == return_line, top(at_return)
+            assert (
+                value(
+                    await call(
+                        "Debugger.evaluateOnCallFrame",
+                        {"callFrameId": top(at_return)["callFrameId"], "expression": "e", "returnByValue": True},
+                    )
+                )
+                == 8
+            )
+            await call("Debugger.resume", {})
+            await asyncio.sleep(1)
+            assert value(await call("Runtime.evaluate", {"expression": "window.__r", "returnByValue": True})) == 8
+
+            # Manual pause: schedule code first, then arm the pause; it stops on that code's first
+            # statement. (Arming before an evaluate pauses inside that evaluate, as in Chrome.)
+            while not paused_events.empty():
+                paused_events.get_nowait()
+            await call("Runtime.evaluate", {"expression": "setTimeout(() => { let q = 1; q++; }, 800); 1"})
+            await call("Debugger.pause", {})
+            manual = await paused(10)
+            assert manual["callFrames"], manual
+            await call("Debugger.resume", {})
+        finally:
+            reader_task.cancel()
+            await client.close()
+
+
+async def testp_cdp_server_keeps_an_armed_pause_for_user_code(lockdown: LockdownClient) -> None:
+    """
+    With the Pause button armed, a late reply must not cost the user their pause. The bridge nudges
+    the page to free a withheld reply; an evaluation used as that nudge was itself a statement, so
+    the armed pause landed inside the nudge's own "0" and the user's code then ran unpaused. The
+    nudge runs no JavaScript now, so the pause lands on the user's code and holds it.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        paused_events: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+        async def reader() -> None:
+            while True:
+                message = await client.receive()
+                if "id" in message and message["id"] in pending and not pending[message["id"]].done():
+                    pending[message["id"]].set_result(message)
+                elif message.get("method") == "Debugger.paused":
+                    paused_events.put_nowait(message["params"])
+
+        reader_task = asyncio.create_task(reader())
+
+        async def send(method: str, params: dict[str, Any]) -> "asyncio.Future[dict[str, Any]]":
+            """Send without waiting for the reply; the returned future resolves with it."""
+            id_ = next(message_ids)
+            future: asyncio.Future[dict[str, Any]] = asyncio.get_event_loop().create_future()
+            pending[id_] = future
+            await client.send({"id": id_, "method": method, "params": params})
+            return future
+
+        async def call(method: str, params: dict[str, Any], budget: float = TIMEOUT) -> dict[str, Any]:
+            return await asyncio.wait_for(await send(method, params), budget)
+
+        def value(reply: dict[str, Any]) -> Any:
+            return reply.get("result", {}).get("result", {}).get("value")
+
+        try:
+            for method in ("Runtime.enable", "Page.enable", "Debugger.enable"):
+                await call(method, {})
+            # A fresh document: an armed pause takes the very next statement to run, so a timer
+            # left behind by an earlier test on this page would take it instead of the user's code.
+            await call("Page.navigate", {"url": "https://example.com/"})
+            await asyncio.sleep(3)
+            big = await call(
+                "Runtime.evaluate",
+                {
+                    "expression": "window.__big = Object.fromEntries(Array.from({length: 45000}, (_, i) => ['k' + i, i])); window.__big"
+                },
+            )
+            await call(
+                "Runtime.evaluate",
+                {
+                    "expression": (
+                        "window.__ran = undefined;"
+                        " function userCode(){\n  let z = 1;\n  z = z + 1;\n  window.__ran = z;\n  return z;\n}\n"
+                        "//# sourceURL=user.js"
+                    ),
+                    "returnByValue": True,
+                },
+            )
+            while not paused_events.empty():
+                paused_events.get_nowait()
+            # Schedule the user's code first, as the timer's callback itself: an evaluate sent after
+            # arming would be the next statement and take the pause, and so would a wrapper arrow
+            # around the call. Then arm, then cause a reply WebKit needs about a second for, so the
+            # watchdog nudges while the pause is armed.
+            await call("Runtime.evaluate", {"expression": "setTimeout(userCode, 1500); 1", "returnByValue": True})
+            await call("Debugger.pause", {})
+            late = await send(
+                "Runtime.getProperties", {"objectId": big["result"]["result"]["objectId"], "ownProperties": True}
+            )
+            landed = await asyncio.wait_for(paused_events.get(), 10)
+            frame = landed["callFrames"][0]
+            assert frame.get("url") == "user.js", (
+                f"the armed pause must land on the user's code, not the nudge: {frame}"
+            )
+            assert (
+                value(await call("Runtime.evaluate", {"expression": "window.__ran", "returnByValue": True})) is None
+            ), "the user's code must be held at the pause, not have run"
+            await call("Debugger.resume", {})
+            await asyncio.sleep(1)
+            assert value(await call("Runtime.evaluate", {"expression": "window.__ran", "returnByValue": True})) == 2
+            await asyncio.wait_for(late, TIMEOUT)
+        finally:
+            reader_task.cancel()
+            await client.close()
+
+
+async def testp_cdp_server_steps_through_a_large_file_end_to_end(lockdown: LockdownClient) -> None:
+    """
+    Step over every statement of a function in a realistic large file (thousands of helpers, async
+    boundaries), doing what an IDE does at each pause - fetch the scopes and evaluate a watch - and
+    each step must land promptly. This is the workflow that hung on a 22k-line file: WebKit holds
+    a step's reply and paused event until the next message about half the time, and the bridge's
+    watchdog is what keeps every step under the bound.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        paused_events: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+        async def reader() -> None:
+            while True:
+                message = await client.receive()
+                if "id" in message and message["id"] in pending and not pending[message["id"]].done():
+                    pending[message["id"]].set_result(message)
+                elif message.get("method") == "Debugger.paused":
+                    paused_events.put_nowait(message["params"])
+
+        reader_task = asyncio.create_task(reader())
+
+        async def call(method: str, params: dict[str, Any], budget: float = TIMEOUT) -> dict[str, Any]:
+            id_ = next(message_ids)
+            future: asyncio.Future[dict[str, Any]] = asyncio.get_event_loop().create_future()
+            pending[id_] = future
+            await client.send({"id": id_, "method": method, "params": params})
+            return await asyncio.wait_for(future, budget)
+
+        try:
+            for method in ("Runtime.enable", "Page.enable", "Debugger.enable"):
+                await call(method, {})
+            await call("Page.navigate", {"url": "https://example.com/"})
+            await asyncio.sleep(3)
+            while not paused_events.empty():
+                paused_events.get_nowait()
+
+            helpers = 1200
+            calls = 120
+            lines: list[str] = []
+            for i in range(helpers):
+                lines += [
+                    f"function helper{i}(x) {{",
+                    "  const items = [];",
+                    "  for (let k = 0; k < 3; k++) {",
+                    f"    items.push({{ id: k, v: x + k + {i} }});",
+                    "  }",
+                    "  const total = items.reduce((s, it) => s + it.v, 0);",
+                    "  if (total % 2 === 0) { return total; }",
+                    "  return total + 1;",
+                    "}",
+                    "",
+                ]
+            lines += [
+                "function wait(ms) { return new Promise(r => setTimeout(r, ms)); }",
+                "",
+                "async function main() {",
+                "  let acc = 0;",
+                "  debugger;",
+            ]
+            for i in range(calls):
+                if i % 25 == 24:
+                    lines.append("  await wait(10);")
+                lines.append(f"  acc += helper{(i * 7) % helpers}(acc & 0xff);")
+            lines += ["  window.__done = acc;", "  return acc;", "}", "//# sourceURL=large.js"]
+            source = "\n".join(lines)
+            assert source.count("\n") > 12000
+            defined = await call("Runtime.evaluate", {"expression": source, "returnByValue": True}, 60)
+            assert "error" not in defined, defined
+            await call("Runtime.evaluate", {"expression": "setTimeout(() => { main(); }, 200); 1"})
+            frame = (await asyncio.wait_for(paused_events.get(), TIMEOUT))["callFrames"][0]
+            assert frame.get("functionName") == "main", frame
+
+            steps = 0
+            while True:
+                started = time.perf_counter()
+                await call("Debugger.stepOver", {})
+                try:
+                    paused = await asyncio.wait_for(paused_events.get(), 5)
+                except (asyncio.TimeoutError, TimeoutError):
+                    if steps >= calls:  # main returned; nothing left to pause in
+                        break
+                    raise AssertionError(f"step-over #{steps} did not land within 5s") from None
+                frame = paused["callFrames"][0]
+                if frame.get("functionName") != "main":
+                    break
+                assert time.perf_counter() - started < 2, f"step-over #{steps} took too long"
+                for scope in frame["scopeChain"]:
+                    object_id = scope["object"].get("objectId")
+                    if scope.get("type") != "global" and object_id:
+                        await call("Runtime.getProperties", {"objectId": object_id, "ownProperties": True}, 20)
+                await call(
+                    "Debugger.evaluateOnCallFrame",
+                    {"callFrameId": frame["callFrameId"], "expression": "acc", "returnByValue": True},
+                )
+                steps += 1
+            assert steps >= calls, f"expected to step over at least {calls} statements, did {steps}"
+            await asyncio.sleep(2)
+            done = await call("Runtime.evaluate", {"expression": "window.__done", "returnByValue": True})
+            assert isinstance(done.get("result", {}).get("result", {}).get("value"), int), done
+        finally:
+            reader_task.cancel()
+            await client.close()
+
+
+async def testp_cdp_server_survives_debugger_edge_cases(lockdown: LockdownClient) -> None:
+    """
+    The corners a debugging session hits once it is more than a demo, each bounded: rapid
+    step-overs fired without waiting coalesce rather than wedge, step-into descends a recursion
+    and step-out climbs back, a breakpoint set deep in a large file is hit with the right value
+    in scope, pause-on-exceptions lands in the throwing function, and navigating away while paused
+    (a process swap mid-pause) leaves the session alive on the new document.
+    """
+    async with cdp_server_with_safari_page(lockdown) as (port, targets):
+        client = CdpWebsocketClient(port, targets[0]["id"])
+        await asyncio.wait_for(client.connect(), TIMEOUT)
+        message_ids = itertools.count(1)
+        pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        paused_events: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+        async def reader() -> None:
+            while True:
+                message = await client.receive()
+                if "id" in message and message["id"] in pending and not pending[message["id"]].done():
+                    pending[message["id"]].set_result(message)
+                elif message.get("method") == "Debugger.paused":
+                    paused_events.put_nowait(message["params"])
+
+        reader_task = asyncio.create_task(reader())
+
+        async def send(method: str, params: dict[str, Any]) -> "asyncio.Future[dict[str, Any]]":
+            id_ = next(message_ids)
+            future: asyncio.Future[dict[str, Any]] = asyncio.get_event_loop().create_future()
+            pending[id_] = future
+            await client.send({"id": id_, "method": method, "params": params})
+            return future
+
+        async def call(method: str, params: dict[str, Any], budget: float = TIMEOUT) -> dict[str, Any]:
+            return await asyncio.wait_for(await send(method, params), budget)
+
+        async def paused(budget: float = 10) -> dict[str, Any]:
+            return await asyncio.wait_for(paused_events.get(), budget)
+
+        def top(event: dict[str, Any]) -> dict[str, Any]:
+            return event["callFrames"][0]
+
+        def value(reply: dict[str, Any]) -> Any:
+            return reply.get("result", {}).get("result", {}).get("value")
+
+        try:
+            for method in ("Runtime.enable", "Page.enable", "Debugger.enable"):
+                await call(method, {})
+            await call("Page.navigate", {"url": "https://example.com/"})
+            await asyncio.sleep(3)
+            while not paused_events.empty():
+                paused_events.get_nowait()
+
+            filler = "\n".join(f"function h{i}(x){{ return x+{i}; }}" for i in range(3000))
+            source = (
+                filler + "\nfunction rec(n){\n  if (n===0) { return 0; }\n  return 1 + rec(n-1);\n}\n"
+                "function deepTarget(v){\n  let w = v * 2;\n  return w;\n}\n"
+                "function boom(){ throw new Error('kaboom'); }\n"
+                "function main(){\n  let a=1;\n  debugger;\n  let b=a+1;\n  let c=b+1;\n  let d=c+1;\n"
+                "  let g=rec(6);\n  let h=deepTarget(g);\n  return h;\n}\n//# sourceURL=edges.js"
+            )
+            lines = source.split("\n")
+            deep_line = next(i for i, line in enumerate(lines) if line.startswith("  let w = v * 2"))
+            await call("Runtime.evaluate", {"expression": source, "returnByValue": True})
+            await call("Runtime.evaluate", {"expression": "setTimeout(() => { window.__m = main(); }, 150); 1"})
+            event = await paused()
+            first_line = top(event)["location"]["lineNumber"]
+
+            # Rapid step-overs without waiting: they may coalesce, but must advance and never wedge.
+            started = time.perf_counter()
+            for _ in range(5):
+                await send("Debugger.stepOver", {})
+            landed: list[int] = []
+            for _ in range(5):
+                try:
+                    landed.append(top(await paused(4))["location"]["lineNumber"])
+                except (asyncio.TimeoutError, TimeoutError):
+                    break
+            assert landed and landed[-1] > first_line and time.perf_counter() - started < 8, landed
+
+            # Step-into descends the recursion; step-out climbs back to main.
+            event = await paused(0.5) if not paused_events.empty() else event
+            for _ in range(40):
+                line = top(event)["location"]["lineNumber"]
+                if "rec(6)" in lines[line] or top(event).get("functionName") != "main":
+                    break
+                await call("Debugger.stepOver", {})
+                event = await paused()
+            assert "rec(6)" in lines[top(event)["location"]["lineNumber"]], top(event)
+            depths: list[int] = []
+            for _ in range(12):
+                await call("Debugger.stepInto", {})
+                event = await paused()
+                depths.append(len(event["callFrames"]))
+                if depths[-1] >= 5:
+                    break
+            assert max(depths) >= 5, f"step-into must descend the recursion: {depths}"
+            for _ in range(12):
+                await call("Debugger.stepOut", {})
+                event = await paused()
+                if top(event).get("functionName") == "main":
+                    break
+            assert top(event).get("functionName") == "main", top(event)
+
+            # A breakpoint deep in the file is hit on resume, with the argument in scope.
+            await call("Debugger.setBreakpointByUrl", {"lineNumber": deep_line, "url": "edges.js"})
+            await call("Debugger.resume", {})
+            event = await paused()
+            assert (
+                top(event).get("functionName") == "deepTarget" and top(event)["location"]["lineNumber"] == deep_line
+            ), top(event)
+            assert (
+                value(
+                    await call(
+                        "Debugger.evaluateOnCallFrame",
+                        {"callFrameId": top(event)["callFrameId"], "expression": "v", "returnByValue": True},
+                    )
+                )
+                == 6
+            )
+            await call("Debugger.resume", {})
+            await asyncio.sleep(1)
+            while not paused_events.empty():
+                paused_events.get_nowait()
+            assert value(await call("Runtime.evaluate", {"expression": "window.__m", "returnByValue": True})) == 12
+
+            # Pause on exceptions lands in the throwing function.
+            await call("Debugger.setPauseOnExceptions", {"state": "all"})
+            await call(
+                "Runtime.evaluate",
+                {
+                    "expression": "setTimeout(() => { try { boom(); } catch (e) { window.__caught = e.message; } }, 150); 1"
+                },
+            )
+            event = await paused()
+            assert event.get("reason") == "exception" and top(event).get("functionName") == "boom", event.get("reason")
+            await call("Debugger.resume", {})
+            await call("Debugger.setPauseOnExceptions", {"state": "none"})
+            await asyncio.sleep(1)
+            while not paused_events.empty():
+                paused_events.get_nowait()
+
+            # Navigating while paused swaps the process mid-pause; the session must come out alive.
+            await call("Runtime.evaluate", {"expression": "setTimeout(() => { main(); }, 150); 1"})
+            await paused()
+            await call("Page.navigate", {"url": "https://example.com/?after"})
+            await asyncio.sleep(4)
+            while not paused_events.empty():
+                paused_events.get_nowait()
+            assert (
+                value(await call("Runtime.evaluate", {"expression": "location.search", "returnByValue": True}, 10))
+                == "?after"
+            )
+        finally:
+            reader_task.cancel()
+            await client.close()
+
+
 async def testp_cdp_server_drives_a_javascript_context(lockdown: LockdownClient) -> None:
     """
     A JSContext debuggable (any process that called -[JSContext setInspectable:YES]) implements
@@ -1494,6 +2044,7 @@ async def testp_cdp_server_keyboard_input_submits_forms(lockdown: LockdownClient
 
 def _inspector_with(pages: dict[str, dict[str, Page]], names: dict[str, str]) -> WebinspectorService:
     inspector = WebinspectorService.__new__(WebinspectorService)
+    inspector.connection_id = "BRIDGE-CONNECTION"
     inspector.application_pages = pages
     inspector.connected_application = {
         app_id: Application(
@@ -1537,8 +2088,223 @@ def test_landing_page_links_each_kind_to_its_own_frontend() -> None:
     html = targets_html(inspector, "127.0.0.1:9222")
 
     assert '<a href="/devtools/inspector.html?ws=127.0.0.1:9222/devtools/page/PID:1:1">Example</a>' in html
-    # Every JSContext of a process is titled "JSContext"; the context number tells them apart.
-    assert '<a href="/devtools/js_app.html?ws=127.0.0.1:9222/devtools/page/PID:2:1">myapp (2): JSContext #1</a>' in html
+    # Every JSContext of a process is titled "JSContext"; the context number tells them apart, and
+    # the process is named by the header the context is listed under.
+    assert '<a href="/devtools/js_app.html?ws=127.0.0.1:9222/devtools/page/PID:2:1">JSContext #1</a>' in html
+
+
+def test_landing_page_groups_targets_by_process() -> None:
+    """Each process gets a header with what the device reports about it - icon, name, bundle, pid -
+    and its debuggables listed under it, in a group that folds on the header. A process without an
+    icon gets no image."""
+    inspector = _inspector_with(
+        {
+            "PID:1": {
+                "1": Page.from_page_dictionary({
+                    "WIRPageIdentifierKey": 1,
+                    "WIRTypeKey": "WIRTypeWeb",
+                    "WIRTitleKey": "Example",
+                    "WIRURLKey": "https://example.com/",
+                })
+            },
+            "PID:2": {
+                str(n): Page.from_page_dictionary({
+                    "WIRPageIdentifierKey": n,
+                    "WIRTypeKey": "WIRTypeJavaScript",
+                    "WIRTitleKey": "JSContext",
+                })
+                for n in (1, 2)
+            },
+        },
+        {"PID:1": "MobileSafari", "PID:2": "myapp"},
+    )
+    inspector.connected_application["PID:1"].icon = b"\x89PNG..."
+
+    html = targets_html(inspector, "127.0.0.1:9222")
+
+    sections = html.split('<details class="app" open>')[1:]
+    assert len(sections) == 2
+    assert (
+        '<summary class="app-header"><img class="icon" src="/icon/PID:1" alt=""><span class="name">MobileSafari</span>'
+        '<small>com.example.app &middot; pid 1</small><small class="count">1 target</small></summary>'
+    ) in sections[0]
+    assert sections[0].count("<li") == 1
+    assert '<summary class="app-header"><span class="name">myapp</span>' in sections[1]
+    assert '<small class="count">2 targets</small>' in sections[1]
+    assert sections[1].count("<li") == 2
+
+
+def _listed_app(pages: dict[str, dict[str, Any]], **applications: Application) -> Any:
+    app = _landing_page_app()
+    app.state.inspector.connected_application = dict(applications)
+    app.state.inspector.application_pages = {
+        app_id: {key: Page.from_page_dictionary(listing) for key, listing in listings.items()}
+        for app_id, listings in pages.items()
+    }
+    return app
+
+
+_WEB_PAGE = {"WIRPageIdentifierKey": 1, "WIRTypeKey": "WIRTypeWeb", "WIRTitleKey": "Example", "WIRURLKey": "https://e/"}
+_JS_CONTEXT = {"WIRPageIdentifierKey": 1, "WIRTypeKey": "WIRTypeJavaScript", "WIRTitleKey": "JSContext"}
+
+
+@pytest.mark.asyncio
+async def test_hovering_a_page_highlights_it_on_the_device() -> None:
+    """The landing page forwards a hovered page to the device's indicate message, and clears it
+    when the pointer leaves. A JSContext has no view to highlight; an unknown target is gone."""
+    app = _listed_app(
+        {"PID:1": {"1": _WEB_PAGE}, "PID:2": {"1": _JS_CONTEXT}},
+        **{
+            "PID:1": Application(
+                "PID:1", "com.apple.mobilesafari", 1, "Safari", AutomationAvailability.AVAILABLE, 0, False, True
+            ),
+            "PID:2": Application("PID:2", "com.example.app", 2, "app", AutomationAvailability.UNKNOWN, 0, False, True),
+        },
+    )
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
+        on = await client.post("/api/indicate", json={"id": "PID:1:1", "enabled": True})
+        off = await client.post("/api/indicate", json={"id": "PID:1:1", "enabled": False})
+        jscontext = await client.post("/api/indicate", json={"id": "PID:2:1", "enabled": True})
+        gone = await client.post("/api/indicate", json={"id": "PID:3:1", "enabled": True})
+
+    assert on.json() == {"enabled": True}
+    assert off.json() == {"enabled": False}
+    assert jscontext.json() == {"enabled": False}
+    assert gone.json() == {"enabled": False}
+    assert app.state.inspector.indicated == [("PID:1", 1, True), ("PID:1", 1, False)]
+
+
+@pytest.mark.asyncio
+async def test_chrome_listing_carries_the_process_icon_as_favicon() -> None:
+    """chrome://inspect shows a target's faviconUrl; a process with an icon lends it to its targets."""
+    with_icon = Application(
+        "PID:1", "com.apple.mobilesafari", 1, "Safari", AutomationAvailability.UNKNOWN, 0, False, True
+    )
+    with_icon.icon = b"\x89PNG"
+    without = Application("PID:2", "com.example.app", 2, "app", AutomationAvailability.UNKNOWN, 0, False, True)
+    app = _listed_app(
+        {"PID:1": {"1": _WEB_PAGE}, "PID:2": {"1": _JS_CONTEXT}}, **{"PID:1": with_icon, "PID:2": without}
+    )
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
+        targets = {target["id"]: target for target in (await client.get("/json/list")).json()}
+
+    assert targets["PID:1:1"]["faviconUrl"] == "http://t/icon/PID:1"
+    assert "faviconUrl" not in targets["PID:2:1"]
+
+
+def test_landing_page_names_the_host_of_a_proxy_and_flags_automation() -> None:
+    """A process running web content for another names the app it runs in; a process that accepts
+    Remote Automation sessions is flagged. Neither shows on an ordinary process."""
+    inspector = _inspector_with(
+        {"PID:1": {"1": Page.from_page_dictionary(_WEB_PAGE)}, "PID:2": {"1": Page.from_page_dictionary(_WEB_PAGE)}},
+        {"PID:1": "Safari", "PID:2": "WebContent"},
+    )
+    inspector.connected_application["PID:1"].availability = AutomationAvailability.AVAILABLE
+    inspector.connected_application["PID:2"].proxy = True
+    inspector.connected_application["PID:2"].host = "PID:1"
+
+    html = targets_html(inspector, "127.0.0.1:9222")
+
+    safari, webcontent = html.split('<details class="app" open>')[1:]
+    assert "<small>com.example.app &middot; pid 1</small>" in safari
+    assert 'class="badge auto"' in safari and ">automation</span>" in safari
+    assert "<small>com.example.app &middot; pid 2 &middot; in Safari</small>" in webcontent
+    assert "badge auto" not in webcontent
+
+
+@pytest.mark.asyncio
+async def test_landing_page_has_a_filter_and_targets_carry_what_it_matches() -> None:
+    """The filter box narrows the list client-side; every target carries its searchable text, and
+    web pages (not JSContexts) carry the id the hover highlight is sent for."""
+    app = _listed_app(
+        {"PID:1": {"1": _WEB_PAGE}, "PID:2": {"1": _JS_CONTEXT}},
+        **{
+            "PID:1": Application(
+                "PID:1", "com.apple.mobilesafari", 1, "Safari", AutomationAvailability.UNKNOWN, 0, False, True
+            ),
+            "PID:2": Application("PID:2", "com.example.app", 2, "app", AutomationAvailability.UNKNOWN, 0, False, True),
+        },
+    )
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
+        html = (await client.get("/")).text
+        listing = (await client.get("/api/targets")).json()
+
+    assert '<input class="filter" id="filter" type="search"' in html
+    assert (
+        '<li class="target" data-indicate="PID:1:1" data-search="example https://e/ safari com.apple.mobilesafari 1">'
+        in html
+    )
+    assert (
+        '<li class="target" data-search="jscontext #1 jscontext://com.example.app/2/1 app com.example.app 2">' in html
+    )
+    by_id = {target["id"]: target for target in listing["targets"]}
+    assert by_id["PID:1:1"]["search"] == "example https://e/ safari com.apple.mobilesafari 1"
+    assert by_id["PID:1:1"]["application"] == {
+        "id": "PID:1",
+        "name": "Safari",
+        "pid": 1,
+        "bundle": "com.apple.mobilesafari",
+        "icon": "",
+        "host": "",
+        "automation": False,
+    }
+
+
+@pytest.mark.asyncio
+async def test_process_icons_are_served_from_the_listing() -> None:
+    """A process's icon is the PNG the device sent; a process without one, or unknown, is a 404."""
+    app = _landing_page_app()
+    app.state.inspector.connected_application = {
+        "PID:1": Application(
+            "PID:1", "com.example.app", 1, "app", AutomationAvailability.NOT_AVAILABLE, 0, False, True
+        ),
+    }
+    app.state.inspector.connected_application["PID:1"].icon = b"\x89PNG\r\n\x1a\nicon"
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
+        icon = await client.get("/icon/PID:1")
+        missing = await client.get("/icon/PID:2")
+
+    assert icon.status_code == 200
+    assert icon.headers["content-type"] == "image/png"
+    assert icon.content == b"\x89PNG\r\n\x1a\nicon"
+    assert missing.status_code == 404
+
+
+def test_landing_page_says_who_is_debugging_each_target() -> None:
+    """A debuggable already held by a session is flagged, and whose session it is decides what
+    opening it will do: a session of this bridge is taken over, another connection has to let go."""
+    inspector = _inspector_with(
+        {
+            "PID:2": {
+                "1": Page.from_page_dictionary({
+                    "WIRPageIdentifierKey": 1,
+                    "WIRTypeKey": "WIRTypeJavaScript",
+                    "WIRTitleKey": "JSContext",
+                }),
+                "2": Page.from_page_dictionary({
+                    "WIRPageIdentifierKey": 2,
+                    "WIRTypeKey": "WIRTypeJavaScript",
+                    "WIRTitleKey": "JSContext",
+                    "WIRConnectionIdentifierKey": "BRIDGE-CONNECTION",
+                }),
+                "3": Page.from_page_dictionary({
+                    "WIRPageIdentifierKey": 3,
+                    "WIRTypeKey": "WIRTypeJavaScript",
+                    "WIRTitleKey": "JSContext",
+                    "WIRConnectionIdentifierKey": "SAFARI-CONNECTION",
+                }),
+            },
+        },
+        {"PID:2": "myapp"},
+    )
+
+    html = targets_html(inspector, "127.0.0.1:9222")
+
+    free, bridge, other = (html.split("</li>")[i] for i in range(3))
+    assert 'class="app-header"' in free
+    assert "badge" not in free
+    assert 'class="badge"' in bridge and ">attached here</span>" in bridge
+    assert 'class="badge held"' in other and ">held elsewhere</span>" in other
 
 
 def test_landing_page_escapes_titles_from_the_device() -> None:
@@ -1714,11 +2480,19 @@ def _landing_page_app() -> Any:
 
     class _Inspector:
         def __init__(self) -> None:
+            self.connection_id = "BRIDGE-CONNECTION"
             self.application_pages: dict[str, dict[str, Page]] = {}
             self.connected_application: dict[str, Application] = {}
+            self.indicated: list[tuple[str, int, bool]] = []
 
         async def get_open_pages(self) -> None:
             pass
+
+        def find_page_id(self, page_id: str) -> tuple[Application, Page]:
+            return WebinspectorService.find_page_id(cast(Any, self), page_id)
+
+        async def indicate_web_view(self, application: Application, page: Page, enable: bool) -> None:
+            self.indicated.append((application.id_, page.id_, enable))
 
     class _Holder:
         running = False
@@ -1726,6 +2500,22 @@ def _landing_page_app() -> Any:
     app.state.inspector = _Inspector()
     app.state.holder = _Holder()
     return app
+
+
+@pytest.mark.asyncio
+async def test_landing_page_names_its_version_and_explains_chrome_inspect() -> None:
+    """The header says which pymobiledevice3 is serving the page, and a note tells people how to
+    reach chrome://inspect - the page cannot link to it, Chrome blocks such navigations."""
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=_landing_page_app()), base_url="http://t") as client:
+        html = (await client.get("/")).text
+
+    version = bridge_version()
+    assert version
+    assert f"<small>pymobiledevice3 {escape(version)} &middot; inspectable pages" in html
+    assert "<summary>Using chrome://inspect instead</summary>" in html
+    assert "<code>chrome://inspect/#devices</code>" in html
+    # The bridge's own address, for Chrome's discovery list when it is not the default one.
+    assert "add <code>t</code> under <b>Configure...</b>" in html
 
 
 @pytest.mark.asyncio

@@ -8,6 +8,7 @@ import pytest
 
 from grafana_client.api import GrafanaApi
 from grafana_client.client import (
+    AsyncGrafanaClient,
     GrafanaClientError,
     GrafanaServerError,
     GrafanaTimeoutError,
@@ -64,7 +65,11 @@ class TestGrafanaClient(unittest.TestCase):
 
     def test_grafana_client_no_org(self):
         grafana = GrafanaApi(
-            ("admin", "admin"), host="localhost", url_path_prefix="", protocol="https", organization_id=None
+            ("admin", "admin"),
+            host="localhost",
+            url_path_prefix="",
+            protocol="https",
+            organization_id=None,
         )
         self.assertNotIn("X-Grafana-Org-Id", grafana.client.s.headers)
 
@@ -141,13 +146,13 @@ class TestGrafanaClient(unittest.TestCase):
         tokenauth = TokenAuth("VerySecretToken")
         request = niquests.Request()
         tokenauth(request)
-        self.assertEqual(request.headers["Authorization"], "Bearer VerySecretToken")
+        self.assertEqual(request.headers["Authorization"], "Bearer VerySecretToken")  # ty: ignore[invalid-argument-type]
 
     def test_headerauth(self):
         headerauth = HeaderAuth(name="X-WEBAUTH-USER", value="foobar")
         request = niquests.Request()
         headerauth(request)
-        self.assertEqual(request.headers["X-WEBAUTH-USER"], "foobar")
+        self.assertEqual(request.headers["X-WEBAUTH-USER"], "foobar")  # ty: ignore[invalid-argument-type]
 
     @patch("grafana_client.client.GrafanaClient.__getattr__")
     def test_grafana_client_connect_success(self, mock_get):
@@ -198,3 +203,17 @@ def test_grafana_client_timeout(docker_grafana):
     with pytest.raises(GrafanaTimeoutError) as excinfo:
         grafana.folder.get_all_folders()
     assert excinfo.match("timed out")
+
+
+class TestAsyncClientHeaders(unittest.TestCase):
+    def test_preserves_organization_and_custom_user_agent(self):
+        client = AsyncGrafanaClient(None, organization_id=42, user_agent="custom-agent")
+        self.assertEqual(client.s.headers["X-Grafana-Org-Id"], "42")
+        self.assertEqual(client.s.headers["User-Agent"], "custom-agent")
+
+    def test_preserves_default_user_agent_without_organization(self):
+        from grafana_client import __appname__, __version__
+
+        client = AsyncGrafanaClient(None)
+        self.assertEqual(client.s.headers["User-Agent"], f"{__appname__}/{__version__}")
+        self.assertNotIn("X-Grafana-Org-Id", client.s.headers)

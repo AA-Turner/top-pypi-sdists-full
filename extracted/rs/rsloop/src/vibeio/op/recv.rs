@@ -1,3 +1,5 @@
+#![warn(clippy::undocumented_unsafe_blocks)]
+
 use std::io;
 use std::task::{Context, Poll};
 
@@ -15,16 +17,18 @@ use crate::vibeio::fd_inner::InnerRawHandle;
 use crate::vibeio::fd_inner::RawOsHandle;
 use crate::vibeio::io::IoBufMut;
 use crate::vibeio::op::Op;
+#[cfg(target_os = "linux")]
+use crate::vibeio::op::io_util::completion_len;
 use crate::vibeio::op::io_util::{CompletionBuffer, poll_result_or_wait};
 
 #[cfg(windows)]
 #[inline]
-fn socket_recv(socket: SOCKET, buf: &mut [u8], peek: bool) -> io::Result<usize> {
+fn socket_recv(socket: SOCKET, buf: &mut impl IoBufMut, peek: bool) -> io::Result<usize> {
     use windows_sys::Win32::Networking::WinSock::{
         self as WinSock, MSG_PEEK, SOCKET_ERROR, WSABUF,
     };
 
-    let len = u32::try_from(buf.len()).map_err(|_| {
+    let len = crate::vibeio::op::io_util::completion_len(buf.buf_capacity()).map_err(|_| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
             "read buffer is too large for Windows socket I/O",
@@ -33,11 +37,14 @@ fn socket_recv(socket: SOCKET, buf: &mut [u8], peek: bool) -> io::Result<usize> 
 
     let mut wsabuf = WSABUF {
         len,
-        buf: buf.as_mut_ptr().cast(),
+        buf: buf.as_buf_mut_ptr().cast(),
     };
     let mut bytes: u32 = 0;
     let mut flags: u32 = if peek { MSG_PEEK as u32 } else { 0 };
 
+    // SAFETY: IoBufMut provides exclusive writable capacity. Descriptor and
+    // output values live for this synchronous call; null OVERLAPPED means
+    // none of these pointers is retained after return.
     let recv_result = unsafe {
         WinSock::WSARecv(
             socket,
@@ -50,6 +57,7 @@ fn socket_recv(socket: SOCKET, buf: &mut [u8], peek: bool) -> io::Result<usize> 
         )
     };
     if recv_result == SOCKET_ERROR {
+        // SAFETY: queries the calling thread's Winsock error without pointers.
         return Err(io::Error::from_raw_os_error(unsafe {
             WinSock::WSAGetLastError()
         }));
@@ -62,8 +70,6 @@ pub struct RecvOp<'a, B: IoBufMut> {
     handle: &'a InnerRawHandle,
     buf: Option<CompletionBuffer<B>>,
     completion_token: Option<usize>,
-    #[cfg(windows)]
-    socket_buf: Option<Box<WSABUF>>,
     peek: bool,
 }
 
@@ -74,8 +80,6 @@ impl<'a, B: IoBufMut> RecvOp<'a, B> {
             handle,
             buf: Some(CompletionBuffer::new(buf, handle.uses_completion())),
             completion_token: None,
-            #[cfg(windows)]
-            socket_buf: None,
             peek: false,
         }
     }
@@ -85,14 +89,16 @@ impl<'a, B: IoBufMut> RecvOp<'a, B> {
             handle,
             buf: Some(CompletionBuffer::new(buf, handle.uses_completion())),
             completion_token: None,
-            #[cfg(windows)]
-            socket_buf: None,
             peek: true,
         }
     }
 
     #[inline]
     pub fn take_bufs(mut self) -> B {
+        assert!(
+            self.completion_token.is_none(),
+            "cannot reclaim a buffer while I/O is pending"
+        );
         self.buf.take().unwrap().into_inner()
     }
 }
@@ -111,6 +117,8 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
 
         #[cfg(unix)]
         let result = {
+            // SAFETY: the socket is live and IoBufMut provides exclusive
+            // writable capacity; recv does not retain the pointer after return.
             let read = unsafe {
                 libc::recv(
                     self.handle.handle,
@@ -128,12 +136,7 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
 
         #[cfg(windows)]
         let result = match self.handle.handle {
-            RawOsHandle::Socket(socket) => {
-                let slice = unsafe {
-                    std::slice::from_raw_parts_mut(buf.as_buf_mut_ptr(), buf.buf_capacity())
-                };
-                socket_recv(socket as SOCKET, slice, self.peek)
-            }
+            RawOsHandle::Socket(socket) => socket_recv(socket as SOCKET, buf, self.peek),
             RawOsHandle::Handle(_) => Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "poll-based recv currently supports sockets only on Windows",
@@ -141,6 +144,8 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
         };
         match poll_result_or_wait(result, self.handle, cx, driver, Interest::READABLE) {
             Poll::Ready(Ok(read)) => {
+                // SAFETY: the successful synchronous receive initialized the
+                // reported prefix within the supplied writable capacity.
                 unsafe { buf.set_buf_init(read) };
                 Poll::Ready(Ok(read))
             }
@@ -181,10 +186,12 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
             }
         };
         if result < 0 {
-            return Poll::Ready(Err(io::Error::from_raw_os_error(-result)));
+            return Poll::Ready(Err(crate::vibeio::op::io_util::completion_error(result)));
         }
         let read = result as usize;
         let buf = self.buf.as_mut().unwrap().as_mut();
+        // SAFETY: completion reports the initialized prefix of the submitted
+        // writable capacity; pending storage remained owned by CompletionBuffer.
         unsafe { buf.set_buf_init(read) };
         Poll::Ready(Ok(read))
     }
@@ -196,31 +203,31 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
         let RawOsHandle::Socket(socket) = self.handle.handle else {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                "WSARecv can be used only with listening sockets",
+                "WSARecv requires a socket handle",
             ));
         };
 
-        let read_len = u32::try_from(buf.buf_capacity()).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "read buffer is too large for Windows socket I/O",
-            )
-        })?;
+        let read_len =
+            crate::vibeio::op::io_util::completion_len(buf.buf_capacity()).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "read buffer is too large for Windows socket I/O",
+                )
+            })?;
 
-        let wsabuf = self.socket_buf.get_or_insert_with(|| {
-            Box::new(WSABUF {
-                len: 0,
-                buf: std::ptr::null_mut(),
-            })
-        });
-        wsabuf.len = read_len;
-        wsabuf.buf = buf.as_buf_mut_ptr().cast();
+        let mut wsabuf = WSABUF {
+            len: read_len,
+            buf: buf.as_buf_mut_ptr().cast(),
+        };
 
         let mut flags: u32 = if self.peek { MSG_PEEK as u32 } else { 0 };
+        // SAFETY: WSARecv captures the descriptor during this call and does not
+        // update flags on delayed completion. Payload/OVERLAPPED stay retained.
+        // https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsarecv
         let recv_result = unsafe {
             WinSock::WSARecv(
                 socket as SOCKET,
-                wsabuf.as_mut() as *mut WSABUF,
+                &mut wsabuf,
                 1,
                 std::ptr::null_mut(),
                 &mut flags,
@@ -233,6 +240,7 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
             return Ok(());
         }
 
+        // SAFETY: queries the calling thread's Winsock error without pointers.
         let err = unsafe { WinSock::WSAGetLastError() };
         if err == WSA_IO_PENDING {
             Ok(())
@@ -250,10 +258,11 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
         use io_uring::{opcode, types};
 
         let buf = self.buf.as_mut().unwrap().as_mut();
+        let transfer_len = completion_len(buf.buf_capacity())?;
         let entry = opcode::Recv::new(
             types::Fd(self.handle.handle),
             buf.as_buf_mut_ptr(),
-            (buf.buf_capacity()) as _,
+            transfer_len,
         )
         .flags(if self.peek { libc::MSG_PEEK } else { 0 })
         .build()
@@ -266,22 +275,106 @@ impl<B: IoBufMut> Op for RecvOp<'_, B> {
 impl<B: IoBufMut> Drop for RecvOp<'_, B> {
     #[inline]
     fn drop(&mut self) {
-        if let Some(completion_token) = self.completion_token {
-            if let Some(driver) = crate::vibeio::current_driver() {
-                #[cfg(windows)]
-                let completion_state = self.socket_buf.take();
-                #[cfg(not(windows))]
-                let completion_state = ();
-
-                let ignored_data = Box::new((
+        if let Some(token) = self.completion_token.take() {
+            let completion_state = ();
+            // The owning driver, not the currently entered runtime, must retain
+            // every kernel-visible allocation until completion is acknowledged.
+            self.handle.cancel_completion(
+                token,
+                Box::new((
                     completion_state,
                     self.buf.take().map(CompletionBuffer::into_stable_box),
-                ));
-                #[cfg(windows)]
-                driver.cancel_completion(completion_token, self.handle.handle, ignored_data);
-                #[cfg(not(windows))]
-                driver.ignore_completion(completion_token, ignored_data);
+                )),
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn stream_completions_replace_initialized_length_and_clear_it_at_eof() {
+        use std::io::Write;
+        use std::os::fd::AsRawFd;
+        use std::rc::Rc;
+        use std::time::{Duration, Instant};
+        let driver = match AnyDriver::new_uring_custom(io_uring::IoUring::builder()) {
+            Ok(driver) => Rc::new(driver),
+            Err(error)
+                if matches!(
+                    error.raw_os_error(),
+                    Some(libc::EPERM | libc::ENOSYS | libc::EOPNOTSUPP)
+                ) =>
+            {
+                eprintln!("io_uring unavailable: {error}");
+                return;
+            }
+            Err(error) => panic!("io_uring initialization failed: {error}"),
+        };
+        fn complete(op: &mut impl Op<Output = usize>, driver: &AnyDriver) -> usize {
+            let deadline = Instant::now() + crate::vibeio::test_support::WATCHDOG;
+            let mut cx = Context::from_waker(std::task::Waker::noop());
+            loop {
+                if let Poll::Ready(result) = op.poll_completion(&mut cx, driver) {
+                    return result.unwrap();
+                }
+                assert!(Instant::now() < deadline, "stream completion timed out");
+                driver.wait(Some(Duration::from_millis(10)));
             }
         }
+        for use_read in [false, true] {
+            let (reader, mut writer) = std::os::unix::net::UnixStream::pair().unwrap();
+            writer.write_all(b"abc").unwrap();
+            writer.shutdown(std::net::Shutdown::Write).unwrap();
+            let handle = InnerRawHandle::new_with_driver_and_mode(
+                &driver,
+                reader.as_raw_fd(),
+                Interest::READABLE,
+                crate::vibeio::driver::RegistrationMode::Completion,
+            )
+            .unwrap();
+            let mut buffer = b"old initialized contents".to_vec();
+            let mut received = Vec::new();
+            loop {
+                let count;
+                if use_read {
+                    let mut op = crate::vibeio::op::ReadOp::new(&handle, buffer);
+                    count = complete(&mut op, &driver);
+                    buffer = op.take_bufs();
+                } else {
+                    let mut op = RecvOp::new(&handle, buffer);
+                    count = complete(&mut op, &driver);
+                    buffer = op.take_bufs();
+                }
+                assert_eq!(buffer.len(), count);
+                if count == 0 {
+                    break;
+                }
+                received.extend_from_slice(&buffer);
+                assert!(received.len() <= 3);
+            }
+            assert_eq!(received, b"abc");
+            assert!(buffer.is_empty());
+        }
+    }
+
+    #[test]
+    fn pending_buffer_is_retained_by_owning_driver() {
+        crate::vibeio::op::io_util::cancellation_tests::check_cancellation(
+            |handle, buffer, reclaim| {
+                let mut op = RecvOp::new(handle, buffer);
+                op.completion_token = Some(41);
+                if reclaim {
+                    let result =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| op.take_bufs()));
+                    assert!(result.is_err(), "pending storage must not be reclaimed");
+                } else {
+                    drop(op);
+                }
+            },
+        );
     }
 }

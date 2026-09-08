@@ -116,7 +116,20 @@ class FocusedWave(AcousticField):
         delay_samples = delay_samples - np.min(delay_samples) + 10
 
         sampling_freq = 1 / dt
-        element_signals = tone_burst(sampling_freq, f_US, num_cycles, signal_offset=delay_samples)
+        custom_sig = getattr(self, 'custom_burst', None)
+
+        if custom_sig is not None:
+            custom_sig = np.asarray(custom_sig)
+            num_active = len(active_indices)
+            max_delay = np.max(delay_samples)
+            total_len = len(custom_sig) + max_delay + 20
+          
+            self.burst = np.zeros((num_active, total_len))
+            for local_idx in range(num_active):
+                shift = delay_samples[local_idx]
+                self.burst[local_idx, shift:shift + len(custom_sig)] = custom_sig
+        else:
+            self.burst = tone_burst(sampling_freq, f_US, num_cycles, signal_offset=delay_samples)
 
         el_width_px = int(np.round(element_width / dx))
         half_width_px = el_width_px // 2
@@ -133,7 +146,7 @@ class FocusedWave(AcousticField):
                 
                 num_pixels_this_element = idx_end - idx_start
                 for _ in range(num_pixels_this_element):
-                    active_pixel_signals.append(element_signals[local_idx, :])
+                    active_pixel_signals.append(self.burst[local_idx, :])
 
         source.p = voltage * sensitivity * np.array(active_pixel_signals)
         return source

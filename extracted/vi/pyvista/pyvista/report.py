@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -10,10 +11,12 @@ from types import ModuleType  # noqa: TC003
 import scooby
 
 from pyvista._deprecate_positional_args import _deprecate_positional_args
+from pyvista._vtk import _VTK_ROOT
 
+# ``{pkg}`` is filled with the selected VTK backend (vtkmodules or cvista) in `_run`.
 _cmd_render_window_info = """
-from vtkmodules.vtkRenderingCore import vtkRenderer, vtkRenderWindow
-import vtkmodules.vtkRenderingOpenGL2
+from {pkg}.vtkRenderingCore import vtkRenderer, vtkRenderWindow
+import {pkg}.vtkRenderingOpenGL2
 ren = vtkRenderer()
 win = vtkRenderWindow()
 win.OffScreenRenderingOn()
@@ -26,14 +29,16 @@ print('vtkRenderWindow class name: ', win.GetClassName())
 """
 
 _cmd_math_text = """
-import vtkmodules.vtkRenderingFreeType
-import vtkmodules.vtkRenderingMatplotlib
-print(vtkmodules.vtkRenderingFreeType.vtkMathTextFreeTypeTextRenderer().MathTextIsSupported())
+import {pkg}.vtkRenderingFreeType
+import {pkg}.vtkRenderingMatplotlib
+print({pkg}.vtkRenderingFreeType.vtkMathTextFreeTypeTextRenderer().MathTextIsSupported())
 """
 
 
 def _run(cmd: str):
-    return subprocess.run([sys.executable, '-c', cmd], check=False, capture_output=True)
+    return subprocess.run(
+        [sys.executable, '-c', cmd.format(pkg=_VTK_ROOT)], check=False, capture_output=True
+    )
 
 
 def _get_cached_render_window_info(attr_name: str = ''):
@@ -67,16 +72,10 @@ def _get_render_window_class() -> str:  # numpydoc ignore=RT01
 def check_matplotlib_vtk_compatibility() -> bool:
     """Check if VTK and Matplotlib versions are compatible for MathText rendering.
 
-    This function is primarily geared towards checking if MathText rendering is
-    supported with the given versions of VTK and Matplotlib. It follows the
-    version constraints:
+    MathText rendering is only supported with Matplotlib >= 3.6
 
-    * VTK <= 9.2.2 requires Matplotlib < 3.6
-    * VTK > 9.2.2 requires Matplotlib >= 3.6
-
-    Other version combinations of VTK and Matplotlib will work without
-    errors, but some features (like MathText/LaTeX rendering) may
-    silently fail.
+    Other versions of Matplotlib will work without errors, but some features
+    (like MathText/LaTeX rendering) may silently fail.
 
     Returns
     -------
@@ -92,15 +91,8 @@ def check_matplotlib_vtk_compatibility() -> bool:
     """
     import matplotlib as mpl  # noqa: PLC0415
 
-    from pyvista import vtk_version_info  # noqa: PLC0415
-
     mpl_vers = tuple(map(int, mpl.__version__.split('.')[:2]))
-    if vtk_version_info <= (9, 2, 2):
-        return not mpl_vers >= (3, 6)
-    elif vtk_version_info > (9, 2, 2):
-        return mpl_vers >= (3, 6)
-    msg = 'Uncheckable versions.'  # pragma: no cover
-    raise RuntimeError(msg)  # pragma: no cover
+    return mpl_vers >= (3, 6)
 
 
 def check_math_text_support() -> bool:
@@ -191,16 +183,12 @@ class GPUInfo:
 class Report(scooby.Report):
     """Generate a PyVista software environment report.
 
-    .. versionadded:: 0.47
+    .. note::
+        This class is also available via command-line interface. See
+        :ref:`pyvista report <cli_report>` for details.
 
-        The report can now be generated using the shell command:
-
-        .. code-block:: shell
-
-            pyvista report --sort ...
-
-        Run ``pyvista report --help`` for more details on available parameters.
-
+    See :ref:`configuration` for every setting PyVista reads from the
+    environment.
 
     Parameters
     ----------
@@ -225,10 +213,25 @@ class Report(scooby.Report):
     downloads : bool, default: False
         Gather information about downloads. If ``True``, includes:
         - The local user data path (where downloads are saved)
-        - The VTK Data source (where files are downloaded from)
-        - Whether local file caching is enabled for the VTK Data source
+        - The data source (where files are downloaded from)
+        - Whether local file caching is enabled for the data source
+
+        These are the resolved values in use, derived from the
+        :envvar:`PYVISTA_USERDATA_PATH` and :envvar:`PYVISTA_DATA`
+        environment variables. Pass ``env_vars=True`` to also list the
+        raw variables as set.
 
         .. versionadded:: 0.47
+
+    env_vars : bool, default: False
+        List any set ``PYVISTA_*`` environment variables. These are the
+        raw inputs read from the environment, not the settings derived
+        from them; for the derived download settings, see
+        ``downloads``. Values may include local file paths (such as a
+        user name), so only enable this when sharing the report is
+        acceptable.
+
+        .. versionadded:: 0.49
 
     Examples
     --------
@@ -274,6 +277,7 @@ class Report(scooby.Report):
         sort: bool = False,  # noqa: FBT001, FBT002
         gpu: bool = True,  # noqa: FBT001, FBT002
         downloads: bool = False,  # noqa: FBT001, FBT002
+        env_vars: bool = False,  # noqa: FBT001, FBT002
     ):
         """Generate a :class:`scooby.Report` instance."""
         # Mandatory packages
@@ -287,11 +291,15 @@ class Report(scooby.Report):
             'pillow',
             'typing-extensions',
             'cyclopts',
+            'pyvista-validation',
         ]
 
         # Optional packages.
         optional = [
+            # cvista extra (alternative VTK backend)
+            'cvista',
             # Misc.
+            'pyobjc-framework-Cocoa',
             'pytest-pyvista',
             'pyvistaqt',
             'PyQt5',
@@ -302,18 +310,17 @@ class Report(scooby.Report):
             'fsspec',
             'imageio',
             'meshio',
+            'pyvista-frd-reader',
+            'pyvista-miniply',
+            'pyvista-stl',
+            'pyvista-zstd',
             # colormaps extras
             'cmcrameri',
             'cmocean',
             'colorcet',
             # jupyter extras (and related)
-            'trame',
-            'trame-client',
-            'trame-server',
-            'trame-vtk',
-            'trame-vuetify',
+            'trame-pyvista',
             'ipywidgets',
-            'jupyter-server-proxy',
             'jupyterlab',
             'playwright',
             'nest-asyncio2',
@@ -348,10 +355,13 @@ class Report(scooby.Report):
             extra_meta.extend(
                 [
                     ('User Data Path', user_data_path),
-                    ('VTK Data Source', vtk_data_source),
+                    ('Data Source', vtk_data_source),
                     ('File Cache', file_cache),
                 ]
             )
+
+        if env_vars:
+            extra_meta.extend(_get_set_env_vars())
 
         scooby.Report.__init__(
             self,
@@ -363,6 +373,13 @@ class Report(scooby.Report):
             sort=sort,
             extra_meta=extra_meta,
         )
+
+
+def _get_set_env_vars() -> list[tuple[str, str]]:
+    """Return name-value pairs for all set ``PYVISTA_*`` environment variables."""
+    return [
+        (name, value) for name, value in sorted(os.environ.items()) if name.startswith('PYVISTA_')
+    ]
 
 
 def _get_downloads_info() -> tuple[str, str, bool]:

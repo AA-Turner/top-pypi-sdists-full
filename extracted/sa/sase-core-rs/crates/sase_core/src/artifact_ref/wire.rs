@@ -8,6 +8,8 @@ pub const ARTIFACT_REF_RESOLUTION_WIRE_SCHEMA_VERSION: u64 = 5;
 pub const ARTIFACT_REF_LIST_RESOLUTION_WIRE_SCHEMA_VERSION: u64 = 2;
 pub const ARTIFACT_REF_CONTEXT_WIRE_SCHEMA_VERSION: u64 = 2;
 pub const ARTIFACT_REF_PATH_FILTER_WIRE_SCHEMA_VERSION: u64 = 1;
+pub const ARTIFACT_REF_DOCUMENT_SCAN_WIRE_SCHEMA_VERSION: u64 = 1;
+pub const ARTIFACT_REF_TARGET_RESOLUTION_WIRE_SCHEMA_VERSION: u64 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[error("{kind}: {message}")]
@@ -247,6 +249,13 @@ pub struct ArtifactRefContextWire {
     /// UTC's. `None`/`0` preserves prior UTC-only behavior.
     #[serde(default)]
     pub utc_offset_seconds: Option<i32>,
+    /// Project this context's repository inventory was assembled for.
+    /// Used with `ArtifactRefDocumentOwnerWire.project_key` so a viewer
+    /// project's checkouts cannot satisfy a different owner project.
+    /// Absent on schema-2 payloads that predate the field; the resolver
+    /// then withholds inventory when the owner asserts a project.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_project: Option<String>,
 }
 
 impl Default for ArtifactRefContextWire {
@@ -265,6 +274,7 @@ impl Default for ArtifactRefContextWire {
             home_dir: None,
             file_capture_max_bytes: None,
             utc_offset_seconds: None,
+            selected_project: None,
         }
     }
 }
@@ -325,4 +335,157 @@ pub struct ArtifactRefPromptCandidateWire {
     pub payload_span: ArtifactRefSpanWire,
     pub fragment_span: Option<ArtifactRefSpanWire>,
     pub quoted: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactRefDocumentTargetKindWire {
+    ArtifactRef,
+    Url,
+    FilePath,
+}
+
+impl ArtifactRefDocumentTargetKindWire {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::ArtifactRef => "artifact_ref",
+            Self::Url => "url",
+            Self::FilePath => "file_path",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactRefDocumentTargetWire {
+    pub schema_version: u64,
+    pub target_kind: ArtifactRefDocumentTargetKindWire,
+    /// Exact visible bytes that should receive the pager label.
+    pub text: String,
+    /// Semantic destination for follow/copy/edit. This excludes prompt sigils,
+    /// Markdown delimiters, and reference-label syntax.
+    pub target: String,
+    pub well_formed: bool,
+    pub source_span: ArtifactRefSpanWire,
+    /// Compatibility alias for callers already shaped around prompt candidates.
+    pub candidate_span: ArtifactRefSpanWire,
+    pub target_span: ArtifactRefSpanWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label_span: Option<ArtifactRefSpanWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_span: Option<ArtifactRefSpanWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reference_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub markdown_destination: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_destination: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_reference: Option<String>,
+    #[serde(default)]
+    pub quoted: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactRefDocumentScanWire {
+    pub schema_version: u64,
+    pub links: Vec<ArtifactRefDocumentTargetWire>,
+    #[serde(default)]
+    pub diagnostics: Vec<String>,
+}
+
+/// Provenance for a scanned document link's own source, used to resolve an
+/// unqualified path in its owning repository rather than the viewer's cwd.
+///
+/// `checkout_candidates` are caller-attached, already-known checkout
+/// directories (for example a producer's recorded workspace). They are
+/// identified against the repository inventory before selection; stale
+/// attached paths fall through to live same-repository checkouts instead
+/// of terminating as `missing_checkout`. An empty value means the caller
+/// has no stronger evidence than repository identity.
+///
+/// `source_directory` is eligible only when it sits inside one of those
+/// attached checkouts or a live inventory checkout of an eligible
+/// repository. Setting `repository` does not relabel an unrelated path.
+/// `project_key` must agree with the context's `selected_project` before
+/// inventory checkouts participate; attached producer checkouts remain
+/// usable without that agreement.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactRefDocumentOwnerWire {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_reference: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_directory: Option<String>,
+    #[serde(default)]
+    pub checkout_candidates: Vec<String>,
+    /// Optional POSIX globs applied to the requested source path before any
+    /// checkout is probed. `None` means the host has no repository-source
+    /// path policy and every safe payload is eligible. `Some(vec![])` is an
+    /// explicit empty policy and denies every path. Typed-document
+    /// `path_globs` on document roots are a separate resolver.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub path_globs: Option<Vec<String>>,
+}
+
+/// Why a target resolution did not land on one exact path, and whether a
+/// later retry (reload, or a newly created checkout) could still succeed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArtifactRefTargetFailureCategoryWire {
+    /// The repository is known, but none of its checkouts exist right now.
+    MissingCheckout,
+    /// The repository and checkout exist, but not at the requested revision.
+    UnavailableRevision,
+    /// More than one equally plausible target was found.
+    Ambiguous,
+    /// A configured permission/filter policy rejected the path outright.
+    DeniedFiltered,
+    /// The lookup itself failed (I/O error, budget exceeded); not a verdict.
+    TemporaryError,
+    /// Every known checkout was searched and the path is not present.
+    ProvenMissing,
+}
+
+impl ArtifactRefTargetFailureCategoryWire {
+    /// Whether this outcome may resolve differently without any input change.
+    pub fn retryable(self) -> bool {
+        !matches!(self, Self::Ambiguous | Self::DeniedFiltered)
+    }
+}
+
+/// One candidate the resolver inspected or selected, kept as evidence rather
+/// than discarded once a decision is made.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactRefTargetCandidateWire {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    pub path: String,
+    /// Short evidence tag, e.g. `attached_checkout`, `repository_checkout`,
+    /// `suffix_match`.
+    pub evidence: String,
+}
+
+/// The outcome of resolving one document-owned source-path target.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactRefTargetResolutionWire {
+    pub schema_version: u64,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resolved_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<String>,
+    #[serde(default)]
+    pub candidates: Vec<ArtifactRefTargetCandidateWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_category: Option<ArtifactRefTargetFailureCategoryWire>,
+    pub retryable: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostic: Option<String>,
 }

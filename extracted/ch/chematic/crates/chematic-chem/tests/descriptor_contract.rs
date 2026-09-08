@@ -53,6 +53,33 @@ fn shared_descriptor_fixture_matches_rust_source_of_truth() {
 }
 
 #[test]
+fn shared_standardization_profile_matches_rust_source_of_truth() {
+    let document: Value = serde_json::from_str(FIXTURE).expect("fixture JSON must parse");
+    let contract = &document["standardization_contract"];
+    assert_eq!(contract["schema_version"], 1);
+    assert_eq!(contract["profile"]["largest_fragment_only"], true);
+    for fixture in contract["fixtures"]
+        .as_array()
+        .expect("standardization fixtures")
+    {
+        let id = fixture["id"].as_str().unwrap();
+        let smiles = fixture["smiles"].as_str().unwrap();
+        let mol = chematic_smiles::parse(smiles)
+            .unwrap_or_else(|error| panic!("standardization fixture {id} must parse: {error}"));
+        let options = chematic_chem::StandardizeOptions {
+            largest_fragment_only: true,
+            ..Default::default()
+        };
+        let output = chematic_chem::standardize(&mol, &options);
+        assert_eq!(
+            chematic_smiles::canonical_smiles(&output),
+            fixture["output_smiles"].as_str().unwrap(),
+            "{id}"
+        );
+    }
+}
+
+#[test]
 fn shared_fingerprint_fixture_freezes_shape_and_configuration() {
     let document: Value = serde_json::from_str(FIXTURE).expect("fixture JSON must parse");
     let contract = &document["fingerprint_contract"];
@@ -88,5 +115,56 @@ fn shared_fingerprint_fixture_freezes_shape_and_configuration() {
             (166..2048).all(|bit| !maccs.get(bit)),
             "{id} MACCS upper bits"
         );
+    }
+}
+
+#[test]
+fn shared_fingerprint_detail_contract_matches_rust_source_of_truth() {
+    let document: Value = serde_json::from_str(FIXTURE).expect("fixture JSON must parse");
+    let contract = &document["fingerprint_detail_contract"];
+    assert_eq!(contract["schema_version"], 1);
+    let operation = &contract["operations"]["rdkit_ecfp4_detail"];
+    assert_eq!(operation["bits"], 2048);
+    assert_eq!(operation["bytes"], 256);
+    assert_eq!(operation["configuration"]["radius"], 2);
+    assert_eq!(
+        operation["configuration"]["include_redundant_environments"],
+        false
+    );
+    assert_eq!(
+        operation["explanation"]["radius_range"],
+        serde_json::json!([0, 2])
+    );
+
+    for fixture in contract["fixtures"].as_array().expect("detail fixtures") {
+        let id = fixture["id"].as_str().unwrap();
+        let smiles = fixture["smiles"].as_str().unwrap();
+        let mol = chematic_smiles::parse(smiles)
+            .unwrap_or_else(|error| panic!("detail fixture {id} must parse: {error}"));
+        let detail = chematic_fp::rdkit_morgan_ecfp4_experimental(&mol)
+            .unwrap_or_else(|error| panic!("detail fixture {id} failed: {error}"));
+        assert_eq!(
+            detail.fingerprint.to_bitvecn().bit_width(),
+            2048,
+            "{id} bit shape"
+        );
+        assert!(!detail.sparse_counts.is_empty(), "{id} sparse counts");
+        assert!(!detail.raw_bit_info.is_empty(), "{id} raw explanation");
+        assert!(
+            !detail.folded_bit_info.is_empty(),
+            "{id} folded explanation"
+        );
+        for pairs in detail.raw_bit_info.values() {
+            for &(atom, radius) in pairs {
+                assert!((radius as u64) <= 2, "{id} radius");
+                assert!((atom as usize) < mol.atom_count(), "{id} atom provenance");
+            }
+        }
+        for pairs in detail.folded_bit_info.values() {
+            for &(atom, radius) in pairs {
+                assert!((radius as u64) <= 2, "{id} radius");
+                assert!((atom as usize) < mol.atom_count(), "{id} atom provenance");
+            }
+        }
     }
 }

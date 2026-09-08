@@ -34,6 +34,7 @@ __all__ = (
     "DimensionType",
     "GetCreditAllocationHistoryPaginatorName",
     "ListBillingViewsPaginatorName",
+    "ListEnterpriseSupportLinkedAccountChargesPaginatorName",
     "ListSourceViewsForBillingViewPaginatorName",
     "PaginatorName",
     "PreferenceValueType",
@@ -72,6 +73,9 @@ CreditStatusType = Literal["DISABLED", "ENABLED"]
 DimensionType = Literal["LINKED_ACCOUNT"]
 GetCreditAllocationHistoryPaginatorName = Literal["get_credit_allocation_history"]
 ListBillingViewsPaginatorName = Literal["list_billing_views"]
+ListEnterpriseSupportLinkedAccountChargesPaginatorName = Literal[
+    "list_enterprise_support_linked_account_charges"
+]
 ListSourceViewsForBillingViewPaginatorName = Literal["list_source_views_for_billing_view"]
 PreferenceValueType = Literal["DISABLED", "ENABLED"]
 SearchOptionType = Literal["STARTS_WITH"]
@@ -79,8 +83,11 @@ BillingServiceName = Literal["billing"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -385,6 +392,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -507,5 +515,8 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "get_credit_allocation_history", "list_billing_views", "list_source_views_for_billing_view"
+    "get_credit_allocation_history",
+    "list_billing_views",
+    "list_enterprise_support_linked_account_charges",
+    "list_source_views_for_billing_view",
 ]

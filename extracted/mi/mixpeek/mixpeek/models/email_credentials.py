@@ -25,10 +25,10 @@ from typing_extensions import Self
 
 class EmailCredentials(BaseModel):
     """
-    Webhook signing credentials for inbound email verification.  Security:     - webhook_secret is encrypted at rest via CSFLE     - Used to verify HMAC-SHA256 signatures on inbound email webhooks
+    Webhook signing credentials for inbound email verification.  Security:     - webhook_secret is a secret credential, redacted on read     - Used to verify HMAC-SHA256 signatures on inbound email webhooks
     """ # noqa: E501
     type: Optional[StrictStr] = 'webhook_secret'
-    webhook_secret: Optional[StrictStr] = Field(default='', description="Shared secret for verifying inbound email webhook signatures. Auto-generated on connection creation if left empty. SECURITY: Encrypted at rest via CSFLE.")
+    webhook_secret: Optional[StrictStr] = Field(default='', description="Shared secret for verifying inbound email webhook signatures. Auto-generated on connection creation if left empty. SECURITY: Secret credential, redacted on read. Never log or expose.")
     __properties: ClassVar[List[str]] = ["type", "webhook_secret"]
 
     @field_validator('type')

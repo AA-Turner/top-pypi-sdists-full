@@ -19,6 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Union
 
 from .literals import (
     DataReplicationErrorStringType,
@@ -50,6 +51,11 @@ from .literals import (
     RecoveryInstanceDataReplicationInitiationStepStatusType,
     RecoveryInstanceDataReplicationStateType,
     RecoveryModeType,
+    RecoveryPlanExecutionModeType,
+    RecoveryPlanExecutionStatusType,
+    RecoveryPlanExecutionStepStatusType,
+    RecoveryPlanServerImpactLevelType,
+    RecoveryPlanStatusType,
     RecoveryResultType,
     RecoverySnapshotsOrderType,
     ReplicationConfigurationDataPlaneRoutingType,
@@ -73,11 +79,17 @@ __all__ = (
     "AssociateSourceNetworkStackRequestTypeDef",
     "AssociateSourceNetworkStackResponseTypeDef",
     "CPUTypeDef",
+    "CancelRecoveryPlanExecutionRequestTypeDef",
+    "CancelRecoveryPlanExecutionResponseTypeDef",
     "ConversionPropertiesTypeDef",
     "CreateExtendedSourceServerRequestTypeDef",
     "CreateExtendedSourceServerResponseTypeDef",
     "CreateLaunchConfigurationTemplateRequestTypeDef",
     "CreateLaunchConfigurationTemplateResponseTypeDef",
+    "CreateRecoveryPlanRequestTypeDef",
+    "CreateRecoveryPlanResponseTypeDef",
+    "CreateRecoveryPlanStepRequestTypeDef",
+    "CreateRecoveryPlanStepResponseTypeDef",
     "CreateReplicationConfigurationTemplateRequestTypeDef",
     "CreateSourceNetworkRequestTypeDef",
     "CreateSourceNetworkResponseTypeDef",
@@ -90,6 +102,12 @@ __all__ = (
     "DeleteLaunchActionRequestTypeDef",
     "DeleteLaunchConfigurationTemplateRequestTypeDef",
     "DeleteRecoveryInstanceRequestTypeDef",
+    "DeleteRecoveryPlanExecutionRequestTypeDef",
+    "DeleteRecoveryPlanExecutionResponseTypeDef",
+    "DeleteRecoveryPlanRequestTypeDef",
+    "DeleteRecoveryPlanResponseTypeDef",
+    "DeleteRecoveryPlanStepRequestTypeDef",
+    "DeleteRecoveryPlanStepResponseTypeDef",
     "DeleteReplicationConfigurationTemplateRequestTypeDef",
     "DeleteSourceNetworkRequestTypeDef",
     "DeleteSourceServerRequestTypeDef",
@@ -126,12 +144,22 @@ __all__ = (
     "DisconnectSourceServerRequestTypeDef",
     "DiskTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "ErrorDetailTypeDef",
     "EventResourceDataTypeDef",
+    "ExecutionServerStepConfigurationTypeDef",
     "ExportSourceNetworkCfnTemplateRequestTypeDef",
     "ExportSourceNetworkCfnTemplateResponseTypeDef",
     "GetFailbackReplicationConfigurationRequestTypeDef",
     "GetFailbackReplicationConfigurationResponseTypeDef",
     "GetLaunchConfigurationRequestTypeDef",
+    "GetRecoveryPlanExecutionRequestTypeDef",
+    "GetRecoveryPlanExecutionResponseTypeDef",
+    "GetRecoveryPlanExecutionStepRequestTypeDef",
+    "GetRecoveryPlanExecutionStepResponseTypeDef",
+    "GetRecoveryPlanRequestTypeDef",
+    "GetRecoveryPlanResponseTypeDef",
+    "GetRecoveryPlanStepRequestTypeDef",
+    "GetRecoveryPlanStepResponseTypeDef",
     "GetReplicationConfigurationRequestTypeDef",
     "IdentificationHintsTypeDef",
     "JobLogEventDataTypeDef",
@@ -155,6 +183,19 @@ __all__ = (
     "ListLaunchActionsRequestPaginateTypeDef",
     "ListLaunchActionsRequestTypeDef",
     "ListLaunchActionsResponseTypeDef",
+    "ListRecoveryPlanExecutionStepsFilterTypeDef",
+    "ListRecoveryPlanExecutionStepsRequestPaginateTypeDef",
+    "ListRecoveryPlanExecutionStepsRequestTypeDef",
+    "ListRecoveryPlanExecutionStepsResponseTypeDef",
+    "ListRecoveryPlanExecutionsRequestPaginateTypeDef",
+    "ListRecoveryPlanExecutionsRequestTypeDef",
+    "ListRecoveryPlanExecutionsResponseTypeDef",
+    "ListRecoveryPlanStepsRequestPaginateTypeDef",
+    "ListRecoveryPlanStepsRequestTypeDef",
+    "ListRecoveryPlanStepsResponseTypeDef",
+    "ListRecoveryPlansRequestPaginateTypeDef",
+    "ListRecoveryPlansRequestTypeDef",
+    "ListRecoveryPlansResponseTypeDef",
     "ListStagingAccountsRequestPaginateTypeDef",
     "ListStagingAccountsRequestTypeDef",
     "ListStagingAccountsResponseTypeDef",
@@ -180,15 +221,35 @@ __all__ = (
     "RecoveryInstancePropertiesTypeDef",
     "RecoveryInstanceTypeDef",
     "RecoveryLifeCycleTypeDef",
+    "RecoveryPlanExecutionServerTypeDef",
+    "RecoveryPlanExecutionSourceServerTypeDef",
+    "RecoveryPlanExecutionStepConfigurationTypeDef",
+    "RecoveryPlanExecutionStepSummaryTypeDef",
+    "RecoveryPlanExecutionStepTypeDef",
+    "RecoveryPlanExecutionSummaryTypeDef",
+    "RecoveryPlanExecutionTypeDef",
+    "RecoveryPlanServerTypeDef",
+    "RecoveryPlanStepConfigurationOutputTypeDef",
+    "RecoveryPlanStepConfigurationTypeDef",
+    "RecoveryPlanStepConfigurationUnionTypeDef",
+    "RecoveryPlanStepTypeDef",
+    "RecoveryPlanSummaryTypeDef",
+    "RecoveryPlanTypeDef",
     "RecoverySnapshotTypeDef",
+    "ReorderRecoveryPlanStepsRequestTypeDef",
+    "ReorderRecoveryPlanStepsResponseTypeDef",
     "ReplicationConfigurationReplicatedDiskTypeDef",
     "ReplicationConfigurationTemplateResponseTypeDef",
     "ReplicationConfigurationTemplateTypeDef",
     "ReplicationConfigurationTypeDef",
     "ResponseMetadataTypeDef",
     "RetryDataReplicationRequestTypeDef",
+    "RetryRecoveryPlanExecutionStepRequestTypeDef",
+    "RetryRecoveryPlanExecutionStepResponseTypeDef",
     "ReverseReplicationRequestTypeDef",
     "ReverseReplicationResponseTypeDef",
+    "ServerStepConfigurationOutputTypeDef",
+    "ServerStepConfigurationTypeDef",
     "SourceCloudPropertiesTypeDef",
     "SourceNetworkDataTypeDef",
     "SourceNetworkTypeDef",
@@ -199,6 +260,8 @@ __all__ = (
     "StagingSourceServerTypeDef",
     "StartFailbackLaunchRequestTypeDef",
     "StartFailbackLaunchResponseTypeDef",
+    "StartRecoveryPlanExecutionRequestTypeDef",
+    "StartRecoveryPlanExecutionResponseTypeDef",
     "StartRecoveryRequestSourceServerTypeDef",
     "StartRecoveryRequestTypeDef",
     "StartRecoveryResponseTypeDef",
@@ -222,8 +285,15 @@ __all__ = (
     "UpdateLaunchConfigurationRequestTypeDef",
     "UpdateLaunchConfigurationTemplateRequestTypeDef",
     "UpdateLaunchConfigurationTemplateResponseTypeDef",
+    "UpdateRecoveryPlanExecutionStepRequestTypeDef",
+    "UpdateRecoveryPlanExecutionStepResponseTypeDef",
+    "UpdateRecoveryPlanRequestTypeDef",
+    "UpdateRecoveryPlanResponseTypeDef",
+    "UpdateRecoveryPlanStepRequestTypeDef",
+    "UpdateRecoveryPlanStepResponseTypeDef",
     "UpdateReplicationConfigurationRequestTypeDef",
     "UpdateReplicationConfigurationTemplateRequestTypeDef",
+    "WaitStepConfigurationTypeDef",
 )
 
 
@@ -249,6 +319,10 @@ class CPUTypeDef(TypedDict):
     modelName: NotRequired[str]
 
 
+class CancelRecoveryPlanExecutionRequestTypeDef(TypedDict):
+    recoveryPlanExecutionArn: str
+
+
 class ProductCodeTypeDef(TypedDict):
     productCodeId: NotRequired[str]
     productCodeMode: NotRequired[ProductCodeModeType]
@@ -261,6 +335,23 @@ class CreateExtendedSourceServerRequestTypeDef(TypedDict):
 
 class LicensingTypeDef(TypedDict):
     osByol: NotRequired[bool]
+
+
+class CreateRecoveryPlanRequestTypeDef(TypedDict):
+    name: str
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class RecoveryPlanTypeDef(TypedDict):
+    recoveryPlanArn: str
+    name: str
+    status: RecoveryPlanStatusType
+    createdAt: str
+    updatedAt: str
+    description: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
 
 
 class PITPolicyRuleTypeDef(TypedDict):
@@ -312,6 +403,18 @@ class DeleteLaunchConfigurationTemplateRequestTypeDef(TypedDict):
 
 class DeleteRecoveryInstanceRequestTypeDef(TypedDict):
     recoveryInstanceID: str
+
+
+class DeleteRecoveryPlanExecutionRequestTypeDef(TypedDict):
+    recoveryPlanExecutionArn: str
+
+
+class DeleteRecoveryPlanRequestTypeDef(TypedDict):
+    recoveryPlanArn: str
+
+
+class DeleteRecoveryPlanStepRequestTypeDef(TypedDict):
+    recoveryPlanStepArn: str
 
 
 class DeleteReplicationConfigurationTemplateRequestTypeDef(TypedDict):
@@ -403,11 +506,22 @@ DiskTypeDef = TypedDict(
 )
 
 
+class ErrorDetailTypeDef(TypedDict):
+    message: str
+    code: str
+
+
 class SourceNetworkDataTypeDef(TypedDict):
     sourceNetworkID: NotRequired[str]
     sourceVpc: NotRequired[str]
     targetVpc: NotRequired[str]
     stackName: NotRequired[str]
+
+
+class RecoveryPlanExecutionServerTypeDef(TypedDict):
+    serverArn: str
+    impactLevel: NotRequired[RecoveryPlanServerImpactLevelType]
+    jobID: NotRequired[str]
 
 
 class ExportSourceNetworkCfnTemplateRequestTypeDef(TypedDict):
@@ -420,6 +534,22 @@ class GetFailbackReplicationConfigurationRequestTypeDef(TypedDict):
 
 class GetLaunchConfigurationRequestTypeDef(TypedDict):
     sourceServerID: str
+
+
+class GetRecoveryPlanExecutionRequestTypeDef(TypedDict):
+    recoveryPlanExecutionArn: str
+
+
+class GetRecoveryPlanExecutionStepRequestTypeDef(TypedDict):
+    recoveryPlanExecutionStepArn: str
+
+
+class GetRecoveryPlanRequestTypeDef(TypedDict):
+    recoveryPlanArn: str
+
+
+class GetRecoveryPlanStepRequestTypeDef(TypedDict):
+    recoveryPlanStepArn: str
 
 
 class GetReplicationConfigurationRequestTypeDef(TypedDict):
@@ -470,6 +600,36 @@ class StagingSourceServerTypeDef(TypedDict):
     hostname: NotRequired[str]
     arn: NotRequired[str]
     tags: NotRequired[dict[str, str]]
+
+
+class ListRecoveryPlanExecutionStepsFilterTypeDef(TypedDict):
+    status: NotRequired[RecoveryPlanExecutionStepStatusType]
+
+
+class ListRecoveryPlanExecutionsRequestTypeDef(TypedDict):
+    recoveryPlanArn: NotRequired[str]
+    status: NotRequired[RecoveryPlanExecutionStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListRecoveryPlanStepsRequestTypeDef(TypedDict):
+    recoveryPlanArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListRecoveryPlansRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class RecoveryPlanSummaryTypeDef(TypedDict):
+    recoveryPlanArn: str
+    name: str
+    status: RecoveryPlanStatusType
+    createdAt: str
+    updatedAt: str
 
 
 class ListStagingAccountsRequestTypeDef(TypedDict):
@@ -542,6 +702,25 @@ class RecoveryLifeCycleTypeDef(TypedDict):
     lastRecoveryResult: NotRequired[RecoveryResultType]
 
 
+class RecoveryPlanExecutionSourceServerTypeDef(TypedDict):
+    sourceServerID: str
+    recoverySnapshotID: str
+
+
+class WaitStepConfigurationTypeDef(TypedDict):
+    waitDurationMinutes: int
+
+
+class RecoveryPlanServerTypeDef(TypedDict):
+    serverArn: str
+    impactLevel: NotRequired[RecoveryPlanServerImpactLevelType]
+
+
+class ReorderRecoveryPlanStepsRequestTypeDef(TypedDict):
+    recoveryPlanArn: str
+    orderedStepArns: Sequence[str]
+
+
 class ReplicationConfigurationReplicatedDiskTypeDef(TypedDict):
     deviceName: NotRequired[str]
     isBootDisk: NotRequired[bool]
@@ -553,6 +732,10 @@ class ReplicationConfigurationReplicatedDiskTypeDef(TypedDict):
 
 class RetryDataReplicationRequestTypeDef(TypedDict):
     sourceServerID: str
+
+
+class RetryRecoveryPlanExecutionStepRequestTypeDef(TypedDict):
+    recoveryPlanExecutionStepArn: str
 
 
 class ReverseReplicationRequestTypeDef(TypedDict):
@@ -630,8 +813,29 @@ class UpdateFailbackReplicationConfigurationRequestTypeDef(TypedDict):
     internetProtocol: NotRequired[InternetProtocolType]
 
 
+class UpdateRecoveryPlanRequestTypeDef(TypedDict):
+    recoveryPlanArn: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+
+
 class CreateSourceNetworkResponseTypeDef(TypedDict):
     sourceNetworkID: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteRecoveryPlanExecutionResponseTypeDef(TypedDict):
+    recoveryPlanExecutionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteRecoveryPlanResponseTypeDef(TypedDict):
+    recoveryPlanArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteRecoveryPlanStepResponseTypeDef(TypedDict):
+    recoveryPlanStepArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -717,6 +921,21 @@ class UpdateLaunchConfigurationTemplateRequestTypeDef(TypedDict):
     postLaunchEnabled: NotRequired[bool]
     launchIntoSourceInstance: NotRequired[bool]
     recoveryMode: NotRequired[RecoveryModeType]
+
+
+class CreateRecoveryPlanResponseTypeDef(TypedDict):
+    recoveryPlan: RecoveryPlanTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRecoveryPlanResponseTypeDef(TypedDict):
+    recoveryPlan: RecoveryPlanTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateRecoveryPlanResponseTypeDef(TypedDict):
+    recoveryPlan: RecoveryPlanTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
@@ -833,6 +1052,21 @@ class ListExtensibleSourceServersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListRecoveryPlanExecutionsRequestPaginateTypeDef(TypedDict):
+    recoveryPlanArn: NotRequired[str]
+    status: NotRequired[RecoveryPlanExecutionStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListRecoveryPlanStepsRequestPaginateTypeDef(TypedDict):
+    recoveryPlanArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListRecoveryPlansRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListStagingAccountsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -902,8 +1136,32 @@ class DescribeSourceServersRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class RecoveryPlanExecutionSummaryTypeDef(TypedDict):
+    recoveryPlanExecutionArn: str
+    recoveryPlanArn: str
+    mode: RecoveryPlanExecutionModeType
+    status: RecoveryPlanExecutionStatusType
+    startedAt: str
+    errorDetail: NotRequired[ErrorDetailTypeDef]
+
+
+class RecoveryPlanExecutionTypeDef(TypedDict):
+    recoveryPlanExecutionArn: str
+    recoveryPlanArn: str
+    mode: RecoveryPlanExecutionModeType
+    status: RecoveryPlanExecutionStatusType
+    startedAt: str
+    completedAt: NotRequired[str]
+    errorDetail: NotRequired[ErrorDetailTypeDef]
+    tags: NotRequired[dict[str, str]]
+
+
 class EventResourceDataTypeDef(TypedDict):
     sourceNetworkData: NotRequired[SourceNetworkDataTypeDef]
+
+
+class ExecutionServerStepConfigurationTypeDef(TypedDict):
+    servers: list[RecoveryPlanExecutionServerTypeDef]
 
 
 LaunchActionTypeDef = TypedDict(
@@ -1010,6 +1268,31 @@ class ListExtensibleSourceServersResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+ListRecoveryPlanExecutionStepsRequestPaginateTypeDef = TypedDict(
+    "ListRecoveryPlanExecutionStepsRequestPaginateTypeDef",
+    {
+        "recoveryPlanExecutionArn": str,
+        "filter": NotRequired[ListRecoveryPlanExecutionStepsFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListRecoveryPlanExecutionStepsRequestTypeDef = TypedDict(
+    "ListRecoveryPlanExecutionStepsRequestTypeDef",
+    {
+        "recoveryPlanExecutionArn": str,
+        "filter": NotRequired[ListRecoveryPlanExecutionStepsFilterTypeDef],
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
+
+
+class ListRecoveryPlansResponseTypeDef(TypedDict):
+    recoveryPlans: list[RecoveryPlanSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class SourcePropertiesTypeDef(TypedDict):
     lastUpdatedDateTime: NotRequired[str]
     recommendedInstanceType: NotRequired[str]
@@ -1054,6 +1337,29 @@ class SourceNetworkTypeDef(TypedDict):
     sourceAccountID: NotRequired[str]
     lastRecovery: NotRequired[RecoveryLifeCycleTypeDef]
     launchedVpcID: NotRequired[str]
+
+
+class StartRecoveryPlanExecutionRequestTypeDef(TypedDict):
+    recoveryPlanArn: str
+    mode: RecoveryPlanExecutionModeType
+    clientToken: NotRequired[str]
+    sourceServers: NotRequired[Sequence[RecoveryPlanExecutionSourceServerTypeDef]]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class ServerStepConfigurationOutputTypeDef(TypedDict):
+    servers: list[RecoveryPlanServerTypeDef]
+
+
+class ServerStepConfigurationTypeDef(TypedDict):
+    servers: Sequence[RecoveryPlanServerTypeDef]
+
+
+class UpdateRecoveryPlanExecutionStepRequestTypeDef(TypedDict):
+    recoveryPlanExecutionStepArn: str
+    status: NotRequired[RecoveryPlanExecutionStepStatusType]
+    servers: NotRequired[Sequence[RecoveryPlanServerTypeDef]]
+    waitDurationMinutes: NotRequired[int]
 
 
 class ReplicationConfigurationTypeDef(TypedDict):
@@ -1146,6 +1452,27 @@ class DataReplicationInfoTypeDef(TypedDict):
     stagingOutpostArn: NotRequired[str]
 
 
+class ListRecoveryPlanExecutionsResponseTypeDef(TypedDict):
+    recoveryPlanExecutions: list[RecoveryPlanExecutionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class CancelRecoveryPlanExecutionResponseTypeDef(TypedDict):
+    recoveryPlanExecution: RecoveryPlanExecutionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRecoveryPlanExecutionResponseTypeDef(TypedDict):
+    recoveryPlanExecution: RecoveryPlanExecutionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartRecoveryPlanExecutionResponseTypeDef(TypedDict):
+    recoveryPlanExecution: RecoveryPlanExecutionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class JobLogEventDataTypeDef(TypedDict):
     sourceServerID: NotRequired[str]
     conversionServerID: NotRequired[str]
@@ -1155,6 +1482,11 @@ class JobLogEventDataTypeDef(TypedDict):
     eventResourceData: NotRequired[EventResourceDataTypeDef]
     attemptCount: NotRequired[int]
     maxAttemptsCount: NotRequired[int]
+
+
+class RecoveryPlanExecutionStepConfigurationTypeDef(TypedDict):
+    executionServerStepConfiguration: NotRequired[ExecutionServerStepConfigurationTypeDef]
+    waitStepConfiguration: NotRequired[WaitStepConfigurationTypeDef]
 
 
 class LaunchActionRunTypeDef(TypedDict):
@@ -1205,10 +1537,41 @@ class StopSourceNetworkReplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class RecoveryPlanStepConfigurationOutputTypeDef(TypedDict):
+    serverStepConfiguration: NotRequired[ServerStepConfigurationOutputTypeDef]
+    waitStepConfiguration: NotRequired[WaitStepConfigurationTypeDef]
+
+
+class RecoveryPlanStepConfigurationTypeDef(TypedDict):
+    serverStepConfiguration: NotRequired[ServerStepConfigurationTypeDef]
+    waitStepConfiguration: NotRequired[WaitStepConfigurationTypeDef]
+
+
 class JobLogTypeDef(TypedDict):
     logDateTime: NotRequired[str]
     event: NotRequired[JobLogEventType]
     eventData: NotRequired[JobLogEventDataTypeDef]
+
+
+class RecoveryPlanExecutionStepSummaryTypeDef(TypedDict):
+    recoveryPlanExecutionStepArn: str
+    stepName: str
+    stepIndex: int
+    status: RecoveryPlanExecutionStepStatusType
+    configuration: RecoveryPlanExecutionStepConfigurationTypeDef
+    errorDetail: NotRequired[ErrorDetailTypeDef]
+
+
+class RecoveryPlanExecutionStepTypeDef(TypedDict):
+    recoveryPlanExecutionStepArn: str
+    stepIndex: int
+    status: RecoveryPlanExecutionStepStatusType
+    stepName: str
+    configuration: RecoveryPlanExecutionStepConfigurationTypeDef
+    attempt: int
+    createdAt: str
+    updatedAt: str
+    errorDetail: NotRequired[ErrorDetailTypeDef]
 
 
 class LaunchActionsStatusTypeDef(TypedDict):
@@ -1270,10 +1633,45 @@ class RecoveryInstanceTypeDef(TypedDict):
     sourceOutpostArn: NotRequired[str]
 
 
+class RecoveryPlanStepTypeDef(TypedDict):
+    recoveryPlanStepArn: str
+    stepOrder: int
+    stepName: str
+    configuration: RecoveryPlanStepConfigurationOutputTypeDef
+    createdAt: str
+    updatedAt: str
+
+
+RecoveryPlanStepConfigurationUnionTypeDef = Union[
+    RecoveryPlanStepConfigurationTypeDef, RecoveryPlanStepConfigurationOutputTypeDef
+]
+
+
 class DescribeJobLogItemsResponseTypeDef(TypedDict):
     items: list[JobLogTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class ListRecoveryPlanExecutionStepsResponseTypeDef(TypedDict):
+    recoveryPlanExecutionSteps: list[RecoveryPlanExecutionStepSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetRecoveryPlanExecutionStepResponseTypeDef(TypedDict):
+    recoveryPlanExecutionStep: RecoveryPlanExecutionStepTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RetryRecoveryPlanExecutionStepResponseTypeDef(TypedDict):
+    recoveryPlanExecutionStep: RecoveryPlanExecutionStepTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateRecoveryPlanExecutionStepResponseTypeDef(TypedDict):
+    recoveryPlanExecutionStep: RecoveryPlanExecutionStepTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ParticipatingServerTypeDef(TypedDict):
@@ -1308,6 +1706,46 @@ class DescribeRecoveryInstancesResponseTypeDef(TypedDict):
     items: list[RecoveryInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class CreateRecoveryPlanStepResponseTypeDef(TypedDict):
+    recoveryPlanStep: RecoveryPlanStepTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRecoveryPlanStepResponseTypeDef(TypedDict):
+    recoveryPlanStep: RecoveryPlanStepTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListRecoveryPlanStepsResponseTypeDef(TypedDict):
+    recoveryPlanSteps: list[RecoveryPlanStepTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ReorderRecoveryPlanStepsResponseTypeDef(TypedDict):
+    recoveryPlanSteps: list[RecoveryPlanStepTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateRecoveryPlanStepResponseTypeDef(TypedDict):
+    recoveryPlanStep: RecoveryPlanStepTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateRecoveryPlanStepRequestTypeDef(TypedDict):
+    recoveryPlanArn: str
+    stepName: str
+    configuration: RecoveryPlanStepConfigurationUnionTypeDef
+    stepOrder: NotRequired[int]
+    clientToken: NotRequired[str]
+
+
+class UpdateRecoveryPlanStepRequestTypeDef(TypedDict):
+    recoveryPlanStepArn: str
+    stepName: NotRequired[str]
+    configuration: NotRequired[RecoveryPlanStepConfigurationUnionTypeDef]
 
 
 JobTypeDef = TypedDict(

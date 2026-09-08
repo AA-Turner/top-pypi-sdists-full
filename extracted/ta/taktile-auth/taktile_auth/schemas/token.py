@@ -86,6 +86,13 @@ class TaktileIdToken(BaseModel):
     def user_id(self) -> UUID4:
         return parse_obj_as(UUID4, self.sub.split(":")[-1])
 
+    @property
+    def client(self) -> str | None:
+        if not isinstance(self.act, dict):
+            return None
+        sub = self.act.get("sub")
+        return sub if isinstance(sub, str) else None
+
     _SCOPE_DIMS: t.ClassVar[t.Tuple[str, ...]] = ("org_id", "ws_id", "flow_folder_id")
 
     @classmethod

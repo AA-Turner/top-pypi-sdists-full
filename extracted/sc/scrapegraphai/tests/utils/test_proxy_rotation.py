@@ -1,3 +1,4 @@
+from unittest.mock import patch
 import pytest
 from fp.errors import FreeProxyException
 
@@ -58,7 +59,8 @@ def test_parse_proxy_exception():
     assert "username and password must be provided in pairs" in str(error_info.value)
 
 
-def test_search_proxy_success():
+@patch("scrapegraphai.utils.proxy_rotation.search_proxy_servers", return_value=["http://103.10.63.135:8080"])
+def test_search_proxy_success(mock_search):
     proxy = Proxy(criteria={"anonymous": True, "countryset": {"US"}})
     found_proxy = _search_proxy(proxy)
 
@@ -72,7 +74,8 @@ def test_is_ipv4_address():
     assert is_ipv4_address("no-address") is False
 
 
-def test_parse_or_search_proxy_success():
+@patch("scrapegraphai.utils.proxy_rotation.search_proxy_servers", return_value=["http://103.10.63.135:8080"])
+def test_parse_or_search_proxy_success(mock_search):
     proxy = {
         "server": "192.168.1.1:8080",
         "username": "username",
@@ -81,6 +84,14 @@ def test_parse_or_search_proxy_success():
 
     parsed_proxy = parse_or_search_proxy(proxy)
     assert parsed_proxy == proxy
+
+    proxy_domain = {
+        "server": "gate.nodemaven.com:8080",
+        "username": "user",
+        "password": "pwd",
+    }
+    parsed_domain = parse_or_search_proxy(proxy_domain)
+    assert parsed_domain == proxy_domain
 
     proxy_broker = {
         "server": "broker",

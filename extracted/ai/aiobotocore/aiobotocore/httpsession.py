@@ -83,6 +83,7 @@ class AIOHTTPSession:
 
         # TODO: handle socket_options
         # keep track of sessions by proxy url (if any)
+        self._sessions_lock = asyncio.Lock()
         self._sessions: dict[str | None, aiohttp.ClientSession] | None = None
         self._verify = verify
         self._proxy_config = ProxyConfiguration(
@@ -128,10 +129,11 @@ class AIOHTTPSession:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         assert self._sessions is not None, 'Session was never entered'
-        self._sessions.clear()
-        await self._exit_stack.aclose()
-        # Make _sessions unusable once context is exited
-        self._sessions = None
+        async with self._sessions_lock:
+            self._sessions.clear()
+            await self._exit_stack.aclose()
+            # Make _sessions unusable once context is exited
+            self._sessions = None
 
     def _get_ssl_context(self):
         return create_urllib3_context()
@@ -222,22 +224,44 @@ class AIOHTTPSession:
 
     async def _get_session(self, proxy_url):
         if not (session := self._sessions.get(proxy_url)):
-            connector = await self._create_connector(proxy_url)
-            self._sessions[proxy_url] = (
-                session
-            ) = await self._exit_stack.enter_async_context(
-                aiohttp.ClientSession(
-                    connector=connector,
-                    timeout=self._timeout,
-                    skip_auto_headers={'CONTENT-TYPE'},
-                    auto_decompress=False,
-                ),
-            )
+            async with self._sessions_lock:
+                if not (session := self._sessions.get(proxy_url)):
+                    connector = await self._create_connector(proxy_url)
+                    self._sessions[proxy_url] = (
+                        session
+                    ) = await self._exit_stack.enter_async_context(
+                        aiohttp.ClientSession(
+                            connector=connector,
+                            timeout=self._timeout,
+                            skip_auto_headers={'CONTENT-TYPE'},
+                            auto_decompress=False,
+                        ),
+                    )
 
         return session
 
     async def close(self):
         await self.__aexit__(None, None, None)
+
+    def _get_request_timeout(self, request):
+        """Resolve a per-request timeout override from the request context.
+
+        Returns an ``aiohttp.ClientTimeout`` when the request context contains
+        a ``read_timeout`` override, otherwise ``None`` to defer to the
+        session's default timeout which is configured through client config.
+
+        """
+        # `context` is a recent addition to AWSPreparedRequest, so a request
+        # without the attribute is still possible.
+        context = getattr(request, 'context', None)
+        if context is None:
+            return None
+        read_timeout = context.get('read_timeout')
+        if read_timeout is None:
+            return None
+        return aiohttp.ClientTimeout(
+            sock_connect=self._timeout.sock_connect, sock_read=read_timeout
+        )
 
     async def send(self, request):
         try:
@@ -269,6 +293,13 @@ class AIOHTTPSession:
 
             url = URL(url, encoded=True)
             session = await self._get_session(proxy_url)
+            extra_kwargs = {}
+            request_timeout = self._get_request_timeout(request)
+            if request_timeout is not None:
+                # Only include the timeout kwarg when overridden; passing
+                # timeout=None would disable timeouts entirely rather than
+                # defer to the session's default timeout.
+                extra_kwargs['timeout'] = request_timeout
             response = await session.request(
                 request.method,
                 url=url,
@@ -277,6 +308,7 @@ class AIOHTTPSession:
                 data=data,
                 proxy=proxy_url,
                 proxy_headers=proxy_headers,
+                **extra_kwargs,
             )
 
             # botocore converts keys to str, so make sure that they are in

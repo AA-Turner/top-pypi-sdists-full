@@ -312,6 +312,7 @@ __all__ = (
     "JobDetailsEntityTypeDef",
     "JobDetailsErrorTypeDef",
     "JobDetailsIdentifiersTypeDef",
+    "JobDetailsJobAttachmentSettingsTypeDef",
     "JobEntityIdentifiersUnionTypeDef",
     "JobEntityTypeDef",
     "JobMemberTypeDef",
@@ -1348,6 +1349,11 @@ class IpAddressesTypeDef(TypedDict):
 
 class JobAttachmentDetailsIdentifiersTypeDef(TypedDict):
     jobId: str
+
+
+class JobDetailsJobAttachmentSettingsTypeDef(TypedDict):
+    s3BucketName: str
+    rootPrefix: str
 
 
 class PathMappingRuleTypeDef(TypedDict):
@@ -3346,7 +3352,7 @@ class JobDetailsEntityTypeDef(TypedDict):
     jobId: str
     logGroupName: str
     schemaVersion: str
-    jobAttachmentSettings: NotRequired[JobAttachmentSettingsTypeDef]
+    jobAttachmentSettings: NotRequired[JobDetailsJobAttachmentSettingsTypeDef]
     jobRunAsUser: NotRequired[JobRunAsUserTypeDef]
     queueRoleArn: NotRequired[str]
     parameters: NotRequired[dict[str, JobParameterTypeDef]]

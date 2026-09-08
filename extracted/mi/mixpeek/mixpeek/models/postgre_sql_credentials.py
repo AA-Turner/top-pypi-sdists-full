@@ -25,11 +25,11 @@ from typing_extensions import Self
 
 class PostgreSQLCredentials(BaseModel):
     """
-    PostgreSQL username/password authentication.  Standard username/password authentication for PostgreSQL databases. Password is encrypted at rest using MongoDB CSFLE.  Security:     - password field is encrypted at rest via CSFLE     - Consider using SSL mode 'require' for production     - Use dedicated read-only database user for sync operations
+    PostgreSQL username/password authentication.  Standard username/password authentication for PostgreSQL databases.  Security:     - password is a secret credential, redacted on read     - Consider using SSL mode 'require' for production     - Use dedicated read-only database user for sync operations
     """ # noqa: E501
     type: Optional[StrictStr] = 'username_password'
     username: StrictStr = Field(description="REQUIRED. PostgreSQL username for authentication.")
-    password: StrictStr = Field(description="REQUIRED. PostgreSQL password for authentication. SECURITY: This field is encrypted at rest via CSFLE. Never log or expose.")
+    password: StrictStr = Field(description="REQUIRED. PostgreSQL password for authentication. SECURITY: This is a secret credential, redacted on read. Never log or expose.")
     __properties: ClassVar[List[str]] = ["type", "username", "password"]
 
     @field_validator('type')

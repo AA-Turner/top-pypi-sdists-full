@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class BackblazeCredentials(BaseModel):
     """
-    Application key credentials for Backblaze B2 Cloud Storage.  Security:     - application_key is encrypted at rest via CSFLE     - Keys can be created/rotated in the Backblaze console
+    Application key credentials for Backblaze B2 Cloud Storage.  Security:     - application_key is a secret credential, redacted on read     - Keys can be created/rotated in the Backblaze console
     """ # noqa: E501
     type: Optional[StrictStr] = 'application_key'
     key_id: StrictStr = Field(description="REQUIRED. Backblaze B2 application key ID. Found in: Backblaze Console > App Keys > keyID column.")

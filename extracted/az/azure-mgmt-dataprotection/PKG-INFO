@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-dataprotection
-Version: 2.1.0
+Version: 2.2.0
 Summary: Microsoft Azure Dataprotection Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -87,6 +87,19 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 2.2.0 (2026-09-04)
+
+### Features Added
+
+  - Model `BackupVault` added property `cost_management_settings`
+  - Model `DeletedBackupVault` added property `cost_management_settings`
+  - Model `PatchBackupVaultInput` added property `cost_management_settings`
+  - Added model `CostManagementSettings`
+  - Added model `GenericBackupDatasourceParameters`
+  - Added model `GenericRestoreDatasourceCriteria`
+  - Added enum `GranularityLevel`
+  - Added model `ResourceListSelectionCriteria`
 
 ## 2.1.0 (2026-07-29)
 

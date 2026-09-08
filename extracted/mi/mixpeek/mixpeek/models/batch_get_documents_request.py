@@ -29,7 +29,7 @@ class BatchGetDocumentsRequest(BaseModel):
     Batch retrieve documents by their IDs.
     """ # noqa: E501
     document_ids: Annotated[List[StrictStr], Field(min_length=1, max_length=1000)] = Field(description="List of document IDs to retrieve.")
-    return_presigned_urls: Optional[StrictBool] = Field(default=False, description="Generate presigned download URLs for document blobs.")
+    return_presigned_urls: Optional[StrictBool] = Field(default=True, description="Generate presigned download URLs for document blobs. Defaults to true on this endpoint; set false to skip URL generation and receive raw storage URIs.")
     __properties: ClassVar[List[str]] = ["document_ids", "return_presigned_urls"]
 
     model_config = ConfigDict(
@@ -84,7 +84,7 @@ class BatchGetDocumentsRequest(BaseModel):
 
         _obj = cls.model_validate({
             "document_ids": obj.get("document_ids"),
-            "return_presigned_urls": obj.get("return_presigned_urls") if obj.get("return_presigned_urls") is not None else False
+            "return_presigned_urls": obj.get("return_presigned_urls") if obj.get("return_presigned_urls") is not None else True
         })
         return _obj
 

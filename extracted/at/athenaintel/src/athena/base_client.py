@@ -96,7 +96,6 @@ class BaseAthena:
             else httpx.Client(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
-        self._agents: typing.Optional[AgentsClient] = None
         self._aop: typing.Optional[AopClient] = None
         self._assets: typing.Optional[AssetsClient] = None
         self._collab_agents: typing.Optional[CollabAgentsClient] = None
@@ -110,14 +109,7 @@ class BaseAthena:
         self._threads: typing.Optional[ThreadsClient] = None
         self._tools: typing.Optional[ToolsClient] = None
         self._workspaces: typing.Optional[WorkspacesClient] = None
-
-    @property
-    def agents(self):
-        if self._agents is None:
-            from .agents.client import AgentsClient  # noqa: E402
-
-            self._agents = AgentsClient(client_wrapper=self._client_wrapper)
-        return self._agents
+        self._agents: typing.Optional[AgentsClient] = None
 
     @property
     def aop(self):
@@ -223,6 +215,14 @@ class BaseAthena:
             self._workspaces = WorkspacesClient(client_wrapper=self._client_wrapper)
         return self._workspaces
 
+    @property
+    def agents(self):
+        if self._agents is None:
+            from .agents.client import AgentsClient  # noqa: E402
+
+            self._agents = AgentsClient(client_wrapper=self._client_wrapper)
+        return self._agents
+
 
 class AsyncBaseAthena:
     """
@@ -293,7 +293,6 @@ class AsyncBaseAthena:
             else httpx.AsyncClient(timeout=_defaulted_timeout),
             timeout=_defaulted_timeout,
         )
-        self._agents: typing.Optional[AsyncAgentsClient] = None
         self._aop: typing.Optional[AsyncAopClient] = None
         self._assets: typing.Optional[AsyncAssetsClient] = None
         self._collab_agents: typing.Optional[AsyncCollabAgentsClient] = None
@@ -307,14 +306,7 @@ class AsyncBaseAthena:
         self._threads: typing.Optional[AsyncThreadsClient] = None
         self._tools: typing.Optional[AsyncToolsClient] = None
         self._workspaces: typing.Optional[AsyncWorkspacesClient] = None
-
-    @property
-    def agents(self):
-        if self._agents is None:
-            from .agents.client import AsyncAgentsClient  # noqa: E402
-
-            self._agents = AsyncAgentsClient(client_wrapper=self._client_wrapper)
-        return self._agents
+        self._agents: typing.Optional[AsyncAgentsClient] = None
 
     @property
     def aop(self):
@@ -419,6 +411,14 @@ class AsyncBaseAthena:
 
             self._workspaces = AsyncWorkspacesClient(client_wrapper=self._client_wrapper)
         return self._workspaces
+
+    @property
+    def agents(self):
+        if self._agents is None:
+            from .agents.client import AsyncAgentsClient  # noqa: E402
+
+            self._agents = AsyncAgentsClient(client_wrapper=self._client_wrapper)
+        return self._agents
 
 
 def _get_base_url(*, base_url: typing.Optional[str] = None, environment: AthenaEnvironment) -> str:

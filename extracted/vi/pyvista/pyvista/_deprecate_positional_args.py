@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from functools import wraps
+import functools
 import inspect
-from inspect import Parameter
-from inspect import Signature
 from pathlib import Path
+import sys
 from typing import TYPE_CHECKING
 from typing import TypeVar
 from typing import overload
@@ -122,7 +121,7 @@ def _deprecate_positional_args(
 
             # Check that allowed args are not already kwonly
             for name in allowed:
-                if sig.parameters[name].kind == Parameter.KEYWORD_ONLY:
+                if sig.parameters[name].kind == inspect.Parameter.KEYWORD_ONLY:
                     msg = (
                         f'Parameter {name!r} in decorator {decorator_name!r} is already '
                         f'keyword-only\nand should be removed from the allowed list.'
@@ -133,8 +132,8 @@ def _deprecate_positional_args(
         n_positional = 0
         for name in param_names:
             if name not in ['cls', 'self'] and sig.parameters[name].kind in [
-                Parameter.POSITIONAL_ONLY,
-                Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
             ]:
                 n_positional += 1
         actual_n_allowed = len(allowed) if allowed else 0
@@ -162,14 +161,16 @@ def _deprecate_positional_args(
                     current_kind = sig.parameters[name].kind
                     new_kind = (
                         current_kind
-                        if current_kind != Parameter.KEYWORD_ONLY
-                        else Parameter.KEYWORD_ONLY
+                        if current_kind != inspect.Parameter.KEYWORD_ONLY
+                        else inspect.Parameter.KEYWORD_ONLY
                     )
-                    new_parameters.append(Parameter(name, kind=new_kind))
+                    new_parameters.append(inspect.Parameter(name, kind=new_kind))
                 else:
-                    new_parameters.append(Parameter(name, kind=Parameter.KEYWORD_ONLY))
+                    new_parameters.append(
+                        inspect.Parameter(name, kind=inspect.Parameter.KEYWORD_ONLY)
+                    )
 
-            signature_string = f'{qualified_name()}{Signature(new_parameters)}'
+            signature_string = f'{qualified_name()}{inspect.Signature(new_parameters)}'
             if has_too_many_to_print:
                 # Replace ending bracket with ellipses
                 signature_string = f'{signature_string[:-1]}, ...)'
@@ -188,8 +189,19 @@ def _deprecate_positional_args(
             )
             raise RuntimeError(msg)
 
-        @wraps(f)
+        # Leading parameters that may always be passed positionally
+        n_free_positional = 0
+        for name in param_names:
+            if name in ('self', 'cls') or (allowed and name in allowed):
+                n_free_positional += 1
+            else:
+                break
+
+        @functools.wraps(f)
         def inner_f(*args: P.args, **kwargs: P.kwargs) -> T:
+            # Optimization: nothing to check when every positional argument is an allowed one
+            if len(args) <= n_free_positional:
+                return f(*args, **kwargs)
             passed_positional_names = param_names[: len(args)]
 
             # Exclude allowed ones
@@ -222,9 +234,10 @@ def _deprecate_positional_args(
 
                     def call_site() -> str:
                         # Get location where the function is called
-                        frame = inspect.stack()[stack_level]
-                        file = Path(frame.filename).as_posix()
-                        return f'{file}:{frame.lineno}'
+                        # Optimization: ``inspect.stack()`` reads source lines for every frame
+                        frame = sys._getframe(stack_level)
+                        file = Path(frame.f_code.co_filename).as_posix()
+                        return f'{file}:{frame.f_lineno}'
 
                     def warn_positional_args() -> None:
                         from pyvista.core.errors import PyVistaDeprecationWarning  # noqa: PLC0415

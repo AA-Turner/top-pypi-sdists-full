@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class HTTPAPIHeaderCredentials(BaseModel):
     """
-    Optional HTTP credentials for HTTP API endpoints.  Supports arbitrary headers for authentication (API keys, Bearer tokens, etc.). Same pattern as RSS credentials but for REST API endpoints.  Security:     - Header values containing secrets are encrypted at rest via CSFLE     - Common patterns: Authorization: Bearer <token>, X-API-Key: <key>
+    Optional HTTP credentials for HTTP API endpoints.  Supports arbitrary headers for authentication (API keys, Bearer tokens, etc.). Same pattern as RSS credentials but for REST API endpoints.  Security:     - Header values containing secrets are redacted on read     - Common patterns: Authorization: Bearer <token>, X-API-Key: <key>
     """ # noqa: E501
     type: Optional[StrictStr] = 'http_headers'
     headers: Optional[Dict[str, StrictStr]] = Field(default=None, description="HTTP headers for API requests (e.g., Authorization, X-API-Key).")

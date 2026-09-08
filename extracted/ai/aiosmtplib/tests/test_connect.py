@@ -25,6 +25,7 @@ from .smtpd import (
     mock_response_unavailable,
     mock_response_disconnect,
     mock_response_eof,
+    mock_response_quit_error,
     mock_response_start_data_disconnect,
     mock_response_tls_ready_disconnect,
 )
@@ -456,20 +457,6 @@ async def test_create_connection_runtime_error_on_missing_loop(
         await client._create_connection(1.0)
 
 
-async def test_create_connection_runtime_error_on_missing_hostname() -> None:
-    client = SMTP(hostname=None, port=None, timeout=1.0)
-    client.loop = asyncio.get_running_loop()
-    with pytest.raises(RuntimeError, match="No hostname provided"):
-        await client._create_connection(1.0)
-
-
-async def test_create_connection_runtime_error_on_missing_port() -> None:
-    client = SMTP(hostname="localhost", port=None, timeout=1.0)
-    client.loop = asyncio.get_running_loop()
-    with pytest.raises(RuntimeError, match="No port provided"):
-        await client._create_connection(1.0)
-
-
 def test_password_and_oauth_token_generator_mutually_exclusive() -> None:
     """Test that password and oauth_token_generator cannot be used together."""
 
@@ -528,3 +515,55 @@ async def test_connect_with_oauth_token_generator_no_username(
             start_tls=True,
             oauth_token_generator=get_token,
         )
+
+
+async def test_connect_cancellation_releases_lock(
+    smtp_client: SMTP,
+    smtpd_server: asyncio.AbstractServer,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def slow_local_hostname() -> str:
+        await asyncio.sleep(10)
+        return "localhost"
+
+    monkeypatch.setattr(smtp_client, "_get_default_local_hostname", slow_local_hostname)
+
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(smtp_client.connect(), timeout=0.05)
+
+    monkeypatch.undo()
+
+    # Lock must be released so a subsequent connect() doesn't hang
+    await asyncio.wait_for(smtp_client.connect(), timeout=5.0)
+    assert smtp_client.is_connected
+    await smtp_client.quit()
+
+
+@pytest.mark.smtpd_mocks(smtp_QUIT=mock_response_quit_error)
+async def test_aexit_closes_connection_on_non_221_quit(smtp_client: SMTP) -> None:
+    async with smtp_client:
+        pass
+
+    assert not smtp_client.is_connected
+    assert smtp_client.transport is None
+
+
+async def test_stale_connection_lost_does_not_sabotage_reconnect(
+    smtp_client: SMTP,
+    smtpd_server: asyncio.AbstractServer,
+) -> None:
+    await smtp_client.connect()
+    old_protocol = smtp_client.protocol
+
+    await smtp_client.quit()
+    await smtp_client.connect()
+
+    assert smtp_client.is_connected
+    assert smtp_client._connect_lock is not None
+    assert smtp_client._connect_lock.locked()
+
+    # Simulate a stale connection_lost from the old protocol arriving after reconnect
+    old_protocol.connection_lost(None)
+
+    assert smtp_client.is_connected
+    assert smtp_client._connect_lock.locked()

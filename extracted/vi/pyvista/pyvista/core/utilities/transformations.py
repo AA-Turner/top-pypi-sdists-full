@@ -8,9 +8,9 @@ from typing import TypeAlias
 from typing import overload
 
 import numpy as np
+import pyvista_validation as _validation
 
 from pyvista._deprecate_positional_args import _deprecate_positional_args
-from pyvista.core import _validation
 from pyvista.core.utilities.misc import _reciprocal
 
 if TYPE_CHECKING:
@@ -25,6 +25,10 @@ if TYPE_CHECKING:
         NumpyArray[float],
         NumpyArray[float],
     ]
+
+# The default tolerances of `numpy.isclose`
+_ATOL = 1e-8
+_RTOL = 1e-5
 
 
 @_deprecate_positional_args(allowed=['axis', 'angle'])
@@ -41,14 +45,14 @@ def axis_angle_rotation(  # noqa: PLR0917
     the ``K`` cross product matrix for the unit vector ``n`` defining
     the axis of the rotation:
 
-             /   0  -nz   ny \
-        K =  |  nz    0  -nx |
-             \ -ny   nx    0 /
+             /   0  -nz   ``ny`` \
+        K =  |  ``nz``    0  -nx |
+             \ -ny   ``nx``    0 /
 
     For a rotation angle ``phi`` around the vector ``n`` the rotation
     matrix is given by
 
-        R = I + sin(phi) K  + (1 - cos(phi)) K^2
+        ``R`` = ``I`` + sin(phi) ``K``  + (1 - cos(phi)) ``K``^2
 
     where ``I`` is the 3-by-3 unit matrix and ``K^2`` denotes the matrix
     square of ``K``.
@@ -130,10 +134,10 @@ def axis_angle_rotation(  # noqa: PLR0917
 
     # check and normalize
     axis_norm = np.linalg.norm(axis_)
-    if np.isclose(axis_norm, 0):
+    if axis_norm <= _ATOL:
         msg = 'Cannot rotate around zero vector axis.'
         raise ValueError(msg)
-    if not np.isclose(axis_norm, 1):
+    if not abs(axis_norm - 1.0) <= _ATOL + _RTOL:
         axis_ = axis_ / axis_norm
 
     # build Rodrigues' rotation matrix
@@ -251,10 +255,10 @@ def reflection(
 
     # check and normalize
     normal_norm = np.linalg.norm(normal)
-    if np.isclose(normal_norm, 0):
+    if normal_norm <= _ATOL:
         msg = 'Plane normal cannot be zero.'
         raise ValueError(msg)
-    if not np.isclose(normal_norm, 1):
+    if not abs(normal_norm - 1.0) <= _ATOL + _RTOL:
         normal = normal / normal_norm
 
     # build reflection matrix
@@ -379,7 +383,7 @@ def decomposition(transformation: TransformLike, *, homogeneous: bool = False) -
     such that, when represented as 4x4 matrices, ``M = TRNSK``. The decomposition is
     unique and is computed with polar matrix decomposition.
 
-    By default, compact representations of the transformations are returned (e.g. as a
+    By default, compact representations of the transformations are returned (for example, as a
     3-element vector or a 3x3 matrix). Optionally, 4x4 matrices may be returned instead.
 
     .. note::
@@ -396,8 +400,8 @@ def decomposition(transformation: TransformLike, *, homogeneous: bool = False) -
 
     homogeneous : bool, default: False
         If ``True``, return the components (translation, rotation, etc.) as 4x4
-        homogeneous matrices. By default, reflection is a scalar, translation and
-        scaling are length-3 vectors, and rotation and shear are 3x3 matrices.
+        homogeneous matrices. By default, reflection is a scalar; translation and
+        scaling are length-3 vectors; and rotation and shear are 3x3 matrices.
 
     Returns
     -------

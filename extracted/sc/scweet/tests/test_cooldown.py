@@ -52,10 +52,18 @@ def test_compute_cooldown_maps_auth_rate_limit_transient_and_success():
     cfg = _cooldown_config()
     now = time.time()
 
+    # An unconfirmed 401 gives a short cooldown, not the 30-day block. A page 401 is not proof of a dead account.
     status_auth, until_auth, reason_auth = compute_cooldown(401, headers=None, config=cfg)
     assert status_auth == 401
-    assert reason_auth == "auth_failed"
-    assert until_auth >= now + 3599
+    assert reason_auth == "auth_unconfirmed"
+    assert until_auth <= now + 91
+    assert until_auth >= now + 89
+
+    # A proven-dead account, confirmed by a self-lookup, gives the 30-day block.
+    status_dead, until_dead, reason_dead = compute_cooldown(401, headers=None, config=cfg, proven_dead=True)
+    assert status_dead == 401
+    assert reason_dead == "auth_failed"
+    assert until_dead >= now + 3599
 
     reset_ts = int(now + 77)
     status_rl, until_rl, reason_rl = compute_cooldown(
@@ -107,15 +115,47 @@ def test_token_bucket_limiter_applies_min_delay_and_refill(monkeypatch):
     monkeypatch.setattr(limiter_mod.asyncio, "sleep", clock.sleep)
 
     async def _run():
-        paced = TokenBucketLimiter(requests_per_min=120, min_delay_s=0.5)
+        # An optional min-delay floor still works when a caller sets it.
+        paced = TokenBucketLimiter(capacity=120, refill_window_s=60.0, min_delay_s=0.5)
         await paced.acquire()  # immediate
         await paced.acquire()  # min-delay paced
         assert clock.now == 100.5
 
-        refill = TokenBucketLimiter(requests_per_min=2, min_delay_s=0.0)
+        # A capacity of 2 refilling over 60s refills one token every 30s.
+        refill = TokenBucketLimiter(capacity=2, refill_window_s=60.0, min_delay_s=0.0)
         await refill.acquire()  # consume token 1
         await refill.acquire()  # consume token 2
-        await refill.acquire()  # wait for refill (30s at 2/min)
+        await refill.acquire()  # wait for refill (30s at 2 per 60s)
         assert clock.now == 130.5
+
+    asyncio.run(_run())
+
+
+def test_token_bucket_bursts_the_window_then_paces(monkeypatch):
+    """The window model: a short run bursts, a long run slows to the window refill.
+
+    X counts the total in a window, so the bucket holds the window budget and refills over the window. A run
+    that fits inside the budget waits nothing.
+    """
+    import Scweet.limiter as limiter_mod
+
+    clock = _FakeClock()
+    monkeypatch.setattr(limiter_mod.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(limiter_mod.asyncio, "sleep", clock.sleep)
+
+    async def _run():
+        # 50 requests in a 900s window. A short run of 40 requests bursts with no wait.
+        limiter = TokenBucketLimiter(capacity=50, refill_window_s=900.0, min_delay_s=0.0)
+        start = clock.now
+        for _ in range(40):
+            await limiter.acquire()
+        assert clock.now == start, "a run inside the window budget must not wait"
+
+        # The 51st request past the budget waits one refill: 900s / 50 = 18s.
+        for _ in range(10):
+            await limiter.acquire()  # spends the last 10 of the 50
+        before = clock.now
+        await limiter.acquire()  # budget gone, must wait for a refill
+        assert clock.now == before + 18.0
 
     asyncio.run(_run())

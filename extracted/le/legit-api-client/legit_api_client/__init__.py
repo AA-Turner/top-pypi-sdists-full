@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.5264"
+__version__ = "1.1.5272"
 
 # Define package exports
 __all__ = [
@@ -211,6 +211,7 @@ __all__ = [
     "ProgrammingLanguage",
     "RepositoriesToContainersOperationDto",
     "RepositoryAutomaticBusinessImpactFactor",
+    "RepositoryBranchDto",
     "RepositoryContextFieldDto",
     "RepositoryControlDto",
     "RepositoryDirectory",
@@ -237,6 +238,8 @@ __all__ = [
     "StringCustomerFacingCursorPagedDto",
     "TagDto",
     "TagSource",
+    "TrackedBranchErrorDto",
+    "TrackedBranchErrorReason",
     "UploadCertificateDto",
     "UserDto",
     "UserPermission",
@@ -449,6 +452,7 @@ from legit_api_client.models.product_unit_type import ProductUnitType as Product
 from legit_api_client.models.programming_language import ProgrammingLanguage as ProgrammingLanguage
 from legit_api_client.models.repositories_to_containers_operation_dto import RepositoriesToContainersOperationDto as RepositoriesToContainersOperationDto
 from legit_api_client.models.repository_automatic_business_impact_factor import RepositoryAutomaticBusinessImpactFactor as RepositoryAutomaticBusinessImpactFactor
+from legit_api_client.models.repository_branch_dto import RepositoryBranchDto as RepositoryBranchDto
 from legit_api_client.models.repository_context_field_dto import RepositoryContextFieldDto as RepositoryContextFieldDto
 from legit_api_client.models.repository_control_dto import RepositoryControlDto as RepositoryControlDto
 from legit_api_client.models.repository_directory import RepositoryDirectory as RepositoryDirectory
@@ -475,6 +479,8 @@ from legit_api_client.models.source_dto import SourceDto as SourceDto
 from legit_api_client.models.string_customer_facing_cursor_paged_dto import StringCustomerFacingCursorPagedDto as StringCustomerFacingCursorPagedDto
 from legit_api_client.models.tag_dto import TagDto as TagDto
 from legit_api_client.models.tag_source import TagSource as TagSource
+from legit_api_client.models.tracked_branch_error_dto import TrackedBranchErrorDto as TrackedBranchErrorDto
+from legit_api_client.models.tracked_branch_error_reason import TrackedBranchErrorReason as TrackedBranchErrorReason
 from legit_api_client.models.upload_certificate_dto import UploadCertificateDto as UploadCertificateDto
 from legit_api_client.models.user_dto import UserDto as UserDto
 from legit_api_client.models.user_permission import UserPermission as UserPermission

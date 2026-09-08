@@ -257,15 +257,18 @@ def test_multipart_encoding_multiple_content_types(ctx):
             if files:
                 for file_tuple in files:
                     name = file_tuple[0]
-                    if name == "image":
-                        if len(file_tuple) > 1 and isinstance(file_tuple[1], tuple):
-                            if len(file_tuple[1]) == 3:
-                                _, _, content_type = file_tuple[1]
-                                assert content_type in ["image/png", "image/jpeg"], (
-                                    f"Got invalid content type: {content_type} (should be 'image/png' or 'image/jpeg', "
-                                    f"not the literal 'image/png, image/jpeg')"
-                                )
-                                content_types_seen.add(content_type)
+                    if (
+                        name == "image"
+                        and len(file_tuple) > 1
+                        and isinstance(file_tuple[1], tuple)
+                        and len(file_tuple[1]) == 3
+                    ):
+                        _, _, content_type = file_tuple[1]
+                        assert content_type in ["image/png", "image/jpeg"], (
+                            f"Got invalid content type: {content_type} (should be 'image/png' or 'image/jpeg', "
+                            f"not the literal 'image/png, image/jpeg')"
+                        )
+                        content_types_seen.add(content_type)
 
     test()
 
@@ -326,7 +329,8 @@ schema.config.phases.fuzzing.enabled = False
 
 @schema.include(path_regex="upload").parametrize()
 def test(case):
-    assert case.body == b"%PDF-1.4", f"Expected PDF bytes, got: {{case.body!r}}"
+    # Coverage also omits the required body entirely, which carries no payload to check.
+    assert case.body is NOT_SET or case.body == b"%PDF-1.4", f"Expected PDF bytes, got: {{case.body!r}}"
 """,
         paths={
             "/upload": {
@@ -378,9 +382,8 @@ def test_multipart_encoding_with_custom_strategy_fuzzing_phase(ctx):
 
     @given(strategy)
     def test(case):
-        if case.body is not None and isinstance(case.body, dict):
-            if "file" in case.body:
-                assert case.body["file"] == b"%PDF-1.4"
+        if case.body is not None and isinstance(case.body, dict) and "file" in case.body:
+            assert case.body["file"] == b"%PDF-1.4"
 
     test()
 

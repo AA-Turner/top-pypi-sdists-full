@@ -1,15 +1,11 @@
 [project]
 name = "latex2mathml"
-version = "3.81.0"
+version = "3.81.1"
 description = "Pure Python library for LaTeX to MathML conversion"
-authors = [
-    { name = "Ronie Martinez", email = "ronmarti18@gmail.com" }
-]
-license = { text = "MIT" }
 readme = "README.md"
 keywords = [
     "latex",
-    "mathml"
+    "mathml",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -26,12 +22,18 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 requires-python = ">=3.10"
-dependencies = [
-]
+dependencies = []
+
+[[project.authors]]
+name = "Ronie Martinez"
+email = "ronmarti18@gmail.com"
+
+[project.license]
+text = "MIT"
 
 [project.urls]
 repository = "https://github.com/roniemartinez/latex2mathml"
-"Donate" = "https://www.buymeacoffee.com/roniemartinez"
+Donate = "https://www.buymeacoffee.com/roniemartinez"
 
 [project.scripts]
 latex2mathml = "latex2mathml.converter:main"
@@ -53,7 +55,12 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
+select = [
+    "E",
+    "F",
+    "I",
+    "W",
+]
 ignore = ["E203"]
 
 [tool.ruff.lint.isort]
@@ -64,18 +71,11 @@ disallow_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = """\
-    --cov=latex2mathml \
-    --cov-report=term-missing \
-    --cov-report=xml \
-    --cov-report=html \
-    -vv \
-    -x \
-"""
-
-[build-system]
-requires = ["uv_build>=0.10.11,<0.11.0"]
-build-backend = "uv_build"
+addopts = "--cov=latex2mathml --cov-report=term-missing --cov-report=xml --cov-report=html -vv -x "
 
 [tool.uv.build-backend]
 module-root = ""
+
+[build-system]
+requires = ["uv_build>=0.10.11,<0.13.0"]
+build-backend = "uv_build"

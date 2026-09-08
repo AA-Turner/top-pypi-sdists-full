@@ -42,6 +42,8 @@ from .paginator import (
 from .type_defs import (
     AgenticRetrieveStreamRequestTypeDef,
     AgenticRetrieveStreamResponseTypeDef,
+    CheckIngestedDocumentAclRequestTypeDef,
+    CheckIngestedDocumentAclResponseTypeDef,
     CreateInvocationRequestTypeDef,
     CreateInvocationResponseTypeDef,
     CreateSessionRequestTypeDef,
@@ -60,6 +62,8 @@ from .type_defs import (
     GetExecutionFlowSnapshotResponseTypeDef,
     GetFlowExecutionRequestTypeDef,
     GetFlowExecutionResponseTypeDef,
+    GetIngestedDocumentAclRequestTypeDef,
+    GetIngestedDocumentAclResponseTypeDef,
     GetInvocationStepRequestTypeDef,
     GetInvocationStepResponseTypeDef,
     GetSessionRequestTypeDef,
@@ -170,6 +174,17 @@ class AgentsforBedrockRuntimeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent_runtime/client/#agentic_retrieve_stream)
         """
 
+    async def check_ingested_document_acl(
+        self, **kwargs: Unpack[CheckIngestedDocumentAclRequestTypeDef]
+    ) -> CheckIngestedDocumentAclResponseTypeDef:
+        """
+        Checks whether a user has access to a specific document by verifying against
+        the ingested access control list (ACL) in a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/check_ingested_document_acl.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent_runtime/client/#check_ingested_document_acl)
+        """
+
     async def create_invocation(
         self, **kwargs: Unpack[CreateInvocationRequestTypeDef]
     ) -> CreateInvocationResponseTypeDef:
@@ -271,6 +286,17 @@ class AgentsforBedrockRuntimeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent_runtime/client/#get_flow_execution)
         """
 
+    async def get_ingested_document_acl(
+        self, **kwargs: Unpack[GetIngestedDocumentAclRequestTypeDef]
+    ) -> GetIngestedDocumentAclResponseTypeDef:
+        """
+        Retrieves the ingested access control list (ACL) for a specific document in a
+        knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/get_ingested_document_acl.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent_runtime/client/#get_ingested_document_acl)
+        """
+
     async def get_invocation_step(
         self, **kwargs: Unpack[GetInvocationStepRequestTypeDef]
     ) -> GetInvocationStepResponseTypeDef:
@@ -296,7 +322,8 @@ class AgentsforBedrockRuntimeClient(AioBaseClient):
         self, **kwargs: Unpack[InvokeAgentRequestTypeDef]
     ) -> InvokeAgentResponseTypeDef:
         """
-        <note> </note> <p>Sends a prompt for the agent to process and respond to.
+        <note> <p>Amazon Bedrock Agents (now Amazon Bedrock Agents Classic) is no
+        longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/invoke_agent.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent_runtime/client/#invoke_agent)

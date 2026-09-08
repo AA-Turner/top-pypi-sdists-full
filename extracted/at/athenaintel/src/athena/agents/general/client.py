@@ -4,8 +4,9 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
-from ...types.general_agent_request import GeneralAgentRequest
+from ...types.general_agent_config import GeneralAgentConfig
 from ...types.general_agent_response import GeneralAgentResponse
+from ...types.input_message import InputMessage
 from .raw_client import AsyncRawGeneralClient, RawGeneralClient
 
 # this is used as the default value for optional parameters
@@ -27,52 +28,14 @@ class GeneralClient:
         """
         return self._raw_client
 
-    def batch(
-        self, *, request: typing.Sequence[GeneralAgentRequest], request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[GeneralAgentResponse]:
-        """
-        Coming soon! Call the general agent with batched requests and return the results.
-
-        Parameters
-        ----------
-        request : typing.Sequence[GeneralAgentRequest]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[GeneralAgentResponse]
-            Successful Response
-
-        Examples
-        --------
-        from athena import Athena, GeneralAgentConfig, GeneralAgentRequest, InputMessage
-
-        client = Athena(
-            api_key="YOUR_API_KEY",
-        )
-        client.agents.general.batch(
-            request=[
-                GeneralAgentRequest(
-                    config=GeneralAgentConfig(
-                        enabled_tools=["search"],
-                    ),
-                    messages=[
-                        InputMessage(
-                            content="Please call the search tool for AAPL news.",
-                            role="user",
-                        )
-                    ],
-                )
-            ],
-        )
-        """
-        _response = self._raw_client.batch(request=request, request_options=request_options)
-        return _response.data
-
     def invoke(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        config: GeneralAgentConfig,
+        messages: typing.Sequence[InputMessage],
+        channel: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GeneralAgentResponse:
         """
         Call the general Athena agent synchronously.
@@ -82,7 +45,16 @@ class GeneralClient:
 
         Parameters
         ----------
-        request : GeneralAgentRequest
+        config : GeneralAgentConfig
+
+        messages : typing.Sequence[InputMessage]
+            The messages to send to the agent. Each message should be a string (for text inputs) or a list of multimodal content parts.
+
+        channel : typing.Optional[str]
+            The channel through which the request is being made.
+
+        thread_id : typing.Optional[str]
+            Optional thread ID for conversation persistence. If not provided, a new thread will be created.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -94,68 +66,26 @@ class GeneralClient:
 
         Examples
         --------
-        from athena import Athena, GeneralAgentConfig, GeneralAgentRequest, InputMessage
+        from athena import Athena, GeneralAgentConfig, InputMessage
 
         client = Athena(
             api_key="YOUR_API_KEY",
         )
         client.agents.general.invoke(
-            request=GeneralAgentRequest(
-                config=GeneralAgentConfig(
-                    enabled_tools=["search"],
-                ),
-                messages=[
-                    InputMessage(
-                        content="Please call the search tool for AAPL news.",
-                        role="user",
-                    )
-                ],
+            config=GeneralAgentConfig(
+                enabled_tools=["search"],
             ),
+            messages=[
+                InputMessage(
+                    content="Please call the search tool for AAPL news.",
+                    role="user",
+                )
+            ],
         )
         """
-        _response = self._raw_client.invoke(request=request, request_options=request_options)
-        return _response.data
-
-    def stream_events(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> GeneralAgentResponse:
-        """
-        Coming soon! Call the general agent and stream events for real-time chat applications.
-
-        Parameters
-        ----------
-        request : GeneralAgentRequest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        GeneralAgentResponse
-            Successful Response
-
-        Examples
-        --------
-        from athena import Athena, GeneralAgentConfig, GeneralAgentRequest, InputMessage
-
-        client = Athena(
-            api_key="YOUR_API_KEY",
+        _response = self._raw_client.invoke(
+            config=config, messages=messages, channel=channel, thread_id=thread_id, request_options=request_options
         )
-        client.agents.general.stream_events(
-            request=GeneralAgentRequest(
-                config=GeneralAgentConfig(
-                    enabled_tools=["search"],
-                ),
-                messages=[
-                    InputMessage(
-                        content="Please call the search tool for AAPL news.",
-                        role="user",
-                    )
-                ],
-            ),
-        )
-        """
-        _response = self._raw_client.stream_events(request=request, request_options=request_options)
         return _response.data
 
 
@@ -174,65 +104,14 @@ class AsyncGeneralClient:
         """
         return self._raw_client
 
-    async def batch(
-        self, *, request: typing.Sequence[GeneralAgentRequest], request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.List[GeneralAgentResponse]:
-        """
-        Coming soon! Call the general agent with batched requests and return the results.
-
-        Parameters
-        ----------
-        request : typing.Sequence[GeneralAgentRequest]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[GeneralAgentResponse]
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from athena import (
-            AsyncAthena,
-            GeneralAgentConfig,
-            GeneralAgentRequest,
-            InputMessage,
-        )
-
-        client = AsyncAthena(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.agents.general.batch(
-                request=[
-                    GeneralAgentRequest(
-                        config=GeneralAgentConfig(
-                            enabled_tools=["search"],
-                        ),
-                        messages=[
-                            InputMessage(
-                                content="Please call the search tool for AAPL news.",
-                                role="user",
-                            )
-                        ],
-                    )
-                ],
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.batch(request=request, request_options=request_options)
-        return _response.data
-
     async def invoke(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        config: GeneralAgentConfig,
+        messages: typing.Sequence[InputMessage],
+        channel: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> GeneralAgentResponse:
         """
         Call the general Athena agent synchronously.
@@ -242,7 +121,16 @@ class AsyncGeneralClient:
 
         Parameters
         ----------
-        request : GeneralAgentRequest
+        config : GeneralAgentConfig
+
+        messages : typing.Sequence[InputMessage]
+            The messages to send to the agent. Each message should be a string (for text inputs) or a list of multimodal content parts.
+
+        channel : typing.Optional[str]
+            The channel through which the request is being made.
+
+        thread_id : typing.Optional[str]
+            Optional thread ID for conversation persistence. If not provided, a new thread will be created.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -256,12 +144,7 @@ class AsyncGeneralClient:
         --------
         import asyncio
 
-        from athena import (
-            AsyncAthena,
-            GeneralAgentConfig,
-            GeneralAgentRequest,
-            InputMessage,
-        )
+        from athena import AsyncAthena, GeneralAgentConfig, InputMessage
 
         client = AsyncAthena(
             api_key="YOUR_API_KEY",
@@ -270,76 +153,21 @@ class AsyncGeneralClient:
 
         async def main() -> None:
             await client.agents.general.invoke(
-                request=GeneralAgentRequest(
-                    config=GeneralAgentConfig(
-                        enabled_tools=["search"],
-                    ),
-                    messages=[
-                        InputMessage(
-                            content="Please call the search tool for AAPL news.",
-                            role="user",
-                        )
-                    ],
+                config=GeneralAgentConfig(
+                    enabled_tools=["search"],
                 ),
+                messages=[
+                    InputMessage(
+                        content="Please call the search tool for AAPL news.",
+                        role="user",
+                    )
+                ],
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.invoke(request=request, request_options=request_options)
-        return _response.data
-
-    async def stream_events(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> GeneralAgentResponse:
-        """
-        Coming soon! Call the general agent and stream events for real-time chat applications.
-
-        Parameters
-        ----------
-        request : GeneralAgentRequest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        GeneralAgentResponse
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from athena import (
-            AsyncAthena,
-            GeneralAgentConfig,
-            GeneralAgentRequest,
-            InputMessage,
+        _response = await self._raw_client.invoke(
+            config=config, messages=messages, channel=channel, thread_id=thread_id, request_options=request_options
         )
-
-        client = AsyncAthena(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.agents.general.stream_events(
-                request=GeneralAgentRequest(
-                    config=GeneralAgentConfig(
-                        enabled_tools=["search"],
-                    ),
-                    messages=[
-                        InputMessage(
-                            content="Please call the search tool for AAPL news.",
-                            role="user",
-                        )
-                    ],
-                ),
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.stream_events(request=request, request_options=request_options)
         return _response.data

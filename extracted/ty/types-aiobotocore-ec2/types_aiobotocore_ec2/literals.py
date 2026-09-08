@@ -34,6 +34,7 @@ __all__ = (
     "AddressFamilyType",
     "AddressTransferStatusType",
     "AffinityType",
+    "AggregationStatusEnumType",
     "AllocationStateType",
     "AllocationStrategyType",
     "AllocationTypeType",
@@ -44,6 +45,8 @@ __all__ = (
     "AmdSevSnpType",
     "AnalysisStatusType",
     "ApplianceModeSupportValueType",
+    "ApplicationStatusCheckEnumType",
+    "ApplicationStatusEnumType",
     "ApplyCancellationChargesType",
     "ArchitectureTypeType",
     "ArchitectureValuesType",
@@ -51,6 +54,7 @@ __all__ = (
     "AsnStateType",
     "AssociatedNetworkTypeType",
     "AssociationStatusCodeType",
+    "AssociationTypeEnumType",
     "AttachmentLimitTypeType",
     "AttachmentStatusType",
     "AutoAcceptSharedAssociationsValueType",
@@ -92,6 +96,7 @@ __all__ = (
     "CapacityReservationTypeType",
     "CapacityTenancyType",
     "CarrierGatewayStateType",
+    "ChronologicalOrderType",
     "ClientCertificateRevocationListStatusCodeType",
     "ClientVpnAuthenticationTypeType",
     "ClientVpnAuthorizationRuleStatusCodeType",
@@ -339,6 +344,7 @@ __all__ = (
     "GetTransitGatewayAttachmentPropagationsPaginatorName",
     "GetTransitGatewayMulticastDomainAssociationsPaginatorName",
     "GetTransitGatewayPolicyTableAssociationsPaginatorName",
+    "GetTransitGatewayPolicyTableEntriesPaginatorName",
     "GetTransitGatewayPrefixListReferencesPaginatorName",
     "GetTransitGatewayRouteTableAssociationsPaginatorName",
     "GetTransitGatewayRouteTablePropagationsPaginatorName",
@@ -400,12 +406,17 @@ __all__ = (
     "InterruptibleCapacityReservationAllocationStatusType",
     "InterruptionTypeType",
     "IpAddressTypeType",
+    "IpScopeEnumType",
     "IpSourceType",
+    "IpVersionEnumType",
     "IpamAddressHistoryResourceTypeType",
     "IpamAssociatedResourceDiscoveryStatusType",
+    "IpamByoipAdvertisementTypeType",
+    "IpamByoipCidrStateType",
     "IpamComplianceStatusType",
     "IpamDiscoveryFailureCodeType",
     "IpamExternalResourceVerificationTokenStateType",
+    "IpamInternetRegistryAssociationStateType",
     "IpamManagementStateType",
     "IpamMeteredAccountType",
     "IpamNetworkInterfaceAttachmentStatusType",
@@ -432,6 +443,10 @@ __all__ = (
     "IpamResourceDiscoveryAssociationStateType",
     "IpamResourceDiscoveryStateType",
     "IpamResourceTypeType",
+    "IpamRoutingPolicyRegistrationDeltaStateType",
+    "IpamRoutingPolicyRegistrationStateType",
+    "IpamRpkiStatusType",
+    "IpamRpkiStrengthType",
     "IpamScopeExternalAuthorityTypeType",
     "IpamScopeStateType",
     "IpamScopeTypeType",
@@ -492,6 +507,7 @@ __all__ = (
     "NetworkInterfacePermissionStateCodeType",
     "NetworkInterfaceStatusType",
     "NetworkInterfaceTypeType",
+    "NetworkProtocolEnumType",
     "NitroEnclavesSupportType",
     "NitroTpmSupportType",
     "OfferingClassTypeType",
@@ -536,6 +552,7 @@ __all__ = (
     "ResetImageAttributeNameType",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RirType",
     "RootDeviceTypeType",
     "RouteOriginType",
     "RouteServerAssociationStateType",
@@ -639,6 +656,7 @@ __all__ = (
     "TransitGatewayMeteringPolicyStateType",
     "TransitGatewayMulitcastDomainAssociationStateType",
     "TransitGatewayMulticastDomainStateType",
+    "TransitGatewayPolicyTableEntryStateType",
     "TransitGatewayPolicyTableStateType",
     "TransitGatewayPrefixListReferenceStateType",
     "TransitGatewayPropagationStateType",
@@ -740,6 +758,7 @@ AddressAttributeNameType = Literal["domain-name"]
 AddressFamilyType = Literal["ipv4", "ipv6"]
 AddressTransferStatusType = Literal["accepted", "disabled", "pending"]
 AffinityType = Literal["default", "host"]
+AggregationStatusEnumType = Literal["excluded", "included"]
 AllocationStateType = Literal[
     "available",
     "configuring",
@@ -764,6 +783,12 @@ AmdSevSnpSpecificationType = Literal["disabled", "enabled"]
 AmdSevSnpType = Literal["disabled", "enabled"]
 AnalysisStatusType = Literal["failed", "running", "succeeded"]
 ApplianceModeSupportValueType = Literal["disable", "enable"]
+ApplicationStatusCheckEnumType = Literal[
+    "failed", "initializing", "insufficient-data", "not-applicable", "passed"
+]
+ApplicationStatusEnumType = Literal[
+    "impaired", "initializing", "insufficient-data", "not-applicable", "ok", "suppressed"
+]
 ApplyCancellationChargesType = Literal["commitment-wind-down"]
 ArchitectureTypeType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
 ArchitectureValuesType = Literal["arm64", "arm64_mac", "i386", "x86_64", "x86_64_mac"]
@@ -787,6 +812,7 @@ AssociatedNetworkTypeType = Literal["vpc"]
 AssociationStatusCodeType = Literal[
     "associated", "associating", "association-failed", "disassociated", "disassociating"
 ]
+AssociationTypeEnumType = Literal["instance-id", "tag"]
 AttachmentLimitTypeType = Literal["dedicated", "shared"]
 AttachmentStatusType = Literal["attached", "attaching", "detached", "detaching"]
 AutoAcceptSharedAssociationsValueType = Literal["disable", "enable"]
@@ -912,6 +938,7 @@ CapacityReservationTenancyType = Literal["dedicated", "default"]
 CapacityReservationTypeType = Literal["capacity-block", "default"]
 CapacityTenancyType = Literal["dedicated", "default"]
 CarrierGatewayStateType = Literal["available", "deleted", "deleting", "pending"]
+ChronologicalOrderType = Literal["forward", "reverse"]
 ClientCertificateRevocationListStatusCodeType = Literal["active", "pending"]
 ClientVpnAuthenticationTypeType = Literal[
     "certificate-authentication", "directory-service-authentication", "federated-authentication"
@@ -1287,6 +1314,9 @@ GetTransitGatewayMulticastDomainAssociationsPaginatorName = Literal[
 ]
 GetTransitGatewayPolicyTableAssociationsPaginatorName = Literal[
     "get_transit_gateway_policy_table_associations"
+]
+GetTransitGatewayPolicyTableEntriesPaginatorName = Literal[
+    "get_transit_gateway_policy_table_entries"
 ]
 GetTransitGatewayPrefixListReferencesPaginatorName = Literal[
     "get_transit_gateway_prefix_list_references"
@@ -2829,11 +2859,26 @@ InterruptibleCapacityReservationAllocationStatusType = Literal[
 ]
 InterruptionTypeType = Literal["adhoc"]
 IpAddressTypeType = Literal["dualstack", "ipv4", "ipv6"]
+IpScopeEnumType = Literal["private"]
 IpSourceType = Literal["amazon", "byoip", "none"]
+IpVersionEnumType = Literal["ipv4", "ipv6"]
 IpamAddressHistoryResourceTypeType = Literal[
     "eip", "instance", "network-interface", "subnet", "vpc"
 ]
 IpamAssociatedResourceDiscoveryStatusType = Literal["active", "not-found"]
+IpamByoipAdvertisementTypeType = Literal["global", "regional"]
+IpamByoipCidrStateType = Literal[
+    "advertised",
+    "deprovisioned",
+    "failed-deprovision",
+    "failed-provision",
+    "pending-advertising",
+    "pending-deprovision",
+    "pending-provision",
+    "pending-withdrawal",
+    "provisioned",
+    "provisioned-not-publicly-advertisable",
+]
 IpamComplianceStatusType = Literal["compliant", "ignored", "noncompliant", "unmanaged"]
 IpamDiscoveryFailureCodeType = Literal[
     "assume-role-failure", "throttling-failure", "unauthorized-failure"
@@ -2845,6 +2890,17 @@ IpamExternalResourceVerificationTokenStateType = Literal[
     "delete-complete",
     "delete-failed",
     "delete-in-progress",
+]
+IpamInternetRegistryAssociationStateType = Literal[
+    "create-failed",
+    "create-in-progress",
+    "delete-complete",
+    "delete-failed",
+    "delete-in-progress",
+    "enable-complete",
+    "enable-failed",
+    "enable-in-progress",
+    "pending-enable",
 ]
 IpamManagementStateType = Literal["ignored", "managed", "unmanaged"]
 IpamMeteredAccountType = Literal["ipam-owner", "resource-owner"]
@@ -2982,6 +3038,19 @@ IpamResourceDiscoveryStateType = Literal[
 IpamResourceTypeType = Literal[
     "anycast-ip-list", "eip", "eni", "ipv6-pool", "public-ipv4-pool", "subnet", "vpc"
 ]
+IpamRoutingPolicyRegistrationDeltaStateType = Literal["failed", "pending", "published"]
+IpamRoutingPolicyRegistrationStateType = Literal[
+    "activate-failed",
+    "create-complete",
+    "create-in-progress",
+    "delete-complete",
+    "delete-in-progress",
+    "pending-activate",
+    "update-complete",
+    "update-in-progress",
+]
+IpamRpkiStatusType = Literal["invalid", "unknown", "valid"]
+IpamRpkiStrengthType = Literal["permissive", "strict"]
 IpamScopeExternalAuthorityTypeType = Literal["infoblox"]
 IpamScopeStateType = Literal[
     "create-complete",
@@ -3154,6 +3223,7 @@ NetworkInterfaceTypeType = Literal[
     "trunk",
     "vpc_endpoint",
 ]
+NetworkProtocolEnumType = Literal["http", "https"]
 NitroEnclavesSupportType = Literal["supported", "unsupported"]
 NitroTpmSupportType = Literal["supported", "unsupported"]
 OfferingClassTypeType = Literal["convertible", "standard"]
@@ -3247,6 +3317,7 @@ ReservedInstanceStateType = Literal[
 ResetFpgaImageAttributeNameType = Literal["loadPermission"]
 ResetImageAttributeNameType = Literal["launchPermission"]
 ResourceTypeType = Literal[
+    "application-status-check",
     "capacity-block",
     "capacity-manager-data-export",
     "capacity-reservation",
@@ -3277,6 +3348,7 @@ ResourceTypeType = Literal[
     "internet-gateway",
     "ipam",
     "ipam-external-resource-verification-token",
+    "ipam-internet-registry-association",
     "ipam-policy",
     "ipam-pool",
     "ipam-pool-allocation",
@@ -3357,6 +3429,7 @@ ResourceTypeType = Literal[
     "vpn-connection-device-type",
     "vpn-gateway",
 ]
+RirType = Literal["apnic", "arin", "lacnic", "ripe"]
 RootDeviceTypeType = Literal["ebs", "instance-store"]
 RouteOriginType = Literal[
     "Advertisement", "CreateRoute", "CreateRouteTable", "EnableVgwRoutePropagation"
@@ -3588,6 +3661,7 @@ TransitGatewayMulitcastDomainAssociationStateType = Literal[
     "rejected",
 ]
 TransitGatewayMulticastDomainStateType = Literal["available", "deleted", "deleting", "pending"]
+TransitGatewayPolicyTableEntryStateType = Literal["active", "deleted"]
 TransitGatewayPolicyTableStateType = Literal["available", "deleted", "deleting", "pending"]
 TransitGatewayPrefixListReferenceStateType = Literal[
     "available", "deleting", "modifying", "pending"
@@ -3700,8 +3774,11 @@ EC2ServiceName = Literal["ec2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -4006,6 +4083,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -4290,6 +4368,7 @@ PaginatorName = Literal[
     "get_transit_gateway_attachment_propagations",
     "get_transit_gateway_multicast_domain_associations",
     "get_transit_gateway_policy_table_associations",
+    "get_transit_gateway_policy_table_entries",
     "get_transit_gateway_prefix_list_references",
     "get_transit_gateway_route_table_associations",
     "get_transit_gateway_route_table_propagations",

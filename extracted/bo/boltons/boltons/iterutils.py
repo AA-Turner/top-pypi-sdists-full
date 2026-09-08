@@ -526,8 +526,9 @@ def xfrange(stop, start=None, step=1.0):
     else:
         # swap when all args are used
         stop, start = start * 1.0, stop * 1.0
+    count = int(math.ceil((stop - start) / step))
     cur = start
-    while cur < stop:
+    for _ in range(count):
         yield cur
         cur += step
 
@@ -648,8 +649,14 @@ def backoff_iter(start, stop, count=None, factor=2.0, jitter=False):
         raise ValueError('expected stop >= start, not %r' % stop)
     if count is None:
         denom = start if start else 1
-        count = 1 + math.ceil(math.log(stop/denom, factor))
-        count = count if start else count + 1
+        if factor == 1.0:
+            if start != stop:
+                raise ValueError('expected factor > 1.0 when count is None'
+                                 ' and start != stop, not %r' % factor)
+            count = 1
+        else:
+            count = 1 + math.ceil(math.log(stop/denom, factor))
+            count = count if start else count + 1
     if count != 'repeat' and count < 0:
         raise ValueError('count must be positive or "repeat", not %r' % count)
     if jitter:
@@ -1466,7 +1473,7 @@ class GUIDerator:
     def __init__(self, size=24):
         self.size = size
         if size < 20 or size > 36:
-            raise ValueError('expected 20 < size <= 36')
+            raise ValueError('expected 20 <= size <= 36')
         import hashlib
         self._sha1 = hashlib.sha1
         self.count = itertools.count()

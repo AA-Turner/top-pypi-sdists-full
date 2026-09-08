@@ -16,6 +16,7 @@ Usage::
         ListStreamGroupsPaginator,
         ListStreamSessionsByAccountPaginator,
         ListStreamSessionsPaginator,
+        ListStreamUrlsPaginator,
     )
 
     session = get_session()
@@ -26,6 +27,7 @@ Usage::
         list_stream_groups_paginator: ListStreamGroupsPaginator = client.get_paginator("list_stream_groups")
         list_stream_sessions_by_account_paginator: ListStreamSessionsByAccountPaginator = client.get_paginator("list_stream_sessions_by_account")
         list_stream_sessions_paginator: ListStreamSessionsPaginator = client.get_paginator("list_stream_sessions")
+        list_stream_urls_paginator: ListStreamUrlsPaginator = client.get_paginator("list_stream_urls")
     ```
 """
 
@@ -45,6 +47,8 @@ from .type_defs import (
     ListStreamSessionsByAccountOutputTypeDef,
     ListStreamSessionsInputPaginateTypeDef,
     ListStreamSessionsOutputTypeDef,
+    ListStreamUrlsInputPaginateTypeDef,
+    ListStreamUrlsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -57,6 +61,7 @@ __all__ = (
     "ListStreamGroupsPaginator",
     "ListStreamSessionsByAccountPaginator",
     "ListStreamSessionsPaginator",
+    "ListStreamUrlsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -131,4 +136,22 @@ class ListStreamSessionsPaginator(_ListStreamSessionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/paginator/ListStreamSessions.html#GameLiftStreams.Paginator.ListStreamSessions.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/paginators/#liststreamsessionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListStreamUrlsPaginatorBase = AioPaginator[ListStreamUrlsOutputTypeDef]
+else:
+    _ListStreamUrlsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListStreamUrlsPaginator(_ListStreamUrlsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/paginator/ListStreamUrls.html#GameLiftStreams.Paginator.ListStreamUrls)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/paginators/#liststreamurlspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListStreamUrlsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListStreamUrlsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/paginator/ListStreamUrls.html#GameLiftStreams.Paginator.ListStreamUrls.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/paginators/#liststreamurlspaginator)
         """

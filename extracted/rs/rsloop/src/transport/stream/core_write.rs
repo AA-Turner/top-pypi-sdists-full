@@ -44,6 +44,14 @@ fn is_write_batch_candidate(len: usize) -> bool {
     len > SMALL_WRITE_COALESCE_MIN_BYTES && len <= SMALL_WRITE_COALESCE_MAX_BYTES
 }
 
+fn stage_owned_buffer(pending: &mut Option<OwnedWriteBuffer>, data: OwnedWriteBuffer) {
+    if let Some(buffer) = pending {
+        buffer.extend_from_slice(data.remaining());
+    } else {
+        *pending = Some(data);
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum WriteBufferSignal {
     None,
@@ -195,12 +203,13 @@ impl StreamTransportCore {
     pub(super) fn queue_write(self: &Arc<Self>, data: OwnedWriteBuffer) -> io::Result<()> {
         let should_pause = self.record_write_buffer_enqueued(data.remaining().len())?;
         self.ensure_writer_worker();
-        if should_pause {
-            self.notify_pause_writing();
-        }
         if self.writer_tx.send(WriterCommand::Data(data)).is_err() {
             self.clear_write_buffer(false);
             self.fail_write(None);
+        } else if should_pause {
+            // pause_writing can re-enter close/write_eof. Publish these bytes
+            // first so that any control command follows them in the queue.
+            self.notify_pause_writing();
         }
         Ok(())
     }
@@ -229,6 +238,32 @@ impl StreamTransportCore {
         let buffer = pending.get_or_insert_with(|| self.new_pooled_write_buffer(data.len()));
         buffer.extend_from_slice(data);
         drop(pending);
+        self.finish_staged_write(should_pause);
+        Ok(())
+    }
+
+    /// Retain an already-owned write allocation instead of copying it into a
+    /// second pool slot. Only joining an existing batch requires a copy.
+    fn stage_direct_write_buffer(self: &Arc<Self>, data: OwnedWriteBuffer) -> io::Result<()> {
+        if data.is_empty() {
+            return Ok(());
+        }
+        if transport_stats_enabled() {
+            TRANSPORT_STAGED_WRITES.fetch_add(1, Ordering::Relaxed);
+        }
+        let should_pause = self.record_write_buffer_enqueued(data.len())?;
+        stage_owned_buffer(
+            &mut self
+                .pending_direct_write
+                .lock()
+                .expect("poisoned pending direct write"),
+            data,
+        );
+        self.finish_staged_write(should_pause);
+        Ok(())
+    }
+
+    fn finish_staged_write(self: &Arc<Self>, should_pause: bool) {
         if should_pause {
             self.notify_pause_writing();
         }
@@ -244,7 +279,6 @@ impl StreamTransportCore {
             self.direct_write_scheduled.store(false, Ordering::Release);
             self.fail_write(None);
         }
-        Ok(())
     }
 
     pub(crate) fn flush_pending_direct_write(self: &Arc<Self>) {
@@ -272,10 +306,13 @@ impl StreamTransportCore {
                 self.record_write_buffer_drained(written);
             }
             Ok(written) => {
-                self.record_write_buffer_drained(written);
                 data.advance(written);
                 self.set_write_backpressure_active(true);
                 self.queue_recorded_write(data);
+                // Draining can synchronously call resume_writing, which may
+                // write again or close the transport. Transfer ownership of
+                // the unsent suffix first, before Python can re-enter us.
+                self.record_write_buffer_drained(written);
             }
             Err(err)
                 if err.kind() == io::ErrorKind::Interrupted
@@ -285,6 +322,25 @@ impl StreamTransportCore {
                 self.queue_recorded_write(data);
             }
             Err(err) => self.fail_write(Some(err)),
+        }
+    }
+
+    /// Hand staged bytes to the writer before a graceful shutdown. On Windows
+    /// a normal flush can defer while the completion reader is being rebound;
+    /// close/write_eof must not bypass those bytes via the lazy-writer shortcut.
+    #[cfg(any(windows, test))]
+    pub(super) fn queue_pending_direct_write(self: &Arc<Self>) {
+        self.direct_write_scheduled.store(false, Ordering::Release);
+        let pending = self
+            .pending_direct_write
+            .lock()
+            .expect("poisoned pending direct write")
+            .take();
+        if let Some(data) = pending {
+            // The dedicated writer can wait for socket progress without
+            // blocking Python. These bytes have already been accounted for.
+            self.set_write_backpressure_active(true);
+            self.queue_recorded_write(data);
         }
     }
 
@@ -326,9 +382,10 @@ impl StreamTransportCore {
             match self.try_direct_tasked_write(data) {
                 Ok(written) if written == data.len() => return Ok(()),
                 Ok(written) => {
-                    let mut pending =
-                        OwnedWriteBuffer::from_pooled_slice(data, &self.write_buffer_pool);
-                    pending.advance(written);
+                    let pending = OwnedWriteBuffer::from_pooled_slice(
+                        &data[written..],
+                        &self.write_buffer_pool,
+                    );
                     self.set_write_backpressure_active(true);
                     return self.queue_write(pending);
                 }
@@ -370,7 +427,7 @@ impl StreamTransportCore {
         {
             self.request_poll_reader();
             if !self.poll_reader_ready.load(Ordering::Acquire) {
-                return self.stage_direct_write(data.remaining());
+                return self.stage_direct_write_buffer(data);
             }
         }
 
@@ -378,7 +435,7 @@ impl StreamTransportCore {
             if self.direct_write_scheduled.load(Ordering::Acquire)
                 || (self.coalesce_small_writes && is_write_batch_candidate(data.remaining().len()))
             {
-                return self.stage_direct_write(data.remaining());
+                return self.stage_direct_write_buffer(data);
             }
             match self.try_direct_tasked_write(data.remaining()) {
                 Ok(written) if written == data.remaining().len() => return Ok(()),
@@ -404,14 +461,12 @@ impl StreamTransportCore {
         self.queue_write(data)
     }
 
-    #[allow(clippy::unused_async_trait_impl)]
     pub async fn wait_readable(self: &Arc<Self>) -> io::Result<()> {
         Err(io::Error::other(
             "transport readiness is not used in std transport mode",
         ))
     }
 
-    #[allow(clippy::unused_async_trait_impl)]
     pub async fn wait_writable(self: &Arc<Self>) -> io::Result<()> {
         Err(io::Error::other(
             "transport readiness is not used in std transport mode",
@@ -696,12 +751,68 @@ mod tests {
 
     use pyo3::prelude::*;
 
-    use super::{OwnedWriteBuffer, is_write_batch_candidate};
+    use super::{OwnedWriteBuffer, is_write_batch_candidate, stage_owned_buffer};
     use crate::transport::stream::test_support::{build_test_core, shutdown_test_core};
     use crate::transport::stream::tuning::{
         SMALL_WRITE_COALESCE_MAX_BYTES, SMALL_WRITE_COALESCE_MIN_BYTES, STREAM_READ_BUFFER_SIZE,
         max_write_buffer_size,
     };
+
+    #[test]
+    fn owned_staging_moves_first_allocation_and_appends_only_unsent_bytes() {
+        let mut first = OwnedWriteBuffer::from_slice(b"sent-first");
+        first.advance(5);
+        let address = first.remaining().as_ptr();
+        let mut pending = None;
+        stage_owned_buffer(&mut pending, first);
+        assert_eq!(pending.as_ref().unwrap().remaining().as_ptr(), address);
+        assert_eq!(pending.as_ref().unwrap().remaining(), b"first");
+        let mut second = OwnedWriteBuffer::from_slice(b"sent-second");
+        second.advance(5);
+        stage_owned_buffer(&mut pending, second);
+        assert_eq!(pending.as_ref().unwrap().remaining(), b"firstsecond");
+    }
+
+    #[test]
+    fn deferred_staged_bytes_precede_shutdown_without_double_accounting() {
+        use super::super::WriterCommand;
+        use std::sync::atomic::Ordering;
+
+        crate::initialize_python_for_tests();
+        Python::attach(|py| {
+            for finish in [WriterCommand::Close, WriterCommand::WriteEof] {
+                let (core, writer_rx, loop_core, _protocol) = build_test_core(py);
+                core.stage_direct_write(b"first").unwrap();
+                core.stage_direct_write(b"second").unwrap();
+                assert_eq!(core.get_write_buffer_size(), 11);
+
+                core.queue_pending_direct_write();
+                core.queue_pending_direct_write(); // A repeated close cannot duplicate bytes.
+                assert!(!core.direct_write_scheduled.load(Ordering::Acquire));
+                assert!(core.pending_direct_write.lock().unwrap().is_none());
+                assert_eq!(core.get_write_buffer_size(), 11);
+                let eof = matches!(finish, WriterCommand::WriteEof);
+                assert!(core.writer_tx.send(finish).is_ok());
+                let WriterCommand::Data(data) =
+                    writer_rx.try_recv().ok().expect("queued writer command")
+                else {
+                    panic!("shutdown overtook staged data");
+                };
+                assert_eq!(data.remaining(), b"firstsecond");
+                assert!(matches!(
+                    (
+                        writer_rx.try_recv().ok().expect("queued writer command"),
+                        eof
+                    ),
+                    (WriterCommand::WriteEof, true) | (WriterCommand::Close, false)
+                ));
+                assert!(writer_rx.try_recv().is_err());
+                core.record_write_buffer_drained(data.len());
+                assert_eq!(core.get_write_buffer_size(), 0);
+                shutdown_test_core(core, writer_rx, loop_core);
+            }
+        });
+    }
 
     #[test]
     fn write_batch_range_tracks_the_normal_read_block() {

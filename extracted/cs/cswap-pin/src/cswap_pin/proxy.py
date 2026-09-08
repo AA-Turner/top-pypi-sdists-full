@@ -2679,6 +2679,27 @@ def _dial_with_no_chain(upstream: tuple[str, int], timeout: float = 15):
     return socket.create_connection(upstream, timeout=timeout)
 
 
+_ALLOW_DIRECT_ENV = "CSWAP_PIN_ALLOW_DIRECT"
+
+
+class NoChainHopError(OSError):
+    """Every configured hop is unusable and this host must not dial direct.
+
+    Measured 2026-09-07 04:11-04:33Z on a corporate host: when the local hops
+    stopped accepting under load, the fall-through direct dial reached the
+    TLS-inspecting proxy 49 times, which answered 403 "Access restricted by
+    network policy" to every API and Remote Control request, and Claude Code
+    renders a 403 as "Please run /login", clears goals and kills subagents.
+    A 503 with Retry-After is retried; a 403 is terminal. A host with NO
+    chain configured never sees this: there direct is the normal path.
+    """
+
+
+def _direct_allowed() -> bool:
+    """The old fall-through, opt-in: hosts whose direct route is harmless."""
+    return os.environ.get(_ALLOW_DIRECT_ENV, "") == "1"
+
+
 def _connect_ok(status: "str | None") -> bool:
     """Whether a CONNECT status line reports success.
 
@@ -5303,6 +5324,16 @@ def last_arm_cutoff() -> int | None:
 # is merely slow and contended gets cut off as if it were stalled.
 _MINT_LOCK_BOUND_S = 45.0
 
+# HOW LONG AN "UNKNOWN" IDENTITY VERDICT IS TRUSTED BEFORE THE NEXT MINT
+# RE-ASKS. A settled verdict ("ok"/"foreign") never re-probes for the same
+# token string; an inconclusive one (a timed-out or errored profile call, or
+# a profile with no comparable field) would otherwise either be trusted
+# forever (masking a store that turned foreign right after the blip) or
+# re-dialled on every single mint (the per-request cost this whole check
+# exists to avoid). One short backoff bounds the exposure to one blip plus
+# one wait, never until the token's own expiry.
+_IDENTITY_PROBE_BACKOFF_S = 60.0
+
 
 def make_pin_token_provider(switcher, account_num: str, email: str):
     """Build the ``pin_token_provider`` callable for :class:`PinProxy`.
@@ -5486,9 +5517,119 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
     # condemn this daemon". A set is used only for its atomic add/discard.
     _deferred: set[int] = set()
 
+    # UNKNOWN NEVER VOUCHES AND NEVER FLIPS. A per-(token, mail) verdict --
+    # NOT token alone (a cross-wired store can answer one string for two
+    # different pinned slots) and NOT `_cred_cache` -- a verdict never pops
+    # or skips that cache; the store is still read once per rotation, and
+    # every access (cache hit or miss) re-checks the verdict cache below
+    # instead of trusting a token forever once cached. "ok"/"foreign" are
+    # settled and never re-probed (a store repair or a re-pin mints a new
+    # pair); "unknown" -- an exception, a timeout, a non-dict answer, or no
+    # comparable field on either side -- re-probes after one backoff.
+    # {(token, mail.lower()): (verdict, bearer_ref, next_probe_at)}.
+    _identity_cache: dict = {}
+
+    def _ref(email=None, uuid=None) -> dict:
+        """One shape for "who", from either writer: the mint check only
+        ever has an email (no certdir here to reach a pin uuid); the 12h
+        beat only ever has uuids. Either half absent reads as null."""
+        return {"email": email, "uuid": uuid}
+
+    def _set_identity(mismatch: "dict | None") -> None:
+        """The one place a transition logs -- shared with
+        `_freshen_pin_identity` via `note_verdict`."""
+        was = provider.identity_mismatch
+        provider.identity_mismatch = mismatch
+        if bool(mismatch) == bool(was):
+            return
+        if mismatch:
+            who = lambda r: (r or {}).get("email") or (r or {}).get("uuid")
+            _log_lifecycle(
+                f"the pin ({who(mismatch['pinned'])}) answers as "
+                f"{who(mismatch['bearer'])} -- refusing to splice a "
+                "foreign bearer, treating this exactly like an empty read")
+        else:
+            _log_lifecycle(
+                "the pin answers as itself again -- resuming normal "
+                "pin splicing")
+
+    def _identity_ok(token: str, mail: str) -> bool:
+        """THE INVARIANT: the pin never splices a bearer whose identity is
+        not the pin's. Keyed on (token, mail) -- the token cache's OWN key,
+        so a settled verdict is consulted on every access, cache hit or
+        miss, and never bypassed. A CONFIRMED foreign token also sets
+        `provider._foreign_this_call` and `provider.blind_reason`, read
+        THIS CALL ONLY by `_can_mint`/`can_pin_cached`/`_warn_unpinnable` --
+        never the sticky `identity_mismatch` dict, which is for /health and
+        the transition log alone: a later, UNRELATED failure (the store
+        going unreadable) must read as that failure, not as a stale foreign
+        verdict from a previous call.
+        """
+        key = (token, (mail or "").lower())
+        now = time.monotonic()
+        cached = _identity_cache.get(key)
+        if cached and (cached[0] != "unknown" or now < cached[2]):
+            verdict, bearer_ref = cached[0], cached[1]
+        else:
+            verdict, bearer_ref = "unknown", None
+            try:
+                fresh = pin_profile_for(token)
+            except Exception:  # noqa: BLE001 — a flaky probe must not crash a mint
+                fresh = None
+            # COMPARE EMAIL, THE ONLY FIELD THIS SCOPE HAS GROUND TRUTH FOR.
+            # There is no certdir here (see this function's module-level
+            # sibling `make_pin_token_provider`'s docstring), so no pin uuid
+            # to fall back to when the profile omits an email -- that
+            # comparison belongs to `_freshen_pin_identity`, which has one.
+            if isinstance(fresh, dict):
+                pin_email = (mail or "").lower()
+                bearer_email = fresh.get("emailAddress")
+                if bearer_email and pin_email:
+                    verdict = ("ok" if str(bearer_email).lower() == pin_email
+                               else "foreign")
+                    bearer_ref = _ref(str(bearer_email), fresh.get("accountUuid"))
+            _identity_cache[key] = (
+                verdict, bearer_ref, now + _IDENTITY_PROBE_BACKOFF_S)
+        if verdict == "foreign":
+            _set_identity({"pinned": _ref(mail), "bearer": bearer_ref})
+            provider._tls.foreign = True
+            who = (bearer_ref or {}).get("email") or (bearer_ref or {}).get("uuid")
+            provider.blind_reason = (
+                f"the pinned slot's credential answers as {who}, not "
+                f"the pin ({mail})")
+            return False
+        if verdict == "ok":
+            _set_identity(None)
+        return True
+
+    def _note_verdict(token: "str | None", verdict: str,
+                       bearer_ref=None) -> None:
+        """`_freshen_pin_identity`'s own (uuid-based) finding, fed into the
+        SAME verdict cache `_identity_ok` reads. KEYED ON THIS PROVIDER'S
+        OWN mail (`_current_target()`, the same `switcher.resolve_account()
+        [1]`) -- NEVER a caller-supplied one: freshen used to key on the
+        profile's own (optional, differently-cased) email, so its "foreign"
+        landed under a key no mint ever read and a later mint's "unknown"
+        still spliced while /health showed the mismatch."""
+        target = _current_target()
+        mail = target[1] if target else None
+        if token and mail:
+            _identity_cache[(token, mail.lower())] = (
+                verdict, bearer_ref, time.monotonic() + _IDENTITY_PROBE_BACKOFF_S)
+        if verdict == "foreign":
+            _set_identity({"pinned": _ref(mail), "bearer": bearer_ref})
+        elif verdict == "ok":
+            _set_identity(None)
+
     def provider() -> str | None:
         _deferred.discard(1)
         _stalled.flag = False
+        # PER-CALL, always reset here -- read by `_can_mint`,
+        # `can_pin_cached` and the request path's `_warn_unpinnable`
+        # instead of the sticky `identity_mismatch` dict, so a LATER,
+        # unrelated failure (the store going unreadable) is never masked by
+        # a foreign verdict this same provider gave on some earlier call.
+        provider._tls.foreign = False
         target = _current_target()
         if target is None:
             return None
@@ -5501,18 +5642,11 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
         # ~20ms added to the one channel whose latency is what a live claude.ai
         # view times out on.
         #
-        # KEYED ON THE ACCOUNT, which is what keeps `cswap pin <other>` working
-        # under a live session. The pin is still re-read from disk every
-        # request; only the CREDENTIAL for an account already resolved is held,
-        # so a re-pin is a different key and therefore a miss. The TTL then
-        # bounds the one case the key cannot see: the same account's credential
-        # rotated underneath us by the usage collector or the autoswitcher.
-        # KEYED ON (slot, email), NOT the slot alone. A slot is stable while
-        # the identity in it is not — `cswap move` renumbers, and a stub that
-        # returned one number for two emails proved the point in the suite: the
-        # re-pin case failed because the cache answered for the previous
-        # account. The email is the half that actually identifies who this
-        # credential belongs to.
+        # KEYED ON (slot, email), NOT the slot alone -- a slot is stable
+        # while the identity in it is not (`cswap move` renumbers), and the
+        # email is the half that actually identifies who a credential
+        # belongs to. Re-read from disk every request, so a re-pin is a
+        # different key and therefore a miss, without a restart.
         ckey = (num, mail)
         # EXPIRY IS THE INVALIDATION, NOT TIME. An access token carries its
         # own expiry, and another process rotating the stored credential does
@@ -5521,15 +5655,17 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
         # something that cannot have happened yet, and the first cut of this
         # cache had a 5s one for exactly that non-reason.
         #
-        # The rotation case is handled where it matters: when the held token
-        # IS expired, the refresh path below takes the lock and re-reads the
-        # store before deciding. That re-read predates this cache.
+        # NEVER INVALIDATED BY A VERDICT EITHER: a foreign or unknown token
+        # stays exactly as cached as an ok one -- the store is still read
+        # once per rotation, not once per probe-backoff-window, and every
+        # access (this fast path AND the cold path below) re-asks
+        # `_identity_ok`, which is what actually decides whether to splice.
         cached = _cred_cache.get(ckey)
         if cached is not None:
             provider.blind_reason = ""
             token = _live_token(cached)
             if token:
-                return token  # common path: no lock, no network
+                return token if _identity_ok(token, mail) else None
             creds = cached
         else:
             # COLD -- the very first read for this key, which is EVERY key on
@@ -5556,65 +5692,112 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
                 "stuck credential read or refresh, not a broken pin")
             return None
         provider._lock_acquired_at = time.monotonic()
+        token = None
+        rotated = None
         try:
-            # Someone may have rotated it while we waited, or this is the
-            # cold-cache case above and this IS the first read — either way
-            # the read happens here, under the lock.
-            creds = switcher.read_account_credentials(num, mail) or creds
-            if not creds:
-                # SAY WHICH SLOT, or "could not be read" is unfalsifiable. An
-                # empty read and a read of the WRONG slot are indistinguishable
-                # from the warning alone, and hours went into a machine where
-                # the second was never excluded. The provider is the only
-                # place that knows what it asked for.
-                provider.blind_reason = f"no credential for slot {num} ({mail})"
-                return None
-            provider.blind_reason = ""
-            # REPLACE THE HELD COPY, or the cache keeps handing back the
-            # expired blob and every later request re-enters this lock.
-            _cred_cache[ckey] = creds
-            token = _live_token(creds)
+            # A RACING THREAD MAY HAVE ALREADY ROTATED THIS SLOT WHILE WE
+            # QUEUED ON THIS LOCK. `_cred_cache[ckey]` is written (below, and
+            # by any other thread's own pass through this same critical
+            # section) BEFORE its writer releases the lock -- so a live
+            # entry here, now that we hold the lock, is already the
+            # winner's rotation. Reuse it rather than re-reading the
+            # on-disk store: that store is not guaranteed to reflect the
+            # rotation yet (the persist below runs AFTER the lock releases,
+            # behind a network identity probe), and reading it here would
+            # hand back the already-consumed one-time refresh token for a
+            # second, doomed refresh.
+            fresh = _cred_cache.get(ckey)
+            token = _live_token(fresh) if fresh is not None else None
             if token:
-                return token
-            # CARRY THE REFRESH VERDICT OUT. `RefreshOutcome.error` already
-            # classifies this -- `invalid_grant` means the lineage is dead and
-            # only a person can fix it, `transient` means try again -- and it
-            # was being dropped on the floor. The warning then said "could not
-            # be read" for a credential that read perfectly, whose ACCESS token
-            # had merely expired and whose refresh the server had rejected.
-            # Those need opposite responses and looked identical in a log.
-            def _consume_recording(c):
-                out = _consume(c, num, mail)
-                err = getattr(out, "error", None)
-                if err:
-                    provider.blind_reason = (
-                        f"refresh {err} for slot {num} ({mail})")
-                return out
-
-            token, rotated = resolve_pin_token(creds, _consume_recording)
-            if token is None and not getattr(provider, "blind_reason", ""):
-                # The refresh reported no error and still produced nothing.
-                # Say that rather than nothing.
+                provider.blind_reason = ""
+            elif fresh is not None and fresh is not cached:
+                # A RACING THREAD ROTATED THIS SLOT WHILE WE QUEUED, but its
+                # rotation carries no live token (no `accessToken`, or an
+                # `expiresAt` already inside the margin). `fresh` is still
+                # the newest state -- `cached` is what THIS call saw before
+                # ever touching the lock (`None` on a cold read), so
+                # identity, not liveness, is what says someone else already
+                # ran the critical section. The on-disk store still holds
+                # the refresh token that rotation already spent; re-reading
+                # it now would refresh a second time with the same
+                # already-consumed one-time token.
+                creds = fresh
                 provider.blind_reason = (
-                    f"no token after refresh for slot {num} ({mail})")
-            if rotated:
-                # HELD COPY, SAME AS THE COLD-READ WRITE ABOVE. `_cred_cache`
-                # was left holding the pre-refresh (expired) blob after a
-                # successful refresh -- `can_pin_cached()`, and therefore
-                # `/health`'s `can_pin`, kept reading a permanently-expired
-                # cache after every rotation, until the NEXT credential read
-                # happened to run.
-                _cred_cache[ckey] = rotated
-            # The gate persists internally (under the slot lock, CAS on the
-            # refresh-token fingerprint). Persisting again here would write
-            # back OUTSIDE that lock and could clobber a racing writer's
-            # newer lineage — the exact failure the gate exists to prevent.
-            if rotated and not hasattr(switcher, "consume_backup_grant"):
-                switcher.persist_backup_credentials(num, mail, rotated)
-            return token
+                    f"no usable token after a racing refresh for slot "
+                    f"{num} ({mail})")
+            else:
+                # Someone may have rotated it while we waited, or this is the
+                # cold-cache case above and this IS the first read — either way
+                # the read happens here, under the lock.
+                creds = switcher.read_account_credentials(num, mail) or creds
+                if not creds:
+                    # SAY WHICH SLOT, or "could not be read" is unfalsifiable. An
+                    # empty read and a read of the WRONG slot are indistinguishable
+                    # from the warning alone, and hours went into a machine where
+                    # the second was never excluded. The provider is the only
+                    # place that knows what it asked for.
+                    provider.blind_reason = f"no credential for slot {num} ({mail})"
+                    return None
+                provider.blind_reason = ""
+                # REPLACE THE HELD COPY, or the cache keeps handing back the
+                # expired blob and every later request re-enters this lock.
+                _cred_cache[ckey] = creds
+                token = _live_token(creds)
+                if not token:
+                    # CARRY THE REFRESH VERDICT OUT. `RefreshOutcome.error`
+                    # already classifies this -- `invalid_grant` means the
+                    # lineage is dead and only a person can fix it, `transient`
+                    # means try again -- and it was being dropped on the floor.
+                    def _consume_recording(c):
+                        out = _consume(c, num, mail)
+                        err = getattr(out, "error", None)
+                        if err:
+                            provider.blind_reason = (
+                                f"refresh {err} for slot {num} ({mail})")
+                        return out
+
+                    token, rotated = resolve_pin_token(creds, _consume_recording)
+                    if token is None and not getattr(provider, "blind_reason", ""):
+                        # The refresh reported no error and still produced
+                        # nothing. Say that rather than nothing.
+                        provider.blind_reason = (
+                            f"no token after refresh for slot {num} ({mail})")
+                    if rotated:
+                        # HELD COPY, SAME AS THE COLD-READ WRITE ABOVE, AND
+                        # UNCONDITIONAL -- the identity verdict (decided AFTER
+                        # this lock releases, below) must not gate whether the
+                        # rotation is kept: `_cred_cache` was left holding the
+                        # pre-refresh (expired) blob after a successful refresh
+                        # otherwise, and `can_pin_cached()` kept reading a
+                        # permanently-expired cache after every rotation.
+                        _cred_cache[ckey] = rotated
+                    # The gate persists internally (under the slot lock, CAS on
+                    # the refresh-token fingerprint). Persisting again here
+                    # would write back OUTSIDE that lock and could clobber a
+                    # racing writer's newer lineage — the exact failure the
+                    # gate exists to prevent.
         finally:
             provider._lock_acquired_at = None
             refresh_lock.release()
+        # THE PROBE RUNS OUTSIDE THE LOCK: it only needs the token string,
+        # and every OTHER pinned thread must not queue behind a network call
+        # this one is making for itself. NO TOKEN AT ALL (a refresh that
+        # succeeded but whose rotated blob carries no `accessToken`) means
+        # there is nothing to probe with, and defaults to "not foreign" --
+        # a missing accessToken is a host quirk, not the store answering as
+        # someone else, and must not gate the persist below.
+        foreign = bool(token) and not _identity_ok(token, mail)
+        # NEVER PERSIST A FOREIGN VERDICT'S ROTATION: this fallback path is
+        # for a switcher that predates `consume_backup_grant` (the gated one
+        # persists internally, above); it must not write a foreign bearer's
+        # rotated bytes back under this slot -- would reinforce the exact
+        # corruption this branch exists to stop. GATED ON THE FOREIGN
+        # VERDICT ALONE, not on `bool(token)`: the one-time refresh token is
+        # spent the moment `rotated` exists, whether or not the blob it
+        # produced happens to carry an `accessToken`, and skipping the write
+        if rotated and not foreign and not hasattr(switcher, "consume_backup_grant"):
+            switcher.persist_backup_credentials(num, mail, rotated)
+        return token if (token and not foreign) else None
 
     def pin_is_noop() -> bool:
         """True when returning no token is the CORRECT answer, not a failure.
@@ -5665,6 +5848,12 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
         """
         if pin_is_noop():
             return True
+        # A FOREIGN VERDICT NEEDS NO SPECIAL CASE HERE: `_cred_cache` is
+        # never invalidated by a verdict (see `provider`), so a declined
+        # token is still the one this reads -- a daemon that CAN mint
+        # (just declines to splice) correctly answers true, without
+        # consulting the sticky `identity_mismatch` dict (see `_identity_ok`
+        # for why that dict must never gate this).
         target = _current_target()
         if target is None:
             return True
@@ -5676,6 +5865,15 @@ def make_pin_token_provider(switcher, account_num: str, email: str):
     provider.refresh_lock = refresh_lock
     provider.can_pin_cached = can_pin_cached
     provider._lock_acquired_at = None
+    # None: the last verified mint answered as the pin. A dict
+    # ({"pinned": ..., "bearer": ...}) while it does not -- set by
+    # `_identity_ok` above and, at its 12h beat, by `_freshen_pin_identity`
+    # via `note_verdict`. /health and the transition log ONLY -- never a
+    # gate; see `_identity_ok`'s docstring for `_foreign_this_call`, which
+    # is that gate.
+    provider.identity_mismatch = None
+    provider._tls = threading.local()
+    provider.note_verdict = _note_verdict
     return provider
 
 
@@ -5718,7 +5916,18 @@ def _can_mint(provider) -> "bool | None":
     if _mint_lock_busy(provider) is not None:
         return None
     try:
-        return bool(provider()) or _pin_is_noop(provider)
+        token = provider()
+        if token:
+            return True
+        # A FOREIGN VERDICT IS A DECLINED SPLICE, NOT A FAILED MINT. The
+        # store answered; this daemon just must not use what it said. The
+        # self-heal watchdog reads `is False` as "recycle me" -- and a
+        # recycle cannot repair a cross-wired credential store, since a
+        # fresh process reads the very same one. THIS CALL'S OWN flag, not
+        # the sticky `identity_mismatch` -- see `_identity_ok`.
+        if getattr(getattr(provider, "_tls", None), "foreign", False):
+            return True
+        return _pin_is_noop(provider)
     except Exception:  # noqa: BLE001 — a health question is never fatal
         return False
 
@@ -8405,6 +8614,20 @@ _STANDBY_RELEASE_BOUND_S = 3.0
 # outlast a broken credential store, and a launch must never hang on this.
 _PIN_WAIT_TRIES = 3
 _PIN_WAIT_S = 0.3
+
+
+class _BlindMintRefusal(Exception):
+    """Raised by `_wait_for_pin_token` when a bridge-create route hit a REAL
+    failed mint (`blind_reason` set, not a no-op) rather than relaying it on
+    whatever bearer is live. Caught beside each of the two routes that call
+    `_wait_for_pin_token` and turned into the same 503 `_refuse_stalled_mint`
+    already answers a stalled mint with."""
+
+    def __init__(self, method: str, path: str, reason: str) -> None:
+        super().__init__(f"{method} {path}: {reason}")
+        self.method = method
+        self.path = path
+        self.reason = reason
 # The ladder a daemon that keeps dying costs: one attempt every ~5s rather than
 # four a second, so a persistently broken build does not spin the box while the
 # port it holds stays answering.
@@ -11355,12 +11578,17 @@ class PinProxy:
         # Whether egress is currently bypassing the chain, and through which
         # hop when it is not — see _note_egress.
         self._egress_direct = False
+        self._egress_refused = False
         self._egress_hop: "tuple[str, int] | None" = None
         # STICKY, unlike the two above. They are the state right now, so a
         # chain that breaks and recovers reads green to every probe that
         # arrives after it — and every probe arrives after it, because nobody
         # is watching at the instant it breaks. See `direct_last`.
         self._egress_direct_last: "float | None" = None
+        # STICKY, same reason: `_egress_refused` resets the moment a hop
+        # returns, so without this a refused outage that healed before the
+        # next probe would leave no trace at all. See `direct_last`.
+        self._egress_refused_last: "float | None" = None
         # DEGRADED, not abandoned — see `hop_degraded_last`. Separate from the
         # one above because falling to a LATER hop is still egress through a
         # configured proxy, so `direct` stays False and that stamp never runs.
@@ -12287,6 +12515,12 @@ class PinProxy:
         #: this daemon only inherited on a handover, which never posted a
         #: create to it at all.
         self._last_create: "float | None" = None
+        #: bridge ids `_note_bridge_superseded` has already logged for their
+        #: CURRENT life. A retry against a dead worker re-adds the id to
+        #: `_bridge_posts` before the 409 comes back, so presence there
+        #: cannot gate the line; this is cleared on re-registration, which
+        #: is when the id starts a new life worth its own line.
+        self._bridge_superseded_logged: set = set()
         # conn -> bridge id, for connections carrying that bridge's inbound
         # stream. NOT "when a stream was last opened": the stream is issued
         # once and held for the life of the session, so a recency stamp ages
@@ -12848,7 +13082,8 @@ class PinProxy:
         except Exception:  # noqa: BLE001 — a statistic must not cost a request
             pass
 
-    def _note_bridge_superseded(self, path: str, status_line: bytes) -> None:
+    def _note_bridge_superseded(self, method: str, path: str,
+                                 status_line: bytes) -> None:
         """A worker POST refused with 409 is not a bridge gone quiet.
 
         `_note_bridge_traffic` records only the REQUEST, so a bridge the
@@ -12859,9 +13094,34 @@ class PinProxy:
         `sweep_superseded_bridges` clears the same id eventually, driven by
         a listing poll, but always later than the 409 that already told us.
 
+        The takeover itself is logged too, once per bridge life: this is the
+        only site in the fleet that ever sees the 409 that names it, and a
+        Remote Control session dropped by it has nothing else to point at.
+        Gated on `_bridge_superseded_logged`, not on the eviction: a retry
+        against the same dead worker re-adds the id before its own 409
+        arrives, so a burst of them logs once rather than once per retry.
+
         Never raises: a statistic must not cost a request.
         """
         try:
+            if method == "POST" and status_line.startswith(b"HTTP/1.1 2"):
+                is_bridge_mint = _BRIDGE_REGISTER.search(path)
+                is_worker_register = (
+                    not is_bridge_mint and _WORKER_SUBTREE.search(path)
+                    and path.split("?", 1)[0].endswith("/register"))
+                if is_bridge_mint or is_worker_register:
+                    bid = _BRIDGE_ID.search(path)
+                    if bid:
+                        code = status_line[9:12].decode("latin1", "replace")
+                        _log_lifecycle(
+                            f"bridge {bid.group(1)} registered a new worker "
+                            f"— {code} on {method} {path}")
+                        # A NEW LIFE, on the CONFIRMED outcome: a mint that
+                        # never got a 2xx never became a registration, so a
+                        # failed-mint + worker-409 retry loop must not clear
+                        # the guard on every retry.
+                        self._bridge_superseded_logged.discard(bid.group(1))
+                    return
             if not status_line.startswith(b"HTTP/1.1 409"):
                 return
             if not _WORKER_SUBTREE.search(path) or _EVENT_STREAM.search(path):
@@ -12875,6 +13135,17 @@ class PinProxy:
             stream_lost = getattr(self, "_stream_lost", None)
             if stream_lost is not None:
                 stream_lost.pop(b, None)
+            # NOT `was_posting = b in self._bridge_posts`, which reads True
+            # on every retry: `_handle_one_request` notes traffic for a path
+            # BEFORE forwarding it, so a stuck retry re-adds `b` here ahead
+            # of each 409 that follows. This set is what makes the line
+            # once-per-life instead of once-per-retry.
+            already_logged = b in self._bridge_superseded_logged
+            self._bridge_superseded_logged.add(b)
+            if not already_logged:
+                _log_lifecycle(
+                    f"bridge {b} superseded by a newer worker registration "
+                    f"— 409 on {method} {path}")
         except Exception:  # noqa: BLE001 — a statistic must not cost a request
             pass
 
@@ -13485,7 +13756,17 @@ class PinProxy:
         # answers None then -- there is nothing to swap -- but that token IS
         # the pin's, and the uuid check below is what keeps a foreign answer
         # out. Same fallback `sweep_policy_once` makes.
-        token = self._pin_token_provider() or _active_oauth_token()
+        provider_token = self._pin_token_provider()
+        # ONLY A provider()-SOURCED TOKEN FEEDS THE MINT-TIME STATE below,
+        # via `note_verdict`: the `_active_oauth_token()` fallback answers
+        # for the pin==active no-op case, and judging THAT bearer would
+        # read a merely deferred or stalled provider (also None) as a
+        # confirmed foreign identity, overriding /health's deliberate
+        # can_pin=True for that case. Hoisted once: a bare test double
+        # carries no `note_verdict` at all.
+        note_verdict = provider_token and getattr(
+            self._pin_token_provider, "note_verdict", None)
+        token = provider_token or _active_oauth_token()
         fresh = pin_profile_for(token) if token else None
         if not fresh or fresh.get("accountUuid") != ident.get("accountUuid"):
             # SAY WHY, or a stale stamp on one host and a fresh one on another
@@ -13502,7 +13783,14 @@ class PinProxy:
                     f"the pin's profile stamp is {age_s / 3600:.0f}h old and "
                     f"could not be refreshed: {why} — Claude Code re-fetches "
                     "it as the active account on the next session start")
+            if fresh and note_verdict:
+                note_verdict(
+                    provider_token, "foreign",
+                    {"email": fresh.get("emailAddress"),
+                     "uuid": fresh.get("accountUuid")})
             return False
+        if note_verdict:
+            note_verdict(provider_token, "ok")
         remember_pin_identity(certdir, {**ident, **fresh})
         _log_lifecycle("refreshed the pin's profile from the server, so the "
                        "live config stays inside Claude Code's fetch window")
@@ -14454,6 +14742,17 @@ class PinProxy:
                 self._plain_relay(line, conn)
                 return
             conn.close()
+        except _BlindMintRefusal as e:
+            # Raised by `_plain_relay`'s own `_wait_for_pin_token` call
+            # (absolute-form bridge create). Same 503, no keep-alive loop to
+            # feed it back into on this path — the request line is answered
+            # and the connection ends, same as every other refusal here.
+            self._refuse_stalled_mint(conn, e.method, e.path, e.reason,
+                                      close=True)
+            try:
+                conn.close()
+            except OSError:
+                pass
         except Exception:
             try:
                 conn.close()
@@ -14510,6 +14809,22 @@ class PinProxy:
             token = self._pin_token_provider()
             if token:
                 return token
+        # BLIND, NOT A NO-OP: the mint was actually asked and actually failed
+        # (see the sites that set `blind_reason` above
+        # `make_pin_token_provider`'s `provider()`), so relaying below on
+        # whatever bearer is live would fix this bridge's owner PERMANENTLY
+        # under the wrong account. A no-op means there is nothing to swap.
+        #
+        # A STALL IS NOT EXCLUDED HERE, on purpose -- a stall sets
+        # `blind_reason` too (see the lock-timeout site above), and this is
+        # the ONLY place `should_wait_for_pin` guards on the absolute-form
+        # path (`_plain_relay`), which has no pre-check the way the MITM path
+        # does. Excluding it would relay THIS route's stalls on the ACTIVE
+        # bearer -- the exact permanent give-away this guard exists to close.
+        provider = self._pin_token_provider
+        blind_reason = getattr(provider, "blind_reason", "")
+        if blind_reason and not _pin_is_noop(provider):
+            raise _BlindMintRefusal(method, path, blind_reason)
         _log_lifecycle(
             "a bridge was created without the pin: the token could not be "
             "minted in time, so this session belongs to the active account "
@@ -14538,33 +14853,54 @@ class PinProxy:
         except OSError:
             pass
 
-    def _refuse_stalled_mint(self, tls, method: str, path: str) -> bool:
+    def _refuse_stalled_mint(self, tls, method: str, path: str,
+                              reason: str | None = None,
+                              close: bool = False) -> bool:
         """Answer a pinned request 503 rather than queue it behind a refresh
         lock a stalled credential store may never release.
 
-        Keeps the connection alive (``Connection: keep-alive``) like an
-        ordinary reply: the swap being unavailable this once says nothing
-        about the connection, and closing it would cost every OTHER request
-        pipelined on it too (see ``_forward``'s note on Remote Control's
-        worker connection).
+        Keeps the connection alive (``Connection: keep-alive``) by default,
+        like an ordinary reply: the swap being unavailable this once says
+        nothing about the connection, and closing it would cost every OTHER
+        request pipelined on it too (see ``_forward``'s note on Remote
+        Control's worker connection). That is true on the MITM path, which
+        loops right back into serving the next request on the SAME socket —
+        but the absolute-form callers hand this a connection they are about
+        to close themselves (`_handle_client` has no keep-alive loop of its
+        own here), so advertising keep-alive there just races the caller's
+        own FIN with whatever reused the socket believing it. ``close=True``
+        is for those callers, matching the ``Connection: close`` its
+        neighbour ``_refuse_unauthorized`` already sends on the same path.
 
         Rate-limited like ``_note_mint_busy`` and ``_note_busy_slot`` — a
         session retrying a pinned route against a stuck store would
-        otherwise write one line per request.
+        otherwise write one line per request. LOAD-BEARING here too, not
+        just tidiness: a 503 on ``/v1/environments/bridge`` makes the Claude
+        Code daemon worker exit non-zero and its supervisor respawn it on
+        backoff, so an unthrottled line would write one entry per respawn for
+        as long as the pin stays blind.
+
+        ``reason`` names WHY when the caller already knows (a real failed
+        mint, via ``_BlindMintRefusal``); ``None`` keeps the original
+        stalled-store wording, which is the only cause this used to answer
+        for.
         """
         now = time.monotonic()
         last = getattr(self, "_stall_refused_at", None)
         if last is None or now - last >= _BUSY_REPORT_COOLDOWN_S:
             self._stall_refused_at = now
             _log_lifecycle(
-                f"{method} {path} refused (503): the pinned token could not "
-                f"be minted within {_MINT_LOCK_BOUND_S:.0f}s -- a stalled "
-                "credential store, not a broken pin"
+                f"{method} {path} refused (503): "
+                + (reason if reason else
+                   f"the pinned token could not be minted within "
+                   f"{_MINT_LOCK_BOUND_S:.0f}s -- a stalled credential "
+                   "store, not a broken pin")
             )
         try:
             tls.sendall(
                 b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n"
-                b"Connection: keep-alive\r\n\r\n"
+                + (b"Connection: close\r\n\r\n" if close
+                   else b"Connection: keep-alive\r\n\r\n")
             )
         except OSError:
             pass
@@ -14585,13 +14921,25 @@ class PinProxy:
         """
         if getattr(self, "_warned_unpinnable", False):
             return
+        # A FOREIGN VERDICT NEVER REACHES THE LATCH, checked HERE rather than
+        # only at the call site -- a second caller added later that skips a
+        # guard it never knew to duplicate would otherwise consume this
+        # once-per-daemon budget on a declined splice, silencing the warning
+        # (and the record) for a LATER, genuinely unreadable store on the
+        # same daemon (I2). The advice below — "re-run `cswap pin` from a
+        # normal terminal" — is also wrong for this case, so nothing here
+        # fires for it: not the latch, not `mark_daemon_unpinnable`, not the
+        # stderr line.
+        if getattr(getattr(getattr(self, "_pin_token_provider", None),
+                            "_tls", None), "foreign", False):
+            return
         self._warned_unpinnable = True
-        # RECORD IT, do not only say it. The advice this prints — "re-run
-        # `cswap pin` from a normal terminal" — cannot work on its own:
-        # ensure_proxy reuses any daemon whose fingerprint matches, so the re-
-        # run finds this same blind daemon and returns it. Written to the state
-        # file so the NEXT ensure_proxy can see what only this process could
-        # learn, and recycle instead of reusing.
+        # RECORD IT, do not only say it. Written to the state file so the
+        # NEXT ensure_proxy can see what only this process could learn, and
+        # recycle instead of reusing (`ensure_proxy` reuses any daemon whose
+        # fingerprint matches). `_read_alive_port` refuses ANY daemon
+        # carrying this mark outright (`st.get("unpinnable")`), independent
+        # of `can_pin`.
         try:
             mark_daemon_unpinnable(self._certdir)
         except Exception:  # noqa: BLE001 — advisory; never break a request
@@ -14694,6 +15042,14 @@ class PinProxy:
         # `_can_pin_from_cache` and the daemon-start warm that keeps it
         # populated on a healthy daemon.
         mint_stalled_s = _mint_lock_busy(self._pin_token_provider)
+        # SET BY `_identity_ok` (at mint) and `_freshen_pin_identity` (at its
+        # 12h beat). ADDITIVE, never ANDed into `can_pin` below: a foreign
+        # bearer is a daemon that CAN mint and has chosen not to splice, and
+        # `_read_alive_port` recycles on a false `can_pin` -- a fresh daemon
+        # cannot repair a cross-wired credential store. This field alone
+        # carries the foreign state.
+        pin_identity_mismatch = getattr(
+            self._pin_token_provider, "identity_mismatch", None)
         can_pin = (True if mint_stalled_s is not None
                    else _can_pin_from_cache(self._pin_token_provider))
         # WHAT EGRESS IS ACTUALLY DOING, not what it is configured to do.
@@ -14739,9 +15095,11 @@ class PinProxy:
              # about code that may not be serving. Readers deciding whether a
              # behaviour is present need this one.
              "version": _own_version(),
-             "can_pin": can_pin, "egress": egress,
+             "can_pin": can_pin, "pin_identity_mismatch": pin_identity_mismatch,
+             "egress": egress,
              "holder_pid": holder_pid,
              "direct_last": _iso_utc(self._egress_direct_last),
+             "refused_last": _iso_utc(self._egress_refused_last),
              "hop_degraded_last": _iso_utc(self._hop_degraded_last),
              # ADDITIVE, never a replacement for `can_pin`: whether the mint
              # check itself is currently busy behind a refresh in progress
@@ -14749,7 +15107,14 @@ class PinProxy:
              # see the note above `mint_stalled_s` is computed from.
              "mint_stalled": mint_stalled_s is not None,
              "mint_stalled_s": (round(mint_stalled_s, 1)
-                                 if mint_stalled_s is not None else None)}
+                                 if mint_stalled_s is not None else None),
+             # ADDITIVE: the ONE view an operator has of a daemon that is
+             # failing bridge-creates closed instead of relaying them (see
+             # `_wait_for_pin_token`) — /health never published this before.
+             # Never CALLS the provider; reads the field its last real mint
+             # attempt already left set (blank on a live or no-op pin).
+             "blind_reason": getattr(
+                 self._pin_token_provider, "blind_reason", "") or None}
         )
         try:
             conn.sendall(
@@ -14850,8 +15215,22 @@ class PinProxy:
                        if h.split(":", 1)[0].strip().lower() == "user-agent"),
                       "")
             if is_pinned_route(rel, ua):
-                token = self._wait_for_pin_token(
-                    method, rel, self._pin_token_provider())
+                token = self._pin_token_provider()
+                # THE SAME PRE-CHECK THE MITM PATH MAKES (see its own note
+                # above `_wait_for_pin_token`'s call there). Without it, a
+                # stalled credential store pays this thread's own
+                # `provider()` call PLUS `_wait_for_pin_token`'s three
+                # retries, each blockable up to `_MINT_LOCK_BOUND_S` on
+                # `refresh_lock` -- on a thread-per-connection server with no
+                # cap, and now repeated every respawn once a blind mint 503s
+                # the bridge worker into backing off and retrying.
+                if token is None and should_wait_for_pin(method, rel) and getattr(
+                        self._pin_token_provider, "mint_stalled", None
+                ) and self._pin_token_provider.mint_stalled():
+                    self._refuse_stalled_mint(conn, method, rel, close=True)
+                    conn.close()
+                    return
+                token = self._wait_for_pin_token(method, rel, token)
                 if token and any(h.split(":", 1)[0].strip().lower()
                                  == "authorization" for h in headers):
                     # ARMED ONLY WHEN THE SWAP HAPPENED. With no token nothing
@@ -14887,20 +15266,40 @@ class PinProxy:
         # that is not a downgrade, it is a failure. This is the auto-updater's
         # and telemetry's path.
         def dial(hdrs):
-            """`(socket, head)` for one attempt, or `(None, None)`."""
-            for chain in self._chain_candidates():
+            """`(socket, head)` for one attempt, or `(None, None)`.
+
+            Raises :class:`NoChainHopError` when every hop failed and this
+            host must not fall through to a direct dial — the same rule
+            `_connect_upstream` and `_blind_tunnel` already enforce for the
+            MITM and CONNECT paths.
+            """
+            candidates = self._chain_candidates()
+            for chain in candidates:
                 try:
                     sock = _dial_chain(chain, extra_ca=self._chain_ca())
                 except (OSError, ssl.SSLError):
                     continue
                 # A plain proxy takes the absolute-form line as-is. Our own
                 # credential for the chain rides here, not the client's.
+                self._egress_refused = False
                 return sock, (
                     f"{method} {url} HTTP/1.1\r\n"
                     + "\r\n".join(hdrs)
                     + "\r\n"
                     + chain.connect_headers()
                     + "\r\n"
+                )
+            # EVERY HOP FAILED. A host WITH a chain configured must not fall
+            # through to a direct dial here either — see NoChainHopError
+            # above; this is the same rule, at the third egress path
+            # (`claude remote-control`'s bridge client, and the
+            # auto-updater/telemetry). CSWAP_PIN_ALLOW_DIRECT=1 restores the
+            # old fall-through.
+            if candidates and not _direct_allowed():
+                self._note_egress_refused()
+                raise NoChainHopError(
+                    "no chain hop reachable and direct egress is refused on "
+                    f"this host ({_ALLOW_DIRECT_ENV}=1 allows it)"
                 )
             try:
                 sock = socket.create_connection((host, port), timeout=15)
@@ -14927,7 +15326,22 @@ class PinProxy:
                             (unswapped, False)):
             if hdrs is None:
                 break
-            up, head = dial(hdrs)
+            try:
+                up, head = dial(hdrs)
+            except NoChainHopError:
+                # Nothing has reached the client yet on this path — the
+                # request line and headers were only ever read, never
+                # answered. A retryable 503, not a dropped connection and
+                # never the inspector's 403.
+                try:
+                    conn.sendall(
+                        b"HTTP/1.1 503 Service Unavailable\r\nRetry-After: 2\r\n"
+                        b"Content-Length: 0\r\nConnection: close\r\n\r\n"
+                    )
+                except OSError:
+                    pass
+                conn.close()
+                return
             if up is None:
                 conn.close()
                 return
@@ -14996,7 +15410,13 @@ class PinProxy:
                         # `deaf_bridges` read this session as HOLDING a stream
                         # after its stream ended — a false negative in the
                         # check, worse than the leak.
-                got_one = self._handle_one_request(tls, conn)
+                try:
+                    got_one = self._handle_one_request(tls, conn)
+                except _BlindMintRefusal as e:
+                    # Same 503 a stalled mint already answers with, and the
+                    # same keep-alive: the swap failed, not the connection.
+                    got_one = self._refuse_stalled_mint(
+                        tls, e.method, e.path, e.reason)
                 self._local.up_idle_since = time.monotonic()
                 served_one = True
                 if not got_one:
@@ -15235,20 +15655,36 @@ class PinProxy:
             except Exception:
                 pass
 
-        keep = self._forward(method, path, headers, body, tls, swapped=swapped)
-        if keep is _AUTH_REJECTED:
-            # THE SWAP ITSELF WAS REFUSED. Send it again as it arrived. A
-            # 401/403/404 is terminal to the client — SSETransport treats those
-            # as permanent (M7y = new Set([401,403,404])), sets state="closed",
-            # and never reconnects, so one misrouted request kills Remote
-            # Control for the life of the process. That makes route
-            # classification a single point of permanent failure, and no amount
-            # of care in the predicate removes the risk. Retrying without the
-            # swap turns "I guessed wrong about this route" into "this request
-            # went out unpinned", which is the failure mode the whole module is
-            # already built to tolerate.
-            self._drop_upstream()
-            keep = self._forward(method, path, original_headers, body, tls)
+        try:
+            keep = self._forward(method, path, headers, body, tls, swapped=swapped)
+            if keep is _AUTH_REJECTED:
+                # THE SWAP ITSELF WAS REFUSED. Send it again as it arrived. A
+                # 401/403/404 is terminal to the client — SSETransport treats
+                # those as permanent (M7y = new Set([401,403,404])), sets
+                # state="closed", and never reconnects, so one misrouted
+                # request kills Remote Control for the life of the process.
+                # That makes route classification a single point of permanent
+                # failure, and no amount of care in the predicate removes the
+                # risk. Retrying without the swap turns "I guessed wrong about
+                # this route" into "this request went out unpinned", which is
+                # the failure mode the whole module is already built to
+                # tolerate. Inside the same try as the first `_forward`: a
+                # chain that dies between the two calls is a NoChainHopError
+                # here too, and it must answer 503, not escape as a bare
+                # OSError to the connection's `finally`.
+                self._drop_upstream()
+                keep = self._forward(method, path, original_headers, body, tls)
+        except NoChainHopError:
+            # No hop and no direct: a retryable answer, not a dropped
+            # connection and never the inspector's 403.
+            try:
+                tls.sendall(
+                    b"HTTP/1.1 503 Service Unavailable\r\nRetry-After: 2\r\n"
+                    b"Content-Length: 0\r\nConnection: keep-alive\r\n\r\n"
+                )
+            except OSError:
+                return False
+            return True
         # A client that asked to close gets closed regardless of the upstream.
         for k, v in headers:
             if k.lower() == "connection" and "close" in v.lower():
@@ -15416,7 +15852,7 @@ class PinProxy:
                 on_status=lambda st: (
                     self._note_attachment(path, st),
                     self._note_rename(method, path, st),
-                    self._note_bridge_superseded(path, st),
+                    self._note_bridge_superseded(method, path, st),
                     self._tunnel_trace(
                         f"    <- {st.decode('latin1', 'replace').strip()}"
                         f"  {method} {path}  ua={_ua}"),
@@ -15586,8 +16022,18 @@ class PinProxy:
                     break
                 time.sleep(_CHAIN_HEAL_POLL_S)
         # Every hop is still unusable after the grace period (or there was
-        # never a hop): fall through to the unchained dial, which is what this
-        # method has always ended in.
+        # never a hop). A host WITH a chain configured no longer falls through
+        # to the unchained dial: on the machines that configure one, direct is
+        # the corporate inspector and its 403 reads as a login failure
+        # (NoChainHopError; the request path answers 503 + Retry-After).
+        # CSWAP_PIN_ALLOW_DIRECT=1 restores the fall-through where direct is
+        # known to be harmless. A host with no chain dials direct as before.
+        if candidates and not _direct_allowed():
+            self._note_egress_refused()
+            raise NoChainHopError(
+                "no chain hop reachable and direct egress is refused on this "
+                f"host ({_ALLOW_DIRECT_ENV}=1 allows it)"
+            )
         sock = _dial_with_no_chain(self._upstream)
         sock.settimeout(None)
         self._note_egress(direct=True, configured=bool(candidates))
@@ -15656,6 +16102,22 @@ class PinProxy:
         # distinction to make — see `_note_egress(configured=...)`.
         return None
 
+    def _note_egress_refused(self) -> None:
+        """Log once per outage that every hop is down and direct is refused.
+
+        Reset by :meth:`_note_egress` the moment a hop carries a request
+        again, so a flapping chain costs one line per outage, not per
+        connection.
+        """
+        if self._egress_refused:
+            return
+        self._egress_refused = True
+        self._egress_refused_last = time.time()
+        _log_lifecycle(
+            "egress REFUSED — no chain hop reachable and direct egress is not "
+            "allowed on this host; answering 503 Retry-After until a hop returns"
+        )
+
     def _note_hop_unusable(self, hop: "tuple[str, int]", why: str) -> None:
         """Log WHY a hop was skipped, once per (hop, reason) transition.
 
@@ -15708,6 +16170,8 @@ class PinProxy:
         machine is".
         """
         state = None if direct else hop
+        if not direct:
+            self._egress_refused = False
         if direct == self._egress_direct and state == self._egress_hop:
             return
         self._egress_direct, self._egress_hop = direct, state
@@ -15910,7 +16374,8 @@ class PinProxy:
         # let the chain be the only answer. A filtering proxy (per-domain
         # forwards, a corporate MITM) may refuse the ingress host outright, and
         # closing here made that refusal invisible.
-        for chain in self._chain_candidates():
+        candidates = self._chain_candidates()
+        for chain in candidates:
             try:
                 up = _dial_chain(chain, extra_ca=self._chain_ca())
                 up.sendall(
@@ -15949,8 +16414,29 @@ class PinProxy:
             up.close()
             up = None
         elif up is not None:
+            # A hop just CARRIED this tunnel. `_egress_refused` is otherwise
+            # cleared only by `_note_egress`, which the MITM path alone
+            # calls — so on tunnel-only traffic a past outage's flag (and
+            # `/health.refused_last`) never resets. Same condition
+            # `_note_egress` uses (direct=False).
+            self._egress_refused = False
             up = carrying  # the peeked byte, pushed back in front of the stream
         if up is None:
+            # Every hop failed (down, or refused this host outright). A host
+            # WITH a chain configured must not fall through to a direct dial
+            # here either — see NoChainHopError above; this is the same rule,
+            # at the CONNECT path Remote Control's WebSocket takes.
+            if candidates and not _direct_allowed():
+                self._note_egress_refused()
+                try:
+                    conn.sendall(
+                        b"HTTP/1.1 503 Service Unavailable\r\nRetry-After: 2\r\n"
+                        b"Content-Length: 0\r\nConnection: close\r\n\r\n"
+                    )
+                except OSError:
+                    pass
+                conn.close()
+                return
             try:
                 up = socket.create_connection((host, port), timeout=15)
             except OSError:
@@ -16479,6 +16965,18 @@ def _switch_off_walled_account(reset: bytes, retry_after: bytes) -> bool:
     untouched rather than debounce every header-less 429 against one shared
     empty key.
 
+    A 401 ASKS THE CLIENT TO RETRY, so it is only ever right when the retry
+    has somewhere to land, and 5h/7d headroom does not say that. On 2026-09-07
+    (~18:1xZ) it did not: account 2 walled, the failover moved to account 4,
+    account 4 was Fable 100%, every rebuilt retry walled again, and the loop
+    exhausted into `authentication_failed` — a reason absent from Claude
+    Code's partial-result set {rate_limit, overloaded, server_error}, so three
+    fable subagents lost their context outright instead of sleeping
+    (req_011Cepk7iQtQCjPtKjVxCxna and two siblings in the same minute). The
+    switch below therefore ranks with every per-model weekly window folded in,
+    which is what makes a full one able to answer "nowhere to land" and keep
+    the wall a wall.
+
     True means "turn the 429 the client will see into a 401" — because either
     this call switched the account off onto a credential the host confirmed
     is LIVE, or an earlier call for this same wall already did. False (no
@@ -16524,12 +17022,40 @@ def _switch_off_walled_account(reset: bytes, retry_after: bytes) -> bool:
             # The raise's short expiry passed: treat this wall as unseen.
         try:
             switcher = require("switcher")
-            result = switcher.switch_off_at_limit_account(
-                switcher.ClaudeAccountSwitcher()
+            # NOT `switch_off_at_limit_account`, which passes no `models` and
+            # so ranks on 5h/7d alone. `("all",)` is `oauth.relevant_windows`'
+            # sentinel for "fold in EVERY per-model weekly window this account
+            # reports": a candidate sitting at 100% on one of them scores 0
+            # headroom, loses `best > current` against the walled account
+            # `current_at_limit` already pins to 0.0, and the wall is relayed.
+            #
+            # It overrides a user's `autoswitch.model`, deliberately (`switch()`
+            # reads that only when `models is None`), AND THAT IS SAFE ONLY
+            # UNDER A PRECONDITION worth naming rather than assuming. For an
+            # account reporting a 5h or 7d window, `all` folds in a superset of
+            # any setting's windows, so headroom under it is <= headroom under
+            # theirs and this can only relay MORE walls. For an account
+            # reporting ONLY scoped windows — permitted, because
+            # `oauth.py:541-555` writes `five_hour`/`seven_day` conditionally
+            # and the API does send null siblings — the empty basis gives
+            # `account_headroom` None, which `_select_best_switchable` excludes
+            # from `known` as "unknown, never auto-skipped"; `all` gives it a
+            # number instead, so that account can become a switch target where
+            # `no-comparison` would have kept us put. Unobserved on this fleet
+            # (8 store rows, none in that shape) and the fix belongs in
+            # `account_headroom`, which is cswap's, not here.
+            #
+            # The symbol's other job — being the capability probe for an older
+            # claude-swap — survives unchanged: an older `switch()` has no
+            # `models` parameter, so the TypeError lands in the except below
+            # and relays the 429, exactly as a missing symbol did.
+            result = switcher.ClaudeAccountSwitcher().switch(
+                strategy="best", json_output=True,
+                current_at_limit=True, models=("all",),
             )
         except Exception as exc:  # noqa: BLE001 — never let this break the relay
             _log_lifecycle(
-                f"429 on /v1/messages — switch_off_at_limit_account raised "
+                f"429 on /v1/messages — the at-limit switch raised "
                 f"{exc.__class__.__name__}, relaying the 429 unchanged"
             )
             _walled_switch_seen[reset] = (
@@ -16687,7 +17213,7 @@ def _relay_response(
     # AFTER THE TAKE-BACK, deliberately. A swap the upstream refused returns
     # above and is retried unswapped, so reporting here would name a failure
     # the user never saw. This is the status that reaches the client.
-    if on_status is not None:
+    if on_status is not None and not _is_interim(status_line):
         try:
             on_status(status_line)
         except Exception:  # noqa: BLE001 — never let a statistic break a reply
@@ -16778,12 +17304,14 @@ def _relay_response(
             return _relay_response(
                 _Prefixed(up, rest), client, cid,
                 reject_on_auth_error=reject_on_auth_error, method=method,
-                on_headers=None, path=path, certdir=certdir,
+                on_headers=None, on_status=on_status, path=path,
+                certdir=certdir,
             )
         return _relay_response(
             up, client, cid,
             reject_on_auth_error=reject_on_auth_error, method=method,
-            on_headers=None, path=path, certdir=certdir,
+            on_headers=None, on_status=on_status, path=path,
+            certdir=certdir,
         )
     if bodyless:
         # 204/304 (and 1xx) carry no body by definition and commonly send

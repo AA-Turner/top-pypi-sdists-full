@@ -186,7 +186,7 @@ class StructuredWave(AcousticField):
 
     ## PRIVATE METHODS ##
 
-    def _set_up_source(self, source, Nx, dt, dx, c0, factorT):
+    def _set_up_source(self, source, Nx, dt, dx, c0, factorT, burst=None):
         """
         Set up the k-Wave source for the acoustic field simulation.
         Configures the source mask and applies delayed signals to active elements.
@@ -224,7 +224,17 @@ class StructuredWave(AcousticField):
         delay_samples = np.round(delay_sec / dt).astype(int)
         delay_samples = delay_samples - np.min(delay_samples) + 10 
 
-        element_signals = tone_burst(1 / dt, f_US, num_cycles, signal_offset=delay_samples)
+        if burst is not None:
+            burst_sig = np.asarray(burst)
+            num_time_steps = len(burst_sig) + np.max(delay_samples) + 20
+            element_signals = np.zeros((num_elements, num_time_steps))
+            
+            for i in range(num_elements):
+                shift = delay_samples[i]
+                element_signals[i, shift:shift + len(burst_sig)] = burst_sig
+        else:
+            element_signals = tone_burst(1 / dt, f_US, num_cycles, signal_offset=delay_samples)
+            
         num_time_steps = element_signals.shape[1]
 
         el_width_px = int(np.round(element_width / dx))

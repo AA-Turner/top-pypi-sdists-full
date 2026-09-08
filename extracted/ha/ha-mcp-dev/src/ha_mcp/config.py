@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     # Tool configuration
     fuzzy_threshold: int = Field(60, alias="FUZZY_THRESHOLD")
 
+    # Optional process-wide outer tool-call concurrency. Zero preserves the
+    # existing unlimited behavior; constrained installs can opt into queuing.
+    ha_tool_concurrency: int = Field(0, ge=0, le=32, alias="HA_TOOL_CONCURRENCY")
+
     # Smart-search config-fetch time budgets (seconds). Bound how long
     # ha_search spends fetching automation/script/scene
     # definitions during the per-id fallback before reporting a partial
@@ -94,6 +98,12 @@ class Settings(BaseSettings):
     )
     individual_fetch_batch_size: int = Field(
         10, alias="HAMCP_INDIVIDUAL_FETCH_BATCH_SIZE"
+    )
+
+    # Optional preflight bounds for recorder queries. Disabled by default to
+    # preserve the established ha_get_history request contract.
+    enable_history_query_guardrails: bool = Field(
+        False, alias="HAMCP_ENABLE_HISTORY_QUERY_GUARDRAILS"
     )
 
     # Backup tool configuration
@@ -890,6 +900,16 @@ ADVANCED_SETTINGS_FIELDS: tuple[AdvancedField, ...] = (
         True,
     ),
     # Operations.
+    AdvancedField(
+        "enable_history_query_guardrails",
+        "HAMCP_ENABLE_HISTORY_QUERY_GUARDRAILS",
+        bool,
+        "operations",
+        True,
+    ),
+    AdvancedField(
+        "ha_tool_concurrency", "HA_TOOL_CONCURRENCY", int, "operations", True
+    ),
     AdvancedField("backup_hint", "BACKUP_HINT", str, "operations", True),
     AdvancedField("enable_websocket", "ENABLE_WEBSOCKET", bool, "operations", True),
     # Dashboard-screenshot engine URL (#1538): docker/.env users could set
@@ -1000,6 +1020,7 @@ _ADVANCED_SETTINGS_BOUNDS: dict[str, tuple[float, float]] = {
     "scene_config_time_budget": (1.0, 600.0),
     "individual_config_timeout": (1.0, 600.0),
     "individual_fetch_batch_size": (1, 100),
+    "ha_tool_concurrency": (1, 32),
     "code_mode_max_duration": (1.0, 300.0),
     "code_mode_max_memory": (1_048_576, 268_435_456),
     "code_mode_max_recursion": (1, 10_000),
@@ -1015,6 +1036,7 @@ _ADVANCED_SETTINGS_BOUNDS: dict[str, tuple[float, float]] = {
 # emits min=sentinel so the number input can still express "off"; the
 # override-apply and UI-POST paths accept the sentinel OR the bounded range.
 _ADVANCED_SETTINGS_SENTINELS: dict[str, int] = {
+    "ha_tool_concurrency": 0,
     "sidecar_pin_port": 0,
 }
 
@@ -1036,6 +1058,7 @@ _ADVANCED_SETTINGS_CHOICES: dict[str, tuple[str, ...]] = {
 # batches addon-origin writes and POSTs them via Supervisor.
 ADDON_SYNCED_ADVANCED_FIELDS: tuple[str, ...] = (
     "backup_hint",
+    "ha_tool_concurrency",
     "verify_ssl",
 )
 

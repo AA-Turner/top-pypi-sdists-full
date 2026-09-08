@@ -56,8 +56,26 @@ def load_from_file(path: str | Path) -> list[AuthenticationInfo]:
     return load_from_dict(data)
 
 
+def _apply_template(entry: Any, template: dict[str, Any]) -> Any:
+    """Fill in what an entry leaves out; anything it sets stays as it is."""
+    if not isinstance(entry, dict):
+        return entry
+    merged = dict(entry)
+    for key, value in template.items():
+        current = merged.get(key)
+        if isinstance(current, dict) and isinstance(value, dict):
+            merged[key] = _apply_template(current, value)
+        elif key not in merged:
+            merged[key] = value
+    return merged
+
+
 def load_from_dict(data: dict[str, Any]) -> list[AuthenticationInfo]:
     """Load a WFC authentication document from a parsed dictionary."""
+    template = data.get("authTemplate")
+    # Shared login details live in the template, so entries are only complete once it is folded in.
+    if isinstance(template, dict) and isinstance(data.get("auth"), list):
+        data = {**data, "auth": [_apply_template(entry, template) for entry in data["auth"]]}
     try:
         _validator().validate(data)
     except jsonschema_rs.ValidationError as exc:
@@ -157,8 +175,6 @@ def _validate_login_endpoint(login: LoginEndpoint, context: str) -> None:
     has_token = login.token is not None
     if has_token and login.expect_cookies is True:
         raise WFCValidationError(f"{context}: Cannot specify both 'token' and 'expectCookies=true'. Choose one.")
-    if not has_token and login.expect_cookies is not True:
-        raise WFCValidationError(f"{context}: Must specify either 'token' or 'expectCookies=true'.")
     if has_token:
         assert login.token is not None
         _validate_token_handling(login.token, f"{context}.token")

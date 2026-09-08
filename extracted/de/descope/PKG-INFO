@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: descope
-Version: 2.13.0
+Version: 2.14.0
 Summary: Descope Python SDK
 Author: Descope
 Author-email: Descope <info@descope.com>
@@ -659,6 +659,12 @@ descope_client.mgmt.tenant.update(
     custom_attributes={"attribute-name": "value"},
 )
 
+# Patch only updates the fields you pass in - everything else on the tenant is left untouched.
+descope_client.mgmt.tenant.patch_tenant(
+    id="my-custom-id",
+    disabled=True,
+)
+
 # Managing the tenant's settings
 # Getting the settings
 descope_client.mgmt.tenant.load_settings(id="my-custom-id")
@@ -990,6 +996,16 @@ descope_client.mgmt.sso.configure_saml_settings_by_metadata(
 	settings,  # The SAML settings
 	redirect_url="https://your.domain.com", # Global redirection after successful authentication
     domains=["tenant-users.com"] # Users authentication with these domains will be logged in to this tenant
+)
+
+# Descope signs the SAML AuthnRequest it sends to the IdP. A few IdPs reject a signed request because
+# their trusted provider entry holds no signing certificate for Descope - pass disable_sign_request
+# (available on both settings classes above) to send the request unsigned for that configuration only.
+settings = SSOSAMLSettings(
+	idp_url="https://dummy.com",
+	idp_entity_id="my-idp-entity-id",
+	idp_cert="my-idp-certificate",
+	disable_sign_request=True,
 )
 
 # You can Configure SSO OIDC settings for a tenant manually.

@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AccessTypeType",
     "AdMarkupTypeType",
+    "AdSequencingModeType",
     "AdsInteractionExcludeEventTypeType",
     "AdsInteractionPublishOptInEventTypeType",
     "AlertCategoryType",
@@ -57,6 +58,7 @@ __all__ = (
     "OriginManifestTypeType",
     "PaginatorName",
     "PlaybackModeType",
+    "PreRollAdSequencingModeType",
     "PrefetchScheduleTypeType",
     "RegionName",
     "RelativePositionType",
@@ -73,6 +75,12 @@ __all__ = (
 
 AccessTypeType = Literal["AUTODETECT_SIGV4", "S3_SIGV4", "SECRETS_MANAGER_ACCESS_TOKEN"]
 AdMarkupTypeType = Literal["DATERANGE", "SCTE35_ENHANCED"]
+AdSequencingModeType = Literal[
+    "FOLLOW_AD_SEQUENCE",
+    "FOLLOW_AD_SEQUENCE_ONLY_LIVE",
+    "FOLLOW_AD_SEQUENCE_ONLY_VOD",
+    "IGNORE_AD_SEQUENCE",
+]
 AdsInteractionExcludeEventTypeType = Literal[
     "AD_MARKER_FOUND",
     "BEACON_FIRED",
@@ -129,7 +137,9 @@ ChannelStateType = Literal["RUNNING", "STOPPED"]
 CompressionMethodType = Literal["GZIP", "NONE"]
 EventNameType = Literal["PRE_ADS_REQUEST", "PRE_SESSION_INITIALIZATION"]
 FillPolicyType = Literal["FULL_AVAIL_ONLY", "PARTIAL_AVAIL"]
-FunctionTypeType = Literal["CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR"]
+FunctionTypeType = Literal[
+    "CONCURRENT_EXECUTOR", "CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR"
+]
 GetChannelSchedulePaginatorName = Literal["get_channel_schedule"]
 InsertionModeType = Literal["PLAYER_SELECT", "STITCHED_ONLY"]
 ListAlertsPaginatorName = Literal["list_alerts"]
@@ -189,6 +199,7 @@ ModeType = Literal["AFTER_LIVE_EDGE", "BEHIND_LIVE_EDGE", "OFF"]
 OperatorType = Literal["EQUALS"]
 OriginManifestTypeType = Literal["MULTI_PERIOD", "SINGLE_PERIOD"]
 PlaybackModeType = Literal["LINEAR", "LOOP"]
+PreRollAdSequencingModeType = Literal["FOLLOW_AD_SEQUENCE", "IGNORE_AD_SEQUENCE"]
 PrefetchScheduleTypeType = Literal["RECURRING", "SINGLE"]
 RelativePositionType = Literal["AFTER_PROGRAM", "BEFORE_PROGRAM"]
 RuntimeTypeType = Literal["JSONATA"]
@@ -201,8 +212,11 @@ MediaTailorServiceName = Literal["mediatailor"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -507,6 +521,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista
-Version: 0.48.4
+Version: 0.49.0
 Summary: 3D visualization and mesh analysis for science and engineering.
 Author-email: PyVista Developers <info@pyvista.org>
 License-Expression: MIT
@@ -29,33 +29,35 @@ Requires-Dist: matplotlib>=3.0.1
 Requires-Dist: numpy>=1.21.0
 Requires-Dist: pillow
 Requires-Dist: pooch
+Requires-Dist: pyobjc-framework-Cocoa; sys_platform == "darwin"
+Requires-Dist: pyvista-validation==0.2.2
 Requires-Dist: scooby>=0.5.1
 Requires-Dist: typing-extensions>=4.10
 Requires-Dist: vtk!=9.4.0
 Requires-Dist: vtk!=9.4.1
-Requires-Dist: vtk<9.7.0
-Requires-Dist: vtk>=9.2.2
+Requires-Dist: vtk<9.8.0
+Requires-Dist: vtk>=9.3.1
 Provides-Extra: all
-Requires-Dist: pyvista[colormaps,io,jupyter]; extra == "all"
+Requires-Dist: pyvista[colormaps,io,io-override,jupyter]; extra == "all"
 Provides-Extra: colormaps
 Requires-Dist: cmcrameri; extra == "colormaps"
 Requires-Dist: cmocean; extra == "colormaps"
 Requires-Dist: colorcet; extra == "colormaps"
+Provides-Extra: cvista
+Requires-Dist: cvista[all]<9.8.0,>=9.7.0.2; extra == "cvista"
 Provides-Extra: io
 Requires-Dist: fsspec; extra == "io"
 Requires-Dist: imageio; extra == "io"
 Requires-Dist: meshio>=5.2; extra == "io"
-Requires-Dist: pyvista-zstd>=0.2.2; extra == "io"
+Requires-Dist: pyvista-frd-reader>=0.2.1; extra == "io"
+Requires-Dist: pyvista-zstd>=0.3.1; extra == "io"
+Provides-Extra: io-override
+Requires-Dist: pyvista-miniply>=0.5.2; extra == "io-override"
+Requires-Dist: pyvista-stl>=0.5.3; extra == "io-override"
 Provides-Extra: jupyter
 Requires-Dist: ipywidgets; extra == "jupyter"
-Requires-Dist: jupyter-server-proxy; extra == "jupyter"
 Requires-Dist: nest-asyncio2; extra == "jupyter"
-Requires-Dist: trame-client>=2.12.7; extra == "jupyter"
-Requires-Dist: trame-server!=3.7.*,!=3.8.0,>=2.11.7; extra == "jupyter"
-Requires-Dist: trame-vtk!=2.10.3,!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4,!=2.11.5,!=2.11.6; extra == "jupyter"
-Requires-Dist: trame-vtk<2.11.9,>=2.5.8; extra == "jupyter"
-Requires-Dist: trame-vuetify>=2.3.1; extra == "jupyter"
-Requires-Dist: trame>=2.5.2; extra == "jupyter"
+Requires-Dist: trame-pyvista; extra == "jupyter"
 Dynamic: license-file
 
 <p align="center">
@@ -76,16 +78,30 @@ Dynamic: license-file
   <a href="https://pypi.org/project/pyvista/"><img src="https://img.shields.io/pypi/v/pyvista.svg?logo=python&logoColor=white" alt="PyPI" /></a>
   <a href="https://anaconda.org/conda-forge/pyvista"><img src="https://img.shields.io/conda/vn/conda-forge/pyvista.svg?logo=conda-forge&logoColor=white" alt="Conda" /></a>
   <a href="https://numfocus.org/sponsored-projects/affiliated-projects"><img src="https://img.shields.io/badge/affiliated-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A" alt="NumFOCUS Affiliated" /></a>
-  <a href="https://doi.org/10.21105/joss.01450"><img src="http://joss.theoj.org/papers/10.21105/joss.01450/status.svg" alt="JOSS paper" /></a>
-  <a href="https://opensource.org/license/mit/"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License" /></a>
+  <a href="https://doi.org/10.21105/joss.01450"><img src="https://joss.theoj.org/papers/10.21105/joss.01450/status.svg" alt="JOSS paper" /></a>
+  <a href="https://opensource.org/license/mit"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License" /></a>
 </p>
 
-PyVista is:
+<p align="center">
+  <em>
+    PyVista is an open source, community-owned project, MIT licensed and
+    <a href="https://numfocus.org/sponsored-projects/affiliated-projects">NumFOCUS Affiliated</a>.
+  </em>
+</p>
+
+<p align="center">
+  <em>
+    <a href="https://codimensional.com"><strong>CoDimensional PBC</strong></a>,
+    founded by PyVista maintainers, is the project's commercial steward.
+  </em>
+</p>
+
+PyVista provides:
 
 - a NumPy-native API for 3D visualization and mesh analysis
 - dataset structures and filters for points, surfaces, and volumes
 - one plotting framework for notebooks, scripts, CI, and apps
-- streamlined 3D for newcomers and graphics experts alike
+- a streamlined 3D interface for newcomers and graphics experts alike
 
 ![PyVista IPython demo](https://github.com/pyvista/pyvista/raw/main/assets/pyvista_ipython_demo.gif)
 
@@ -136,6 +152,25 @@ conda install -c conda-forge pyvista
 
 Try PyVista in your browser without installing anything, on
 [MyBinder](https://mybinder.org/v2/gh/pyvista/pyvista-examples/master).
+
+## Command line interface
+
+PyVista also installs a `pyvista` CLI for quick plotting, format conversion,
+and mesh validation, without writing any Python:
+
+```bash
+# Plot a mesh file in an interactive window
+pyvista plot bunny.stl
+
+# Convert a mesh file to another format
+pyvista convert bunny.stl .vtp
+
+# Validate a mesh's data, points, and cells
+pyvista validate bunny.stl
+```
+
+See the [CLI reference](https://docs.pyvista.org/api/cli) for the full
+set of commands and options.
 
 ## Documentation
 
@@ -257,7 +292,7 @@ If you use PyVista in scientific research, please cite the
 [![Good first issue](https://img.shields.io/github/issues/pyvista/pyvista/good%20first%20issue)](https://github.com/pyvista/pyvista/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
 **Citation:**
-[![JOSS](http://joss.theoj.org/papers/10.21105/joss.01450/status.svg)](https://doi.org/10.21105/joss.01450)
+[![JOSS](https://joss.theoj.org/papers/10.21105/joss.01450/status.svg)](https://doi.org/10.21105/joss.01450)
 [![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.8415866.svg)](https://zenodo.org/records/8415866)
 
 **Community:**

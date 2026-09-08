@@ -219,6 +219,7 @@ __all__ = (
     "NetworkBandwidthGbpsRequestTypeDef",
     "NetworkInterfaceCountRequestTypeDef",
     "NotificationConfigurationTypeDef",
+    "OperatorTypeDef",
     "PaginatorConfigTypeDef",
     "PerformanceFactorReferenceRequestTypeDef",
     "PoliciesTypeTypeDef",
@@ -396,6 +397,10 @@ class LaunchTemplateSpecificationTypeDef(TypedDict):
     LaunchTemplateId: NotRequired[str]
     LaunchTemplateName: NotRequired[str]
     Version: NotRequired[str]
+
+
+class OperatorTypeDef(TypedDict):
+    Principal: str
 
 
 class SuspendedProcessTypeDef(TypedDict):
@@ -882,8 +887,10 @@ class SetInstanceProtectionQueryTypeDef(TypedDict):
 
 
 class TerminateInstanceInAutoScalingGroupTypeTypeDef(TypedDict):
-    InstanceId: str
     ShouldDecrementDesiredCapacity: bool
+    InstanceId: NotRequired[str]
+    InstanceIds: NotRequired[Sequence[str]]
+    AutoScalingGroupName: NotRequired[str]
 
 
 class ActivitiesTypeTypeDef(TypedDict):
@@ -894,6 +901,7 @@ class ActivitiesTypeTypeDef(TypedDict):
 
 class ActivityTypeTypeDef(TypedDict):
     Activity: ActivityTypeDef
+    Activities: list[ActivityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1707,6 +1715,7 @@ class AutoScalingGroupTypeDef(TypedDict):
     AvailabilityZoneImpairmentPolicy: NotRequired[AvailabilityZoneImpairmentPolicyTypeDef]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationOutputTypeDef]
     InstanceLifecyclePolicy: NotRequired[InstanceLifecyclePolicyTypeDef]
+    Operator: NotRequired[OperatorTypeDef]
 
 
 class DesiredConfigurationOutputTypeDef(TypedDict):
@@ -1818,6 +1827,7 @@ class CreateAutoScalingGroupTypeTypeDef(TypedDict):
     SkipZonalShiftValidation: NotRequired[bool]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationUnionTypeDef]
     InstanceLifecyclePolicy: NotRequired[InstanceLifecyclePolicyTypeDef]
+    Operator: NotRequired[OperatorTypeDef]
 
 
 class UpdateAutoScalingGroupTypeTypeDef(TypedDict):

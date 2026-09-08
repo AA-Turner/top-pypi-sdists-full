@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shfmt-py
-Version: 4.1.0
+Version: 4.2.0
 Summary: Installs the shfmt shell script formatter binary, plus a ready-made pre-commit hook
 Author-email: Max Winterstein <github@winterstein.io>
 License-Expression: MIT AND BSD-3-Clause
@@ -27,6 +27,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-shfmt
+License-File: NOTICE
 Provides-Extra: test
 Requires-Dist: pytest>=7; extra == "test"
 Requires-Dist: setuptools>=70.1; extra == "test"
@@ -78,7 +79,7 @@ Add to `.pre-commit-config.yaml`:
 
 ```yaml
 - repo: https://github.com/MaxWinterstein/shfmt-py
-  rev: v4.1.0
+  rev: v4.2.0
   hooks:
     - id: shfmt
 ```
@@ -97,7 +98,7 @@ while your files stay unformatted. So re-add it:
 
 ```yaml
 - repo: https://github.com/MaxWinterstein/shfmt-py
-  rev: v4.1.0
+  rev: v4.2.0
   hooks:
     - id: shfmt
       args: [-w, -i, "2", -ci, -bn] # -w must be re-added

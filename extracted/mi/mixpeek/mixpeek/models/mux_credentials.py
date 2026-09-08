@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class MuxCredentials(BaseModel):
     """
-    Access token credentials for Mux video infrastructure platform.  Security:     - access_token_secret is encrypted at rest via CSFLE     - Tokens can be created/rotated in the Mux dashboard
+    Access token credentials for Mux video infrastructure platform.  Security:     - access_token_secret is a secret credential, redacted on read     - Tokens can be created/rotated in the Mux dashboard
     """ # noqa: E501
     type: Optional[StrictStr] = 'access_token'
     access_token_id: StrictStr = Field(description="REQUIRED. Mux access token ID. Found in: Mux Dashboard > Settings > Access Tokens.")

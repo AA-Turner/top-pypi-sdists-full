@@ -260,8 +260,23 @@ class OpenAPIApps:
     def wfc_login_plain(self) -> OpenAPIServer:
         return _start(self.parent, openapi_wfc.wfc_login_plain())
 
+    def wfc_role_gated(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_wfc.wfc_role_gated())
+
     def planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.planted_bug())
+
+    def planted_bug_with_quiet_operation(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_error_feedback.planted_bug_with_quiet_operation())
+
+    def planted_bug_taught_by_examples(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_error_feedback.planted_bug_taught_by_examples())
+
+    def two_stage_planted_bug(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_error_feedback.two_stage_planted_bug())
+
+    def endlessly_novel_feedback(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_error_feedback.endlessly_novel_feedback())
 
     def nested_planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.nested_planted_bug())
@@ -432,6 +447,9 @@ class GraphQLApps:
 
     def books(self, *, endpoint: str = "/graphql", framework: Literal["flask", "fastapi"] = "flask") -> GraphQLServer:
         return _start(self.parent, graphql_bookstore.books(endpoint=endpoint, framework=framework))
+
+    def federated_subgraph(self) -> GraphQLServer:
+        return _start(self.parent, graphql_bookstore.federated_subgraph())
 
     def from_schema(
         self, schema, *, endpoint: str = "/graphql", framework: Literal["flask", "fastapi"] = "flask"

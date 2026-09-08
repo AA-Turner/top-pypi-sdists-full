@@ -129,7 +129,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - uses: actions/setup-java@v5.6.0
+    - uses: actions/setup-java@v6.0.0
       with:
         distribution: 'temurin'
         java-version: '17'
@@ -245,15 +245,15 @@ jobs:
       XCODE_VERSION: 16.4
       IOS_VERSION: 18.5
       IPHONE_MODEL: iPhone 16
-      FLUTTER_ANDROID_APP: "https://github.com/AppiumTestDistribution/appium-flutter-server/releases/latest/download/app-debug.apk"
-      FLUTTER_IOS_APP: "https://github.com/AppiumTestDistribution/appium-flutter-server/releases/latest/download/ios.zip"
+      FLUTTER_ANDROID_APP: "https://github.com/AppiumTestDistribution/appium-flutter-server/releases/download/0.0.33/app-debug.apk"
+      FLUTTER_IOS_APP: "https://github.com/AppiumTestDistribution/appium-flutter-server/releases/download/0.0.33/ios.zip"
       PREBUILT_WDA_PATH: ${{ github.workspace }}/wda/WebDriverAgentRunner-Runner.app
 
     steps:
 
     - uses: actions/checkout@v7
 
-    - uses: actions/setup-java@v5.6.0
+    - uses: actions/setup-java@v6.0.0
       if: matrix.e2e-tests == 'flutter-android'
       with:
         distribution: 'zulu'

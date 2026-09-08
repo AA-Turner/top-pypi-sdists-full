@@ -16,6 +16,7 @@ from .._client import (
     _query_parameter,
 )
 from ..types import (
+    DatasetsAdoptImagesResponse,
     DatasetsBatchResponse,
     DatasetsClassStatsResponse,
     DatasetsCloneResponse,
@@ -297,6 +298,7 @@ class Datasets:
         class_colors: dict[str, Any] | NotGiven = NOT_GIVEN,
         format: Literal["yolo", "coco", "raw", "ndjson"] | NotGiven = NOT_GIVEN,
         task: Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"] | NotGiven = NOT_GIVEN,
+        kpt_skeleton_id: str | NotGiven = NOT_GIVEN,
         license: Literal[
             "None",
             "CC0-1.0",
@@ -349,6 +351,7 @@ class Datasets:
             class_colors (dict[str, Any], optional): classColors request value.
             format (Literal["yolo", "coco", "raw", "ndjson"], optional): Dataset annotation format
             task (Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"], optional): Dataset task type
+            kpt_skeleton_id (str, optional): kptSkeletonId request value.
             license (Literal["None", "CC0-1.0", "PDM-1.0", "CC-BY-2.5", "CC-BY-3.0", "CC-BY-4.0", "CC-BY-NC-2.0", "CC-BY-NC-3.0", "CC-BY-NC-4.0", "CC-BY-SA-3.0", "CC-BY-SA-4.0", "CC-BY-NC-SA-3.0", "CC-BY-NC-SA-4.0", "CC-BY-ND-4.0", "CC-BY-NC-ND-2.0", "CC-BY-NC-ND-4.0", "Apache-2.0", "MIT", "BSD-3-Clause", "AGPL-3.0", "GPL-2.0", "GPL-3.0", "LGPL-3.0", "ODbL-1.0", "DbCL-1.0", "Research-Only", "Other"], optional): Dataset license identifier
             icon_color (str, optional): iconColor request value.
             icon_letter (str | Literal[""], optional): iconLetter request value.
@@ -380,6 +383,7 @@ class Datasets:
                     "classColors": class_colors,
                     "format": format,
                     "task": task,
+                    "kptSkeletonId": kpt_skeleton_id,
                     "license": license,
                     "iconColor": icon_color,
                     "iconLetter": icon_letter,
@@ -636,6 +640,44 @@ class Datasets:
                 extra_headers=extra_headers,
                 auth=("Authorization", "Bearer "),
                 json={"version": version, "description": description},
+            ),
+        )
+
+    def adopt_images(
+        self,
+        owner: str,
+        dataset: str,
+        *,
+        image_ids: Sequence[str],
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> DatasetsAdoptImagesResponse:
+        """Add images to a dataset.
+
+        Copies hosted images from public datasets into this dataset as content-addressed references, unlabeled and in the train split. Images already held are skipped.
+
+        Args:
+            owner (str): Dataset owner
+            dataset (str): Dataset name
+            image_ids (Sequence[str]): imageIds request value.
+            timeout (float | httpx.Timeout, optional): Request timeout override.
+            extra_headers (dict[str, str], optional): Additional request headers.
+
+        Returns:
+            (DatasetsAdoptImagesResponse): The API response.
+
+        Raises:
+            (APIError): If the API returns an unsuccessful response.
+        """
+        return cast(
+            DatasetsAdoptImagesResponse,
+            self._client.request(
+                "POST",
+                f"/api/datasets/{_path_parameter(owner, explode=False, allow_reserved=False)}/{_path_parameter(dataset, explode=False, allow_reserved=False)}/images/adopt",
+                timeout=timeout,
+                extra_headers=extra_headers,
+                auth=("Authorization", "Bearer "),
+                json={"imageIds": image_ids},
             ),
         )
 
@@ -1588,6 +1630,7 @@ class AsyncDatasets:
         class_colors: dict[str, Any] | NotGiven = NOT_GIVEN,
         format: Literal["yolo", "coco", "raw", "ndjson"] | NotGiven = NOT_GIVEN,
         task: Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"] | NotGiven = NOT_GIVEN,
+        kpt_skeleton_id: str | NotGiven = NOT_GIVEN,
         license: Literal[
             "None",
             "CC0-1.0",
@@ -1640,6 +1683,7 @@ class AsyncDatasets:
             class_colors (dict[str, Any], optional): classColors request value.
             format (Literal["yolo", "coco", "raw", "ndjson"], optional): Dataset annotation format
             task (Literal["detect", "segment", "semantic", "depth", "classify", "pose", "obb"], optional): Dataset task type
+            kpt_skeleton_id (str, optional): kptSkeletonId request value.
             license (Literal["None", "CC0-1.0", "PDM-1.0", "CC-BY-2.5", "CC-BY-3.0", "CC-BY-4.0", "CC-BY-NC-2.0", "CC-BY-NC-3.0", "CC-BY-NC-4.0", "CC-BY-SA-3.0", "CC-BY-SA-4.0", "CC-BY-NC-SA-3.0", "CC-BY-NC-SA-4.0", "CC-BY-ND-4.0", "CC-BY-NC-ND-2.0", "CC-BY-NC-ND-4.0", "Apache-2.0", "MIT", "BSD-3-Clause", "AGPL-3.0", "GPL-2.0", "GPL-3.0", "LGPL-3.0", "ODbL-1.0", "DbCL-1.0", "Research-Only", "Other"], optional): Dataset license identifier
             icon_color (str, optional): iconColor request value.
             icon_letter (str | Literal[""], optional): iconLetter request value.
@@ -1671,6 +1715,7 @@ class AsyncDatasets:
                     "classColors": class_colors,
                     "format": format,
                     "task": task,
+                    "kptSkeletonId": kpt_skeleton_id,
                     "license": license,
                     "iconColor": icon_color,
                     "iconLetter": icon_letter,
@@ -1927,6 +1972,44 @@ class AsyncDatasets:
                 extra_headers=extra_headers,
                 auth=("Authorization", "Bearer "),
                 json={"version": version, "description": description},
+            ),
+        )
+
+    async def adopt_images(
+        self,
+        owner: str,
+        dataset: str,
+        *,
+        image_ids: Sequence[str],
+        timeout: float | httpx.Timeout | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> DatasetsAdoptImagesResponse:
+        """Add images to a dataset.
+
+        Copies hosted images from public datasets into this dataset as content-addressed references, unlabeled and in the train split. Images already held are skipped.
+
+        Args:
+            owner (str): Dataset owner
+            dataset (str): Dataset name
+            image_ids (Sequence[str]): imageIds request value.
+            timeout (float | httpx.Timeout, optional): Request timeout override.
+            extra_headers (dict[str, str], optional): Additional request headers.
+
+        Returns:
+            (DatasetsAdoptImagesResponse): The API response.
+
+        Raises:
+            (APIError): If the API returns an unsuccessful response.
+        """
+        return cast(
+            DatasetsAdoptImagesResponse,
+            await self._client.request(
+                "POST",
+                f"/api/datasets/{_path_parameter(owner, explode=False, allow_reserved=False)}/{_path_parameter(dataset, explode=False, allow_reserved=False)}/images/adopt",
+                timeout=timeout,
+                extra_headers=extra_headers,
+                auth=("Authorization", "Bearer "),
+                json={"imageIds": image_ids},
             ),
         )
 

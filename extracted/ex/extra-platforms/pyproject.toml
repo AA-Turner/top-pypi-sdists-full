@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "extra-platforms"
-version = "13.7.1"
+version = "13.9.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -48,6 +48,7 @@ keywords = [
     "Contour",
     "CPU architecture",
     "Crush",
+    "CRUX",
     "Cursor",
     "Cygwin",
     "Dash",
@@ -107,6 +108,7 @@ keywords = [
     "NixOS",
     "Nobara",
     "Nushell",
+    "NuTyX",
     "OpenAI Codex",
     "OpenBSD",
     "openSUSE",
@@ -137,6 +139,7 @@ keywords = [
     "Slackware",
     "SliTaz GNU/Linux",
     "Solaris",
+    "Solus",
     "Source Mage GNU/Linux",
     "SPARC (32-bit)",
     "SPARC (64-bit)",
@@ -253,7 +256,7 @@ pytest = ["pytest>=8.2.1"]
 [project.urls]
 Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 Documentation = "https://kdeldycke.github.io/extra-platforms"
-Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.7.1"
+Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.9.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/extra-platforms"
 Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -397,7 +400,7 @@ fail_under = 30
 precision = 2
 
 [tool.bumpversion]
-current_version = "13.7.1"
+current_version = "13.9.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",

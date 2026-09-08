@@ -26,11 +26,11 @@ from typing_extensions import Self
 
 class InstagramOAuthCredentials(BaseModel):
     """
-    Credentials for Instagram Graph API OAuth2 authentication.  Instagram uses Meta's OAuth2 flow to obtain access tokens. The flow produces a short-lived token which is exchanged for a long-lived token (valid for 60 days). Long-lived tokens can be refreshed before expiry.  Prerequisites:     - Meta Developer account with an Instagram app     - Instagram Business or Creator account linked to a Facebook Page     - App must have instagram_basic permission approved  Security:     - client_secret and access_token encrypted at rest via CSFLE     - Long-lived tokens must be refreshed before 60-day expiry     - Token refresh happens automatically during sync execution
+    Credentials for Instagram Graph API OAuth2 authentication.  Instagram uses Meta's OAuth2 flow to obtain access tokens. The flow produces a short-lived token which is exchanged for a long-lived token (valid for 60 days). Long-lived tokens can be refreshed before expiry.  Prerequisites:     - Meta Developer account with an Instagram app     - Instagram Business or Creator account linked to a Facebook Page     - App must have instagram_basic permission approved  Security:     - client_secret and access_token are secret credentials, redacted on read     - Long-lived tokens must be refreshed before 60-day expiry     - Token refresh happens automatically during sync execution
     """ # noqa: E501
     type: Optional[StrictStr] = 'oauth'
     client_id: StrictStr = Field(description="Instagram App ID from Meta Developer Console.")
-    client_secret: StrictStr = Field(description="SECURITY: Encrypted at rest via CSFLE. Instagram App Secret from Meta Developer Console.")
+    client_secret: StrictStr = Field(description="SECURITY: Secret credential, redacted on read. Never log or expose. Instagram App Secret from Meta Developer Console.")
     access_token: StrictStr = Field(description="SECURITY: Encrypted at rest. Long-lived Instagram access token (60-day validity).")
     token_expires_at: Optional[datetime] = Field(default=None, description="Token expiration timestamp. Used to trigger proactive refresh.")
     instagram_user_id: StrictStr = Field(description="Instagram User ID of the account that authorized access.")

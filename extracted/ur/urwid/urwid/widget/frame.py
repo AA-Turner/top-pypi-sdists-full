@@ -76,6 +76,7 @@ class Frame(
         :type footer: Widget
         :param focus_part:  'header', 'footer' or 'body'
         :type focus_part: str | Widget
+        :raises ValueError: *focus_part* is not one of the three frame parts.
         """
         super().__init__()
 
@@ -126,6 +127,13 @@ class Frame(
         self._invalidate()
 
     def get_header(self) -> HeaderWidget | None:
+        """
+        Return the header widget.
+
+        .. deprecated:: 2.2.0
+            Use the standard property :attr:`header` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             f"method `{self.__class__.__name__}.get_header` is deprecated, "
             f"standard property `{self.__class__.__name__}.header` should be used instead."
@@ -136,6 +144,15 @@ class Frame(
         return self.header
 
     def set_header(self, header: HeaderWidget | None) -> None:
+        """
+        Set the header widget.
+
+        :param header: the new header widget
+
+        .. deprecated:: 2.2.0
+            Use the standard property :attr:`header` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             f"method `{self.__class__.__name__}.set_header` is deprecated, "
             f"standard property `{self.__class__.__name__}.header` should be used instead."
@@ -156,6 +173,13 @@ class Frame(
         self._invalidate()
 
     def get_body(self) -> BodyWidget:
+        """
+        Return the body widget.
+
+        .. deprecated:: 2.2.0
+            Use the standard property :attr:`body` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             f"method `{self.__class__.__name__}.get_body` is deprecated, "
             f"standard property {self.__class__.__name__}.body should be used instead."
@@ -166,6 +190,15 @@ class Frame(
         return self.body
 
     def set_body(self, body: BodyWidget) -> None:
+        """
+        Set the body widget.
+
+        :param body: the new body widget
+
+        .. deprecated:: 2.2.0
+            Use the standard property :attr:`body` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             f"method `{self.__class__.__name__}.set_body` is deprecated, "
             f"standard property `{self.__class__.__name__}.body` should be used instead."
@@ -188,6 +221,13 @@ class Frame(
         self._invalidate()
 
     def get_footer(self) -> FooterWidget | None:
+        """
+        Return the footer widget.
+
+        .. deprecated:: 2.2.0
+            Use the standard property :attr:`footer` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             f"method `{self.__class__.__name__}.get_footer` is deprecated, "
             f"standard property `{self.__class__.__name__}.footer` should be used instead."
@@ -198,6 +238,15 @@ class Frame(
         return self.footer
 
     def set_footer(self, footer: FooterWidget | None) -> None:
+        """
+        Set the footer widget.
+
+        :param footer: the new footer widget
+
+        .. deprecated:: 2.2.0
+            Use the standard property :attr:`footer` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             f"method `{self.__class__.__name__}.set_footer` is deprecated, "
             f"standard property `{self.__class__.__name__}.footer` should be used instead."
@@ -225,6 +274,7 @@ class Frame(
 
         :param part: 'header', 'footer' or 'body'
         :type part: str
+        :raises IndexError: *part* is not one of the three frame parts, or names a part this Frame does not have.
         """
         if part not in {"header", "footer", "body"}:
             raise IndexError(f"Invalid position for Frame: {part}")
@@ -238,11 +288,12 @@ class Frame(
         writeable property containing an indicator which part of the frame
         that is in focus: `'body', 'header'` or `'footer'`.
 
-        .. note:: included for backwards compatibility. You should rather use
-            the container property :attr:`.focus_position` to get this value.
-
         :returns: one of 'header', 'footer' or 'body'.
         :rtype: str
+
+        .. deprecated:: 1.1.0
+            Use the container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "included for backwards compatibility."
@@ -254,6 +305,15 @@ class Frame(
         return self.focus_position
 
     def set_focus(self, part: Literal["header", "footer", "body"]) -> None:
+        """
+        Set the part of the frame that is in focus.
+
+        :param part: one of 'header', 'footer' or 'body'
+
+        .. deprecated:: 1.1.0
+            Use the container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "included for backwards compatibility."
             "You should rather use the container property `.focus_position` to set this value."
@@ -351,6 +411,11 @@ class Frame(
     def _contents__getitem__(
         self, key: Literal["body", "header", "footer"]
     ) -> tuple[BodyWidget | HeaderWidget | FooterWidget, None]:
+        """
+        Return the ``(widget, options)`` pair for *key*, for the container contents protocol.
+
+        :raises KeyError: *key* is not one of the three frame parts.
+        """
         if key == "body":
             return (self._body, None)
         if key == "header" and self._header:
@@ -373,6 +438,12 @@ class Frame(
         key: Literal["body", "header", "footer"],
         value: tuple[BodyWidget | HeaderWidget | FooterWidget, None],
     ) -> None:
+        """
+        Replace the ``(widget, options)`` pair for *key*, for the container contents protocol.
+
+        :raises KeyError: *key* is not one of the three frame parts.
+        :raises FrameError: *value* is not a ``(widget, None)`` pair.
+        """
         if key not in {"body", "header", "footer"}:
             raise KeyError(f"Frame.contents has no key: {key!r}")
         try:
@@ -389,6 +460,11 @@ class Frame(
             self.header = value_w  # type: ignore[assignment]
 
     def _contents__delitem__(self, key: Literal["header", "footer"]) -> None:
+        """
+        Remove the header or footer, for the container contents protocol.
+
+        :raises KeyError: *key* is not a removable part, or names a part this Frame does not have.
+        """
         if key not in {"header", "footer"}:
             raise KeyError(f"Frame.contents can't remove key: {key!r}")
         if (key == "header" and self._header is None) or (key == "footer" and self._footer is None):
@@ -461,6 +537,11 @@ class Frame(
         size: tuple[int, int],  # type: ignore[override]
         focus: bool = False,
     ) -> CompositeCanvas:
+        """
+        Render the Frame and return the resulting canvas.
+
+        :raises RuntimeError: the header or footer renders a different number of rows than it reported.
+        """
         (maxcol, maxrow) = size
         (htrim, ftrim), (hrows, frows) = self.frame_top_bottom((maxcol, maxrow), focus)
 

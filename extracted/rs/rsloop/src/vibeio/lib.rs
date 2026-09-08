@@ -1,11 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![allow(
-    clippy::all,
-    clippy::pedantic,
-    dead_code,
-    unsafe_op_in_unsafe_fn,
-    unused_imports
-)]
+#![deny(unsafe_op_in_unsafe_fn)]
+// Local safety contracts are required across supported platforms. This lint
+// does not replace the lifecycle audits tracked in docs/vibeio-cleanup.md.
+#![warn(clippy::undocumented_unsafe_blocks)]
 
 //! # vibeio
 //!
@@ -34,50 +31,19 @@
 //!
 //! ## Getting started
 //!
-//! Add `vibeio` to your `Cargo.toml`:
-//!
-//! ```toml
-//! [dependencies]
-//! vibeio = "0.2"
-//! ```
-//!
-//! ### Example: TCP echo server
-//!
-//! ```ignore
-//! use vibeio::RuntimeBuilder;
-//! use vibeio::net::TcpListener;
-//!
-//! fn main() -> std::io::Result<()> {
-//!     // 1. Build the runtime
-//!     let runtime = RuntimeBuilder::new()
-//!         .enable_timer(true)
-//!         .build()?;
-//!
-//!     // 2. Run the main future
-//!     runtime.block_on(async {
-//!         let listener = TcpListener::bind("127.0.0.1:8080")?;
-//!         println!("Listening on 127.0.0.1:8080");
-//!
-//!         loop {
-//!             let (mut stream, _) = listener.accept().await?;
-//!
-//!             vibeio::spawn(async move {
-//!                 let (mut reader, mut writer) = vibeio::io::split(stream);
-//!                 if let Err(e) = vibeio::io::copy(&mut reader, &mut writer).await {
-//!                     eprintln!("Echo failed: {}", e);
-//!                 }
-//!             });
-//!         }
-//!     })
-//! }
-//! ```
+//! This is rsloop's embedded runtime, accessed internally as `crate::vibeio`.
+//! It is not a separately published package or part of rsloop's public Rust API.
+//! Build and test it from the repository root; installing the upstream crate
+//! does not provide this implementation. See `docs/development.md` for commands.
 //!
 //! ## Feature flags
 //!
-//! The following features are available (most are enabled by default):
+//! Networking and timers are always compiled. The following Cargo features are
+//! opt-in and disabled in default rsloop wheels. `--all-features` compiles all
+//! applicable platform modules; enabling a feature does not select a driver or
+//! install signal handlers until the corresponding API is used.
 //!
 //! - `fs` - enables asynchronous file system operations.
-//! - `time` - enables time and timer functionality.
 //! - `signal` - enables signal handling.
 //! - `process` - enables child process management.
 //! - `pipe` - enables pipe support.
@@ -100,10 +66,23 @@ pub mod process;
 #[cfg(feature = "signal")]
 pub mod signal;
 mod task;
+#[cfg(test)]
+mod test_support;
 pub mod time;
 mod timer;
 pub mod util;
 
 pub use crate::vibeio::builder::*;
+// Public runtime API; not every embedding uses this re-export.
+#[allow(unused_imports)]
 pub use crate::vibeio::driver::RegistrationMode;
 pub use crate::vibeio::executor::*;
+
+// Embedding-only readiness plumbing; standalone runtime checks do not use it.
+#[allow(unused_imports)]
+pub(crate) use fd_inner::InnerRawHandle;
+#[cfg(windows)]
+#[allow(unused_imports)]
+pub(crate) use fd_inner::RawOsHandle;
+#[allow(unused_imports)]
+pub(crate) use op::ReadinessOp;

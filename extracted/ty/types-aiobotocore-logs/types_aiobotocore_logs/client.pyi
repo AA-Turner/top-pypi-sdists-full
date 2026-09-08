@@ -426,7 +426,8 @@ class CloudWatchLogsClient(AioBaseClient):
         self, **kwargs: Unpack[CreateLookupTableRequestTypeDef]
     ) -> CreateLookupTableResponseTypeDef:
         """
-        Creates a lookup table by uploading CSV data.
+        Creates a lookup table by uploading CSV data or from CloudWatch Logs query
+        results.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_lookup_table.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#create_lookup_table)
@@ -733,8 +734,7 @@ class CloudWatchLogsClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFieldIndexesRequestTypeDef]
     ) -> DescribeFieldIndexesResponseTypeDef:
         """
-        Returns a list of custom and default field indexes which are discovered in log
-        data.
+        Returns a list of field indexes discovered in log data.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_field_indexes.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#describe_field_indexes)
@@ -1054,7 +1054,7 @@ class CloudWatchLogsClient(AioBaseClient):
 
     async def get_storage_tier_policy(self) -> GetStorageTierPolicyResponseTypeDef:
         """
-        Returns the storage tier policy for your account.
+        Returns the storage tier policy for the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_storage_tier_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#get_storage_tier_policy)
@@ -1357,7 +1357,7 @@ class CloudWatchLogsClient(AioBaseClient):
         self, **kwargs: Unpack[PutStorageTierPolicyRequestTypeDef]
     ) -> PutStorageTierPolicyResponseTypeDef:
         """
-        Sets the storage tier policy for your account.
+        Sets the storage tier policy for the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_storage_tier_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_storage_tier_policy)
@@ -1524,7 +1524,8 @@ class CloudWatchLogsClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateLookupTableRequestTypeDef]
     ) -> UpdateLookupTableResponseTypeDef:
         """
-        Updates an existing lookup table by replacing all of its CSV content.
+        Updates an existing lookup table by replacing all of its content with new CSV
+        data or CloudWatch Logs query results.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_lookup_table.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#update_lookup_table)

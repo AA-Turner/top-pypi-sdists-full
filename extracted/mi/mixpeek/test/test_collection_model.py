@@ -103,7 +103,7 @@ class TestCollectionModel(unittest.TestCase):
                         output_schema = { }, )
                     ],
                 vector_indexes = [
-                    null
+                    { }
                     ],
                 payload_indexes = [
                     null

@@ -9,11 +9,6 @@ import platform
 import struct
 import sys
 import sysconfig
-import typing
-
-
-if typing.TYPE_CHECKING:  # pragma: no cover
-    from typing import Optional, Union
 
 
 # https://peps.python.org/pep-0425/#python-tag
@@ -36,23 +31,6 @@ def get_interpreter_tag() -> str:
     return f'{name}{version[0]}{version[1]}'
 
 
-def _get_config_var(name: str, default: Union[str, int, None] = None) -> Union[str, int, None]:
-    value: Union[str, int, None] = sysconfig.get_config_var(name)
-    if value is None:
-        return default
-    return value
-
-
-def _get_cpython_abi() -> str:
-    version = sys.version_info
-    debug = pymalloc = ''
-    if _get_config_var('Py_DEBUG', hasattr(sys, 'gettotalrefcount')):
-        debug = 'd'
-    if version < (3, 8) and _get_config_var('WITH_PYMALLOC', True):
-        pymalloc = 'm'
-    return f'cp{version[0]}{version[1]}{debug}{pymalloc}'
-
-
 def get_abi_tag() -> str:
     # The best solution to obtain the Python ABI is to parse the
     # $SOABI or $EXT_SUFFIX sysconfig variables as defined in PEP-314.
@@ -61,16 +39,7 @@ def get_abi_tag() -> str:
     # Using $EXT_SUFFIX will not break when PyPy will fix this.
     # See https://foss.heptapod.net/pypy/pypy/-/issues/3816 and
     # https://github.com/pypa/packaging/pull/607.
-    try:
-        empty, abi, ext = str(sysconfig.get_config_var('EXT_SUFFIX')).split('.')
-    except ValueError as exc:
-        # CPython <= 3.8.7 on Windows does not implement PEP3149 and
-        # uses '.pyd' as $EXT_SUFFIX, which does not allow to extract
-        # the interpreter ABI.  Check that the fallback is not hit for
-        # any other Python implementation.
-        if sys.implementation.name != 'cpython':
-            raise NotImplementedError from exc
-        return _get_cpython_abi()
+    empty, abi, ext = str(sysconfig.get_config_var('EXT_SUFFIX')).split('.')
 
     # The packaging module initially based his understanding of the
     # $SOABI variable on the inconsistent value reported by PyPy, and
@@ -115,7 +84,7 @@ def _get_macosx_platform_tag() -> str:
         version = tuple(map(int, ver.split('.')))[:2]
 
     # Python built with older macOS SDK on macOS 11, reports an
-    # unexising macOS 10.16 version instead of the real version.
+    # nonexistent macOS 10.16 version instead of the real version.
     #
     # The packaging module introduced a workaround
     # https://github.com/pypa/packaging/commit/67c4a2820c549070bbfc4bfbf5e2a250075048da
@@ -144,7 +113,7 @@ def _get_macosx_platform_tag() -> str:
     major, minor = version
 
     if major >= 11:
-        # For macOS reelases up to 10.15, the major version number is
+        # For macOS releases up to 10.15, the major version number is
         # actually part of the OS name and the minor version is the
         # actual OS release.  Starting with macOS 11, the major
         # version number is the OS release and the minor version is
@@ -172,7 +141,7 @@ def _get_ios_platform_tag() -> str:
 
     # Although _multiarch is an internal implementation detail, it's a core part
     # of how CPython is implemented on iOS; this attribute is also relied upon
-    # by `packaging` as part of tag determiniation.
+    # by `packaging` as part of tag determination.
     multiarch = sys.implementation._multiarch.replace('-', '_')
 
     return f'ios_{version[0]}_{version[1]}_{multiarch}'
@@ -194,7 +163,7 @@ def get_platform_tag() -> str:
 
 
 class Tag:
-    def __init__(self, interpreter: Optional[str] = None, abi: Optional[str] = None, platform: Optional[str] = None):
+    def __init__(self, interpreter: str | None = None, abi: str | None = None, platform: str | None = None):
         self.interpreter = interpreter or get_interpreter_tag()
         self.abi = abi or get_abi_tag()
         self.platform = platform or get_platform_tag()

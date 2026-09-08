@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.29.0
+Version: 0.29.1
 Summary: The official capability library and harness for Pydantic AI
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai-harness
 Project-URL: Source, https://github.com/pydantic/pydantic-ai-harness
@@ -36,14 +36,14 @@ Provides-Extra: cli
 Requires-Dist: pydantic-ai-slim[cli]>=2.38.0; extra == 'cli'
 Provides-Extra: code-mode
 Requires-Dist: pydantic-ai-slim[duckduckgo]>=2.38.0; extra == 'code-mode'
-Requires-Dist: pydantic-monty>=0.0.19; extra == 'code-mode'
+Requires-Dist: pydantic-monty>=0.0.23; extra == 'code-mode'
 Provides-Extra: codemode
 Requires-Dist: pydantic-ai-slim[duckduckgo]>=2.38.0; extra == 'codemode'
-Requires-Dist: pydantic-monty>=0.0.19; extra == 'codemode'
+Requires-Dist: pydantic-monty>=0.0.23; extra == 'codemode'
 Provides-Extra: dbos
 Requires-Dist: pydantic-ai-slim[dbos]; extra == 'dbos'
 Provides-Extra: dynamic-workflow
-Requires-Dist: pydantic-monty>=0.0.19; extra == 'dynamic-workflow'
+Requires-Dist: pydantic-monty>=0.0.23; extra == 'dynamic-workflow'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.16.0; extra == 'exa'
 Provides-Extra: logfire

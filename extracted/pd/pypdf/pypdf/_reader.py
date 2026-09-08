@@ -49,6 +49,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
+from ._configuration import apply_legacy_configuration
 from ._doc_common import PdfDocCommon, convert_to_int
 from ._encryption import Encryption, PasswordType
 from ._utils import (
@@ -140,6 +141,7 @@ class PdfReader(PdfDocCommon):
         self._root_object_recovery_limit = (
             root_object_recovery_limit if isinstance(root_object_recovery_limit, int) else sys.maxsize
         )
+        apply_legacy_configuration()
 
         # Map page indirect_reference number to page number
         self._page_id2num: Optional[dict[Any, Any]] = None
@@ -615,10 +617,10 @@ class PdfReader(PdfDocCommon):
         skip_over_comment(stream)
         extra = skip_over_whitespace(stream)
         stream.seek(-1, 1)
-        idnum = read_until_whitespace(stream)
+        idnum = read_until_whitespace(stream, max_bytes=IndirectObject._MAXIMUM_PART_LENGTH, strict=self.strict)
         extra |= skip_over_whitespace(stream)
         stream.seek(-1, 1)
-        generation = read_until_whitespace(stream)
+        generation = read_until_whitespace(stream, max_bytes=IndirectObject._MAXIMUM_PART_LENGTH, strict=self.strict)
         extra |= skip_over_whitespace(stream)
         stream.seek(-1, 1)
 
@@ -634,7 +636,14 @@ class PdfReader(PdfDocCommon):
                 idnum=idnum,
                 generation=generation,
             )
-        return int(idnum), int(generation)
+
+        try:
+            return int(idnum), int(generation)
+        except (ValueError, OverflowError) as e:
+            # Only raise a ValueError here as other types would break future processing.
+            raise ValueError(
+                f"Invalid indirect object reference ({idnum!r} {generation!r} R): {e}"
+            ) from e
 
     def cache_get_indirect_object(
         self, generation: int, idnum: int
@@ -767,7 +776,7 @@ class PdfReader(PdfDocCommon):
         the file. Hence for standard-compliant PDF documents this function will
         read only the last part (DEFAULT_BUFFER_SIZE).
         """
-        HEADER_SIZE = 8  # to parse whole file, Header is e.g. '%PDF-1.6'
+        header_size = 8  # to parse whole file, Header is e.g. '%PDF-1.6'
         line = b""
         first = True
         while not line.startswith(b"%%EOF"):
@@ -786,7 +795,7 @@ class PdfReader(PdfDocCommon):
                     "The file might be truncated and some data might not be read.",
                     source=__name__,
                 )
-            if stream.tell() < HEADER_SIZE:
+            if stream.tell() < header_size:
                 if self.strict:
                     raise PdfReadError("EOF marker not found")
                 logger_warning("EOF marker not found", source=__name__)
@@ -1395,17 +1404,21 @@ class PdfReader(PdfDocCommon):
                     object_stream = BytesIO(obj.get_data())
                     actual_count = 0
                     while True:
-                        current = read_until_whitespace(object_stream)
+                        current = read_until_whitespace(
+                            object_stream, max_bytes=IndirectObject._MAXIMUM_PART_LENGTH, strict=self.strict
+                        )
                         if not current.isdigit():
                             break
                         inner_object_number = int(current)
                         skip_over_whitespace(object_stream)
                         object_stream.seek(-1, 1)
-                        current = read_until_whitespace(object_stream)
+                        current = read_until_whitespace(
+                            object_stream, max_bytes=IndirectObject._MAXIMUM_PART_LENGTH, strict=self.strict
+                        )
                         if not current.isdigit():  # pragma: no cover
                             break  # pragma: no cover
-                        inner_generation_number = int(current)
-                        self.xref_objStm[inner_object_number] = (object_number, inner_generation_number)
+                        inner_offset = int(current)
+                        self.xref_objStm[inner_object_number] = (object_number, inner_offset)
                         actual_count += 1
                     expected_count = cast(int, obj["/N"])
                     if actual_count != expected_count:  # pragma: no cover
@@ -1421,6 +1434,10 @@ class PdfReader(PdfDocCommon):
                             generation_number=generation_number,
                             expected=expected_count,
                         )
+                except LimitReachedError:
+                    # Do not let the broad recovery below bypass the token-length limit
+                    # when strict parsing is enabled.
+                    raise
                 except Exception:  # could be multiple causes
                     pass
 

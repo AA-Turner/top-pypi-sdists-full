@@ -67,6 +67,7 @@ __all__ = (
     "PowerFeedDropType",
     "PowerPhaseType",
     "PricingResultType",
+    "PrivateConnectivityStatusType",
     "QuoteCapacityTypeType",
     "QuoteConstraintTypeType",
     "QuotePricingTypeType",
@@ -88,7 +89,7 @@ __all__ = (
 )
 
 
-AWSServiceNameType = Literal["AWS", "EC2", "ELASTICACHE", "ELB", "RDS", "ROUTE53"]
+AWSServiceNameType = Literal["AWS", "EC2", "EKS", "ELASTICACHE", "ELB", "RDS", "ROUTE53"]
 AddressTypeType = Literal["OPERATING_ADDRESS", "SHIPPING_ADDRESS"]
 AssetStateType = Literal["ACTIVE", "INSTALLING", "ISOLATED", "RETIRING"]
 AssetTypeType = Literal["COMPUTE", "NETWORKING", "POWERSHELF", "STORAGE", "SWITCH"]
@@ -210,6 +211,7 @@ PowerDrawKvaType = Literal["POWER_10_KVA", "POWER_15_KVA", "POWER_30_KVA", "POWE
 PowerFeedDropType = Literal["ABOVE_RACK", "BELOW_RACK"]
 PowerPhaseType = Literal["SINGLE_PHASE", "THREE_PHASE"]
 PricingResultType = Literal["PRICED", "UNABLE_TO_PRICE"]
+PrivateConnectivityStatusType = Literal["DISABLED", "ENABLED"]
 QuoteCapacityTypeType = Literal["EBS", "EC2", "S3"]
 QuoteConstraintTypeType = Literal["RACK_MAXIMUM", "RACK_MAX_POWER_KVA", "RACK_MAX_WEIGHT_LBS"]
 QuotePricingTypeType = Literal["SUBSCRIPTION"]
@@ -240,8 +242,11 @@ OutpostsServiceName = Literal["outposts"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -546,6 +551,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

@@ -7,274 +7,43 @@
 //!
 //! - On Linux with io_uring support, TCP operations use native async syscalls via the async driver.
 //! - When io_uring completion is available, operations complete directly.
-//! - For platforms without native async support, operations fall back to synchronous std::net calls.
-//! - The runtime must be active when calling these types' methods; otherwise they will panic.
+//! - Poll mode uses nonblocking socket calls and driver readiness notifications.
+//! - Register sockets and drive async I/O inside a runtime. Registration without
+//!   one returns an error; direct address/option queries need no current runtime.
 
 use std::future::poll_fn;
 use std::io;
-use std::mem::ManuallyDrop;
 use std::net::{SocketAddr, TcpListener as StdTcpListener, ToSocketAddrs};
 #[cfg(unix)]
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
-use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
+use std::os::windows::io::{AsRawSocket, IntoRawSocket, RawSocket};
 
 use mio::Interest;
-#[cfg(windows)]
-use windows_sys::Win32::Networking::WinSock::{
-    self as WinSock, AF_INET, AF_INET6, IPPROTO_IPV6, IPV6_V6ONLY, SOCK_STREAM, SOCKADDR,
-    SOCKADDR_IN, SOCKADDR_IN6, SOCKADDR_STORAGE, SOMAXCONN, WSADATA,
-};
 
 use crate::vibeio::op::AcceptOp;
 use crate::vibeio::{fd_inner::InnerRawHandle, net::TcpStream};
 
-#[cfg(unix)]
-fn socket_addr_to_raw(
-    address: SocketAddr,
-) -> (libc::c_int, libc::sockaddr_storage, libc::socklen_t) {
-    match address {
-        SocketAddr::V4(address) => {
-            let sockaddr = libc::sockaddr_in {
-                sin_family: libc::AF_INET as libc::sa_family_t,
-                sin_port: address.port().to_be(),
-                sin_addr: libc::in_addr {
-                    s_addr: u32::from_ne_bytes(address.ip().octets()),
-                },
-                sin_zero: [0; 8],
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin_len: 0,
-            };
-
-            let mut storage = std::mem::MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in>()
-                    .write(sockaddr);
-                (
-                    libc::AF_INET,
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in>() as libc::socklen_t,
-                )
-            }
-        }
-        SocketAddr::V6(address) => {
-            let sockaddr = libc::sockaddr_in6 {
-                sin6_family: libc::AF_INET6 as libc::sa_family_t,
-                sin6_port: address.port().to_be(),
-                sin6_flowinfo: address.flowinfo(),
-                sin6_addr: libc::in6_addr {
-                    s6_addr: address.ip().octets(),
-                },
-                sin6_scope_id: address.scope_id(),
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin6_len: 0,
-            };
-
-            let mut storage = std::mem::MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in6>()
-                    .write(sockaddr);
-                (
-                    libc::AF_INET6,
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in6>() as libc::socklen_t,
-                )
-            }
-        }
-    }
-}
-
-#[cfg(unix)]
 fn bind_one(address: SocketAddr) -> Result<StdTcpListener, io::Error> {
-    let (domain, raw_addr, raw_addr_len) = socket_addr_to_raw(address);
-    let socket_fd = unsafe { libc::socket(domain, libc::SOCK_STREAM, 0) };
-    if socket_fd == -1 {
-        return Err(io::Error::last_os_error());
+    let socket = socket2::Socket::new(
+        socket2::Domain::for_address(address),
+        socket2::Type::STREAM,
+        None,
+    )?;
+    // Preserve the existing platform policy: Unix listeners enable address
+    // reuse, while Windows listeners retain their default exclusivity behavior.
+    #[cfg(unix)]
+    socket.set_reuse_address(true)?;
+    if address.is_ipv6() {
+        socket.set_only_v6(false)?;
     }
-
-    let reuse_addr: libc::c_int = 1;
-    let reuse_addr_result = unsafe {
-        libc::setsockopt(
-            socket_fd,
-            libc::SOL_SOCKET,
-            libc::SO_REUSEADDR,
-            (&reuse_addr as *const libc::c_int).cast(),
-            std::mem::size_of_val(&reuse_addr) as libc::socklen_t,
-        )
-    };
-    if reuse_addr_result == -1 {
-        let err = io::Error::last_os_error();
-        let _ = unsafe { libc::close(socket_fd) };
-        return Err(err);
-    }
-
-    if domain == libc::AF_INET6 {
-        let ipv6_only: libc::c_int = 0;
-        let ipv6_only_result = unsafe {
-            libc::setsockopt(
-                socket_fd,
-                libc::IPPROTO_IPV6,
-                libc::IPV6_V6ONLY,
-                (&ipv6_only as *const libc::c_int).cast(),
-                std::mem::size_of_val(&ipv6_only) as libc::socklen_t,
-            )
-        };
-        if ipv6_only_result == -1 {
-            let err = io::Error::last_os_error();
-            let _ = unsafe { libc::close(socket_fd) };
-            return Err(err);
-        }
-    }
-
-    let bind_result = unsafe {
-        libc::bind(
-            socket_fd,
-            (&raw_addr as *const libc::sockaddr_storage).cast::<libc::sockaddr>(),
-            raw_addr_len,
-        )
-    };
-    if bind_result == -1 {
-        let err = io::Error::last_os_error();
-        let _ = unsafe { libc::close(socket_fd) };
-        return Err(err);
-    }
-
-    let listen_result = unsafe { libc::listen(socket_fd, libc::SOMAXCONN) };
-    if listen_result == -1 {
-        let err = io::Error::last_os_error();
-        let _ = unsafe { libc::close(socket_fd) };
-        return Err(err);
-    }
-
-    Ok(unsafe { StdTcpListener::from_raw_fd(socket_fd) })
-}
-
-#[cfg(windows)]
-fn socket_addr_to_raw(address: SocketAddr) -> (i32, SOCKADDR_STORAGE, i32) {
-    match address {
-        SocketAddr::V4(address) => {
-            let mut sockaddr = SOCKADDR_IN::default();
-            sockaddr.sin_family = AF_INET;
-            sockaddr.sin_port = address.port().to_be();
-            sockaddr.sin_addr.S_un.S_addr = u32::from_ne_bytes(address.ip().octets());
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN>(),
-                );
-            }
-
-            (
-                AF_INET as i32,
-                storage,
-                std::mem::size_of::<SOCKADDR_IN>() as i32,
-            )
-        }
-        SocketAddr::V6(address) => {
-            let mut sockaddr = SOCKADDR_IN6::default();
-            sockaddr.sin6_family = AF_INET6;
-            sockaddr.sin6_port = address.port().to_be();
-            sockaddr.sin6_flowinfo = address.flowinfo();
-            sockaddr.sin6_addr.u.Byte = address.ip().octets();
-            sockaddr.Anonymous.sin6_scope_id = address.scope_id();
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN6 as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN6>(),
-                );
-            }
-
-            (
-                AF_INET6 as i32,
-                storage,
-                std::mem::size_of::<SOCKADDR_IN6>() as i32,
-            )
-        }
-    }
-}
-
-#[cfg(windows)]
-fn bind_one(address: SocketAddr) -> Result<StdTcpListener, io::Error> {
-    // 0x202 = MAKEWORD(2, 2)
-    let mut wsadata = WSADATA::default();
-    if unsafe { WinSock::WSAStartup(0x202, &mut wsadata as *mut WSADATA) } != 0 {
-        return Err(io::Error::last_os_error());
-    }
-
-    let (domain, raw_addr, raw_addr_len) = socket_addr_to_raw(address);
-    let socket = unsafe { WinSock::socket(domain, SOCK_STREAM, 0) };
-    if socket == WinSock::INVALID_SOCKET {
-        let err_code = unsafe { WinSock::WSAGetLastError() };
-        return Err(io::Error::from_raw_os_error(err_code));
-    }
-
-    if domain == AF_INET6 as i32 {
-        let ipv6_only: i32 = 0;
-        let ipv6_only_result = unsafe {
-            WinSock::setsockopt(
-                socket,
-                IPPROTO_IPV6 as i32,
-                IPV6_V6ONLY as i32,
-                (&ipv6_only as *const i32).cast(),
-                std::mem::size_of_val(&ipv6_only) as i32,
-            )
-        };
-        if ipv6_only_result == WinSock::SOCKET_ERROR {
-            let err_code = unsafe { WinSock::WSAGetLastError() };
-            let _ = unsafe { WinSock::closesocket(socket) };
-            return Err(io::Error::from_raw_os_error(err_code));
-        }
-    }
-
-    let bind_result = unsafe {
-        WinSock::bind(
-            socket,
-            (&raw_addr as *const SOCKADDR_STORAGE).cast::<SOCKADDR>(),
-            raw_addr_len,
-        )
-    };
-    if bind_result == WinSock::SOCKET_ERROR {
-        let err_code = unsafe { WinSock::WSAGetLastError() };
-        let _ = unsafe { WinSock::closesocket(socket) };
-        return Err(io::Error::from_raw_os_error(err_code));
-    }
-
-    let listen_result = unsafe { WinSock::listen(socket, SOMAXCONN as i32) };
-    if listen_result == WinSock::SOCKET_ERROR {
-        let err_code = unsafe { WinSock::WSAGetLastError() };
-        let _ = unsafe { WinSock::closesocket(socket) };
-        return Err(io::Error::from_raw_os_error(err_code));
-    }
-
-    Ok(unsafe { StdTcpListener::from_raw_socket(socket as RawSocket) })
+    socket.bind(&address.into())?;
+    #[cfg(unix)]
+    let backlog = libc::SOMAXCONN;
+    #[cfg(windows)]
+    let backlog = windows_sys::Win32::Networking::WinSock::SOMAXCONN as i32;
+    socket.listen(backlog)?;
+    Ok(socket.into())
 }
 
 /// An async TCP listener that can use either completion-based or poll-based I/O.
@@ -285,23 +54,19 @@ fn bind_one(address: SocketAddr) -> Result<StdTcpListener, io::Error> {
 ///
 /// - On Linux with io_uring support, TCP operations use native async syscalls via the async driver.
 /// - When io_uring completion is available, operations complete directly.
-/// - For platforms without native async support, operations fall back to synchronous std::net calls.
-/// - The runtime must be active when calling these methods; otherwise they will panic.
+/// - Poll mode uses nonblocking socket calls and driver readiness notifications.
+/// - Registration needs an entered runtime and returns an error without one.
+///   Drive async I/O inside a runtime; direct socket queries need no current runtime.
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::net::TcpListener;
-///
-/// let listener = TcpListener::bind("127.0.0.1:8080").await?;
-/// loop {
-///     let (stream, addr) = listener.accept().await?;
-///     println!("Connection from: {}", addr);
-/// }
-/// ```
+/// See "TCP loopback with the Tokio I/O adapter" in
+/// `tools/vibeio-check/EXAMPLES.md`. Bind is synchronous and fallible; accepting
+/// a connection is asynchronous.
 pub struct TcpListener {
+    // Deregister before closing the socket (field declaration order).
+    handle: InnerRawHandle,
     inner: StdTcpListener,
-    handle: ManuallyDrop<InnerRawHandle>,
 }
 
 impl TcpListener {
@@ -339,12 +104,12 @@ impl TcpListener {
     #[inline]
     pub fn from_std(inner: std::net::TcpListener) -> Result<Self, io::Error> {
         #[cfg(unix)]
-        let handle = ManuallyDrop::new(InnerRawHandle::new(inner.as_raw_fd(), Interest::READABLE)?);
+        let handle = InnerRawHandle::new(inner.as_raw_fd(), Interest::READABLE)?;
         #[cfg(windows)]
-        let handle = ManuallyDrop::new(InnerRawHandle::new(
+        let handle = InnerRawHandle::new(
             crate::vibeio::fd_inner::RawOsHandle::Socket(inner.as_raw_socket()),
             Interest::READABLE,
-        )?);
+        )?;
         inner.set_nonblocking(!handle.uses_completion())?;
         Ok(Self { inner, handle })
     }
@@ -359,11 +124,11 @@ impl TcpListener {
     #[cfg(windows)]
     #[inline]
     pub fn from_std_poll(inner: std::net::TcpListener) -> Result<Self, io::Error> {
-        let handle = ManuallyDrop::new(InnerRawHandle::new_with_mode(
+        let handle = InnerRawHandle::new_with_mode(
             crate::vibeio::fd_inner::RawOsHandle::Socket(inner.as_raw_socket()),
             Interest::READABLE,
             crate::vibeio::driver::RegistrationMode::Poll,
-        )?);
+        )?;
         inner.set_nonblocking(!handle.uses_completion())?;
         Ok(Self { inner, handle })
     }
@@ -390,24 +155,9 @@ impl TcpListener {
     #[inline]
     pub async fn accept(&self) -> Result<(TcpStream, SocketAddr), io::Error> {
         let mut op = AcceptOp::new(&self.handle);
-        let (raw, address) = poll_fn(move |cx| self.handle.poll_op(cx, &mut op)).await?;
-        // Recreate a std TcpStream from the raw fd and convert it into our async TcpStream.
-        // If conversion fails, the std TcpStream will be dropped and the fd closed.
-        #[cfg(unix)]
-        let std_stream = unsafe { std::net::TcpStream::from_raw_fd(raw) };
-        #[cfg(windows)]
-        let crate::vibeio::fd_inner::RawOsHandle::Socket(raw) = raw else {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "invalid raw handle",
-            ));
-        };
-        #[cfg(windows)]
-        let std_stream = unsafe { std::net::TcpStream::from_raw_socket(raw) };
-        match TcpStream::from_std(std_stream) {
-            Ok(stream) => Ok((stream, address)),
-            Err(err) => Err(err),
-        }
+        let (socket, address) = poll_fn(move |cx| self.handle.poll_op(cx, &mut op)).await?;
+        let std_stream = std::net::TcpStream::from(socket);
+        TcpStream::from_std(std_stream).map(|stream| (stream, address))
     }
 }
 
@@ -423,14 +173,9 @@ impl AsRawFd for TcpListener {
 impl IntoRawFd for TcpListener {
     #[inline]
     fn into_raw_fd(self) -> RawFd {
-        let mut this = ManuallyDrop::new(self);
-
-        // Safety: `this` will not be dropped, so we must drop the registration handle manually.
-        // We then move out the inner std stream and transfer its fd ownership to the caller.
-        unsafe {
-            ManuallyDrop::drop(&mut this.handle);
-            std::ptr::read(&this.inner).into_raw_fd()
-        }
+        let Self { handle, inner } = self;
+        drop(handle);
+        inner.into_raw_fd()
     }
 }
 
@@ -446,23 +191,67 @@ impl AsRawSocket for TcpListener {
 impl IntoRawSocket for TcpListener {
     #[inline]
     fn into_raw_socket(self) -> RawSocket {
-        let mut this = ManuallyDrop::new(self);
-
-        // Safety: `this` will not be dropped, so we must drop the registration handle manually.
-        // We then move out the inner std stream and transfer its socket ownership to the caller.
-        unsafe {
-            ManuallyDrop::drop(&mut this.handle);
-            std::ptr::read(&this.inner).into_raw_socket()
-        }
+        let Self { handle, inner } = self;
+        drop(handle);
+        inner.into_raw_socket()
     }
 }
 
-impl Drop for TcpListener {
-    #[inline]
-    fn drop(&mut self) {
-        // Safety: The struct is dropped after the handle is dropped.
-        unsafe {
-            ManuallyDrop::drop(&mut self.handle);
+#[cfg(test)]
+mod socket_creation_tests {
+    use super::*;
+
+    #[test]
+    fn configured_listener_accepts_and_rejects_duplicate_bind() {
+        use std::io::{Read, Write};
+        let listener = bind_one("127.0.0.1:0".parse().unwrap()).unwrap();
+        let address = listener.local_addr().unwrap();
+        #[cfg(unix)]
+        assert!(socket2::SockRef::from(&listener).reuse_address().unwrap());
+        assert_eq!(
+            bind_one(address).unwrap_err().kind(),
+            io::ErrorKind::AddrInUse
+        );
+        let mut peer = std::net::TcpStream::connect(address).unwrap();
+        let (mut accepted, remote) = listener.accept().unwrap();
+        assert_eq!(remote, peer.local_addr().unwrap());
+        accepted
+            .set_read_timeout(Some(crate::vibeio::test_support::WATCHDOG))
+            .unwrap();
+        peer.write_all(b"hello").unwrap();
+        let mut payload = [0; 5];
+        accepted.read_exact(&mut payload).unwrap();
+        assert_eq!(&payload, b"hello");
+    }
+
+    #[test]
+    fn ipv6_listener_preserves_dual_stack_option() {
+        // A wildcard bind can actually serve both address families. Binding
+        // specifically to ::1 can force IPv6-only behavior in the kernel.
+        let listener = bind_one("[::]:0".parse().unwrap()).unwrap();
+        assert!(!socket2::SockRef::from(&listener).only_v6().unwrap());
+        assert!(listener.local_addr().unwrap().is_ipv6());
+    }
+
+    #[test]
+    fn created_socket_is_close_on_exec() {
+        let socket = bind_one("127.0.0.1:0".parse().unwrap()).unwrap();
+        #[cfg(unix)]
+        {
+            // SAFETY: socket owns the live descriptor; F_GETFD has no pointer arguments.
+            let flags = unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_GETFD) };
+            assert_ne!(flags, -1);
+            assert_ne!(flags & libc::FD_CLOEXEC, 0);
+        }
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::Foundation::{GetHandleInformation, HANDLE_FLAG_INHERIT};
+            let mut flags = 0;
+            // SAFETY: socket owns the live kernel handle and flags is writable.
+            let result =
+                unsafe { GetHandleInformation(socket.as_raw_socket() as *mut _, &mut flags) };
+            assert_ne!(result, 0, "{}", io::Error::last_os_error());
+            assert_eq!(flags & HANDLE_FLAG_INHERIT, 0);
         }
     }
 }

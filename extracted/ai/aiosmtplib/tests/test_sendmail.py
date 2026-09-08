@@ -22,6 +22,7 @@ from .smtpd import (
     mock_response_done,
     mock_response_error_disconnect,
     mock_response_bad_command_sequence,
+    mock_response_mailbox_unavailable,
 )
 
 
@@ -174,6 +175,7 @@ async def test_sendmail_error_silent_rset_handles_disconnect(
             await smtp_client.sendmail(sender_str, [recipient_str], message_str)
 
 
+@pytest.mark.smtpd_mocks(smtp_MAIL=mock_response_mailbox_unavailable)
 async def test_rset_after_sendmail_error_response_to_mail(
     smtp_client: SMTP,
     received_commands: list[tuple[str, tuple[Any, ...]]],
@@ -187,12 +189,15 @@ async def test_rset_after_sendmail_error_response_to_mail(
         assert response.code == SMTPStatus.completed
 
         with pytest.raises(SMTPResponseException) as excinfo:
-            await smtp_client.sendmail(">foobar<", ["test@example.com"], "Hello World")
+            await smtp_client.sendmail(
+                "test@example.com", ["test@example.com"], "Hello World"
+            )
 
-        assert excinfo.value.code == SMTPStatus.unrecognized_parameters
+        assert excinfo.value.code == SMTPStatus.mailbox_unavailable
         assert received_commands[-1][0] == "RSET"
 
 
+@pytest.mark.smtpd_mocks(smtp_RCPT=mock_response_mailbox_unavailable)
 async def test_rset_after_sendmail_error_response_to_rcpt(
     smtp_client: SMTP,
     received_commands: list[tuple[str, tuple[Any, ...]]],
@@ -207,10 +212,10 @@ async def test_rset_after_sendmail_error_response_to_rcpt(
 
         with pytest.raises(SMTPRecipientsRefused) as excinfo:
             await smtp_client.sendmail(
-                "test@example.com", [">not an addr<"], "Hello World"
+                "test@example.com", ["test@example.com"], "Hello World"
             )
 
-        assert excinfo.value.recipients[0].code == SMTPStatus.unrecognized_parameters
+        assert excinfo.value.recipients[0].code == SMTPStatus.mailbox_unavailable
         assert received_commands[-1][0] == "RSET"
 
 
@@ -612,3 +617,39 @@ async def test_sendmail_empty_sender(
         assert not errors
         assert isinstance(errors, dict)
         assert response != ""
+
+
+async def test_sendmail_size_option_counts_transmitted_octets_bytes(
+    smtp_client: SMTP,
+    sender_str: str,
+    recipient_str: str,
+    received_commands: list[tuple[str, tuple[Any, ...]]],
+) -> None:
+    # Bare LF line endings are converted to CRLF on the wire, the body has
+    # multibyte UTF-8, and there is no trailing newline (one gets added).
+    message = b"From: a@example.com\nTo: b@example.com\n\nH\xc3\xa9llo\n.dot"
+    expected_size = len(
+        b"From: a@example.com\r\nTo: b@example.com\r\n\r\nH\xc3\xa9llo\r\n.dot\r\n"
+    )
+
+    async with smtp_client:
+        await smtp_client.sendmail(sender_str, [recipient_str], message)
+
+    assert received_commands[1][0] == "MAIL"
+    assert received_commands[1][1][1][0] == f"SIZE={expected_size}"
+
+
+async def test_sendmail_size_option_counts_transmitted_octets_str(
+    smtp_client: SMTP,
+    sender_str: str,
+    recipient_str: str,
+    received_commands: list[tuple[str, tuple[Any, ...]]],
+) -> None:
+    message = "From: a@example.com\nTo: b@example.com\n\nHello\n"
+    expected_size = len(b"From: a@example.com\r\nTo: b@example.com\r\n\r\nHello\r\n")
+
+    async with smtp_client:
+        await smtp_client.sendmail(sender_str, [recipient_str], message)
+
+    assert received_commands[1][0] == "MAIL"
+    assert received_commands[1][1][1][0] == f"SIZE={expected_size}"

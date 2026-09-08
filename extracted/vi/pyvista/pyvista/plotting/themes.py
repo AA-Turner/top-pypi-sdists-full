@@ -35,8 +35,8 @@ from __future__ import annotations
 from enum import Enum
 import json
 import os
-import pathlib
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import ClassVar
@@ -55,8 +55,7 @@ from .opts import PointSpriteShape
 from .theme_registry import _available_theme_names
 from .theme_registry import _register_alias
 from .theme_registry import _register_theme_class
-from .theme_registry import _resolve_dotted_path
-from .theme_registry import _resolve_theme
+from .theme_registry import _resolve_theme_like
 from .tools import parse_font_family
 
 if TYPE_CHECKING:
@@ -66,6 +65,7 @@ if TYPE_CHECKING:
 
     from ._typing import ColorLike
     from ._typing import ColormapOptions
+    from ._typing import ThemeOptions
 
 
 def _set_plot_theme_from_env() -> None:
@@ -89,7 +89,7 @@ def load_theme(filename):
     Parameters
     ----------
     filename : str
-        Theme file. Must be json.
+        Theme file. Must be ``json``.
 
     Returns
     -------
@@ -110,7 +110,7 @@ def load_theme(filename):
     return Theme.from_dict(theme_dict)
 
 
-def set_plot_theme(theme):
+def set_plot_theme(theme: Theme | ThemeOptions | str) -> None:
     """Set plotting parameters to a predefined theme using a string or ``Theme``.
 
     Parameters
@@ -164,27 +164,7 @@ def set_plot_theme(theme):
     """
     import pyvista  # noqa: PLC0415
 
-    if isinstance(theme, str):
-        if ':' in theme:
-            cls = _resolve_dotted_path(theme)
-            pyvista.global_theme.load_theme(cls())
-            return
-        resolved = _resolve_theme(theme)
-        if resolved is None:
-            allowed = ', '.join(_available_theme_names())
-            msg = (
-                f'Theme "{theme}" not found. Available themes: {allowed}. '
-                'To load from an arbitrary module use "package.module:ClassName".'
-            )
-            raise ValueError(msg)
-        pyvista.global_theme.load_theme(resolved)
-    elif isinstance(theme, Theme):
-        pyvista.global_theme.load_theme(theme)
-    else:
-        msg = (
-            f'Expected a ``pyvista.plotting.themes.Theme`` or ``str``, not {type(theme).__name__}'
-        )
-        raise TypeError(msg)
+    pyvista.global_theme.load_theme(_resolve_theme_like(theme))
 
 
 class _LightingConfig(_ConfigBase):
@@ -926,8 +906,8 @@ class _Font(_ConfigBase):
 
     Examples
     --------
-    Set the default font family to 'arial'.  Must be either
-    'arial', 'courier', or 'times'.
+    Set the default font family to ``'arial'``.  Must be either
+    ``'arial'``, ``'courier'``, or ``'times'``.
 
     >>> import pyvista as pv
     >>> pv.global_theme.font.family = 'arial'
@@ -1201,7 +1181,7 @@ class _SliderStyleConfig(_ConfigBase):
 
     @property
     def tube_width(self) -> float:  # numpydoc ignore=RT01
-        """Return or set the tube_width.
+        """Return or set the tube width.
 
         Examples
         --------
@@ -1249,7 +1229,7 @@ class _SliderStyleConfig(_ConfigBase):
 
     @property
     def slider_length(self) -> float:  # numpydoc ignore=RT01
-        """Return or set the slider_length.
+        """Return or set the slider length.
 
         Examples
         --------
@@ -1416,7 +1396,7 @@ class _TrameConfig(_ConfigBase):
             # JupyterHub service prefixes are URL paths, not filesystem paths,
             # so use PurePosixPath to force forward-slash joining on Windows.
             self._server_proxy_prefix = (
-                str(pathlib.PurePosixPath(service) / prefix.lstrip('/')).rstrip('/') + '/'
+                str(PurePosixPath(service) / prefix.lstrip('/')).rstrip('/') + '/'
             )
             self._server_proxy_enabled = True
         else:
@@ -1520,7 +1500,7 @@ class _TrameConfig(_ConfigBase):
 
     @property
     def jupyter_extension_available(self) -> bool:  # numpydoc ignore=RT01
-        """Return whether the trame_jupyter_extension is detected."""
+        """Return whether the ``trame_jupyter_extension`` is detected."""
         return self._jupyter_extension_available
 
     @jupyter_extension_available.setter
@@ -1531,7 +1511,7 @@ class _TrameConfig(_ConfigBase):
 
     @property
     def jupyter_extension_enabled(self) -> bool:  # numpydoc ignore=RT01
-        """Return or set whether to use the trame_jupyter_extension to communicate with clients."""
+        """Return or set whether to communicate with clients via ``trame_jupyter_extension``."""
         return self._jupyter_extension_enabled
 
     @jupyter_extension_enabled.setter
@@ -1610,11 +1590,11 @@ class _CameraConfig(_ConfigBase):
 
     @property
     def viewup(self) -> VectorLike[float]:  # numpydoc ignore=RT01
-        """Return or set the camera viewup.
+        """Return or set the camera's view-up vector.
 
         Examples
         --------
-        Set camera viewup.
+        Set the camera ``viewup``.
 
         >>> import pyvista as pv
         >>> pv.global_theme.camera.viewup = [0.0, 0.0, 1.0]
@@ -1678,6 +1658,14 @@ class _PlotCellConfig(_ConfigBase):
 class Theme(_ConfigBase):
     """Base VTK theme.
 
+    The active theme is exposed as ``pyvista.global_theme``. See
+    :ref:`configuration` for an overview of all global settings.
+
+    See Also
+    --------
+    pyvista.core.config.Config
+        Non-plotting counterpart, exposed as ``pyvista.global_config``.
+
     Notes
     -----
     This section is aimed at theme authors and plugin package
@@ -1734,7 +1722,7 @@ class Theme(_ConfigBase):
 
     """
 
-    # ``_plot_cell`` is an internal-only sub-config — exclude it from
+    # ``_plot_cell`` is an internal-only sub-config—exclude it from
     # ``to_dict`` output so themes serialize/deserialize round-trip cleanly.
     _TO_DICT_SKIP: ClassVar[frozenset[str]] = frozenset({'plot_cell'})
 
@@ -1746,7 +1734,7 @@ class Theme(_ConfigBase):
         # Read from __dict__ directly so inherited _default_name does not
         # accidentally re-register a parent theme's name.
         if '_default_name' not in cls.__dict__:
-            # Subclass does not opt into name-based discovery. Silent skip —
+            # Subclass does not opt into name-based discovery. Silent skip—
             # ad-hoc subclasses are a valid pattern.
             return
         name = cls.__dict__['_default_name']
@@ -1773,6 +1761,8 @@ class Theme(_ConfigBase):
         '_before_close_callback',
         '_before_close_callback',
         '_below_range_color',
+        '_border_color',
+        '_border_width',
         '_camera',
         '_cmap',
         '_color',
@@ -1847,6 +1837,8 @@ class Theme(_ConfigBase):
         self._line_width = 1.0
         self._point_size = 5.0
         self._outline_color = Color('white')
+        self._border_color = Color('gray')
+        self._border_width = 1.0
         self._floor_color = Color('gray')
         self._colorbar_orientation = 'horizontal'
 
@@ -1984,11 +1976,11 @@ class Theme(_ConfigBase):
         ... )
         >>> pl.link_views()
         >>> pl.camera_position = pv.CameraPosition(
-        ...     position=(-1.67, -5.10, 2.06),
+        ...     position=(-1.67, -5.1, 2.06),
         ...     focal_point=(0.0, 0.0, 0.0),
-        ...     viewup=(0.00, 0.37, 0.93),
+        ...     viewup=(0.0, 0.37, 0.93),
         ... )
-        >>> pl.show()  # doctest: +SKIP
+        >>> pl.show()
 
         """
         return self._interpolate_before_map
@@ -2019,9 +2011,9 @@ class Theme(_ConfigBase):
         """Return or set the edges opacity.
 
         .. note::
-            `edge_opacity` uses ``SetEdgeOpacity`` as the underlying method which
+            ``edge_opacity`` uses ``SetEdgeOpacity`` as the underlying method which
             requires VTK version 9.3 or higher. If ``SetEdgeOpacity`` is not
-            available, `edge_opacity` is set to 1.
+            available, ``edge_opacity`` is set to 1.
 
         Examples
         --------
@@ -2247,7 +2239,7 @@ class Theme(_ConfigBase):
 
         Examples
         --------
-        Set both the position and viewup of the camera.
+        Set both the position and ``viewup`` of the camera.
 
         >>> import pyvista as pv
         >>> pv.global_theme.camera.position = [1.0, 1.0, 1.0]
@@ -2334,8 +2326,8 @@ class Theme(_ConfigBase):
 
         Examples
         --------
-        Set the default font family to 'arial'.  Must be either
-        'arial', 'courier', or 'times'.
+        Set the default font family to ``'arial'``.  Must be either
+        ``'arial'``, ``'courier'``, or ``'times'``.
 
         >>> import pyvista as pv
         >>> pv.global_theme.font.family = 'arial'
@@ -2454,7 +2446,7 @@ class Theme(_ConfigBase):
         >>> _ = pl.add_mesh(pv.Cube(center=(1, 0, 0)))  # green
         >>> _ = pl.add_mesh(pv.Sphere(center=(1, 1, 0)))  # blue
         >>> _ = pl.add_mesh(pv.Cylinder(center=(0, 1, 0)))  # red again
-        >>> pl.show()  # doctest: +SKIP
+        >>> pl.show()
 
         """
         return self._color_cycler
@@ -2522,7 +2514,7 @@ class Theme(_ConfigBase):
         Examples
         --------
         >>> import pyvista as pv
-        >>> pv.global_theme.line_width = 10.0
+        >>> pv.global_theme.point_size = 10.0
 
         """
         return self._point_size
@@ -2546,6 +2538,49 @@ class Theme(_ConfigBase):
     @outline_color.setter
     def outline_color(self, outline_color: ColorLike):
         self._outline_color = Color(outline_color)
+
+    @property
+    def border_color(self) -> Color:  # numpydoc ignore=RT01
+        """Return or set the default border color of a plotter.
+
+        .. versionadded:: 0.49
+
+        This is the color of the frame drawn around the outer edge of
+        the plotting area, of the lines drawn between subplots, or
+        both -- whichever ``border`` is set to draw. Used whenever no
+        explicit ``border_color`` is provided.
+
+        Examples
+        --------
+        >>> import pyvista as pv
+        >>> pv.global_theme.border_color = 'white'
+
+        """
+        return self._border_color
+
+    @border_color.setter
+    def border_color(self, border_color: ColorLike):
+        self._border_color = Color(border_color)
+
+    @property
+    def border_width(self) -> float:  # numpydoc ignore=RT01
+        """Return or set the default border/subplot seam width in pixels.
+
+        Used when a ``Plotter`` is constructed with ``border`` set to
+        draw either or both, and no explicit ``border_width`` is
+        provided.
+
+        Examples
+        --------
+        >>> import pyvista as pv
+        >>> pv.global_theme.border_width = 2.0
+
+        """
+        return self._border_width
+
+    @border_width.setter
+    def border_width(self, border_width: float):
+        self._border_width = float(border_width)
 
     @property
     def floor_color(self) -> Color:  # numpydoc ignore=RT01
@@ -2691,7 +2726,7 @@ class Theme(_ConfigBase):
 
     @property
     def lighting(self) -> bool:  # numpydoc ignore=RT01
-        """Return or set the default ``lighting``.
+        """Return or set whether lighting is enabled by default.
 
         Examples
         --------
@@ -2709,7 +2744,7 @@ class Theme(_ConfigBase):
 
     @property
     def interactive(self) -> bool:  # numpydoc ignore=RT01
-        """Return or set the default ``interactive`` parameter.
+        """Return or set the default interactive parameter.
 
         Examples
         --------
@@ -2727,7 +2762,7 @@ class Theme(_ConfigBase):
 
     @property
     def render_points_as_spheres(self) -> bool:  # numpydoc ignore=RT01
-        """Return or set the default ``render_points_as_spheres`` parameter.
+        """Return or set whether points are rendered as spheres by default.
 
         Examples
         --------
@@ -2786,7 +2821,7 @@ class Theme(_ConfigBase):
 
     @property
     def render_lines_as_tubes(self) -> bool:  # numpydoc ignore=RT01
-        """Return or set the default ``render_lines_as_tubes`` parameter.
+        """Return or set whether lines are rendered as tubes by default.
 
         Examples
         --------
@@ -2804,11 +2839,11 @@ class Theme(_ConfigBase):
 
     @property
     def transparent_background(self) -> bool:  # numpydoc ignore=RT01
-        """Return or set the default ``transparent_background`` parameter.
+        """Return or set whether the background is transparent by default.
 
         Examples
         --------
-        Set transparent_background globally to ``True``.
+        Set ``transparent_background`` globally to ``True``.
 
         >>> import pyvista as pv
         >>> pv.global_theme.transparent_background = True
@@ -2822,7 +2857,7 @@ class Theme(_ConfigBase):
 
     @property
     def title(self) -> str:  # numpydoc ignore=RT01
-        """Return or set the default ``title`` parameter.
+        """Return or set the default plot title.
 
         This is the VTK render window title.
 
@@ -2880,9 +2915,9 @@ class Theme(_ConfigBase):
 
     @property
     def multi_samples(self) -> int:  # numpydoc ignore=RT01
-        """Return or set the default ``multi_samples`` parameter.
+        """Return or set the default number of multisamples.
 
-        Set the number of multisamples to used with hardware anti_aliasing. This
+        Set the number of multisamples to used with hardware ``anti_aliasing``. This
         is only used when :attr:`anti_aliasing <Theme.anti_aliasing>` is
         set to ``"msaa"``.
 
@@ -2903,11 +2938,11 @@ class Theme(_ConfigBase):
 
     @property
     def multi_rendering_splitting_position(self) -> float:  # numpydoc ignore=RT01
-        """Return or set the default ``multi_rendering_splitting_position`` parameter.
+        """Return or set the default splitting position for multi-rendering.
 
         Examples
         --------
-        Set multi_rendering_splitting_position globally to 0.5 (the
+        Set ``multi_rendering_splitting_position`` globally to 0.5 (the
         middle of the window).
 
         >>> import pyvista as pv
@@ -2925,7 +2960,7 @@ class Theme(_ConfigBase):
 
     @property
     def volume_mapper(self) -> str:  # numpydoc ignore=RT01
-        """Return or set the default ``volume_mapper`` parameter.
+        """Return or set the default volume mapper.
 
         Must be one of the following strings, which are mapped to the
         following VTK volume mappers.
@@ -2937,7 +2972,7 @@ class Theme(_ConfigBase):
 
         Examples
         --------
-        Set default volume mapper globally to 'gpu'.
+        Set default volume mapper globally to ``'gpu'``.
 
         >>> import pyvista as pv
         >>> pv.global_theme.volume_mapper = 'gpu'
@@ -2959,11 +2994,11 @@ class Theme(_ConfigBase):
 
     @property
     def smooth_shading(self) -> bool:  # numpydoc ignore=RT01
-        """Return or set the default ``smooth_shading`` parameter.
+        """Return or set whether smooth shading is used by default.
 
         Examples
         --------
-        Set the global smooth_shading parameter default to ``True``.
+        Set the global ``smooth_shading`` parameter default to ``True``.
 
         >>> import pyvista as pv
         >>> pv.global_theme.smooth_shading = True
@@ -2981,7 +3016,7 @@ class Theme(_ConfigBase):
 
         Examples
         --------
-        Set the global depth_peeling parameter default to be enabled
+        Set the global ``depth_peeling`` parameter default to be enabled
         with 8 peels.
 
         >>> import pyvista as pv
@@ -3001,7 +3036,7 @@ class Theme(_ConfigBase):
 
     @property
     def silhouette(self) -> _SilhouetteConfig:  # numpydoc ignore=RT01
-        """Return or set the default ``silhouette`` configuration.
+        """Return or set the default silhouette configuration.
 
         Examples
         --------
@@ -3036,7 +3071,7 @@ class Theme(_ConfigBase):
 
     @property
     def axes(self) -> _AxesConfig:  # numpydoc ignore=RT01
-        """Return or set the default ``axes`` configuration.
+        """Return or set the default axes configuration.
 
         Examples
         --------
@@ -3068,7 +3103,7 @@ class Theme(_ConfigBase):
     def before_close_callback(
         self,
     ) -> Callable[[pyvista.Plotter], None]:  # numpydoc ignore=RT01
-        """Return the default before_close_callback function for Plotter."""
+        """Return the default callback function to run before the plotter closes."""
         return self._before_close_callback  # type: ignore[return-value]
 
     @before_close_callback.setter
@@ -3093,7 +3128,7 @@ class Theme(_ConfigBase):
 
         >>> pl = pv.Plotter()
         >>> _ = pl.add_mesh(pv.PolyData())
-        >>> pl.show()  # doctest: +SKIP
+        >>> pl.show()
 
         """
         return self._allow_empty_mesh
@@ -3131,6 +3166,8 @@ class Theme(_ConfigBase):
             'Color Cycler': 'color_cycler',
             'NaN color': 'nan_color',
             'Edge color': 'edge_color',
+            'Border color': 'border_color',
+            'Border width': 'border_width',
             'Outline color': 'outline_color',
             'Floor color': 'floor_color',
             'Colorbar orientation': 'colorbar_orientation',
@@ -3208,7 +3245,6 @@ class Theme(_ConfigBase):
 
     @interactor_style.setter
     def interactor_style(self, interactor_style: str) -> None:
-        """Set the default interactor style."""
         self._interactor_style = _validate_interactor_style(interactor_style)
 
     def load_theme(self, theme: str | Theme) -> None:
@@ -3255,8 +3291,20 @@ class Theme(_ConfigBase):
         for attr_name in Theme.__slots__:
             setattr(self, attr_name, getattr(theme, attr_name))
 
+    @classmethod
+    def _from_theme(cls, theme: str | Theme) -> Theme:
+        """Return a new theme holding a copy of the settings of ``theme``.
+
+        Equivalent to ``Theme()`` followed by :meth:`load_theme`.
+        """
+        # Optimization: skip ``__init__`` since ``load_theme`` overwrites every slot it
+        # fills; every plotter, mapper and property takes a theme snapshot this way.
+        new = cls.__new__(cls)
+        new.load_theme(theme)
+        return new
+
     def save(self, filename: str) -> None:
-        """Serialize this theme to a json file.
+        """Serialize this theme to a ``json`` file.
 
         ``before_close_callback`` is non-serializable and is omitted.
 
@@ -3352,13 +3400,19 @@ class Theme(_ConfigBase):
         Resample the environment texture when using
         :meth:`~pyvista.Plotter.set_environment_texture`.
         Set this to a float to set the sampling rate explicitly or set
-        to ``True`` to downsample the texture to 1/16th of its original
+        to ``True`` to down-sample the texture to 1/16 of its original
         resolution.
 
-        Downsampling the texture can substantially improve performance for
-        some environments, e.g. headless setups or if GPU support is limited.
+        Down-sampling the texture can substantially improve performance for
+        some environments, for example, headless setups or if GPU support is limited.
 
         .. versionadded:: 0.45
+
+        .. versionchanged:: 0.49
+
+            The image-based lighting textures are down-sampled at the same rate.
+            See
+            :meth:`~pyvista.Plotter.set_environment_texture` for details.
 
         Examples
         --------
@@ -3412,11 +3466,11 @@ class Theme(_ConfigBase):
         return self._logo_file
 
     @logo_file.setter
-    def logo_file(self, logo_file: str | pathlib.Path | None):
+    def logo_file(self, logo_file: str | Path | None):
         if logo_file is None:
             path = None
         else:
-            if not pathlib.Path(logo_file).exists():
+            if not Path(logo_file).exists():
                 msg = f'Logo file ({logo_file}) not found.'
                 raise FileNotFoundError(msg)
             path = str(logo_file)
@@ -3454,6 +3508,7 @@ class DarkTheme(Theme):
         self.color = 'lightblue'
         self.outline_color = 'white'
         self.edge_color = 'white'
+        self.border_color = 'gray'
         self.axes.x_color = 'tomato'
         self.axes.y_color = 'seagreen'
         self.axes.z_color = 'blue'
@@ -3490,6 +3545,7 @@ class ParaViewTheme(Theme):
         self.color = 'white'
         self.outline_color = 'white'
         self.edge_color = 'black'
+        self.border_color = 'black'
         self.axes.x_color = 'tomato'
         self.axes.y_color = 'gold'
         self.axes.z_color = 'green'
@@ -3537,6 +3593,7 @@ class DocumentTheme(Theme):
         self.color = 'lightblue'
         self.outline_color = 'black'
         self.edge_color = 'black'
+        self.border_color = 'gray'
         self.axes.x_color = 'tomato'
         self.axes.y_color = 'seagreen'
         self.axes.z_color = 'blue'
@@ -3549,7 +3606,7 @@ class DocumentProTheme(DocumentTheme):
 
     * Default color cycling
     * Rendering points as spheres
-    * MSAA anti aliassing
+    * MSAA anti aliasing
     * Depth peeling
 
     """
@@ -3602,14 +3659,19 @@ class _TestingTheme(Theme):
     Resampling is also enabled for environment textures since this
     can be very slow without a GPU.
 
+    Notebook mode is pinned off rather than detected, so that a test plots the same
+    way wherever it runs.
+
     """
 
     _default_name: ClassVar[str] = 'testing'
 
     def __init__(self):
         super().__init__()
+        self.notebook = False
         self.multi_samples = 1
         self.window_size = [400, 400]
+        self.border_color = 'black'
         self.axes.show = False
         self.return_cpos = False
         self.resample_environment_texture = True

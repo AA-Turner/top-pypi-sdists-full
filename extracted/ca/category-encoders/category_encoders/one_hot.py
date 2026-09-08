@@ -38,11 +38,14 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         'value' will encode a new value as 0 in every dummy column.
         'indicator' will add an additional dummy column (in both training and test data).
     handle_missing: str
-        options are 'error', 'return_nan', 'value', and 'indicator'. The default is 'value'.
+        options are 'error', 'return_nan', 'value', 'indicator', and 'ignore'. The default is
+        'value'.
 
         'error' will raise a `ValueError` if a missing value is encountered.
         'return_nan' will encode a missing value as `np.nan` in every dummy column.
-        'value' will encode a missing value as 0 in every dummy column.
+        'value' will treat a missing value seen during fit as its own category, adding a dummy
+        column for it if the training data contained missing values (matching the treatment of
+        any other category). See 'ignore' below to zero-fill missing values instead.
         'indicator' will treat missingness as its own category, adding an additional dummy column
         (whether there are missing values in the training set or not).
         'ignore' will encode missing values as 0 in every dummy column,
@@ -118,6 +121,9 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         handle_missing: str = 'value',
         handle_unknown: str = 'value',
         use_cat_names: bool = False,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
     ):
         super().__init__(
             verbose=verbose,
@@ -126,6 +132,9 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
         )
         self.mapping: list[dict[str, pd.DataFrame]] | None = None
         self.ordinal_encoder = None
@@ -202,7 +211,7 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
                     found_column_counts[n_col_name] = found_count + 1
                     n_col_name += '#' * found_count
                 new_columns.append(n_col_name)
-                index.append(-1)
+                index.append(util.UNKNOWN_SENTINEL)
 
             if append_nan_to_index:
                 index.append(append_nan_to_index)
@@ -211,24 +220,33 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             base_df = pd.DataFrame(data=base_matrix, columns=new_columns, index=index)
 
             if self.handle_unknown == 'value':
-                base_df.loc[-1] = 0
+                base_df.loc[util.UNKNOWN_SENTINEL] = 0
             elif self.handle_unknown == 'return_nan':
-                base_df.loc[-1] = np.nan
+                base_df.loc[util.UNKNOWN_SENTINEL] = np.nan
 
             if self.handle_missing == 'return_nan':
-                base_df.loc[-2] = np.nan
+                base_df.loc[util.MISSING_SENTINEL] = np.nan
             elif self.handle_missing in ['value', 'ignore']:
-                base_df.loc[-2] = 0
+                base_df.loc[util.MISSING_SENTINEL] = 0
 
             mapping.append({'col': col, 'mapping': base_df})
 
         return mapping
 
     def _transform(self, X):
-        X = self.ordinal_encoder.transform(X)
+        # X is the private copy made by the transformer API (the #503 contract):
+        # ordinal-encode it in place instead of stacking another wrapper copy.
+        OrdinalEncoder.ordinal_encoding(
+            X,
+            mapping=self.ordinal_encoder.mapping,
+            cols=self.ordinal_encoder.cols,
+            handle_unknown=self.ordinal_encoder.handle_unknown,
+            handle_missing=self.ordinal_encoder.handle_missing,
+            index_start=self.ordinal_encoder.index_start,
+        )
 
         if self.handle_unknown == 'error':
-            if X[self.cols].isin([-1]).any().any():
+            if X[self.cols].isin([util.UNKNOWN_SENTINEL]).any().any():
                 raise ValueError('Columns to be encoded cannot contain new values')
 
         X = self.get_dummies(X)
@@ -297,22 +315,32 @@ class OneHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         dummies : DataFrame
 
         """
-        X = X_in.copy(deep=True)
+        mapping_by_col = {switch.get('col'): switch.get('mapping') for switch in self.mapping}
 
-        cols = X.columns.tolist()
+        missing_cols = [col for col in mapping_by_col if col not in X_in.columns]
+        if missing_cols:
+            raise KeyError(missing_cols[0])
 
-        for switch in self.mapping:
-            col = switch.get('col')
-            mod = switch.get('mapping')
+        # Dummy blocks are built per input column, in input order, so a single
+        # pd.concat produces the final column layout directly. The previous
+        # accumulator re-concatenated the growing frame once per column and
+        # then reindexed, which transiently allocates a multiple of the output
+        # size and dominates the memory profile of transform on wide or
+        # high-cardinality inputs (GH #362).
+        blocks = []
+        for col in X_in.columns:
+            if col in mapping_by_col:
+                mod = mapping_by_col[col]
+                base_df = mod.reindex(X_in[col].fillna(util.MISSING_SENTINEL))
+                blocks.append(base_df.set_index(X_in.index))
+            else:
+                blocks.append(X_in[[col]])
 
-            base_df = mod.reindex(X[col].fillna(-2))
-            base_df = base_df.set_index(X.index)
-            X = pd.concat([base_df, X], axis=1)
-
-            old_column_index = cols.index(col)
-            cols[old_column_index : old_column_index + 1] = mod.columns
-
-        X = X.reindex(columns=cols)
+        X = pd.concat(blocks, axis=1)
+        if X.columns.has_duplicates:
+            # A dummy column name collided with another output column;
+            # the final reindex this replaces raised the same error.
+            raise ValueError('cannot reindex on an axis with duplicate labels')
 
         return X
 

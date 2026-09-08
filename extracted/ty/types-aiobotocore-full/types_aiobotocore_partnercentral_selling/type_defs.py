@@ -39,7 +39,6 @@ from .literals import (
     InvitationStatusType,
     InvolvementTypeChangeReasonType,
     MarketingSourceType,
-    MarketSegmentType,
     NationalSecurityType,
     OpportunityOriginType,
     OpportunitySortNameType,
@@ -129,6 +128,7 @@ __all__ = (
     "EngagementResourceAssociationSummaryTypeDef",
     "EngagementSortTypeDef",
     "EngagementSummaryTypeDef",
+    "EnrichmentContextTypeDef",
     "ExpectedContractDurationTypeDef",
     "ExpectedCustomerSpendTypeDef",
     "GetAwsOpportunitySummaryRequestTypeDef",
@@ -147,8 +147,10 @@ __all__ = (
     "GetResourceSnapshotResponseTypeDef",
     "GetSellingSystemSettingsRequestTypeDef",
     "GetSellingSystemSettingsResponseTypeDef",
+    "InvitationProspectingResultAwsTypeDef",
     "InvitationTypeDef",
     "LastModifiedDateTypeDef",
+    "LeadAddressTypeDef",
     "LeadContactTypeDef",
     "LeadContextOutputTypeDef",
     "LeadContextTypeDef",
@@ -481,6 +483,10 @@ class EngagementSummaryTypeDef(TypedDict):
     ContextTypes: NotRequired[list[EngagementContextTypeType]]
 
 
+class LeadInsightsTypeDef(TypedDict):
+    LeadReadinessScore: NotRequired[str]
+
+
 class ExpectedContractDurationTypeDef(TypedDict):
     Term: Literal["Months"]
     Value: str
@@ -546,6 +552,34 @@ class GetSellingSystemSettingsRequestTypeDef(TypedDict):
     Catalog: str
 
 
+class ProspectingInsightsTypeDef(TypedDict):
+    MarketplaceEngagementScore: NotRequired[str]
+    SolutionScore: NotRequired[str]
+    SolutionCategory: NotRequired[str]
+    SolutionSubCategory: NotRequired[str]
+
+
+class ProspectingResultCustomerOutputTypeDef(TypedDict):
+    AccountName: NotRequired[str]
+    Geo: NotRequired[str]
+    Region: NotRequired[str]
+    SubRegion: NotRequired[str]
+    Country: NotRequired[CountryCodeType]
+    Industry: NotRequired[IndustryType]
+    SubIndustry: NotRequired[str]
+    Segment: NotRequired[str]
+    CompanySize: NotRequired[str]
+    EligiblePrograms: NotRequired[list[str]]
+    PublicProfileSummary: NotRequired[str]
+
+
+class LeadAddressTypeDef(TypedDict):
+    City: NotRequired[str]
+    PostalCode: NotRequired[str]
+    StateOrRegion: NotRequired[str]
+    CountryCode: NotRequired[str]
+
+
 class LeadContactTypeDef(TypedDict):
     BusinessTitle: str
     Email: str
@@ -554,24 +588,20 @@ class LeadContactTypeDef(TypedDict):
     Phone: NotRequired[str]
 
 
-class LeadInsightsTypeDef(TypedDict):
-    LeadReadinessScore: NotRequired[str]
-
-
 class LeadInvitationCustomerTypeDef(TypedDict):
     CompanyName: str
-    CountryCode: CountryCodeType
-    Industry: NotRequired[IndustryType]
+    Industry: NotRequired[str]
     WebsiteUrl: NotRequired[str]
+    CountryCode: NotRequired[str]
     AwsMaturity: NotRequired[str]
-    MarketSegment: NotRequired[MarketSegmentType]
+    MarketSegment: NotRequired[str]
 
 
 class LeadInvitationInteractionTypeDef(TypedDict):
-    SourceType: str
-    SourceId: str
-    SourceName: str
     ContactBusinessTitle: str
+    SourceType: NotRequired[str]
+    SourceId: NotRequired[str]
+    SourceName: NotRequired[str]
     Usecase: NotRequired[str]
 
 
@@ -767,27 +797,6 @@ class SenderContactTypeDef(TypedDict):
     Phone: NotRequired[str]
 
 
-class ProspectingInsightsTypeDef(TypedDict):
-    MarketplaceEngagementScore: NotRequired[str]
-    SolutionScore: NotRequired[str]
-    SolutionCategory: NotRequired[str]
-    SolutionSubCategory: NotRequired[str]
-
-
-class ProspectingResultCustomerOutputTypeDef(TypedDict):
-    AccountName: NotRequired[str]
-    Geo: NotRequired[str]
-    Region: NotRequired[str]
-    SubRegion: NotRequired[str]
-    Country: NotRequired[CountryCodeType]
-    Industry: NotRequired[IndustryType]
-    SubIndustry: NotRequired[str]
-    Segment: NotRequired[str]
-    CompanySize: NotRequired[str]
-    EligiblePrograms: NotRequired[list[str]]
-    PublicProfileSummary: NotRequired[str]
-
-
 class ProspectingResultCustomerTypeDef(TypedDict):
     AccountName: NotRequired[str]
     Geo: NotRequired[str]
@@ -852,15 +861,6 @@ class AccountSummaryTypeDef(TypedDict):
     OtherIndustry: NotRequired[str]
     WebsiteUrl: NotRequired[str]
     Address: NotRequired[AddressSummaryTypeDef]
-
-
-class LeadCustomerTypeDef(TypedDict):
-    CompanyName: str
-    Address: AddressSummaryTypeDef
-    Industry: NotRequired[IndustryType]
-    WebsiteUrl: NotRequired[str]
-    AwsMaturity: NotRequired[str]
-    MarketSegment: NotRequired[MarketSegmentType]
 
 
 class AccountTypeDef(TypedDict):
@@ -1211,25 +1211,49 @@ class ProjectViewTypeDef(TypedDict):
     OtherSolutionDescription: NotRequired[str]
 
 
+class InvitationProspectingResultAwsTypeDef(TypedDict):
+    Customer: NotRequired[ProspectingResultCustomerOutputTypeDef]
+    Insights: NotRequired[ProspectingInsightsTypeDef]
+
+
+class ProspectingResultAwsOutputTypeDef(TypedDict):
+    Customer: NotRequired[ProspectingResultCustomerOutputTypeDef]
+    Insights: NotRequired[ProspectingInsightsTypeDef]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    TaskId: NotRequired[str]
+    TaskArn: NotRequired[str]
+    TaskName: NotRequired[str]
+
+
+class LeadCustomerTypeDef(TypedDict):
+    CompanyName: str
+    Industry: NotRequired[str]
+    WebsiteUrl: NotRequired[str]
+    Address: NotRequired[LeadAddressTypeDef]
+    AwsMaturity: NotRequired[str]
+    MarketSegment: NotRequired[str]
+
+
 class LeadInteractionOutputTypeDef(TypedDict):
-    SourceType: str
-    SourceId: str
-    SourceName: str
-    CustomerAction: str
     Contact: LeadContactTypeDef
+    SourceType: NotRequired[str]
+    SourceId: NotRequired[str]
+    SourceName: NotRequired[str]
     Usecase: NotRequired[str]
     InteractionDate: NotRequired[datetime]
+    CustomerAction: NotRequired[str]
     BusinessProblem: NotRequired[str]
 
 
 class LeadInteractionTypeDef(TypedDict):
-    SourceType: str
-    SourceId: str
-    SourceName: str
-    CustomerAction: str
     Contact: LeadContactTypeDef
+    SourceType: NotRequired[str]
+    SourceId: NotRequired[str]
+    SourceName: NotRequired[str]
     Usecase: NotRequired[str]
     InteractionDate: NotRequired[TimestampTypeDef]
+    CustomerAction: NotRequired[str]
     BusinessProblem: NotRequired[str]
 
 
@@ -1484,16 +1508,6 @@ class SoftwareRevenueTypeDef(TypedDict):
     ExpirationDate: NotRequired[str]
 
 
-class ProspectingResultAwsOutputTypeDef(TypedDict):
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-    TaskId: NotRequired[str]
-    TaskArn: NotRequired[str]
-    TaskName: NotRequired[str]
-    Customer: NotRequired[ProspectingResultCustomerOutputTypeDef]
-    Insights: NotRequired[ProspectingInsightsTypeDef]
-
-
 ProspectingResultCustomerUnionTypeDef = Union[
     ProspectingResultCustomerTypeDef, ProspectingResultCustomerOutputTypeDef
 ]
@@ -1590,6 +1604,15 @@ class LifeCycleTypeDef(TypedDict):
 ProjectUnionTypeDef = Union[ProjectTypeDef, ProjectOutputTypeDef]
 
 
+class EnrichmentContextTypeDef(TypedDict):
+    ProspectingResultAws: NotRequired[InvitationProspectingResultAwsTypeDef]
+    LeadInsights: NotRequired[LeadInsightsTypeDef]
+
+
+class ProspectingResultOutputTypeDef(TypedDict):
+    Aws: NotRequired[ProspectingResultAwsOutputTypeDef]
+
+
 class LeadContextOutputTypeDef(TypedDict):
     Customer: LeadCustomerTypeDef
     Interactions: list[LeadInteractionOutputTypeDef]
@@ -1600,18 +1623,14 @@ class LeadContextOutputTypeDef(TypedDict):
 LeadInteractionUnionTypeDef = Union[LeadInteractionTypeDef, LeadInteractionOutputTypeDef]
 
 
-class ProspectingResultOutputTypeDef(TypedDict):
-    Aws: NotRequired[ProspectingResultAwsOutputTypeDef]
-
-
 class ProspectingResultAwsTypeDef(TypedDict):
+    Customer: NotRequired[ProspectingResultCustomerUnionTypeDef]
+    Insights: NotRequired[ProspectingInsightsTypeDef]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
     TaskId: NotRequired[str]
     TaskArn: NotRequired[str]
     TaskName: NotRequired[str]
-    Customer: NotRequired[ProspectingResultCustomerUnionTypeDef]
-    Insights: NotRequired[ProspectingInsightsTypeDef]
 
 
 class ListEngagementInvitationsResponseTypeDef(TypedDict):
@@ -1686,6 +1705,12 @@ class AwsProductsSpendInsightsBySourceTypeDef(TypedDict):
 LifeCycleUnionTypeDef = Union[LifeCycleTypeDef, LifeCycleOutputTypeDef]
 
 
+class EngagementContextPayloadOutputTypeDef(TypedDict):
+    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
+    Lead: NotRequired[LeadContextOutputTypeDef]
+    ProspectingResult: NotRequired[ProspectingResultOutputTypeDef]
+
+
 class LeadContextTypeDef(TypedDict):
     Customer: LeadCustomerTypeDef
     Interactions: Sequence[LeadInteractionUnionTypeDef]
@@ -1698,12 +1723,6 @@ class UpdateLeadContextTypeDef(TypedDict):
     QualificationStatus: NotRequired[str]
     Interaction: NotRequired[LeadInteractionUnionTypeDef]
     Insights: NotRequired[LeadInsightsTypeDef]
-
-
-class EngagementContextPayloadOutputTypeDef(TypedDict):
-    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
-    Lead: NotRequired[LeadContextOutputTypeDef]
-    ProspectingResult: NotRequired[ProspectingResultOutputTypeDef]
 
 
 ProspectingResultAwsUnionTypeDef = Union[
@@ -1735,6 +1754,7 @@ class GetEngagementInvitationResponseTypeDef(TypedDict):
     InvitationMessage: str
     EngagementDescription: str
     ExistingMembers: list[EngagementMemberSummaryTypeDef]
+    EnrichmentContext: EnrichmentContextTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1783,7 +1803,6 @@ class UpdateOpportunityRequestTypeDef(TypedDict):
     LifeCycle: NotRequired[LifeCycleUnionTypeDef]
 
 
-LeadContextUnionTypeDef = Union[LeadContextTypeDef, LeadContextOutputTypeDef]
 EngagementContextDetailsOutputTypeDef = TypedDict(
     "EngagementContextDetailsOutputTypeDef",
     {
@@ -1792,6 +1811,7 @@ EngagementContextDetailsOutputTypeDef = TypedDict(
         "Payload": NotRequired[EngagementContextPayloadOutputTypeDef],
     },
 )
+LeadContextUnionTypeDef = Union[LeadContextTypeDef, LeadContextOutputTypeDef]
 
 
 class ProspectingResultTypeDef(TypedDict):
@@ -1940,6 +1960,6 @@ EngagementContextDetailsUnionTypeDef = Union[
 class CreateEngagementRequestTypeDef(TypedDict):
     Catalog: str
     ClientToken: str
-    Title: str
-    Description: str
+    Title: NotRequired[str]
+    Description: NotRequired[str]
     Contexts: NotRequired[Sequence[EngagementContextDetailsUnionTypeDef]]

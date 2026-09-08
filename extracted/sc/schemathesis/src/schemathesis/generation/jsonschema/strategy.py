@@ -1006,17 +1006,16 @@ def _object(view: jsonschema_rs.canonical.ObjectView, ctx: StrategyContext) -> S
 
 
 @lru_cache
-def _string_domain(draft: int) -> jsonschema_rs.CanonicalSchema:
-    """The canonical `{"type": "string"}` for one draft, built once to narrow key complements onto."""
+def _string_domain(draft: int, pattern: str | None = None) -> jsonschema_rs.CanonicalSchema:
+    """The canonical string schema for one draft, narrowed to a pattern where one is given."""
     # Matches the kwargs `builder.py` canonicalizes the document with - `intersect` refuses operands
     # that disagree on whether `format` asserts.
-    return jsonschema_rs.canonicalize(
-        {"type": "string"}, draft=draft, pattern_options=FANCY_REGEX_OPTIONS, validate_formats=True
-    )
+    schema = {"type": "string"} if pattern is None else {"type": "string", "pattern": pattern}
+    return jsonschema_rs.canonicalize(schema, draft=draft, pattern_options=FANCY_REGEX_OPTIONS, validate_formats=True)
 
 
 def _violation_entry(
-    violation: canonical.NameFailsView | canonical.UndeclaredValueFailsView,
+    violation: canonical.NameFailsView | canonical.UndeclaredValueFailsView | canonical.PatternValueFailsView,
     view: jsonschema_rs.canonical.ObjectView,
     value_for: Callable[[str], SearchStrategy[JsonValue]],
     known: set[str],
@@ -1040,6 +1039,15 @@ def _violation_entry(
         # The leaf's own per-key schema (`patternProperties`/`additionalProperties`) still applies to
         # whatever key lands here, so key and value are one draw.
         return key.flatmap(lambda name: st.tuples(st.just(name), value_for(name)))
+    if isinstance(violation, canonical.PatternValueFailsView):
+        key_schema = _string_domain(ctx.root.draft, violation.pattern)
+        # The key still lands in this object, so `propertyNames` bounds it too.
+        if view.property_names is not None:
+            key_schema = key_schema.intersect(view.property_names)
+        key = from_schema(key_schema, ctx).map(_key).filter(lambda candidate: candidate not in known)
+        # Whatever else this object says about the key still holds, so the value comes from there,
+        # with the negated schema filtered out.
+        return key.flatmap(lambda name: st.tuples(st.just(name), _rejected_by(value_for(name), violation.schema)))
     names = frozenset(violation.names)
     # The exact per-key validator judges pattern membership, like `_PatternProperty.claims` - no
     # Python-re/ECMA divergence, since nothing here drives generation from the pattern's source.
@@ -1503,12 +1511,13 @@ def _admitted_strings(view: jsonschema_rs.canonical.StringView, ctx: StrategyCon
         # Every pattern here names something with no spelling in codepoints - a script this build
         # carries no ranges for. Naming the pattern is what the caller can act on.
         raise UnsupportedRegexPattern.from_pattern(view.patterns[0])
-    return st.one_of(
-        [
-            _pattern_driven(pattern, [other for other in view.patterns if other != pattern], view, ctx)
-            for pattern in drivers
-        ]
-    )
+    strategies = [
+        _pattern_driven(pattern, [other for other in view.patterns if other != pattern], view, ctx)
+        for pattern in drivers
+    ]
+    if len(drivers) > 1:
+        strategies.append(_pattern_joined(drivers, view, ctx))
+    return st.one_of(strategies)
 
 
 # Hypothesis indexes every drawn value, and for a string that index is a number with a digit per
@@ -1607,6 +1616,23 @@ def _pattern_driven(
     for other in others:
         strategy = strategy.filter(_facet_check("pattern", other))
     # Length is normally folded into the pattern upstream; this filter is the soundness net.
+    return _within_length(strategy, view)
+
+
+def _pattern_joined(
+    drivers: list[str], view: jsonschema_rs.canonical.StringView, ctx: StrategyContext
+) -> SearchStrategy[JsonValue]:
+    """One match of every pattern, joined in any order, so a value carries them all at once."""
+    # A pattern anchored to the start and one anchored to the end meet in no value either draws on
+    # its own, and waiting for the other one's filter to land spends the whole draw budget.
+    parts = []
+    for pattern in drivers:
+        compiled = _compiled_pattern(pattern)
+        assert compiled is not None
+        parts.append(_from_pattern(compiled, ctx))
+    strategy = st.tuples(*parts).flatmap(st.permutations).map("".join)
+    for pattern in view.patterns:
+        strategy = strategy.filter(_facet_check("pattern", pattern))
     return _within_length(strategy, view)
 
 

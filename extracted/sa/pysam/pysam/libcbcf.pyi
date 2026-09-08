@@ -1,4 +1,3 @@
-import sys
 from typing import (
     Optional,
     Union,
@@ -15,7 +14,7 @@ from typing import (
     Generic,
 )
 
-from pysam.libchtslib import HTSFile, StrOrBytesPath
+from pysam.libchtslib import HTSFile, StrOrBytesPathOrFileDescriptorLike
 
 _D = TypeVar("_D")
 _K = TypeVar("_K", str, Union[int, str])
@@ -191,7 +190,7 @@ class VariantRecordInfo(_Mapping[str, _InfoValue]):
 class VariantRecordSamples(_Mapping[Union[str, int], "VariantRecordSample"]):
     def __eq__(self, other) -> bool: ...
     def __ne__(self, other) -> bool: ...
-    # TODO Do these work? Isn’t the container read only?
+    # TODO Note these won't work until VariantRecordSamples implements __setitem__/__delitem__
     def update(
         self,
         items: Optional[Mapping[Union[str, int], VariantRecordSample]] = ...,
@@ -253,7 +252,7 @@ class BaseIndex(_Mapping[Union[int, str], str]):
     refs: Sequence[str]
     refmap: Dict[str, str]
     def __init__(self) -> None: ...
-    # TODO Do these work? Isn’t the container read only?
+    # TODO Note these won't work until BaseIndex implements __setitem__/__delitem__
     def update(self, items: Optional[Mapping[str, str]] = ..., **kwargs) -> None: ...
     def pop(self, key: str, default: _D = ...) -> Union[_D, str]: ...
 
@@ -321,7 +320,7 @@ class VariantFile(HTSFile):
     def header_written(self) -> bool: ...
     def __init__(
         self,
-        filename: StrOrBytesPath,
+        filename: StrOrBytesPathOrFileDescriptorLike,
         mode: Optional[str] = ...,
         index_filename: Optional[str] = ...,
         header: Optional[VariantHeader] = ...,
@@ -336,7 +335,7 @@ class VariantFile(HTSFile):
     def copy(self) -> VariantFile: ...
     def open(
         self,
-        filename: StrOrBytesPath,
+        filename: StrOrBytesPathOrFileDescriptorLike,
         mode: Optional[str] = ...,
         index_filename: Optional[str] = ...,
         header: Optional[VariantHeader] = ...,

@@ -56,6 +56,16 @@ from pydantic import ValidationError
 from temporalio.client import WorkflowFailureError
 
 from application_sdk._runtime.offload import run_in_thread
+from application_sdk.app._generated_tree import (
+    MANIFEST_STEM,
+    choose_form_configmap,
+    eligible_form_configmaps,
+    names_entrypoint,
+)
+from application_sdk.app.build_identity import (
+    BUILD_IDENTITY_CONFIGMAP_ID,
+    build_identity,
+)
 from application_sdk.app.entrypoint import canonical_workflow_type
 from application_sdk.common.dispatch import resolve_dispatch_workflow_id
 from application_sdk.common.task_queue import (
@@ -441,21 +451,15 @@ _storage: ObjectStore | None = None
 # Directory where generated contract JSON files are stored
 CONTRACT_GENERATED_DIR = Path(_CONTRACT_GENERATED_DIR)
 
-# Non-form JSON siblings that live in CONTRACT_GENERATED_DIR next to the
-# generated setup-form configmaps. Credential templates are emitted per
-# object-store family (`atlan-connectors-*.json`, `csa-connectors-*.json`).
-# Centralised so the form-discovery exclusion vocabulary is named in one place
-# instead of re-spelled inline; `_is_form_configmap` applies it in the
-# get_configmap default-entrypoint fallback, so adding the next connector-family
-# prefix here updates that site without re-spelling the list. `list_configmaps`
-# still uses its own `manifest`-only exclusion (a separate, deliberate decision).
-_CREDENTIAL_TEMPLATE_PREFIXES = ("atlan-connectors-", "csa-connectors-")
-
-
-def _is_form_configmap(stem: str) -> bool:
-    """True when a generated JSON stem is a setup-form configmap, i.e. neither
-    the DAG ``manifest`` nor a credential template."""
-    return stem != "manifest" and not stem.startswith(_CREDENTIAL_TEMPLATE_PREFIXES)
+# The form-discovery exclusion vocabulary lives in
+# `application_sdk.app._generated_tree`, which is the authority: this endpoint is
+# what a tenant's /api/service/configmaps/<name> proxies to, and the FND-1667
+# route check compares what this serves against the app's committed contract.
+# A second copy of "which sibling JSON is a form" would let the server serve one
+# file while the check compared against another — and that mismatch would read
+# as a contract regression rather than as two divergent exclusion lists.
+# `list_configmaps` below still uses its own `manifest`-only exclusion (a
+# separate, deliberate decision).
 
 
 # Allowlist regex for entrypoint names: letter-start, then letters/digits/hyphens/underscores.
@@ -1893,6 +1897,50 @@ def _register_workflow_routes(
 
     @app.get("/workflows/v1/configmap/{config_map_id}")
     async def get_configmap(config_map_id: str) -> JSONResponse:
+        # 0. The reserved build-identity id (FND-1684).
+        #
+        # Answered BEFORE the generated-file scan, deliberately: an app that
+        # happens to ship `atlan-build-identity.json` would otherwise shadow the
+        # one fact only a running pod can report — and it would shadow it with a
+        # committed file, which is exactly the class of answer that cannot tell
+        # this build apart from one shipped months ago.
+        #
+        # Served on THIS route rather than a new one because
+        # `/api/service/configmaps/{name}` is already proxied by Heracles. A new
+        # route would need a new proxy rule, in a repo the e2e fix does not
+        # otherwise touch, before CI could read any of this.
+        #
+        # `build_id` is "" for an image that carries no stamp. That is a valid
+        # answer, not an error: the reader has to distinguish "this pod reports a
+        # different build" from "this pod cannot report one", and a 404 here
+        # would collapse the second into "no such route".
+        if config_map_id == BUILD_IDENTITY_CONFIGMAP_ID:
+            identity: dict[str, Any] = {
+                "build_id": build_identity(),
+                "app_name": _workflow_config.app_name,
+            }
+            return JSONResponse(
+                content=_wrap_response(
+                    cast(
+                        "dict[str, Any]",
+                        {
+                            "kind": "ConfigMap",
+                            "apiVersion": "v1",
+                            "metadata": {"name": config_map_id},
+                            # Same envelope as a real configmap — `data.config`
+                            # is a JSON string — so a generic client needs no
+                            # special case here, with the parsed keys repeated
+                            # alongside it for one that does.
+                            "data": {
+                                "config": orjson.dumps(identity).decode(),
+                                **identity,
+                            },
+                        },
+                    ),
+                    message="Build identity fetched successfully",
+                )
+            )
+
         # 1. Direct match against any generated configmap file stem.
         #    The setup form normally requests the form file by its stem
         #    (e.g. "snowflake-crawler"), which lands here.
@@ -1945,23 +1993,50 @@ def _register_workflow_routes(
                 # single-entrypoint app 404'd on an app-id request even though its
                 # form file was present — a blank setup wizard in the UI.
                 #
-                # Pick the form file by excluding the well-known non-form
-                # siblings (`manifest.json` and the `{atlan,csa}-connectors-*`
-                # credential templates) via `_is_form_configmap`. Sorted for
-                # determinism.
+                # Within each directory `choose_form_configmap` decides: a form
+                # that names the entrypoint (`<ep.name>.json`, or the connector
+                # convention `<source>-<ep.name>.json`), else the only file that
+                # survives the non-form exclusion (`manifest.json`,
+                # `artifact_schemas.json`, the `{atlan,csa}-connectors-*`
+                # credential templates), else the alphabetically first.
+                #
+                # That last step is a guess, and it stays: it is the
+                # compatibility path for apps whose form name the SDK cannot
+                # recognise, and 404ing them to avoid a hypothetical would break
+                # working apps. FND-1682 was not the guess being reachable — it
+                # was `artifact_schemas.json` being eligible at all, which
+                # NON_FORM_STEMS now fixes. What the guess still owes an
+                # operator is *visibility*: it produced an HTTP 200 carrying a
+                # document with no `properties`, so a blank setup wizard looked
+                # identical to a working app from the logs, the network tab and
+                # pod stderr alike. Hence the warning below — the next
+                # unrecognised sibling shows up in the logs on the first
+                # request, before anyone opens the wizard.
                 for search_dir in (
                     CONTRACT_GENERATED_DIR / ep.name,
                     CONTRACT_GENERATED_DIR,
                 ):
-                    if not search_dir.is_dir():
+                    candidates = eligible_form_configmaps(search_dir)
+                    target = choose_form_configmap(candidates, ep.name)
+                    if target is None:
                         continue
-                    for json_file in sorted(search_dir.glob("*.json")):
-                        if not _is_form_configmap(json_file.stem):
-                            continue
-                        target = json_file
-                        break
-                    if target is not None:
-                        break
+                    if len(candidates) > 1 and not names_entrypoint(
+                        target.stem, ep.name
+                    ):
+                        # conformance: ignore[L009] logs caller-invisible context (the rejected candidates) that no HTTP response carries.
+                        logger.warning(
+                            "ConfigMap form chosen alphabetically for entrypoint "
+                            "%s: %d generated files are eligible and none is "
+                            "named for it, so %s.json was served as the setup "
+                            "form (candidates=%s). If that is the wrong file, "
+                            "name the form <entrypoint>.json or "
+                            "<source>-<entrypoint>.json in the app's contract.",
+                            ep.name,
+                            len(candidates),
+                            target.stem,
+                            [c.stem for c in candidates],
+                        )
+                    break
 
         if target is not None:
             with open(target, encoding="utf-8") as f:
@@ -1999,12 +2074,28 @@ def _register_workflow_routes(
 
     @app.get("/workflows/v1/configmaps")
     async def list_configmaps() -> JSONResponse:
+        # Everything this endpoint's sibling will serve by exact stem, minus
+        # the DAG manifest, which `/workflows/v1/manifest` owns.
+        #
+        # Deliberately NOT `is_form_configmap`, and the difference is worth
+        # stating because the two look interchangeable. That predicate answers
+        # "which single file is the setup form", for the fallback that has to
+        # pick exactly one. This answers "which names does this endpoint
+        # respond to", and the credential templates it excludes are ones the
+        # UI genuinely fetches — the setup form's `credential` widget requests
+        # `atlan-connectors-<source>` as its own configmap. Filtering them here
+        # would drop names that work.
+        #
+        # The manifest stem comes from `_generated_tree` rather than a literal:
+        # a hand-spelled `"manifest"` here was the last copy of that vocabulary
+        # left in this module after FND-1682, and one divergent spelling is all
+        # the artifact_schemas bug needed.
         seen: set[str] = set()
         configmap_ids: list[str] = []
         if CONTRACT_GENERATED_DIR.exists():
             for json_file in CONTRACT_GENERATED_DIR.rglob("*.json"):
                 stem = json_file.stem
-                if stem == "manifest" or stem in seen:
+                if stem == MANIFEST_STEM or stem in seen:
                     continue
                 seen.add(stem)
                 configmap_ids.append(stem)

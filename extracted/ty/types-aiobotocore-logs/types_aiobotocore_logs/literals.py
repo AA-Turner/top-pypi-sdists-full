@@ -53,6 +53,7 @@ __all__ = (
     "FlattenedElementType",
     "GetScheduledQueryHistoryPaginatorName",
     "ImportStatusType",
+    "IndexCategoryType",
     "IndexSourceType",
     "IndexTypeType",
     "InheritedPropertyType",
@@ -139,6 +140,7 @@ FilterLogEventsPaginatorName = Literal["filter_log_events"]
 FlattenedElementType = Literal["first", "last"]
 GetScheduledQueryHistoryPaginatorName = Literal["get_scheduled_query_history"]
 ImportStatusType = Literal["CANCELLED", "COMPLETED", "FAILED", "IN_PROGRESS"]
+IndexCategoryType = Literal["AUTO", "CUSTOM", "DEFAULT", "INACTIVE"]
 IndexSourceType = Literal["ACCOUNT", "LOG_GROUP"]
 IndexTypeType = Literal["FACET", "FIELD_INDEX"]
 InheritedPropertyType = Literal["ACCOUNT_DATA_PROTECTION"]
@@ -174,7 +176,7 @@ S3TableIntegrationSourceStatusType = Literal[
     "ACTIVE", "DATA_SOURCE_DELETE_IN_PROGRESS", "FAILED", "UNHEALTHY"
 ]
 ScheduleTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
-ScheduledQueryDestinationTypeType = Literal["S3"]
+ScheduledQueryDestinationTypeType = Literal["LOOKUP_TABLE", "S3"]
 ScheduledQueryStateType = Literal["DISABLED", "ENABLED"]
 ScopeType = Literal["ALL"]
 StandardUnitType = Literal[
@@ -217,8 +219,11 @@ CloudWatchLogsServiceName = Literal["logs"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -523,6 +528,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

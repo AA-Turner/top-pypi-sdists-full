@@ -337,7 +337,7 @@ class TemporalIdentityManager:
     # Adaptation for production: _compute_best_identity uses EmbeddingManager for local similarity
     # search first (fast), then falls back to API only if needed (slow).
 
-    def __init__(self: Any, face_client: Any, embedding_manager: Any = None, redis_matcher: Any | None = None, recognition_threshold: float = 0.15, history_size: int = 20, unknown_patience: int = 7, switch_patience: int = 5, fallback_margin: float = 0.0) -> None: ...
+    def __init__(self: Any, face_client: Any, embedding_manager: Any = None, redis_matcher: Any | None = None, recognition_threshold: float = 0.15, history_size: int = 20, unknown_patience: int = 7, switch_patience: int = 5, fallback_margin: float = 0.0, sticky_id: bool = False, high_confidence_thresh: float = 0.0, sticky_min_votes: int = 3) -> None: ...
 
     async def update(self: Any, track_id: Any, emb: List[float], eligible_for_recognition: bool, location: str = '', camera_id: str = '', timestamp: str = '', search_id: str | None = None) -> Tuple[str | None, str, float, str | None, Dict[str, Any], str]:
         """

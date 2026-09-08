@@ -1,6 +1,6 @@
 [package]
 name = "endec"
-version = "0.5.6"
+version = "0.5.7"
 edition = "2024"
 readme = "README.md"
 
@@ -9,5 +9,5 @@ name = "_endec"
 crate-type = ["cdylib"]
 
 [dependencies]
-encoding_rs = "=0.8.35"
-pyo3 = "=0.29.0"
+encoding_rs = "=0.8.40"
+pyo3 = "=0.29.2"

@@ -29,7 +29,13 @@ from .http_utils import apply_proxies_to_session, normalize_http_proxies
 from .limiter import TokenBucketLimiter
 from .models import ProfileTimelineRequest, RunStats, SearchRequest, SearchResult
 from .queue import InMemoryTaskQueue
-from .scheduler import build_tasks_for_intervals, split_time_intervals
+from .scheduler import (
+    build_tasks_for_intervals,
+    narrow_interval,
+    parse_tweet_time,
+    split_time_intervals,
+    subdivide_interval,
+)
 
 _TS_FMT = "%Y-%m-%d_%H:%M:%S_UTC"
 _DATE_FMT = "%Y-%m-%d"
@@ -222,32 +228,12 @@ class Runner:
 
             n_intervals = max(1, int(_cfg(self.config, "n_splits", 1)))
             min_interval_s = max(1, int(_cfg(self.config, "scheduler_min_interval_s", 300)))
-            intervals = split_time_intervals(
-                base_query["since"],
-                base_query["until"],
-                n_intervals,
-                min_interval_s,
-            )
 
-            priority = int(_cfg(self.config, "priority", 1))
-            tasks = build_tasks_for_intervals(base_query, run_id, priority, intervals)
-            if request.initial_cursor and tasks:
-                first_query = tasks[0].setdefault("query", {})
-                first_query["cursor"] = request.initial_cursor
-            stats.tasks_total = len(tasks)
-
-            concurrency = max(1, int(_cfg(self.config, "concurrency", len(tasks) or 1)))
-            # Keep standby workers available for account-switch retries even when the initial task
-            # count is small.
+            # Lease before the split: the continuation of an interval is serial, so the split is the only
+            # source of parallelism across accounts, and it must give every account initial work.
+            concurrency = max(1, int(_cfg(self.config, "concurrency", n_intervals or 1)))
             workers_requested = concurrency
-            accounts = await _maybe_await(
-                self.accounts_repo.acquire_leases(
-                    workers_requested,
-                    run_id=run_id,
-                    worker_id_prefix="w",
-                )
-            )
-            accounts = list(accounts or [])
+            accounts = await self._acquire_leases_with_wait(workers_requested, run_id)
             if not accounts:
                 stats.tasks_failed = stats.tasks_total
                 _diag: dict[str, Any] = {}
@@ -272,6 +258,21 @@ class Runner:
                     account.get("id"),
                     account.get("lease_id"),
                 )
+
+            # At least one interval per account; split_time_intervals caps the count at the floor.
+            effective_splits = max(n_intervals, len(accounts))
+            intervals = split_time_intervals(
+                base_query["since"],
+                base_query["until"],
+                effective_splits,
+                min_interval_s,
+            )
+            priority = int(_cfg(self.config, "priority", 1))
+            tasks = build_tasks_for_intervals(base_query, run_id, priority, intervals)
+            if request.initial_cursor and tasks:
+                first_query = tasks[0].setdefault("query", {})
+                first_query["cursor"] = request.initial_cursor
+            stats.tasks_total = len(tasks)
 
             queue = self.queue_cls(stop_event=global_stop_event)
             await queue.enqueue(tasks)
@@ -369,6 +370,39 @@ class Runner:
         return {
             "proxy": _cfg(self.config, "proxy", None),
         }
+
+    async def _acquire_leases_with_wait(self, workers_requested: int, run_id: Optional[str]) -> list:
+        """Lease accounts, and wait a bounded time for a cooldown to expire when the pool is empty.
+
+        A cooldown expires, so a run that finds every account on a cooldown does not have to fail. It waits up
+        to `pool_wait_max_s` and retries every `pool_wait_poll_s`. The retry picks up the first account whose
+        cooldown expired. `pool_wait_max_s` of 0 keeps the old behaviour, which fails at once.
+        """
+        max_wait = max(0.0, float(_cfg(self.config, "pool_wait_max_s", 120.0)))
+        poll_s = max(0.5, float(_cfg(self.config, "pool_wait_poll_s", 5.0)))
+        waited = 0.0
+        while True:
+            accounts = list(
+                await _maybe_await(
+                    self.accounts_repo.acquire_leases(
+                        workers_requested,
+                        run_id=run_id,
+                        worker_id_prefix="w",
+                    )
+                )
+                or []
+            )
+            if accounts or waited >= max_wait:
+                return accounts
+            sleep_s = min(poll_s, max_wait - waited)
+            logger.info(
+                "No eligible account now. Waiting %.0fs for a cooldown to expire (waited %.0f of %.0f).",
+                sleep_s,
+                waited,
+                max_wait,
+            )
+            await asyncio.sleep(sleep_s)
+            waited += sleep_s
 
     async def _proxy_smoke_check(self, proxy: Any, *, url: str, timeout_s: float) -> tuple[bool, int, str]:
         """Check proxy health with a clean HTTP call (no account cookies/headers)."""
@@ -477,8 +511,15 @@ class Runner:
                 normalized = normalize_account_record({"username": username or key, "cookies": cookies})
                 try:
                     self.accounts_repo.upsert_account(normalized)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # The write is the repair. A swallowed error here left the pool without the account and
+                    # the next line logged success, so an operator believed the account was back.
+                    logger.warning(
+                        "Account repair failed to write username=%s: %s",
+                        username or "<unknown>",
+                        exc,
+                    )
+                    return False
                 logger.info("Account repair succeeded via auth_token username=%s", username or "<unknown>")
                 return True
 
@@ -734,10 +775,16 @@ class Runner:
         account_session = None
         session_meta: dict[str, Any] = {}
 
-        requests_per_min = int(_cfg(self.config, "requests_per_min", 30))
-        min_delay_s = float(_cfg(self.config, "min_delay_s", 2.0))
+        window_request_limit = int(_cfg(self.config, "window_request_limit", 50))
+        rate_limit_window_s = float(_cfg(self.config, "rate_limit_window_s", 900.0))
+        rate_limit_min_remaining = int(_cfg(self.config, "rate_limit_min_remaining", 2))
+        min_delay_s = float(_cfg(self.config, "min_delay_s", 0.0))
         api_page_size = max(1, min(int(_cfg(self.config, "api_page_size", 20)), 100))
-        limiter = TokenBucketLimiter(requests_per_min=requests_per_min, min_delay_s=min_delay_s)
+        limiter = TokenBucketLimiter(
+            capacity=window_request_limit,
+            refill_window_s=rate_limit_window_s,
+            min_delay_s=min_delay_s,
+        )
 
         retry_base_s = max(0, int(_cfg(self.config, "task_retry_base_s", 1)))
         retry_max_s = max(retry_base_s, int(_cfg(self.config, "task_retry_max_s", 30)))
@@ -917,7 +964,13 @@ class Runner:
                 if response_headers:
                     last_headers = response_headers
                 effective_status_code = effective_status_with_rate_limit_headers(raw_status_code, response_headers)
-                preemptive_rate_limited = raw_status_code == 200 and effective_status_code == 429
+                # Stop a margin above zero: the remaining count can lag one request, and a 429 loses the page.
+                remaining = parse_rate_limit_remaining(response_headers)
+                preemptive_rate_limited = (
+                    raw_status_code == 200
+                    and remaining is not None
+                    and remaining <= rate_limit_min_remaining
+                )
                 next_cursor = (response or {}).get("cursor")
 
                 tweets = self._extract_tweets(response)
@@ -1034,16 +1087,48 @@ class Runner:
                     if continuation_task is not None:
                         await queue.enqueue([continuation_task])
                         if preemptive_rate_limited:
-                            account_status = effective_status_code
+                            # 429 makes compute_cooldown rest the account until x-rate-limit-reset.
+                            account_status = 429
                             break
                         account_status = 1
                         continue
+
+                    # A full last page with no cursor means X truncated the chain while tweets remain; a
+                    # genuine end gives a partial or empty last page.
+                    if (
+                        not stop_due_to_empty_pages
+                        and not limit_reached
+                        and tweets_count >= api_page_size
+                    ):
+                        # Compare parsed times, because the tweet time format does not sort as a string.
+                        oldest_seen = None
+                        oldest_dt = None
+                        for _t in tweets:
+                            _ts = self._tweet_time(_t)
+                            _dt = parse_tweet_time(_ts) if _ts else None
+                            if _dt is not None and (oldest_dt is None or _dt < oldest_dt):
+                                oldest_dt = _dt
+                                oldest_seen = _ts
+                        subdivision_tasks = self._build_subdivision_tasks(
+                            task,
+                            min_interval_s=int(_cfg(self.config, "scheduler_min_interval_s", 300)),
+                            max_depth=int(_cfg(self.config, "max_interval_depth", 100)),
+                            oldest_seen=oldest_seen,
+                        )
+                        if subdivision_tasks:
+                            await queue.enqueue(subdivision_tasks)
+                            logger.info(
+                                "Interval split into %d parts after a full page with no cursor account=%s",
+                                len(subdivision_tasks),
+                                account.get("username"),
+                            )
 
                     await queue.ack(task, stats={"pages": 1, "tweets": unique_added})
                     async with stats_lock:
                         stats.tasks_done += 1
                     if preemptive_rate_limited:
-                        account_status = effective_status_code
+                        # 429 makes compute_cooldown rest the account until x-rate-limit-reset.
+                        account_status = 429
                         break
                     account_status = 1
                     if limit_reached:
@@ -1116,11 +1201,35 @@ class Runner:
                 # Non-success exits this account worker to allow cooldown/account-switch flow.
                 break
         finally:
+            if hasattr(queue, "release_worker"):
+                # Leave the active set of the queue, or the other workers wait for this one for ever.
+                queue.release_worker(worker_id)
             if lease_id and hasattr(self.accounts_repo, "release"):
+                # A page 401/403 is not proof of a dead account; only a failed self-lookup earns the long block.
+                proven_dead = False
+                if account_status in (401, 403):
+                    if account_session is not None and hasattr(self.search_engine, "probe_account_alive"):
+                        # The 401 came from a page and the account has an authenticated session. Reuse it to
+                        # test the credentials. Only a self-lookup that also fails gives the long block.
+                        try:
+                            alive = await self.search_engine.probe_account_alive(
+                                account, session=account_session
+                            )
+                            proven_dead = alive is False
+                        except Exception as exc:
+                            logger.warning(
+                                "Self-lookup probe raised for username=%s: %s", account.get("username"), exc
+                            )
+                            proven_dead = False
+                    elif account_session is None:
+                        # No session could be built from these credentials, so the account cannot work now.
+                        # This is not a page error, and a probe cannot run without a session.
+                        proven_dead = True
                 status_value, available_til, cooldown_reason = compute_cooldown(
                     account_status,
                     last_headers,
                     self.config,
+                    proven_dead=proven_dead,
                 )
                 release_fields = {
                     "status": status_value,
@@ -1227,6 +1336,16 @@ class Runner:
         return str(value) if value else None
 
     @staticmethod
+    def _tweet_time(tweet: Any) -> Optional[str]:
+        if tweet is None:
+            return None
+        if isinstance(tweet, dict):
+            value = tweet.get("timestamp") or tweet.get("created_at")
+        else:
+            value = getattr(tweet, "timestamp", None) or getattr(tweet, "created_at", None)
+        return str(value) if value else None
+
+    @staticmethod
     def _final_status(
         stats: RunStats,
         worker_results: list[Any],
@@ -1315,6 +1434,59 @@ class Runner:
         continuation.pop("lease_id", None)
         continuation.pop("lease_worker_id", None)
         return continuation
+
+    @staticmethod
+    def _build_subdivision_tasks(
+        task: dict[str, Any],
+        *,
+        min_interval_s: int,
+        max_depth: int,
+        oldest_seen: Any = None,
+    ) -> list[dict[str, Any]]:
+        """Continue a truncated interval. The sort decides the method.
+
+        A `Latest` search is newest first, so the run re-queries `[since, oldest seen]`, which holds exactly
+        the missed tweets. A `Top` search is ranked, not in time order, so the run does not continue it.
+        """
+        depth = int(task.get("interval_depth", 0) or 0)
+        if max_depth <= 0 or depth >= max_depth:
+            return []
+        query = task.get("query") or {}
+        if not isinstance(query, dict):
+            return []
+        since = query.get("since")
+        until = query.get("until")
+        if not isinstance(since, str) or not isinstance(until, str):
+            return []
+        raw = query.get("raw") if isinstance(query.get("raw"), dict) else {}
+        sort = str(raw.get("search_sort") or raw.get("display_type") or "Top").strip().lower()
+        is_latest = sort in {"latest", "recent"}
+        if not is_latest:
+            # Not halving for Top, because the top tweets of a range and of each half are mostly the same
+            # tweets; a measured live Top order that halved was 88% duplicate pages.
+            return []
+        try:
+            ranges = narrow_interval(since, until, oldest_seen, min_interval_s)
+            if not ranges:
+                ranges = subdivide_interval(since, until, min_interval_s)
+        except Exception:
+            return []
+        out: list[dict[str, Any]] = []
+        for half_since, half_until in ranges:
+            child = dict(task)
+            child_query = dict(query)
+            child_query["since"] = half_since
+            child_query["until"] = half_until
+            child_query["cursor"] = None
+            child["query"] = child_query
+            child["interval_depth"] = depth + 1
+            child["empty_pages_count"] = 0
+            child["task_id"] = str(uuid.uuid4())
+            child.pop("cursor_history", None)
+            child.pop("lease_id", None)
+            child.pop("lease_worker_id", None)
+            out.append(child)
+        return out
 
     async def _close_account_session(self, session: Any) -> None:
         if self.account_session_builder is not None and hasattr(self.account_session_builder, "close"):

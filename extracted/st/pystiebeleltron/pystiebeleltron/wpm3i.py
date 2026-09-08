@@ -9,7 +9,7 @@ from . import UNAVAILABLE, in_range, scaled_sum
 from ._components import ControllerComponents
 
 WPM3I_HOLDING_RANGES = ((1500, 1520), (4000, 4002))
-WPM3I_INPUT_RANGES = ((500, 540), (2500, 2506), (3500, 3521), (5000, 5001))
+WPM3I_INPUT_RANGES = ((500, 526), (532, 533), (535, 540), (2500, 2501), (2503, 2504), (2506, 2506), (3500, 3521), (5000, 5001))
 
 
 class Wpm3iSystemValues(Component):
@@ -32,7 +32,7 @@ class Wpm3iSystemValues(Component):
     actual_flow_temperature_nhz = gauge(513, 0.1, nan=UNAVAILABLE, unit="°C")
     actual_flow_temperature = gauge(514, 0.1, nan=UNAVAILABLE, unit="°C")
     actual_return_temperature = gauge(515, 0.1, nan=UNAVAILABLE, unit="°C")
-    set_fixed_temperature = gauge(516, 0.1, nan=UNAVAILABLE, unit="°C")
+    set_fixed_temperature = gauge(516, 0.1, nan=(UNAVAILABLE, 0x9000), unit="°C")
     actual_buffer_temperature = gauge(517, 0.1, nan=UNAVAILABLE, unit="°C")
     set_buffer_temperature = gauge(518, 0.1, nan=UNAVAILABLE, unit="°C")
     heating_pressure = gauge(519, 0.01, nan=UNAVAILABLE, unit="bar")
@@ -43,10 +43,10 @@ class Wpm3iSystemValues(Component):
     set_temperature_fan = gauge(524, 0.1, nan=UNAVAILABLE, unit="K")
     actual_temperature_area = gauge(525, 0.1, nan=UNAVAILABLE, unit="K")
     set_temperature_area = gauge(526, 0.1, nan=UNAVAILABLE, unit="K")
-    application_limit_hzg = gauge(532, 0.1, nan=UNAVAILABLE, unit="°C")
-    application_limit_ww = gauge(533, 0.1, nan=UNAVAILABLE, unit="°C")
+    application_limit_hzg = gauge(532, 0.1, nan=(UNAVAILABLE, 0x9000), unit="°C")
+    application_limit_ww = gauge(533, 0.1, nan=(UNAVAILABLE, 0x9000), unit="°C")
     source_temperature = gauge(535, 0.1, nan=UNAVAILABLE, unit="°C")
-    min_source_temperature = gauge(536, 0.1, nan=UNAVAILABLE, unit="°C")
+    min_source_temperature = gauge(536, 0.1, nan=(UNAVAILABLE, 0x9000), unit="°C")
     source_pressure = gauge(537, 0.01, nan=UNAVAILABLE, unit="bar")
     hot_gas_temperature = gauge(538, 0.1, nan=UNAVAILABLE, unit="°C")
     high_pressure = gauge(539, 0.1, nan=UNAVAILABLE, unit="bar")
@@ -64,7 +64,7 @@ class Wpm3iSystemParameters(Component):
     comfort_temperature_hk_2 = gauge(1504, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(5, 30))
     eco_temperature_hk_2 = gauge(1505, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(5, 30))
     heating_curve_rise_hk_2 = gauge(1506, 0.01, nan=UNAVAILABLE, writable=in_range(0, 3))
-    fixed_value_operation = gauge(1507, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(20, 70))
+    fixed_value_operation = gauge(1507, 0.1, nan=(UNAVAILABLE, 0x9000), unit="°C", writable=in_range(20, 70))
     dual_mode_temp_hzg = gauge(1508, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(-40, 40))
     comfort_temperature_dhw = gauge(1509, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 60))
     eco_temperature_dhw = gauge(1510, 0.1, nan=UNAVAILABLE, unit="°C", writable=in_range(10, 60))

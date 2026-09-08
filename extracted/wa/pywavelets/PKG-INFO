@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyWavelets
-Version: 1.9.0
+Version: 1.10.0
 Summary: PyWavelets, wavelet transform module
 Maintainer-Email: The PyWavelets Developers <pywavelets@googlegroups.com>
 License-Expression: MIT AND BSD-3-Clause
@@ -15,16 +15,17 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Project-URL: homepage, https://github.com/PyWavelets/pywt
 Project-URL: source, https://github.com/PyWavelets/pywt
 Project-URL: documentation, https://pywavelets.readthedocs.io/
-Requires-Python: >=3.11
-Requires-Dist: numpy<3,>=1.25
+Requires-Python: >=3.12
+Requires-Dist: numpy<3,>=1.26.4
 Description-Content-Type: text/x-rst
 
 +---------------+-----------------+

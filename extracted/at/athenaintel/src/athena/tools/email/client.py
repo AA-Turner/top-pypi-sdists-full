@@ -4,7 +4,12 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.email_draft_response_out import EmailDraftResponseOut
+from ...types.email_search_response_out import EmailSearchResponseOut
 from .raw_client import AsyncRawEmailClient, RawEmailClient
+
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
 
 
 class EmailClient:
@@ -22,18 +27,59 @@ class EmailClient:
         """
         return self._raw_client
 
-    def create_draft(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
+    def create_draft(
+        self,
+        *,
+        body: str,
+        subject: str,
+        to: typing.Sequence[str],
+        bcc: typing.Optional[typing.Sequence[str]] = OMIT,
+        catalog_id: typing.Optional[str] = OMIT,
+        cc: typing.Optional[typing.Sequence[str]] = OMIT,
+        include_signature: typing.Optional[bool] = OMIT,
+        reply_to_message_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> EmailDraftResponseOut:
         """
-        Coming soon! Create email drafts with specified content and recipients.
+        Save a draft in the caller's connected Gmail or Outlook account.
+
+        Nothing is sent. The draft appears in the account's Drafts folder, where it
+        is reviewed, edited and sent from the mail client — that review step is why
+        drafting is available here while sending is not. Set `reply_to_message_id`
+        to thread the draft as a reply.
 
         Parameters
         ----------
+        body : str
+            Body content. HTML is supported; plain-text newlines become line breaks. Do not write a signature into it — the account's signature is appended automatically (see `include_signature`).
+
+        subject : str
+            Subject line.
+
+        to : typing.Sequence[str]
+            Recipient email addresses.
+
+        bcc : typing.Optional[typing.Sequence[str]]
+            BCC recipients.
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
+        cc : typing.Optional[typing.Sequence[str]]
+            CC recipients.
+
+        include_signature : typing.Optional[bool]
+            Optional: Whether to append the sending account's own signature at the end of the body. Leave unset to follow the user's saved preference for this account (which distinguishes new messages from replies) — that is almost always the right choice. Set false only when the user asks for no signature. Never write a signature into the body yourself: the real one is read from the account and appended automatically.
+
+        reply_to_message_id : typing.Optional[str]
+            Provider message id (from `GET /tools/email/search`) to reply to, so the draft is threaded under that message. Outlook rejects an id it cannot find (404). Gmail saves the draft *unthreaded* when the referenced message cannot be read, and `reply_to_message_id` in the response tells you which happened.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        EmailDraftResponseOut
             Successful Response
 
         Examples
@@ -43,23 +89,58 @@ class EmailClient:
         client = Athena(
             api_key="YOUR_API_KEY",
         )
-        client.tools.email.create_draft()
+        client.tools.email.create_draft(
+            body="Hi Ada,<br><br>Attached below is the Q3 forecast summary.",
+            cc=["grace@example.com"],
+            subject="Q3 forecast",
+            to=["ada@example.com"],
+        )
         """
-        _response = self._raw_client.create_draft(request_options=request_options)
+        _response = self._raw_client.create_draft(
+            body=body,
+            subject=subject,
+            to=to,
+            bcc=bcc,
+            catalog_id=catalog_id,
+            cc=cc,
+            include_signature=include_signature,
+            reply_to_message_id=reply_to_message_id,
+            request_options=request_options,
+        )
         return _response.data
 
-    def search(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
+    def search(
+        self,
+        *,
+        query: str,
+        catalog_id: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> EmailSearchResponseOut:
         """
-        Coming soon! Search through emails with configurable filters.
+        Search the caller's connected Gmail or Outlook mailbox.
+
+        Results come from the connected account the caller can access in their
+        current workspace (the default account unless `catalog_id` names another).
+        Unsent drafts are included and flagged with `is_draft`.
 
         Parameters
         ----------
+        query : str
+            Search query. Gmail operators (`from:`, `to:`, `subject:`, `has:attachment`, `newer_than:7d`, `-term`, …) are accepted for both providers; operators with no Outlook equivalent are dropped and reported in `ignored_operators`. Use `in:drafts` to search only unsent drafts.
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
+        limit : typing.Optional[int]
+            Maximum number of results (1-50).
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        EmailSearchResponseOut
             Successful Response
 
         Examples
@@ -69,35 +150,14 @@ class EmailClient:
         client = Athena(
             api_key="YOUR_API_KEY",
         )
-        client.tools.email.search()
-        """
-        _response = self._raw_client.search(request_options=request_options)
-        return _response.data
-
-    def send(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
-        """
-        Coming soon! Send emails to specified recipients.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.Optional[typing.Any]
-            Successful Response
-
-        Examples
-        --------
-        from athena import Athena
-
-        client = Athena(
-            api_key="YOUR_API_KEY",
+        client.tools.email.search(
+            query="from:ada@example.com newer_than:7d",
+            limit=20,
         )
-        client.tools.email.send()
         """
-        _response = self._raw_client.send(request_options=request_options)
+        _response = self._raw_client.search(
+            query=query, catalog_id=catalog_id, limit=limit, request_options=request_options
+        )
         return _response.data
 
 
@@ -117,19 +177,58 @@ class AsyncEmailClient:
         return self._raw_client
 
     async def create_draft(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+        self,
+        *,
+        body: str,
+        subject: str,
+        to: typing.Sequence[str],
+        bcc: typing.Optional[typing.Sequence[str]] = OMIT,
+        catalog_id: typing.Optional[str] = OMIT,
+        cc: typing.Optional[typing.Sequence[str]] = OMIT,
+        include_signature: typing.Optional[bool] = OMIT,
+        reply_to_message_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> EmailDraftResponseOut:
         """
-        Coming soon! Create email drafts with specified content and recipients.
+        Save a draft in the caller's connected Gmail or Outlook account.
+
+        Nothing is sent. The draft appears in the account's Drafts folder, where it
+        is reviewed, edited and sent from the mail client — that review step is why
+        drafting is available here while sending is not. Set `reply_to_message_id`
+        to thread the draft as a reply.
 
         Parameters
         ----------
+        body : str
+            Body content. HTML is supported; plain-text newlines become line breaks. Do not write a signature into it — the account's signature is appended automatically (see `include_signature`).
+
+        subject : str
+            Subject line.
+
+        to : typing.Sequence[str]
+            Recipient email addresses.
+
+        bcc : typing.Optional[typing.Sequence[str]]
+            BCC recipients.
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
+        cc : typing.Optional[typing.Sequence[str]]
+            CC recipients.
+
+        include_signature : typing.Optional[bool]
+            Optional: Whether to append the sending account's own signature at the end of the body. Leave unset to follow the user's saved preference for this account (which distinguishes new messages from replies) — that is almost always the right choice. Set false only when the user asks for no signature. Never write a signature into the body yourself: the real one is read from the account and appended automatically.
+
+        reply_to_message_id : typing.Optional[str]
+            Provider message id (from `GET /tools/email/search`) to reply to, so the draft is threaded under that message. Outlook rejects an id it cannot find (404). Gmail saves the draft *unthreaded* when the referenced message cannot be read, and `reply_to_message_id` in the response tells you which happened.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        EmailDraftResponseOut
             Successful Response
 
         Examples
@@ -144,26 +243,61 @@ class AsyncEmailClient:
 
 
         async def main() -> None:
-            await client.tools.email.create_draft()
+            await client.tools.email.create_draft(
+                body="Hi Ada,<br><br>Attached below is the Q3 forecast summary.",
+                cc=["grace@example.com"],
+                subject="Q3 forecast",
+                to=["ada@example.com"],
+            )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create_draft(request_options=request_options)
+        _response = await self._raw_client.create_draft(
+            body=body,
+            subject=subject,
+            to=to,
+            bcc=bcc,
+            catalog_id=catalog_id,
+            cc=cc,
+            include_signature=include_signature,
+            reply_to_message_id=reply_to_message_id,
+            request_options=request_options,
+        )
         return _response.data
 
-    async def search(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
+    async def search(
+        self,
+        *,
+        query: str,
+        catalog_id: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> EmailSearchResponseOut:
         """
-        Coming soon! Search through emails with configurable filters.
+        Search the caller's connected Gmail or Outlook mailbox.
+
+        Results come from the connected account the caller can access in their
+        current workspace (the default account unless `catalog_id` names another).
+        Unsent drafts are included and flagged with `is_draft`.
 
         Parameters
         ----------
+        query : str
+            Search query. Gmail operators (`from:`, `to:`, `subject:`, `has:attachment`, `newer_than:7d`, `-term`, …) are accepted for both providers; operators with no Outlook equivalent are dropped and reported in `ignored_operators`. Use `in:drafts` to search only unsent drafts.
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
+        limit : typing.Optional[int]
+            Maximum number of results (1-50).
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        EmailSearchResponseOut
             Successful Response
 
         Examples
@@ -178,44 +312,15 @@ class AsyncEmailClient:
 
 
         async def main() -> None:
-            await client.tools.email.search()
+            await client.tools.email.search(
+                query="from:ada@example.com newer_than:7d",
+                limit=20,
+            )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.search(request_options=request_options)
-        return _response.data
-
-    async def send(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
-        """
-        Coming soon! Send emails to specified recipients.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.Optional[typing.Any]
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from athena import AsyncAthena
-
-        client = AsyncAthena(
-            api_key="YOUR_API_KEY",
+        _response = await self._raw_client.search(
+            query=query, catalog_id=catalog_id, limit=limit, request_options=request_options
         )
-
-
-        async def main() -> None:
-            await client.tools.email.send()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.send(request_options=request_options)
         return _response.data

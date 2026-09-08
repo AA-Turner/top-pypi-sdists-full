@@ -268,7 +268,9 @@ FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
 HealthStatusType = Literal["HEALTHY", "UNHEALTHY", "UNKNOWN"]
 InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthCheckStateType = Literal["IMPAIRED", "INITIALIZING", "INSUFFICIENT_DATA", "OK"]
-InstanceHealthCheckTypeType = Literal["ACCELERATED_COMPUTE", "CONTAINER_RUNTIME", "DAEMON"]
+InstanceHealthCheckTypeType = Literal[
+    "ACCELERATED_COMPUTE", "AGENT_CONNECTIVITY", "CONTAINER_RUNTIME", "DAEMON"
+]
 IpcModeType = Literal["host", "none", "task"]
 LaunchTypeType = Literal["EC2", "EXTERNAL", "FARGATE", "MANAGED_INSTANCES"]
 ListAccountSettingsPaginatorName = Literal["list_account_settings"]
@@ -374,6 +376,7 @@ TaskFilesystemTypeType = Literal["ext3", "ext4", "ntfs", "xfs"]
 TaskSetFieldType = Literal["TAGS"]
 TaskStopCodeType = Literal[
     "EssentialContainerExited",
+    "InfrastructureHealth",
     "ServiceSchedulerInitiated",
     "SpotInterruption",
     "TaskFailedToStart",
@@ -406,8 +409,11 @@ ECSServiceName = Literal["ecs"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -712,6 +718,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

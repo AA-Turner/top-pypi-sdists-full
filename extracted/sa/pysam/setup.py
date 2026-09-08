@@ -69,7 +69,7 @@ def run_configure(option):
             return False
         else:
             return True
-    except OSError as e:
+    except OSError:
         return False
 
 
@@ -104,12 +104,52 @@ def run_nm_defined_symbols(objfile):
         if symtype not in "UFNWw" and not cython_internal(sym):
             if IS_DARWIN:
                 # On macOS, all symbols have a leading underscore
-                symbols.add(sym[1:] if sym.startswith("_") else sym)
+                symbols.add(sym.removeprefix("_"))
             else:
                 # Ignore symbols such as _edata (present in all shared objects)
                 if sym[0] not in "_$.@": symbols.add(sym)
 
     return symbols
+
+
+def adjust_cflags(command, incdir="/usr/local/include"):
+    if not truthy(os.environ.get("PYSAM_FIX_CFLAGS", "1")):
+        return command, set()
+
+    # Change -I/usr/system/dir options to use -isystem, so that system-installed HTSlib headers
+    # don't override pysam's own in a shared/separate build, in which pysam's -I options come later.
+    ISYSTEM = "changed system includes to use -isystem"
+
+    # We don't use $CPPFLAGS, so if -Iincdir is listed there, ensure it also present in our options.
+    need_incdir = f"-I{incdir}" in (sysconfig.get_config_var("CPPFLAGS") or "")
+    ADDED = f"added {incdir} to search path"
+
+    adjustments = set()
+
+    if isinstance(command, str):
+        if "-I/usr/" in command:
+            command = command.replace("-I/usr/", "-isystem /usr/")
+            adjustments.add(ISYSTEM)
+
+        if need_incdir and incdir not in command:
+            command = f"{command} -isystem {incdir}"
+            adjustments.add(ADDED)
+
+    elif isinstance(command, list):
+        original_command = command
+        command = []
+        for word in original_command:
+            if word.startswith("-I/usr/"):
+                command.extend(["-isystem", word[2:]])
+                adjustments.add(ISYSTEM)
+            else:
+                command.append(word)
+
+        if need_incdir and incdir not in command and f"-I{incdir}" not in command:
+            command.extend(["-isystem", incdir])
+            adjustments.add(ADDED)
+
+    return command, adjustments
 
 
 # This function emulates the way distutils combines settings from sysconfig,
@@ -152,8 +192,8 @@ def build_config_dict(ext):
     # ext.libraries is computed (incorporating $LIBS etc) during configure
     libs = " ".join(optionise('-l', ext.libraries))
 
-    return { 'CC': cc, 'CPPFLAGS': cppflags, 'CFLAGS': cflags,
-             'LDFLAGS': ldflags, 'LIBS': libs }
+    return {'CC': cc, 'CPPFLAGS': cppflags, 'CFLAGS': cflags,
+            'LDFLAGS': ldflags, 'LIBS': libs}
 
 
 def write_configvars_header(filename, ext, prefix):
@@ -180,6 +220,9 @@ def set_compiler_envvars():
             value = sysconfig.get_config_var(var)
             if var == 'CFLAGS' and 'CCSHARED' in sysconfig.get_config_vars():
                 value += ' ' + sysconfig.get_config_var('CCSHARED')
+            if var == 'CFLAGS':
+                value, adjustments = adjust_cflags(value)
+                for adj in sorted(adjustments): print(f"# pysam: adjusted CFLAGS: {adj}")
             print(f"# pysam: (sysconfig) {var}={value}")
             os.environ[var] = value
             tmp_vars += [var]
@@ -334,6 +377,17 @@ class cy_build_ext(build_ext):
                     elif isinstance(command, str): executables[executable] = f"{command} {' '.join(c99_flags)}"
             self.compiler.set_executables(**executables)
 
+        executables = {}
+        adjustments = set()
+        for executable in ["compiler", "compiler_so"]:
+            command = getattr(self.compiler, executable, None)
+            new_command, adjs = adjust_cflags(command)
+            if new_command != command:
+                executables[executable] = new_command
+                adjustments |= adjs
+        if executables: self.compiler.set_executables(**executables)
+        for adj in sorted(adjustments): print(f"checking compiler options... {adj}")
+
         super().build_extensions()
 
     def build_extension(self, ext):
@@ -459,10 +513,14 @@ print(f"# pysam: htslib mode is {HTSLIB_MODE}")
 print(f"# pysam: HTSLIB_CONFIGURE_OPTIONS={HTSLIB_CONFIGURE_OPTIONS}")
 htslib_configure_options = None
 
+define_macros = []
+dynamic_files = []
+extra_compile_args = []
+
 if HTSLIB_MODE in ['shared', 'separate']:
     package_list += ['pysam.include.htslib',
                      'pysam.include.htslib.htslib']
-    package_dirs.update({'pysam.include.htslib':'htslib'})
+    package_dirs.update({'pysam.include.htslib': 'htslib'})
 
     htslib_configure_options = configure_library(
         "htslib",
@@ -493,6 +551,17 @@ if HTSLIB_MODE in ['shared', 'separate']:
         external_htslib_libraries.extend(
             [re.sub("^-l", "", x) for x in htslib_make_options["LIBS"].split(" ") if x.strip()])
 
+    for_redistribution = truthy(os.environ.get("CIBUILDWHEEL", "0"))
+
+    if for_redistribution:
+        extra_compile_args.append("-g0")  # Omit all debugging symbols
+
+    if sys.platform == "linux" and "curl" in external_htslib_libraries and for_redistribution:
+        dynamic_files.append("pysam/dynamic_libs.c")
+        define_macros.append(("DYNAMIC_NETWORK_LIBS", None))
+        # Filter out libraries that we will load dynamically at runtime
+        external_htslib_libraries = [lib for lib in external_htslib_libraries if lib not in ("curl", "crypto")]
+
 if HTSLIB_LIBRARY_DIR:
     # linking against a shared, externally installed htslib version,
     # no sources or built libhts.a required for htslib
@@ -520,7 +589,7 @@ elif HTSLIB_MODE == 'shared':
                       for x in htslib_make_options["LIBHTS_OBJS"].split(" ")]
     separate_htslib_objects = []
 
-    htslib_library_dirs = ["."] # when using setup.py develop?
+    htslib_library_dirs = ["."]  # when using setup.py develop?
     htslib_include_dirs = ['htslib']
 else:
     raise ValueError(f"unknown HTSLIB value {HTSLIB_MODE!r}")
@@ -565,7 +634,6 @@ for fn in config_headers:
 if platform.system() == 'Windows':
     include_os = ['win32']
     os_c_files = ['win32/getopt.c']
-    extra_compile_args = []
 else:
     include_os = []
     os_c_files = []
@@ -573,16 +641,12 @@ else:
     # http://stackoverflow.com/questions/25587039/
     # error-compiling-rpy2-on-python3-4-due-to-werror-
     # declaration-after-statement
-    extra_compile_args = [
+    extra_compile_args.extend([
         "-Wno-unused",
         "-Wno-strict-prototypes",
         "-Wno-sign-compare",
-        "-Wno-error=declaration-after-statement"]
-
-define_macros = []
-
-if os.environ.get("CIBUILDWHEEL", "0") == "1":
-    define_macros.append(("BUILDING_WHEEL", None))
+        "-Wno-error=declaration-after-statement",
+    ])
 
 suffix = sysconfig.get_config_var('EXT_SUFFIX')
 
@@ -610,6 +674,7 @@ libraries_for_pysam_module = external_htslib_libraries + internal_htslib_librari
 # The list below uses the union of include_dirs and library_dirs for
 # reasons of simplicity.
 
+
 def prebuild_libchtslib(ext, force):
     if HTSLIB_MODE not in ['shared', 'separate']: return
 
@@ -634,7 +699,7 @@ def prebuild_libcsamtools(ext, force):
 modules = [
     dict(name="pysam.libchtslib",
          prebuild_func=prebuild_libchtslib,
-         sources=[source_pattern % "htslib", "pysam/htslib_util.c"] + os_c_files,
+         sources=[source_pattern % "htslib", "pysam/htslib_util.c"] + dynamic_files + os_c_files,
          extra_objects=htslib_objects,
          libraries=external_htslib_libraries),
     dict(name="pysam.libcsamtools",
@@ -731,6 +796,8 @@ metadata = {
     'cmdclass': {'build_ext': cy_build_ext, 'clean_ext': clean_ext, 'sdist': cythonize_sdist},
     'package_dir': package_dirs,
     'package_data': {'': ['*.pxd', '*.h', 'py.typed', '*.pyi'], },
+    'exclude_package_data': {"pysam": ["dynamic_*.h", "version.h"]},
+    'include_package_data': False,
     # do not pack in order to permit linking to csamtools.so
     'zip_safe': False,
 }

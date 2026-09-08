@@ -11,13 +11,14 @@ from category_encoders.basen import BaseNEncoder
 from category_encoders.binary import BinaryEncoder
 from category_encoders.cat_boost import CatBoostEncoder
 from category_encoders.count import CountEncoder
-from category_encoders.glmm import GLMMEncoder
+from category_encoders.count_target import CountTargetEncoder
 from category_encoders.gray import GrayEncoder
 from category_encoders.hashing import HashingEncoder
 from category_encoders.helmert import HelmertEncoder
 from category_encoders.james_stein import JamesSteinEncoder
 from category_encoders.leave_one_out import LeaveOneOutEncoder
 from category_encoders.m_estimate import MEstimateEncoder
+from category_encoders.multi_hot import MultiHotEncoder
 from category_encoders.one_hot import OneHotEncoder
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders.polynomial import PolynomialEncoder
@@ -27,7 +28,22 @@ from category_encoders.sum_coding import SumEncoder
 from category_encoders.target_encoder import TargetEncoder
 from category_encoders.woe import WOEEncoder
 
-__version__ = '2.10.0'
+
+def __getattr__(name):
+    # GLMMEncoder pulls in statsmodels (which in turn pulls in patsy). Defer
+    # the import so users who don't need GLMM aren't forced to install it.
+    if name == 'GLMMEncoder':
+        try:
+            from category_encoders.glmm import GLMMEncoder
+        except ImportError as e:
+            raise ImportError(
+                'GLMMEncoder requires statsmodels. Install with '
+                "'pip install category_encoders[glmm]' or 'pip install statsmodels'."
+            ) from e
+        return GLMMEncoder
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+
+__version__ = '2.11.0'
 
 __author__ = 'willmcginnis', 'cmougan', 'paulwestenthanner'
 
@@ -36,6 +52,7 @@ __all__ = [
     'BinaryEncoder',
     'GrayEncoder',
     'CountEncoder',
+    'CountTargetEncoder',
     'HashingEncoder',
     'HelmertEncoder',
     'OneHotEncoder',
@@ -47,6 +64,7 @@ __all__ = [
     'TargetEncoder',
     'WOEEncoder',
     'MEstimateEncoder',
+    'MultiHotEncoder',
     'JamesSteinEncoder',
     'CatBoostEncoder',
     'GLMMEncoder',

@@ -5,9 +5,9 @@ plot_logo(screenshot='pyvista_logo.png', window_size=(1920, 1080))
 plot_logo(screenshot='pyvista_logo_sm.png', window_size=(960, 400), off_screen=True)
 
 # different camera angle for square plot
-cpos = [(-0.3654543687422538, 1.1098808905156292, 9.073223697728247),
-        (2.553950615449191, 0.34145688392081264, 0.06127122762851659),
-        (0.019308531920309947, 0.996708840795678, -0.07873161547192065)]
+cpos = [(-0.3655, 1.11, 9.073),
+        (2.554, 0.3415, 0.06127),
+        (0.01931, 0.9967, -0.07873)]
 
 plot_logo(screenshot='pyvista_logo_sm_sq.png', window_size=(960, 960), cpos=cpos,
           off_screen=True)
@@ -25,6 +25,8 @@ import pyvista as pv
 from pyvista import _vtk
 from pyvista import examples
 from pyvista._deprecate_positional_args import _deprecate_positional_args
+from pyvista.core.filters import _get_output
+from pyvista.core.filters import _update_alg
 from pyvista.core.utilities.features import _voxelize_legacy
 
 THIS_PATH = str(Path(os.path.realpath(__file__)).parent)
@@ -78,10 +80,6 @@ def text_3d(string, depth=0.5):
     pyvista.DataSet
         The 3D text in the form of a PyVista DataSet.
 
-    See Also
-    --------
-    :ref:`create_pixel_art_example`
-
     """
     vec_text = _vtk.vtkVectorText()
     vec_text.SetText(string)
@@ -94,8 +92,8 @@ def text_3d(string, depth=0.5):
 
     tri_filter = _vtk.vtkTriangleFilter()
     tri_filter.SetInputConnection(extrude.GetOutputPort())
-    tri_filter.Update()
-    return pv.wrap(tri_filter.GetOutput())
+    _update_alg(tri_filter)
+    return _get_output(tri_filter)
 
 
 @_deprecate_positional_args

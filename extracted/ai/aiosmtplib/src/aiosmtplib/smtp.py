@@ -40,7 +40,7 @@ from .errors import (
     SMTPConnectResponseError,
 )
 from .esmtp import parse_esmtp_extensions
-from .protocol import SMTPProtocol
+from .protocol import SMTPProtocol, normalize_message_line_endings
 from .response import SMTPResponse
 from .typing import Default, SMTPStatus, SMTPTokenGenerator, SocketPathType
 
@@ -51,6 +51,24 @@ SMTP_PORT = 25
 SMTP_TLS_PORT = 465
 SMTP_STARTTLS_PORT = 587
 DEFAULT_TIMEOUT = 60
+
+
+def _validate_local_hostname(hostname: str) -> str:
+    """
+    Strip surrounding whitespace from a hostname destined for the HELO/EHLO
+    command line, and reject anything that could smuggle extra parameters onto
+    that line (interior whitespace or control characters).
+    """
+    hostname = hostname.strip()
+    if hostname == "":
+        raise ValueError("The local_hostname param must not be empty")
+    if any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in hostname):
+        raise ValueError(
+            "The local_hostname param contains prohibited whitespace or control "
+            "characters"
+        )
+
+    return hostname
 
 
 class SMTP:
@@ -198,6 +216,8 @@ class SMTP:
             await self.quit()
         except (SMTPServerDisconnected, SMTPResponseException, SMTPTimeoutError):
             pass
+        finally:
+            self.close()
 
     @property
     def is_connected(self) -> bool:
@@ -320,12 +340,8 @@ class SMTP:
         if (self.sock or self.socket_path) and self.use_tls and self.hostname is None:
             raise ValueError("If using a socket with TLS, hostname is required")
 
-        if self.local_hostname is not None and (
-            "\r" in self.local_hostname or "\n" in self.local_hostname
-        ):
-            raise ValueError(
-                "The local_hostname param contains prohibited newline characters"
-            )
+        if self.local_hostname is not None:
+            self.local_hostname = _validate_local_hostname(self.local_hostname)
 
         if self.hostname is not None and (
             "\r" in self.hostname or "\n" in self.hostname
@@ -447,26 +463,18 @@ class SMTP:
         # The lock is held until close(), serializing concurrent connect calls.
         await self._connect_lock.acquire()
 
-        # If we're not using a socket, default to port and hostname
-        if self.sock is None and self.socket_path is None:
-            if self.hostname is None:
-                self.hostname = "localhost"
-
-            if self.port is None and self.sock is None and self.socket_path is None:
-                self.port = self._get_default_port()
-
-        if self.local_hostname is None:
-            self.local_hostname = await self._get_default_local_hostname()
-
         try:
+            if self.local_hostname is None:
+                self.local_hostname = await self._get_default_local_hostname()
+
             response = await self._create_connection(
                 timeout=self.timeout if timeout is Default.token else timeout
             )
             await self._maybe_start_tls_on_connect()
             await self._maybe_login_on_connect()
-        except Exception as exc:
-            self.close()  # Reset our state to disconnected
-            raise exc
+        except (Exception, asyncio.CancelledError):
+            self.close()  # Reset to disconnected and release the lock
+            raise
 
         return response
 
@@ -474,15 +482,20 @@ class SMTP:
         if self.loop is None:
             raise RuntimeError("No event loop set")
 
-        protocol = SMTPProtocol(loop=self.loop, connection_lost_callback=self.close)
+        port = self.port
+        hostname = self.hostname
+
+        protocol = SMTPProtocol(
+            loop=self.loop, connection_lost_callback=self._on_connection_lost
+        )
 
         tls_context: ssl.SSLContext | None = None
         ssl_handshake_timeout: float | None = None
         server_hostname: str | None = None
         if self.use_tls:
-            tls_context = self._get_tls_context()
+            tls_context = await self._get_tls_context()
             ssl_handshake_timeout = timeout
-            server_hostname = self.hostname
+            server_hostname = hostname
 
         if self.sock is not None:
             connect_coro = self.loop.create_connection(
@@ -501,15 +514,15 @@ class SMTP:
                 ssl_handshake_timeout=ssl_handshake_timeout,
             )
         else:
-            if self.hostname is None:
-                raise RuntimeError("No hostname provided; default should have been set")
-            if self.port is None:
-                raise RuntimeError("No port provided; default should have been set")
+            if hostname is None:
+                hostname = "localhost"
+            if port is None:
+                port = self._get_default_port()
 
             connect_coro = self.loop.create_connection(
                 lambda: protocol,
-                host=self.hostname,
-                port=self.port,
+                host=hostname,
+                port=port,
                 ssl=tls_context,
                 ssl_handshake_timeout=ssl_handshake_timeout,
                 local_addr=self.source_address,
@@ -519,11 +532,11 @@ class SMTP:
             transport, _ = await asyncio.wait_for(connect_coro, timeout=timeout)
         except (TimeoutError, asyncio.TimeoutError) as exc:
             raise SMTPConnectTimeoutError(
-                f"Timed out connecting to {self.hostname} on port {self.port}"
+                f"Timed out connecting to {hostname} on port {port}"
             ) from exc
         except OSError as exc:
             raise SMTPConnectError(
-                f"Error connecting to {self.hostname} on port {self.port}: {exc}"
+                f"Error connecting to {hostname} on port {port}: {exc}"
             ) from exc
 
         self.protocol = protocol
@@ -533,7 +546,7 @@ class SMTP:
             response = await protocol.read_response(timeout=timeout)
         except SMTPServerDisconnected as exc:
             raise SMTPConnectError(
-                f"Error connecting to {self.hostname} on port {self.port}: {exc}"
+                f"Error connecting to {hostname} on port {port}: {exc}"
             ) from exc
         except SMTPTimeoutError as exc:
             raise SMTPConnectTimeoutError(
@@ -613,28 +626,34 @@ class SMTP:
 
         return response
 
-    def _get_tls_context(self) -> ssl.SSLContext:
+    async def _get_tls_context(self) -> ssl.SSLContext:
         """
         Build an SSLContext object from the options we've been given.
         """
         if self.tls_context is not None:
-            context = self.tls_context
+            return self.tls_context
+
+        return await asyncio.to_thread(self._build_tls_context)
+
+    def _build_tls_context(self) -> ssl.SSLContext:
+        # SERVER_AUTH is what we want for a client side socket
+        context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        context.check_hostname = bool(self.validate_certs)
+        if self.validate_certs:
+            context.verify_mode = ssl.CERT_REQUIRED
         else:
-            # SERVER_AUTH is what we want for a client side socket
-            context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-            context.check_hostname = bool(self.validate_certs)
-            if self.validate_certs:
-                context.verify_mode = ssl.CERT_REQUIRED
-            else:
-                context.verify_mode = ssl.CERT_NONE
+            context.verify_mode = ssl.CERT_NONE
 
-            if self.cert_bundle is not None:
-                context.load_verify_locations(cafile=self.cert_bundle)
+        if self.cert_bundle is not None:
+            context.load_verify_locations(cafile=self.cert_bundle)
 
-            if self.client_cert is not None:
-                context.load_cert_chain(self.client_cert, keyfile=self.client_key)
-
+        if self.client_cert is not None:
+            context.load_cert_chain(self.client_cert, keyfile=self.client_key)
         return context
+
+    def _on_connection_lost(self, protocol: SMTPProtocol) -> None:
+        if protocol is self.protocol:
+            self.close()
 
     def close(self) -> None:
         """
@@ -694,13 +713,17 @@ class SMTP:
                 self.local_hostname = await self._get_default_local_hostname()
 
             hostname = self.local_hostname
+        else:
+            hostname = _validate_local_hostname(hostname)
 
-        response = self.last_helo_response = await self.execute_command(
+        response = await self.execute_command(
             b"HELO", hostname.encode("ascii"), timeout=timeout
         )
 
         if response.code != SMTPStatus.completed:
             raise SMTPHeloError(response.code, response.message)
+
+        self.last_helo_response = response
 
         return response
 
@@ -971,6 +994,8 @@ class SMTP:
                 self.local_hostname = await self._get_default_local_hostname()
 
             hostname = self.local_hostname
+        else:
+            hostname = _validate_local_hostname(hostname)
 
         response = await self.execute_command(
             b"EHLO", hostname.encode("ascii"), timeout=timeout
@@ -1050,8 +1075,6 @@ class SMTP:
         if self.get_transport_info("sslcontext") is not None:
             raise SMTPException("Connection already using TLS")
 
-        await self._ehlo_or_helo_if_needed()
-
         self._update_settings_from_kwargs(
             validate_certs=validate_certs,
             client_cert=client_cert,
@@ -1061,13 +1084,15 @@ class SMTP:
         )
         self._validate_config()
 
+        await self._ehlo_or_helo_if_needed()
+
         if server_hostname is None:
             server_hostname = self.hostname
 
         if timeout is Default.token:
             timeout = self.timeout
 
-        tls_context = self._get_tls_context()
+        tls_context = await self._get_tls_context()
 
         if not self.supports_extension("starttls"):
             raise SMTPException("SMTP STARTTLS extension not supported by server.")
@@ -1366,6 +1391,7 @@ class SMTP:
         send an RSET command to reset the server envelope automatically for
         the next attempt.
 
+        :raises ValueError: on an address that can't be safely sent
         :raises SMTPRecipientsRefused: delivery to all recipients failed
         :raises SMTPResponseException: on invalid response
         """
@@ -1385,6 +1411,12 @@ class SMTP:
         else:
             mailbox_encoding = "ascii"
 
+        # Validate all addresses before sending anything, so that a bad
+        # recipient doesn't leave a half-finished envelope on the server.
+        parse_address(sender)
+        for recipient in recipients:
+            parse_address(recipient)
+
         if self._sendmail_lock is None:
             self._sendmail_lock = asyncio.Lock()
 
@@ -1396,7 +1428,12 @@ class SMTP:
                 raise SMTPNotSupported("SMTPUTF8 is not supported by this server")
 
             if self.supports_extension("size"):
-                message_len = len(message)
+                # RFC 1870: the size is the number of octets, including CRLF
+                # pairs, as the message will be transmitted in the DATA command.
+                message_bytes = (
+                    message.encode("ascii") if isinstance(message, str) else message
+                )
+                message_len = len(normalize_message_line_endings(message_bytes))
                 size_option = f"size={message_len}"
                 mail_options.insert(0, size_option)
 

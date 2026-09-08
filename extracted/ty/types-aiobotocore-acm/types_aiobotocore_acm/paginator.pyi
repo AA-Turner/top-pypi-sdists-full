@@ -16,6 +16,7 @@ Usage::
         ListAcmeDomainValidationsPaginator,
         ListAcmeEndpointsPaginator,
         ListAcmeExternalAccountBindingsPaginator,
+        ListCertificateDomainValidationsPaginator,
         ListCertificatesPaginator,
         SearchCertificatesPaginator,
     )
@@ -28,6 +29,7 @@ Usage::
         list_acme_domain_validations_paginator: ListAcmeDomainValidationsPaginator = client.get_paginator("list_acme_domain_validations")
         list_acme_endpoints_paginator: ListAcmeEndpointsPaginator = client.get_paginator("list_acme_endpoints")
         list_acme_external_account_bindings_paginator: ListAcmeExternalAccountBindingsPaginator = client.get_paginator("list_acme_external_account_bindings")
+        list_certificate_domain_validations_paginator: ListCertificateDomainValidationsPaginator = client.get_paginator("list_certificate_domain_validations")
         list_certificates_paginator: ListCertificatesPaginator = client.get_paginator("list_certificates")
         search_certificates_paginator: SearchCertificatesPaginator = client.get_paginator("search_certificates")
     ```
@@ -49,6 +51,8 @@ from .type_defs import (
     ListAcmeEndpointsResponseTypeDef,
     ListAcmeExternalAccountBindingsRequestPaginateTypeDef,
     ListAcmeExternalAccountBindingsResponseTypeDef,
+    ListCertificateDomainValidationsRequestPaginateTypeDef,
+    ListCertificateDomainValidationsResponseTypeDef,
     ListCertificatesRequestPaginateTypeDef,
     ListCertificatesResponseTypeDef,
     SearchCertificatesRequestPaginateTypeDef,
@@ -65,6 +69,7 @@ __all__ = (
     "ListAcmeDomainValidationsPaginator",
     "ListAcmeEndpointsPaginator",
     "ListAcmeExternalAccountBindingsPaginator",
+    "ListCertificateDomainValidationsPaginator",
     "ListCertificatesPaginator",
     "SearchCertificatesPaginator",
 )
@@ -141,6 +146,26 @@ class ListAcmeExternalAccountBindingsPaginator(_ListAcmeExternalAccountBindingsP
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/paginator/ListAcmeExternalAccountBindings.html#ACM.Paginator.ListAcmeExternalAccountBindings.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/paginators/#listacmeexternalaccountbindingspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListCertificateDomainValidationsPaginatorBase = AioPaginator[
+        ListCertificateDomainValidationsResponseTypeDef
+    ]
+else:
+    _ListCertificateDomainValidationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListCertificateDomainValidationsPaginator(_ListCertificateDomainValidationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/paginator/ListCertificateDomainValidations.html#ACM.Paginator.ListCertificateDomainValidations)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/paginators/#listcertificatedomainvalidationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCertificateDomainValidationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListCertificateDomainValidationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/paginator/ListCertificateDomainValidations.html#ACM.Paginator.ListCertificateDomainValidations.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/paginators/#listcertificatedomainvalidationspaginator)
         """
 
 if TYPE_CHECKING:

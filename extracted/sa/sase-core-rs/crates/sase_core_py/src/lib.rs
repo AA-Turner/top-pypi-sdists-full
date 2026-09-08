@@ -88,9 +88,18 @@
 //! - `apply_notification_state_update_counts(path: str, update: dict) -> dict`
 //! - `append_notification(path: str, notification: dict) -> dict`
 //! - `append_notification_counts(path: str, notification: dict) -> dict`
+//! - `append_notification_plus_one(path: str, request: dict) -> dict`
+//! - `upsert_notification(path: str, request: dict) -> dict`
 //! - `rewrite_notifications(path: str, notifications: list[dict]) -> dict`
 //! - `rewrite_notifications_counts(path: str, notifications: list[dict]) -> dict`
 //! - `classify_notification_tabs(notifications: list[dict]) -> dict`
+//! - `pending_action_from_notification(notification: dict, now: float) -> dict | None`
+//! - `register_pending_action(path: str, action: dict) -> dict`
+//! - `read_pending_action_store(path: str, legacy_path: str | None = None) -> dict`
+//! - `merge_pending_action_transport(path: str, identifier: str, transport: str, record: dict, now: float | None = None) -> bool`
+//! - `mark_pending_action_handled(path: str, identifier: str, source: str, action: str | None = None, now: float | None = None) -> bool`
+//! - `remove_pending_action(path: str, identifier: str) -> bool`
+//! - `pending_action_transport(request: dict) -> object`
 //! - `read_prompt_stash_snapshot(path: str) -> dict`
 //! - `append_prompt_stash(path: str, entry: dict) -> dict`
 //! - `pop_prompt_stash(path: str, ids: list[str]) -> dict`
@@ -187,6 +196,15 @@
 //! - `fleet_classify_cursor_replay(request: dict) -> dict`
 //! - `fleet_operation_payload_fingerprint(request: dict) -> dict`
 //! - `fleet_decide_operation_replay(request: dict) -> dict`
+//! - `fleet_mutation_payload_fingerprint(intent: dict) -> dict`
+//! - `fleet_validate_mutation_request(request: dict) -> dict`
+//! - `fleet_evaluate_mutation_precondition(intent: dict, observed: dict | None) -> dict`
+//! - `fleet_partition_bulk_targets(targets: list[dict]) -> dict`
+//! - `fleet_project_attention(origin_installation_id: str, rows: list[dict], resolved: list[dict], observed_at_unix: float) -> dict`
+//! - `fleet_attention_payload_fingerprint(intent: dict) -> dict`
+//! - `fleet_validate_attention_request(request: dict) -> dict`
+//! - `fleet_evaluate_attention_precondition(intent: dict, capabilities: dict, observed: dict | None = None) -> dict`
+//! - `fleet_decide_attention_notices(current: list[dict], ledger: list[dict], retention_window_seconds: float, now_unix: float) -> dict`
 //! - `fleet_validate_connection_plan(plan: dict) -> dict`
 //! - `federation_worker_main(args: list[str]) -> None`
 //! - `fleet_classify_runtime_duration(request: dict) -> dict`
@@ -215,6 +233,15 @@
 //! - `provider_routing_context_from_parts(disables: list[dict], priority: dict | None, captured_at: float) -> dict`
 //! - `provider_availability_classify(context: dict, facts: dict) -> dict`
 //! - `provider_availability_classify_many(context: dict, facts: list[dict]) -> list[dict]`
+//! - `provider_usage_observation_schema_version() -> int`
+//! - `provider_usage_public_schema_version() -> int`
+//! - `provider_usage_validate_observation(observation: dict, now: float) -> dict`
+//! - `provider_usage_project_snapshot(observations: list[dict], now: float, cadence_seconds: float = 300, warn_percent: float = 75, critical_percent: float = 90) -> dict`
+//! - `provider_usage_remaining_percent(used_percent: float) -> float`
+//! - `provider_usage_format_remaining_text(used_percent: float) -> str`
+//! - `provider_usage_classify_freshness(observed_at: float, now: float, cadence_seconds: float = 300) -> str`
+//! - `provider_usage_window_applies(applicability: dict, model_id: str | None = None) -> str`
+//! - `provider_usage_summarize_for_model(windows: list[dict], model_id: str) -> dict | None`
 //! - `resolve_effective_effort(explicit_effort: str | None = None, alias_effort: str | None = None, temporary_effort: str | None = None, configured_effort: str | None = None) -> dict`
 //! - `size_model_route(size: str) -> dict`
 //! - `select_epic_land_model(explicit_model: str | None, phase_count: int, threshold: int, epic_lander_model: str, big_epic_lander_model: str) -> dict`
@@ -259,6 +286,10 @@
 //! - `artifact_ref_path_filter_wire_schema_version() -> int`
 //! - `artifact_ref_filter_path_payloads(kind: str, candidates: list[str], path_globs: list[str] | None = None) -> dict`
 //! - `artifact_ref_scan_prompt(text: str) -> list[dict]`
+//! - `artifact_ref_scan_document(text: str, known_kinds: list[str] | None = None) -> dict`
+//! - `artifact_ref_document_scan_wire_schema_version() -> int`
+//! - `artifact_ref_resolve_document_source_target(path: str, owner: dict, context: dict) -> dict`
+//! - `artifact_ref_target_resolution_wire_schema_version() -> int`
 //! - `artifact_ref_wire_schema_version() -> int`
 //! - `prompt_artifact_pool_filename(sha256: str, original_name: str) -> str`
 //! - `prompt_artifact_manifest_parse(data: bytes) -> list[dict]`
@@ -698,15 +729,18 @@ use sase_core::artifact_ref::{
     render_artifact_ref_use_record as core_render_artifact_ref_use_record,
     resolve_artifact_ref as core_resolve_artifact_ref,
     resolve_artifact_ref_list as core_resolve_artifact_ref_list,
+    resolve_document_source_target as core_resolve_document_source_target,
+    scan_artifact_ref_document_links as core_scan_artifact_ref_document_links,
     scan_artifact_refs as core_scan_artifact_refs,
     validate_artifact_entry as core_validate_artifact_entry,
     validate_artifact_ref_expansion_format as core_validate_artifact_ref_expansion_format,
     validate_artifact_ref_file_row as core_validate_artifact_ref_file_row,
     validate_artifact_ref_provider_spec as core_validate_artifact_ref_provider_spec,
-    ArtifactEntryWire, ArtifactRefContextWire, ArtifactRefError,
-    ArtifactRefFileVersionRowWire, ArtifactRefProviderSpecWire,
-    ArtifactRefUseRecordWire, ParsedArtifactRefWire,
-    ARTIFACT_REF_CONTEXT_WIRE_SCHEMA_VERSION,
+    ArtifactEntryWire, ArtifactRefContextWire, ArtifactRefDocumentOwnerWire,
+    ArtifactRefError, ArtifactRefFileVersionRowWire,
+    ArtifactRefProviderSpecWire, ArtifactRefUseRecordWire,
+    ParsedArtifactRefWire, ARTIFACT_REF_CONTEXT_WIRE_SCHEMA_VERSION,
+    ARTIFACT_REF_DOCUMENT_SCAN_WIRE_SCHEMA_VERSION,
     ARTIFACT_REF_ENTRY_WIRE_SCHEMA_VERSION,
     ARTIFACT_REF_EXPANSION_PLACEHOLDERS,
     ARTIFACT_REF_FILE_INDEX_WIRE_SCHEMA_VERSION,
@@ -715,6 +749,7 @@ use sase_core::artifact_ref::{
     ARTIFACT_REF_PATH_FILTER_WIRE_SCHEMA_VERSION,
     ARTIFACT_REF_PROVIDER_SPEC_WIRE_SCHEMA_VERSION,
     ARTIFACT_REF_RESOLUTION_WIRE_SCHEMA_VERSION,
+    ARTIFACT_REF_TARGET_RESOLUTION_WIRE_SCHEMA_VERSION,
     ARTIFACT_REF_USE_WIRE_SCHEMA_VERSION,
 };
 use sase_core::axe_chop::{
@@ -891,17 +926,28 @@ use sase_core::finalizer::{
     FinalizerProviderSpecWire, FinalizerSubmissionEnvelopeWire,
     FINALIZER_WIRE_SCHEMA_VERSION,
 };
+use sase_core::fleet_attention::{
+    self as core_fleet_attention, FleetAttentionEntryWire,
+    FleetAttentionIntentWire, FleetAttentionLogicalIdentityWire,
+    FleetAttentionNoticeLedgerEntryWire, FleetAttentionNotificationRowWire,
+    FleetAttentionRequestWire,
+};
 use sase_core::fleet_contract::{
     self as core_fleet_contract, AgentInstanceLocatorWire,
-    CacheFreshnessRequestWire, ConnectionPlanWire, CursorReplayRequestWire,
-    FleetContractError as FleetContractDomainError,
-    FleetLogicalAgentCountsRequestWire, FocusFleetCountsRequestWire,
-    FollowReconciliationRequestWire, FollowRecordWire,
-    InstallationIdentityMigrateRequestWire,
+    CacheFreshnessRequestWire, CapabilitySetWire, ConnectionPlanWire,
+    CursorReplayRequestWire, FleetContractError as FleetContractDomainError,
+    FleetLaunchDecisionRequestWire, FleetLaunchIntentWire,
+    FleetLaunchRequestWire, FleetLogicalAgentCountsRequestWire,
+    FocusFleetCountsRequestWire, FollowReconciliationRequestWire,
+    FollowRecordWire, InstallationIdentityMigrateRequestWire,
     InstallationIdentityRotateRequestWire, LogicalAgentLocatorWire,
     OperationDecisionRequestWire, OwnerDisplayNameRequestWire,
     PayloadFingerprintRequestWire, ResolvedAgentProjectionRequestWire,
     ResolvedAgentSummaryWire, RuntimeDurationRequestWire,
+};
+use sase_core::fleet_mutation::{
+    self as core_fleet_mutation, FleetMutationIntentWire,
+    FleetMutationRequestWire,
 };
 use sase_core::git_query::{
     derive_git_workspace_name as core_derive_git_workspace_name,
@@ -951,14 +997,26 @@ use sase_core::model_route::{
 use sase_core::notifications::{
     append_notification as core_append_notification,
     append_notification_counts as core_append_notification_counts,
+    append_notification_plus_one as core_append_notification_plus_one,
     apply_notification_state_update as core_apply_notification_state_update,
     apply_notification_state_update_counts as core_apply_notification_state_update_counts,
     classify_notification_tabs as core_classify_notification_tabs,
+    current_unix_time as core_current_unix_time,
+    mark_pending_action_handled as core_mark_pending_action_handled,
+    merge_pending_action_transport as core_merge_pending_action_transport,
+    pending_action_from_notification as core_pending_action_from_notification,
+    pending_action_transport as core_pending_action_transport,
     read_current_notifications_snapshot as core_read_current_notifications_snapshot,
     read_notifications_snapshot_with_options as core_read_notifications_snapshot_with_options,
+    read_pending_action_store as core_read_pending_action_store,
+    register_pending_action as core_register_pending_action,
+    remove_pending_action as core_remove_pending_action,
     rewrite_notifications as core_rewrite_notifications,
     rewrite_notifications_counts as core_rewrite_notifications_counts,
-    NotificationStateUpdateWire, NotificationWire,
+    upsert_notification as core_upsert_notification,
+    NotificationPlusOneRequestWire, NotificationStateUpdateWire,
+    NotificationUpsertRequestWire, NotificationWire,
+    PendingActionTransportRequestWire, PendingActionWire,
 };
 use sase_core::perf_logs::{
     perf_logs_query as core_perf_logs_query, PerfLogsQueryWire,
@@ -1046,6 +1104,21 @@ use sase_core::provider_priority::{
     ProviderPriorityTargetFactsWire, ProviderPriorityWire,
     ProviderRoutingContextWire,
 };
+use sase_core::provider_usage::{
+    classify_freshness as core_classify_freshness,
+    format_remaining_text as core_format_remaining_text,
+    project_usage_snapshot as core_project_usage_snapshot,
+    remaining_percent as core_remaining_percent,
+    summarize_usage_windows as core_summarize_usage_windows,
+    usage_window_applies as core_usage_window_applies,
+    validate_usage_observation as core_validate_usage_observation,
+    ProviderUsageError as ProviderUsageDomainError,
+    ProviderUsageObservationWire, UsageApplicabilityWire,
+    UsagePublicWindowWire, DEFAULT_USAGE_CADENCE_SECONDS,
+    DEFAULT_USAGE_CRITICAL_PERCENT, DEFAULT_USAGE_WARN_PERCENT,
+    PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION,
+    PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION,
+};
 use sase_core::query::types::{QueryErrorWire, QueryExprWire};
 use sase_core::query::{
     canonicalize_query_with_profile as core_canonicalize_query_with_profile,
@@ -1075,6 +1148,13 @@ use sase_core::scan_directive_owned_fences as core_scan_directive_owned_fences;
 use sase_core::snippet_session::{
     apply_session_event as core_apply_snippet_session_event,
     SnippetSessionEvent, SnippetSessionState,
+};
+use sase_core::source_language::{
+    logical_filename_from_hints as core_logical_filename_from_hints,
+    resolve_source_language as core_resolve_source_language,
+    source_filename_hints_from_json_value,
+    source_language_request_from_json_value,
+    SOURCE_LANGUAGE_PREFIX_BUDGET_BYTES, SOURCE_LANGUAGE_WIRE_SCHEMA_VERSION,
 };
 use sase_core::status::{
     apply_status_update as core_apply_status_update,
@@ -2309,6 +2389,53 @@ fn py_parse_commit_subject<'py>(
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
     json_value_to_py(py, &value)
+}
+
+/// Return the schema version for source-language binding payloads.
+#[pyfunction]
+#[pyo3(name = "source_language_wire_schema_version")]
+fn py_source_language_wire_schema_version() -> u32 {
+    SOURCE_LANGUAGE_WIRE_SCHEMA_VERSION
+}
+
+/// Return the UTF-8 prefix budget used for shebang and diff sniffing.
+#[pyfunction]
+#[pyo3(name = "source_language_prefix_budget_bytes")]
+fn py_source_language_prefix_budget_bytes() -> usize {
+    SOURCE_LANGUAGE_PREFIX_BUDGET_BYTES
+}
+
+/// Resolve a canonical source language from a request dict.
+#[pyfunction]
+#[pyo3(name = "resolve_source_language")]
+fn py_resolve_source_language<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request_value = py_to_json_value(request.as_any())?;
+    let req = source_language_request_from_json_value(&request_value)
+        .map_err(PyValueError::new_err)?;
+    let selected = core_resolve_source_language(&req);
+    let value = serde_json::to_value(&selected).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Select a logical filename hint from provenance fields.
+#[pyfunction]
+#[pyo3(name = "logical_source_filename")]
+fn py_logical_source_filename<'py>(
+    py: Python<'py>,
+    hints: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let hints_value = py_to_json_value(hints.as_any())?;
+    let hints = source_filename_hints_from_json_value(&hints_value)
+        .map_err(PyValueError::new_err)?;
+    match core_logical_filename_from_hints(&hints) {
+        Some(name) => json_value_to_py(py, &JsonValue::String(name)),
+        None => Ok(py.None()),
+    }
 }
 
 /// Compile a persistent Patch corpus from Python wire dicts.
@@ -4790,6 +4917,76 @@ fn py_artifact_ref_scan_prompt<'py>(
         },
     )?;
     json_value_to_py(py, &value)
+}
+
+/// Scan rendered document text for semantic link targets.
+#[pyfunction]
+#[pyo3(name = "artifact_ref_scan_document")]
+#[pyo3(signature = (text, known_kinds = None))]
+fn py_artifact_ref_scan_document<'py>(
+    py: Python<'py>,
+    text: &str,
+    known_kinds: Option<Vec<String>>,
+) -> PyResult<PyObject> {
+    let known_kinds = known_kinds.unwrap_or_default();
+    let value = serde_json::to_value(core_scan_artifact_ref_document_links(
+        text,
+        &known_kinds,
+    ))
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "internal artifact document scan serialize error: {error}"
+        ))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the artifact-reference document-scan wire schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_ref_document_scan_wire_schema_version")]
+fn py_artifact_ref_document_scan_wire_schema_version() -> u64 {
+    ARTIFACT_REF_DOCUMENT_SCAN_WIRE_SCHEMA_VERSION
+}
+
+/// Resolve an unqualified source-path target in its owning repository.
+///
+/// `owner` carries whatever provenance the caller already knows about the
+/// document that named `path` (its own canonical reference, owning project,
+/// repository, revision, source directory, and any already-known checkout
+/// candidates). `context` is the same `ArtifactRefContextWire`-shaped dict
+/// used by `artifact_ref_resolve`, scoped to the document's owning project so
+/// its `repositories` inventory reflects that project's linked repos rather
+/// than the viewer's cwd.
+#[pyfunction]
+#[pyo3(name = "artifact_ref_resolve_document_source_target")]
+fn py_artifact_ref_resolve_document_source_target<'py>(
+    py: Python<'py>,
+    path: &str,
+    owner: &Bound<'py, PyDict>,
+    context: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let owner: ArtifactRefDocumentOwnerWire = serde_json::from_value(
+        py_to_json_value(owner.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "owner is not a valid ArtifactRefDocumentOwnerWire dict: {error}"
+        ))
+    })?;
+    let context = artifact_ref_context_from_pydict(context)?;
+    artifact_ref_result_to_py(
+        py,
+        py.allow_threads(|| {
+            core_resolve_document_source_target(path, &owner, &context)
+        }),
+    )
+}
+
+/// Return the artifact-reference target-resolution wire schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_ref_target_resolution_wire_schema_version")]
+fn py_artifact_ref_target_resolution_wire_schema_version() -> u64 {
+    ARTIFACT_REF_TARGET_RESOLUTION_WIRE_SCHEMA_VERSION
 }
 
 /// Return the shared parse/resolution artifact-reference wire version.
@@ -7874,6 +8071,44 @@ fn py_append_notification_counts<'py>(
     json_value_to_py(py, &value)
 }
 
+/// Append one plus-one entry by id or `(sender, dedup_key)`.
+#[pyfunction]
+#[pyo3(name = "append_notification_plus_one")]
+fn py_append_notification_plus_one<'py>(
+    py: Python<'py>,
+    path: &str,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request = plus_one_request_from_pydict(request)?;
+    let path = PathBuf::from(path);
+    let outcome =
+        py.allow_threads(|| core_append_notification_plus_one(&path, &request));
+    let value = serde_json::to_value(outcome.map_err(PyValueError::new_err)?)
+        .map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Create a minted notification or +1 the matching `(sender, dedup_key)` row.
+#[pyfunction]
+#[pyo3(name = "upsert_notification")]
+fn py_upsert_notification<'py>(
+    py: Python<'py>,
+    path: &str,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request = upsert_request_from_pydict(request)?;
+    let path = PathBuf::from(path);
+    let outcome =
+        py.allow_threads(|| core_upsert_notification(&path, &request));
+    let value = serde_json::to_value(outcome.map_err(PyValueError::new_err)?)
+        .map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
 /// Rewrite the notification JSONL store from notification dicts.
 #[pyfunction]
 #[pyo3(name = "rewrite_notifications")]
@@ -7928,6 +8163,133 @@ fn py_classify_notification_tabs<'py>(
     let value = serde_json::to_value(classification).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
+    json_value_to_py(py, &value)
+}
+
+/// Build one pending-action entry from a notification dict.
+#[pyfunction]
+#[pyo3(name = "pending_action_from_notification")]
+fn py_pending_action_from_notification<'py>(
+    py: Python<'py>,
+    notification: &Bound<'py, PyDict>,
+    now_unix: f64,
+) -> PyResult<Option<PyObject>> {
+    let notification = notification_from_pydict(notification)?;
+    let Some(action) =
+        core_pending_action_from_notification(&notification, now_unix)
+    else {
+        return Ok(None);
+    };
+    let value = serde_json::to_value(action).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    Ok(Some(json_value_to_py(py, &value)?))
+}
+
+/// Register one pending action and return the updated store.
+#[pyfunction]
+#[pyo3(name = "register_pending_action")]
+fn py_register_pending_action<'py>(
+    py: Python<'py>,
+    path: &str,
+    action: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let action = pending_action_from_pydict(action)?;
+    let path = PathBuf::from(path);
+    pending_action_result_to_py(
+        py,
+        py.allow_threads(|| core_register_pending_action(&path, &action)),
+    )
+}
+
+/// Read the pending-action store, optionally merged with legacy Telegram rows.
+#[pyfunction]
+#[pyo3(name = "read_pending_action_store")]
+#[pyo3(signature = (path, legacy_path = None))]
+fn py_read_pending_action_store<'py>(
+    py: Python<'py>,
+    path: &str,
+    legacy_path: Option<&str>,
+) -> PyResult<PyObject> {
+    let path = PathBuf::from(path);
+    let legacy_path = legacy_path.map(PathBuf::from);
+    pending_action_result_to_py(
+        py,
+        py.allow_threads(|| {
+            core_read_pending_action_store(&path, legacy_path.as_deref())
+        }),
+    )
+}
+
+/// Merge a transport-owned record into one existing pending action.
+#[pyfunction]
+#[pyo3(name = "merge_pending_action_transport")]
+#[pyo3(signature = (path, identifier, transport, record, now_unix = None))]
+fn py_merge_pending_action_transport(
+    py: Python<'_>,
+    path: &str,
+    identifier: &str,
+    transport: &str,
+    record: &Bound<'_, PyDict>,
+    now_unix: Option<f64>,
+) -> PyResult<bool> {
+    let record = json_record_from_pydict(record)?;
+    let path = PathBuf::from(path);
+    let now_unix = now_unix.unwrap_or_else(core_current_unix_time);
+    py.allow_threads(|| {
+        core_merge_pending_action_transport(
+            &path, identifier, transport, &record, now_unix,
+        )
+    })
+    .map_err(PyValueError::new_err)
+}
+
+/// Mark one pending action as already handled.
+#[pyfunction]
+#[pyo3(name = "mark_pending_action_handled")]
+#[pyo3(signature = (path, identifier, source, action = None, now_unix = None))]
+fn py_mark_pending_action_handled(
+    py: Python<'_>,
+    path: &str,
+    identifier: &str,
+    source: &str,
+    action: Option<&str>,
+    now_unix: Option<f64>,
+) -> PyResult<bool> {
+    let path = PathBuf::from(path);
+    let now_unix = now_unix.unwrap_or_else(core_current_unix_time);
+    py.allow_threads(|| {
+        core_mark_pending_action_handled(
+            &path, identifier, source, action, now_unix,
+        )
+    })
+    .map_err(PyValueError::new_err)
+}
+
+/// Remove one pending action by full id or unique prefix.
+#[pyfunction]
+#[pyo3(name = "remove_pending_action")]
+fn py_remove_pending_action(
+    py: Python<'_>,
+    path: &str,
+    identifier: &str,
+) -> PyResult<bool> {
+    let path = PathBuf::from(path);
+    py.allow_threads(|| core_remove_pending_action(&path, identifier))
+        .map_err(PyValueError::new_err)
+}
+
+/// Execute a transport-scoped pending-action operation.
+#[pyfunction]
+#[pyo3(name = "pending_action_transport")]
+fn py_pending_action_transport<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request = pending_action_transport_request_from_pydict(request)?;
+    let value = py
+        .allow_threads(|| core_pending_action_transport(&request))
+        .map_err(PyValueError::new_err)?;
     json_value_to_py(py, &value)
 }
 
@@ -8381,6 +8743,28 @@ fn notifications_from_py_list(
     Ok(values)
 }
 
+fn plus_one_request_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<NotificationPlusOneRequestWire> {
+    let value = py_to_json_value(dict.as_any())?;
+    serde_json::from_value(value).map_err(|e| {
+        PyValueError::new_err(format!(
+            "request is not a valid NotificationPlusOneRequestWire dict: {e}"
+        ))
+    })
+}
+
+fn upsert_request_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<NotificationUpsertRequestWire> {
+    let value = py_to_json_value(dict.as_any())?;
+    serde_json::from_value(value).map_err(|e| {
+        PyValueError::new_err(format!(
+            "request is not a valid NotificationUpsertRequestWire dict: {e}"
+        ))
+    })
+}
+
 fn notification_update_from_pydict(
     dict: &Bound<'_, PyDict>,
 ) -> PyResult<NotificationStateUpdateWire> {
@@ -8390,6 +8774,53 @@ fn notification_update_from_pydict(
             "update is not a valid NotificationStateUpdateWire dict: {e}"
         ))
     })
+}
+
+fn pending_action_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<PendingActionWire> {
+    let value = py_to_json_value(dict.as_any())?;
+    serde_json::from_value(value).map_err(|e| {
+        PyValueError::new_err(format!(
+            "action is not a valid PendingActionWire dict: {e}"
+        ))
+    })
+}
+
+fn pending_action_transport_request_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<PendingActionTransportRequestWire> {
+    let value = py_to_json_value(dict.as_any())?;
+    serde_json::from_value(value).map_err(|e| {
+        PyValueError::new_err(format!(
+            "request is not a valid PendingActionTransportRequestWire dict: {e}"
+        ))
+    })
+}
+
+fn json_record_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<BTreeMap<String, JsonValue>> {
+    let value = py_to_json_value(dict.as_any())?;
+    serde_json::from_value(value).map_err(|e| {
+        PyValueError::new_err(format!(
+            "record is not a JSON object with string keys: {e}"
+        ))
+    })
+}
+
+fn pending_action_result_to_py<T>(
+    py: Python<'_>,
+    result: Result<T, String>,
+) -> PyResult<PyObject>
+where
+    T: serde::Serialize,
+{
+    let value = serde_json::to_value(result.map_err(PyValueError::new_err)?)
+        .map_err(|e| {
+            PyValueError::new_err(format!("internal serialize error: {e}"))
+        })?;
+    json_value_to_py(py, &value)
 }
 
 fn query_error_to_pyerr(err: QueryErrorWire) -> PyErr {
@@ -10931,6 +11362,127 @@ fn provider_availability_classify_many<'py>(
     provider_priority_wire_to_py(py, &availability)
 }
 
+fn provider_usage_error_to_pyerr(err: ProviderUsageDomainError) -> PyErr {
+    PyValueError::new_err(err.to_string())
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_observation_schema_version")]
+fn py_provider_usage_observation_schema_version() -> u32 {
+    PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_public_schema_version")]
+fn py_provider_usage_public_schema_version() -> u32 {
+    PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_validate_observation")]
+fn py_provider_usage_validate_observation<'py>(
+    py: Python<'py>,
+    observation: &Bound<'_, PyDict>,
+    now: f64,
+) -> PyResult<PyObject> {
+    let observation: ProviderUsageObservationWire =
+        provider_priority_dict_from_py(observation.as_any(), "observation")?;
+    let validated = core_validate_usage_observation(observation, now)
+        .map_err(provider_usage_error_to_pyerr)?;
+    serialize_to_py(py, &validated)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "provider_usage_project_snapshot",
+    signature = (
+        observations,
+        now,
+        cadence_seconds = DEFAULT_USAGE_CADENCE_SECONDS,
+        warn_percent = DEFAULT_USAGE_WARN_PERCENT,
+        critical_percent = DEFAULT_USAGE_CRITICAL_PERCENT,
+    )
+)]
+fn py_provider_usage_project_snapshot<'py>(
+    py: Python<'py>,
+    observations: &Bound<'_, PyList>,
+    now: f64,
+    cadence_seconds: f64,
+    warn_percent: f64,
+    critical_percent: f64,
+) -> PyResult<PyObject> {
+    let observations: Vec<ProviderUsageObservationWire> =
+        provider_priority_dict_from_py(observations.as_any(), "observations")?;
+    let snapshot = core_project_usage_snapshot(
+        &observations,
+        now,
+        cadence_seconds,
+        warn_percent,
+        critical_percent,
+    )
+    .map_err(provider_usage_error_to_pyerr)?;
+    serialize_to_py(py, &snapshot)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_remaining_percent")]
+fn py_provider_usage_remaining_percent(used_percent: f64) -> PyResult<f64> {
+    core_remaining_percent(used_percent).map_err(provider_usage_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_format_remaining_text")]
+fn py_provider_usage_format_remaining_text(
+    used_percent: f64,
+) -> PyResult<String> {
+    core_format_remaining_text(used_percent)
+        .map_err(provider_usage_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "provider_usage_classify_freshness",
+    signature = (observed_at, now, cadence_seconds = DEFAULT_USAGE_CADENCE_SECONDS)
+)]
+fn py_provider_usage_classify_freshness(
+    observed_at: f64,
+    now: f64,
+    cadence_seconds: f64,
+) -> PyResult<&'static str> {
+    Ok(core_classify_freshness(observed_at, now, cadence_seconds)
+        .map_err(provider_usage_error_to_pyerr)?
+        .as_str())
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "provider_usage_window_applies",
+    signature = (applicability, model_id = None)
+)]
+fn py_provider_usage_window_applies(
+    applicability: &Bound<'_, PyDict>,
+    model_id: Option<&str>,
+) -> PyResult<&'static str> {
+    let applicability: UsageApplicabilityWire = provider_priority_dict_from_py(
+        applicability.as_any(),
+        "applicability",
+    )?;
+    Ok(core_usage_window_applies(&applicability, model_id).as_str())
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_summarize_for_model")]
+fn py_provider_usage_summarize_for_model<'py>(
+    py: Python<'py>,
+    windows: &Bound<'_, PyList>,
+    model_id: &str,
+) -> PyResult<PyObject> {
+    let windows: Vec<UsagePublicWindowWire> =
+        provider_priority_dict_from_py(windows.as_any(), "windows")?;
+    let summary = core_summarize_usage_windows(&windows, Some(model_id));
+    serialize_to_py(py, &summary)
+}
+
 fn feature_flag_state_error_to_pyerr(
     err: FeatureFlagStateDomainError,
 ) -> PyErr {
@@ -11270,6 +11822,58 @@ fn py_fleet_decide_operation_replay<'py>(
 }
 
 #[pyfunction]
+#[pyo3(name = "fleet_validate_launch_intent")]
+fn py_fleet_validate_launch_intent<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let intent: FleetLaunchIntentWire =
+        fleet_wire_from_pydict(intent, "fleet launch intent")?;
+    let result = core_fleet_contract::validate_fleet_launch_intent(&intent)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_launch_payload_fingerprint")]
+fn py_fleet_launch_payload_fingerprint<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let intent: FleetLaunchIntentWire =
+        fleet_wire_from_pydict(intent, "fleet launch intent")?;
+    let result = core_fleet_contract::fleet_launch_payload_fingerprint(&intent)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_validate_launch_request")]
+fn py_fleet_validate_launch_request<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: FleetLaunchRequestWire =
+        fleet_wire_from_pydict(request, "fleet launch request")?;
+    let result = core_fleet_contract::validate_fleet_launch_request(&request)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_decide_launch_replay")]
+fn py_fleet_decide_launch_replay<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: FleetLaunchDecisionRequestWire =
+        fleet_wire_from_pydict(request, "fleet launch decision request")?;
+    let result = core_fleet_contract::decide_fleet_launch_replay(&request)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
 #[pyo3(name = "fleet_validate_connection_plan")]
 fn py_fleet_validate_connection_plan<'py>(
     py: Python<'py>,
@@ -11278,6 +11882,219 @@ fn py_fleet_validate_connection_plan<'py>(
     let plan: ConnectionPlanWire =
         fleet_wire_from_pydict(plan, "connection plan")?;
     let result = core_fleet_contract::validate_connection_plan(&plan)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_mutation_payload_fingerprint")]
+fn py_fleet_mutation_payload_fingerprint<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let intent: FleetMutationIntentWire =
+        fleet_wire_from_pydict(intent, "fleet mutation intent")?;
+    let result =
+        core_fleet_mutation::fleet_mutation_payload_fingerprint(&intent)
+            .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_validate_mutation_request")]
+fn py_fleet_validate_mutation_request<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: FleetMutationRequestWire =
+        fleet_wire_from_pydict(request, "fleet mutation request")?;
+    let result = core_fleet_mutation::validate_fleet_mutation_request(&request)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "fleet_evaluate_mutation_precondition",
+    signature = (intent, observed=None)
+)]
+fn py_fleet_evaluate_mutation_precondition<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+    observed: Option<&Bound<'py, PyDict>>,
+) -> PyResult<PyObject> {
+    let intent: FleetMutationIntentWire =
+        fleet_wire_from_pydict(intent, "fleet mutation intent")?;
+    let observed_summary = match observed {
+        Some(value) => {
+            Some(fleet_wire_from_pydict::<ResolvedAgentSummaryWire>(
+                value,
+                "observed resolved agent summary",
+            )?)
+        }
+        None => None,
+    };
+    let result = core_fleet_mutation::evaluate_mutation_precondition(
+        &intent,
+        observed_summary.as_ref(),
+    )
+    .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_partition_bulk_targets")]
+fn py_fleet_partition_bulk_targets<'py>(
+    py: Python<'py>,
+    targets: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let mut parsed = Vec::with_capacity(targets.len());
+    for item in targets.iter() {
+        let dict = item.downcast::<PyDict>().map_err(|_| {
+            PyValueError::new_err("fleet bulk targets must be objects")
+        })?;
+        parsed.push(fleet_wire_from_pydict(dict, "fleet bulk target")?);
+    }
+    let result = core_fleet_mutation::partition_bulk_targets(&parsed)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+fn fleet_wire_list_from_pylist<T: DeserializeOwned>(
+    items: &Bound<'_, PyList>,
+    label: &str,
+) -> PyResult<Vec<T>> {
+    let mut parsed = Vec::with_capacity(items.len());
+    for item in items.iter() {
+        let dict = item.downcast::<PyDict>().map_err(|_| {
+            PyValueError::new_err(format!("{label} entries must be objects"))
+        })?;
+        parsed.push(fleet_wire_from_pydict(dict, label)?);
+    }
+    Ok(parsed)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_project_attention")]
+fn py_fleet_project_attention<'py>(
+    py: Python<'py>,
+    origin_installation_id: &str,
+    rows: &Bound<'py, PyList>,
+    resolved: &Bound<'py, PyList>,
+    observed_at_unix: f64,
+) -> PyResult<PyObject> {
+    let origin_installation_id = origin_installation_id.to_string();
+    let rows: Vec<FleetAttentionNotificationRowWire> =
+        fleet_wire_list_from_pylist(rows, "fleet attention notification row")?;
+    let resolved: Vec<FleetAttentionLogicalIdentityWire> =
+        fleet_wire_list_from_pylist(
+            resolved,
+            "fleet attention logical identity",
+        )?;
+    let result = py
+        .allow_threads(|| {
+            core_fleet_attention::project_fleet_attention(
+                &origin_installation_id,
+                &rows,
+                &resolved,
+                observed_at_unix,
+            )
+        })
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_attention_payload_fingerprint")]
+fn py_fleet_attention_payload_fingerprint<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let intent: FleetAttentionIntentWire =
+        fleet_wire_from_pydict(intent, "fleet attention intent")?;
+    let result = py
+        .allow_threads(|| {
+            core_fleet_attention::fleet_attention_payload_fingerprint(&intent)
+        })
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_validate_attention_request")]
+fn py_fleet_validate_attention_request<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: FleetAttentionRequestWire =
+        fleet_wire_from_pydict(request, "fleet attention request")?;
+    let result = py
+        .allow_threads(|| {
+            core_fleet_attention::validate_fleet_attention_request(&request)
+        })
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "fleet_evaluate_attention_precondition",
+    signature = (intent, capabilities, observed=None)
+)]
+fn py_fleet_evaluate_attention_precondition<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+    capabilities: &Bound<'py, PyDict>,
+    observed: Option<&Bound<'py, PyDict>>,
+) -> PyResult<PyObject> {
+    let intent: FleetAttentionIntentWire =
+        fleet_wire_from_pydict(intent, "fleet attention intent")?;
+    let observed_entry = match observed {
+        Some(value) => Some(fleet_wire_from_pydict::<FleetAttentionEntryWire>(
+            value,
+            "observed fleet attention entry",
+        )?),
+        None => None,
+    };
+    let capabilities: CapabilitySetWire =
+        fleet_wire_from_pydict(capabilities, "fleet attention capabilities")?;
+    let result = py
+        .allow_threads(|| {
+            core_fleet_attention::evaluate_attention_precondition(
+                &intent,
+                observed_entry.as_ref(),
+                &capabilities,
+            )
+        })
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_decide_attention_notices")]
+fn py_fleet_decide_attention_notices<'py>(
+    py: Python<'py>,
+    current: &Bound<'py, PyList>,
+    ledger: &Bound<'py, PyList>,
+    retention_window_seconds: f64,
+    now_unix: f64,
+) -> PyResult<PyObject> {
+    let current: Vec<FleetAttentionEntryWire> =
+        fleet_wire_list_from_pylist(current, "fleet attention entry")?;
+    let ledger: Vec<FleetAttentionNoticeLedgerEntryWire> =
+        fleet_wire_list_from_pylist(
+            ledger,
+            "fleet attention notice ledger entry",
+        )?;
+    let result = py
+        .allow_threads(|| {
+            core_fleet_attention::decide_attention_notices(
+                &current,
+                &ledger,
+                retention_window_seconds,
+                now_unix,
+            )
+        })
         .map_err(fleet_contract_error_to_pyerr)?;
     fleet_wire_to_py(py, &result)
 }
@@ -13041,6 +13858,16 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     m.add_function(wrap_pyfunction!(py_default_commit_subject_types, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_commit_subject, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_source_language_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_source_language_prefix_budget_bytes,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_resolve_source_language, m)?)?;
+    m.add_function(wrap_pyfunction!(py_logical_source_filename, m)?)?;
     m.add_function(wrap_pyfunction!(py_compile_corpus, m)?)?;
     m.add_function(wrap_pyfunction!(py_compile_query, m)?)?;
     m.add_function(wrap_pyfunction!(py_evaluate_many, m)?)?;
@@ -13259,6 +14086,19 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     m.add_function(wrap_pyfunction!(py_artifact_ref_filter_path_payloads, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_ref_scan_prompt, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_ref_scan_document, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_ref_document_scan_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_ref_resolve_document_source_target,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_ref_target_resolution_wire_schema_version,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_artifact_ref_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_ref_kind_catalog, m)?)?;
     m.add_function(wrap_pyfunction!(py_artifact_ref_kind_canonicalize, m)?)?;
@@ -13497,9 +14337,18 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     m.add_function(wrap_pyfunction!(py_append_notification, m)?)?;
     m.add_function(wrap_pyfunction!(py_append_notification_counts, m)?)?;
+    m.add_function(wrap_pyfunction!(py_append_notification_plus_one, m)?)?;
+    m.add_function(wrap_pyfunction!(py_upsert_notification, m)?)?;
     m.add_function(wrap_pyfunction!(py_rewrite_notifications, m)?)?;
     m.add_function(wrap_pyfunction!(py_rewrite_notifications_counts, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_notification_tabs, m)?)?;
+    m.add_function(wrap_pyfunction!(py_pending_action_from_notification, m)?)?;
+    m.add_function(wrap_pyfunction!(py_register_pending_action, m)?)?;
+    m.add_function(wrap_pyfunction!(py_read_pending_action_store, m)?)?;
+    m.add_function(wrap_pyfunction!(py_merge_pending_action_transport, m)?)?;
+    m.add_function(wrap_pyfunction!(py_mark_pending_action_handled, m)?)?;
+    m.add_function(wrap_pyfunction!(py_remove_pending_action, m)?)?;
+    m.add_function(wrap_pyfunction!(py_pending_action_transport, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_prompt_stash_snapshot, m)?)?;
     m.add_function(wrap_pyfunction!(py_append_prompt_stash, m)?)?;
     m.add_function(wrap_pyfunction!(py_pop_prompt_stash, m)?)?;
@@ -13620,6 +14469,30 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(provider_availability_classify, m)?)?;
     m.add_function(wrap_pyfunction!(provider_availability_classify_many, m)?)?;
     m.add_function(wrap_pyfunction!(
+        py_provider_usage_observation_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_provider_usage_public_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_provider_usage_validate_observation,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_project_snapshot, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_remaining_percent, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_provider_usage_format_remaining_text,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_classify_freshness, m)?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_window_applies, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_provider_usage_summarize_for_model,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
         py_feature_flag_state_wire_schema_version,
         m
     )?)?;
@@ -13667,7 +14540,32 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_fleet_decide_operation_replay, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_validate_launch_intent, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_launch_payload_fingerprint, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_validate_launch_request, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_decide_launch_replay, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_validate_connection_plan, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_fleet_mutation_payload_fingerprint,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_validate_mutation_request, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_fleet_evaluate_mutation_precondition,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_partition_bulk_targets, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_project_attention, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_fleet_attention_payload_fingerprint,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_validate_attention_request, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_fleet_evaluate_attention_precondition,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_decide_attention_notices, m)?)?;
     m.add_function(wrap_pyfunction!(py_federation_worker_main, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_classify_runtime_duration, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_classify_cache_freshness, m)?)?;
@@ -14874,6 +15772,54 @@ mod tests {
             assert_eq!(value["description"], json!("expose subject parser"));
             assert_eq!(value["violation"], JsonValue::Null);
             assert_eq!(value["found_type"], JsonValue::Null);
+        });
+    }
+
+    #[test]
+    fn source_language_bindings_round_trip_wire_payloads() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            assert_eq!(
+                py_source_language_wire_schema_version(),
+                SOURCE_LANGUAGE_WIRE_SCHEMA_VERSION
+            );
+            assert_eq!(
+                py_source_language_prefix_budget_bytes(),
+                SOURCE_LANGUAGE_PREFIX_BUDGET_BYTES
+            );
+
+            let request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "category": "raw_file",
+                    "logical_filename": "src/app.py",
+                    "prefix": null
+                }),
+            )
+            .unwrap();
+            let request = request.bind(py).downcast::<PyDict>().unwrap();
+            let selected = py_resolve_source_language(py, request).unwrap();
+            let value = py_to_json_value(selected.bind(py)).unwrap();
+            assert_eq!(value["schema_version"], json!(1));
+            assert_eq!(value["language"], json!("python"));
+            assert_eq!(value["reason"], json!("filename"));
+            assert_eq!(value["supported_text"], json!(true));
+
+            let hints = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "source_path": "/orig/app.py",
+                    "vcs_relpath": "docs/app.py",
+                    "resolved_path": "/objects/abc"
+                }),
+            )
+            .unwrap();
+            let hints = hints.bind(py).downcast::<PyDict>().unwrap();
+            let filename = py_logical_source_filename(py, hints).unwrap();
+            let filename = py_to_json_value(filename.bind(py)).unwrap();
+            assert_eq!(filename, json!("/orig/app.py"));
         });
     }
 
@@ -17567,6 +18513,8 @@ MENTORS:
                 "artifact_ref_path_filter_wire_schema_version",
                 "artifact_ref_filter_path_payloads",
                 "artifact_ref_scan_prompt",
+                "artifact_ref_scan_document",
+                "artifact_ref_document_scan_wire_schema_version",
                 "artifact_ref_wire_schema_version",
             ] {
                 assert!(module.getattr(name).is_ok(), "missing {name}");
@@ -17662,6 +18610,71 @@ MENTORS:
             let scanned = py_to_json_value(scanned.bind(py)).unwrap();
             assert_eq!(scanned[0]["candidate_span"]["start"], json!(3));
             assert_eq!(scanned[0]["text"], json!("@plans:x.md"));
+            let document_scan = py_artifact_ref_scan_document(
+                py,
+                "see [plan](plan:202607/plan.md) and @plans:x.md.",
+                None,
+            )
+            .unwrap();
+            let document_scan =
+                py_to_json_value(document_scan.bind(py)).unwrap();
+            assert_eq!(document_scan["schema_version"], json!(1));
+            assert_eq!(
+                document_scan["links"][0]["target"],
+                json!("plan:202607/plan.md")
+            );
+            assert_eq!(document_scan["links"][1]["target"], json!("plan:x.md"));
+
+            let linked_repo = temp.path().join("bob-mac-capture");
+            fs::create_dir_all(linked_repo.join("Sources/BobMacCapture"))
+                .unwrap();
+            fs::write(
+                linked_repo.join(
+                    "Sources/BobMacCapture/CaptureKeyCommandRouter.swift",
+                ),
+                "swift",
+            )
+            .unwrap();
+            let repo_context_value = json!({
+                "schema_version": 2,
+                "repositories": [{
+                    "name": "bob-mac-capture",
+                    "checkout_paths": [linked_repo.to_string_lossy()],
+                }],
+            });
+            let repo_context_object =
+                json_value_to_py(py, &repo_context_value).unwrap();
+            let repo_context =
+                repo_context_object.bind(py).downcast::<PyDict>().unwrap();
+            let owner_object = json_value_to_py(py, &json!({})).unwrap();
+            let owner = owner_object.bind(py).downcast::<PyDict>().unwrap();
+            let target_resolved =
+                py_artifact_ref_resolve_document_source_target(
+                    py,
+                    "Sources/BobMacCapture/CaptureKeyCommandRouter.swift",
+                    owner,
+                    repo_context,
+                )
+                .unwrap();
+            let target_resolved =
+                py_to_json_value(target_resolved.bind(py)).unwrap();
+            assert_eq!(target_resolved["schema_version"], json!(1));
+            assert_eq!(target_resolved["status"], json!("exact"));
+            assert_eq!(target_resolved["repository"], json!("bob-mac-capture"));
+            assert_eq!(
+                target_resolved["resolved_path"],
+                json!(linked_repo
+                    .join("Sources/BobMacCapture/CaptureKeyCommandRouter.swift")
+                    .canonicalize()
+                    .unwrap()
+                    .to_string_lossy())
+            );
+            assert_eq!(
+                py_artifact_ref_target_resolution_wire_schema_version(),
+                1
+            );
+
+            assert_eq!(py_artifact_ref_document_scan_wire_schema_version(), 1);
             assert_eq!(py_artifact_ref_wire_schema_version(), 5);
             assert!(py_artifact_ref_parse(py, "commit:sase@BAD").is_err());
             assert_eq!(
@@ -17705,6 +18718,127 @@ MENTORS:
             );
             assert_eq!(py_artifact_ref_context_wire_schema_version(), 2);
             assert_eq!(py_artifact_ref_path_filter_wire_schema_version(), 1);
+        });
+    }
+
+    #[test]
+    fn artifact_ref_document_source_target_round_trips_stale_and_source_dir() {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let live = temp.path().join("live");
+        let source_dir = live.join("Sources/BobMacCapture");
+        fs::create_dir_all(&source_dir).unwrap();
+        fs::write(source_dir.join("Router.swift"), "swift").unwrap();
+        Python::with_gil(|py| {
+            let context_value = json!({
+                "schema_version": 2,
+                "repositories": [{
+                    "name": "capture",
+                    "checkout_paths": [live.to_string_lossy()],
+                }],
+            });
+            let context_object = json_value_to_py(py, &context_value).unwrap();
+            let context = context_object.bind(py).downcast::<PyDict>().unwrap();
+            let stale = temp.path().join("deleted-producer");
+            let owner_value = json!({
+                "repository": "capture",
+                "source_directory": source_dir.to_string_lossy(),
+                "checkout_candidates": [stale.to_string_lossy()],
+            });
+            let owner_object = json_value_to_py(py, &owner_value).unwrap();
+            let owner = owner_object.bind(py).downcast::<PyDict>().unwrap();
+            let resolved = py_artifact_ref_resolve_document_source_target(
+                py,
+                "Router.swift",
+                owner,
+                context,
+            )
+            .unwrap();
+            let resolved = py_to_json_value(resolved.bind(py)).unwrap();
+            assert_eq!(resolved["status"], json!("exact"));
+            assert_eq!(resolved["repository"], json!("capture"));
+            assert_eq!(
+                resolved["resolved_path"],
+                json!(source_dir
+                    .join("Router.swift")
+                    .canonicalize()
+                    .unwrap()
+                    .to_string_lossy())
+            );
+
+            let denied_owner_value = json!({
+                "path_globs": ["src/**", "!src/secret.rs"],
+            });
+            let denied_owner_object =
+                json_value_to_py(py, &denied_owner_value).unwrap();
+            let denied_owner =
+                denied_owner_object.bind(py).downcast::<PyDict>().unwrap();
+            let denied_context_value = json!({
+                "schema_version": 2,
+                "repositories": [{
+                    "name": "capture",
+                    "checkout_paths": [live.to_string_lossy()],
+                }],
+            });
+            fs::create_dir_all(live.join("src")).unwrap();
+            fs::write(live.join("src/secret.rs"), "secret").unwrap();
+            let denied_context_object =
+                json_value_to_py(py, &denied_context_value).unwrap();
+            let denied_context =
+                denied_context_object.bind(py).downcast::<PyDict>().unwrap();
+            let denied = py_artifact_ref_resolve_document_source_target(
+                py,
+                "src/secret.rs",
+                denied_owner,
+                denied_context,
+            )
+            .unwrap();
+            let denied = py_to_json_value(denied.bind(py)).unwrap();
+            assert_eq!(denied["status"], json!("denied"));
+            assert_eq!(denied["failure_category"], json!("denied_filtered"));
+        });
+    }
+
+    #[test]
+    fn artifact_ref_document_source_target_rejects_out_of_inventory_source_dir()
+    {
+        pyo3::prepare_freethreaded_python();
+        let temp = tempfile::tempdir().unwrap();
+        let owner_checkout = temp.path().join("owner-checkout");
+        fs::create_dir_all(&owner_checkout).unwrap();
+        let foreign = temp.path().join("foreign");
+        fs::create_dir_all(&foreign).unwrap();
+        fs::write(foreign.join("secret.py"), "secret").unwrap();
+        Python::with_gil(|py| {
+            let context_value = json!({
+                "schema_version": 2,
+                "repositories": [{
+                    "name": "owner",
+                    "checkout_paths": [owner_checkout.to_string_lossy()],
+                }],
+            });
+            let context_object = json_value_to_py(py, &context_value).unwrap();
+            let context = context_object.bind(py).downcast::<PyDict>().unwrap();
+            let owner_value = json!({
+                "repository": "owner",
+                "source_directory": foreign.to_string_lossy(),
+            });
+            let owner_object = json_value_to_py(py, &owner_value).unwrap();
+            let owner = owner_object.bind(py).downcast::<PyDict>().unwrap();
+            let resolved = py_artifact_ref_resolve_document_source_target(
+                py,
+                "secret.py",
+                owner,
+                context,
+            )
+            .unwrap();
+            let resolved = py_to_json_value(resolved.bind(py)).unwrap();
+            assert_ne!(resolved["status"], json!("exact"));
+            assert!(
+                resolved.get("resolved_path").is_none()
+                    || resolved["resolved_path"].is_null()
+            );
+            assert_eq!(resolved["failure_category"], json!("proven_missing"));
         });
     }
 
@@ -20848,6 +21982,99 @@ MENTORS:
     }
 
     #[test]
+    fn pending_action_bindings_round_trip_transport_records() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let (_temp, path) = temp_notification_path("actions.json");
+            let notification_obj = json_value_to_py(
+                py,
+                &json!({
+                    "id": "abcd1234-full",
+                    "timestamp": "2026-04-30T12:00:00+00:00",
+                    "sender": "axe",
+                    "notes": [],
+                    "files": ["plan.md"],
+                    "action": "PlanApproval",
+                    "action_data": {"response_dir": "/tmp/plan"},
+                    "read": false,
+                    "dismissed": false,
+                    "silent": false,
+                    "muted": false,
+                    "snooze_until": null
+                }),
+            )
+            .unwrap();
+            let notification =
+                notification_obj.bind(py).downcast::<PyDict>().unwrap();
+            let pending =
+                py_pending_action_from_notification(py, notification, 10.0)
+                    .unwrap()
+                    .unwrap();
+            let pending_value = py_to_json_value(pending.bind(py)).unwrap();
+            assert_eq!(pending_value["prefix"], json!("abcd1234"));
+            let pending_dict = pending.bind(py).downcast::<PyDict>().unwrap();
+
+            py_register_pending_action(
+                py,
+                path.to_str().unwrap(),
+                pending_dict,
+            )
+            .unwrap();
+            let record_obj = json_value_to_py(
+                py,
+                &json!({"message_id": 42, "nested": {"keep": true}}),
+            )
+            .unwrap();
+            let record = record_obj.bind(py).downcast::<PyDict>().unwrap();
+            assert!(py_merge_pending_action_transport(
+                py,
+                path.to_str().unwrap(),
+                "abcd1234-full",
+                "telegram",
+                record,
+                Some(20.0),
+            )
+            .unwrap());
+            assert!(py_mark_pending_action_handled(
+                py,
+                path.to_str().unwrap(),
+                "abcd1234",
+                "test",
+                Some("approve"),
+                Some(30.0),
+            )
+            .unwrap());
+
+            let request_obj = json_value_to_py(
+                py,
+                &json!({
+                    "operation": "list",
+                    "path": path,
+                    "legacy_path": null,
+                    "now_unix": 40.0,
+                    "transport": "telegram"
+                }),
+            )
+            .unwrap();
+            let request = request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let listed = py_pending_action_transport(py, request).unwrap();
+            let listed = py_to_json_value(listed.bind(py)).unwrap();
+            assert_eq!(listed["abcd1234"]["message_id"], json!(42));
+            assert_eq!(
+                listed["abcd1234"]["action_data"]["response_dir"],
+                json!("/tmp/plan")
+            );
+
+            assert!(py_remove_pending_action(
+                py,
+                path.to_str().unwrap(),
+                "abcd1234-full",
+            )
+            .unwrap());
+        });
+    }
+
+    #[test]
     fn notification_store_binding_rejects_bad_update_shape() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
@@ -21032,6 +22259,87 @@ MENTORS:
                 path.with_file_name("notifications.jsonl.lock"),
             );
             let _ = fs::remove_dir(path.parent().unwrap());
+        });
+    }
+
+    #[test]
+    fn notification_plus_one_and_upsert_bindings_round_trip() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let (_temp, path) = temp_notification_path("notifications.jsonl");
+            let created_obj = json_value_to_py(
+                py,
+                &json!({
+                    "notification": {
+                        "id": "n1",
+                        "timestamp": "2026-04-30T12:00:00+00:00",
+                        "sender": "ci_watch",
+                        "notes": ["CI failure: a"],
+                        "dedup_key": "combo"
+                    },
+                    "plus_one_note": "first",
+                    "plus_one_timestamp": "2026-04-30T12:00:00+00:00"
+                }),
+            )
+            .unwrap();
+            let created = created_obj.bind(py).downcast::<PyDict>().unwrap();
+            let created_outcome =
+                py_upsert_notification(py, path.to_str().unwrap(), created)
+                    .unwrap();
+            let created_value =
+                py_to_json_value(created_outcome.bind(py)).unwrap();
+            assert_eq!(created_value["action"], json!("created"));
+            assert_eq!(created_value["id"], json!("n1"));
+
+            let plus_obj = json_value_to_py(
+                py,
+                &json!({
+                    "id": "n1",
+                    "timestamp": "2026-04-30T13:00:00+00:00",
+                    "sender": "ci_watch",
+                    "note": "  churn  again  "
+                }),
+            )
+            .unwrap();
+            let plus = plus_obj.bind(py).downcast::<PyDict>().unwrap();
+            let plus_outcome = py_append_notification_plus_one(
+                py,
+                path.to_str().unwrap(),
+                plus,
+            )
+            .unwrap();
+            let plus_value = py_to_json_value(plus_outcome.bind(py)).unwrap();
+            assert_eq!(plus_value["action"], json!("applied"));
+            assert_eq!(plus_value["plus_one_count"], json!(1));
+            assert_eq!(
+                plus_value["notification"]["plus_ones"][0]["note"],
+                json!("churn again")
+            );
+
+            let upsert_obj = json_value_to_py(
+                py,
+                &json!({
+                    "notification": {
+                        "id": "n2",
+                        "timestamp": "2026-04-30T14:00:00+00:00",
+                        "sender": "ci_watch",
+                        "notes": ["ignored"],
+                        "dedup_key": "combo"
+                    },
+                    "plus_one_note": "second",
+                    "plus_one_timestamp": "2026-04-30T14:00:00+00:00"
+                }),
+            )
+            .unwrap();
+            let upsert = upsert_obj.bind(py).downcast::<PyDict>().unwrap();
+            let upsert_outcome =
+                py_upsert_notification(py, path.to_str().unwrap(), upsert)
+                    .unwrap();
+            let upsert_value =
+                py_to_json_value(upsert_outcome.bind(py)).unwrap();
+            assert_eq!(upsert_value["action"], json!("plus_oned"));
+            assert_eq!(upsert_value["id"], json!("n1"));
+            assert_eq!(upsert_value["plus_one_count"], json!(2));
         });
     }
 
@@ -21572,6 +22880,7 @@ MENTORS:
                     "id",
                     "clan",
                     "wait",
+                    "dispatch",
                     "if",
                     "proc",
                     "auto",
@@ -21694,6 +23003,128 @@ MENTORS:
                 .all(|candidate| {
                     !candidate["insertion"].as_str().unwrap().ends_with('=')
                 }));
+        });
+    }
+
+    #[test]
+    fn provider_usage_bindings_project_remaining_and_reject_invalid() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let now = 1_800_000_000.0;
+            assert_eq!(py_provider_usage_observation_schema_version(), 1);
+            assert_eq!(py_provider_usage_public_schema_version(), 1);
+            assert_eq!(
+                py_provider_usage_remaining_percent(12.5).unwrap(),
+                87.5
+            );
+            assert_eq!(
+                py_provider_usage_format_remaining_text(0.4).unwrap(),
+                "99% left"
+            );
+            assert_eq!(
+                py_provider_usage_classify_freshness(now - 900.0, now, 300.0)
+                    .unwrap(),
+                "stale"
+            );
+
+            let observation = json!({
+                "schema_version": 1,
+                "provider": "alpha",
+                "context_id": "ctx-alpha",
+                "account_generation": 1,
+                "ordering_token": now - 10.0,
+                "received_at": now - 5.0,
+                "source": "probe",
+                "outcome": "ok",
+                "reason_code": null,
+                "diagnostic": null,
+                "completeness": "complete",
+                "account_mode": "subscription",
+                "plan": null,
+                "windows": [{
+                    "key": "week",
+                    "label": "Weekly",
+                    "used_percent": 94.0,
+                    "resets_at": now + 3600.0,
+                    "duration_seconds": null,
+                    "period_start": null,
+                    "applicability": {"kind": "account"},
+                    "observed_at": now - 10.0,
+                    "source": "probe",
+                    "vendor_state": "allowed"
+                }]
+            });
+            let observation_obj = json_value_to_py(py, &observation).unwrap();
+            let observation_dict =
+                observation_obj.bind(py).downcast::<PyDict>().unwrap();
+            let validated = py_provider_usage_validate_observation(
+                py,
+                observation_dict,
+                now,
+            )
+            .unwrap();
+            let validated_value = py_to_json_value(validated.bind(py)).unwrap();
+            assert_eq!(validated_value["provider"], json!("alpha"));
+
+            let observations = PyList::empty_bound(py);
+            observations.append(observation_dict.as_any()).unwrap();
+            let snapshot = py_provider_usage_project_snapshot(
+                py,
+                &observations,
+                now,
+                300.0,
+                75.0,
+                90.0,
+            )
+            .unwrap();
+            let snapshot_value = py_to_json_value(snapshot.bind(py)).unwrap();
+            assert_eq!(snapshot_value["schema_version"], json!(1));
+            assert_eq!(
+                snapshot_value["providers"][0]["windows"][0]
+                    ["remaining_percent"],
+                json!(6.0)
+            );
+            assert_eq!(
+                snapshot_value["providers"][0]["summary"]["remaining_percent"],
+                json!(6.0)
+            );
+
+            let windows = snapshot_value["providers"][0]["windows"]
+                .as_array()
+                .unwrap();
+            let window_list = PyList::empty_bound(py);
+            for window in windows {
+                window_list
+                    .append(json_value_to_py(py, window).unwrap())
+                    .unwrap();
+            }
+            let model_summary =
+                py_provider_usage_summarize_for_model(py, &window_list, "x-1")
+                    .unwrap();
+            let model_value = py_to_json_value(model_summary.bind(py)).unwrap();
+            assert_eq!(model_value["remaining_percent"], json!(6.0));
+
+            let account =
+                json_value_to_py(py, &json!({"kind": "account"})).unwrap();
+            let account_dict = account.bind(py).downcast::<PyDict>().unwrap();
+            assert_eq!(
+                py_provider_usage_window_applies(account_dict, Some("x-1"))
+                    .unwrap(),
+                "applies"
+            );
+
+            let error = py_provider_usage_remaining_percent(-1.0).unwrap_err();
+            assert!(error.is_instance_of::<PyValueError>(py));
+            let error = py_provider_usage_project_snapshot(
+                py,
+                &observations,
+                now,
+                30.0,
+                75.0,
+                90.0,
+            )
+            .unwrap_err();
+            assert!(error.is_instance_of::<PyValueError>(py));
         });
     }
 }

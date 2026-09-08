@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-# noqa-reason: ``Callable`` is used in the ``JupyterBackendRegistration``
+# ``Callable`` is used in the ``JupyterBackendRegistration``
 # NamedTuple field annotations and must be available at runtime so that
 # ``typing.get_type_hints`` (called by Sphinx autodoc) can resolve them.
 from collections.abc import Callable  # noqa: TC003
@@ -67,7 +67,7 @@ def register_jupyter_backend(
     Parameters
     ----------
     name : str
-        Name of the backend (e.g. ``'custom'``). Must not collide with
+        Name of the backend (for example, ``'custom'``). Must not collide with
         a built-in backend name unless ``override=True`` is passed.
     handler : callable
         A callable with signature ``handler(plotter, **kwargs)`` that
@@ -176,10 +176,10 @@ def _ensure_entry_points() -> None:
     eps = entry_points(group=JUPYTER_BACKEND_ENTRY_POINT_GROUP)
     for ep in eps:
         name = ep.name.lower()
-        if name in ALLOWED_BACKENDS or name in _custom_backends:
+        if name in _custom_backends:
             continue
         try:
-            # ep.load() runs third-party import machinery — it can raise
+            # ep.load() runs third-party import machinery—it can raise
             # literally anything. Convert to a warning so one broken
             # plugin cannot take down the Jupyter integration.
             handler = ep.load()
@@ -205,16 +205,16 @@ def _resolve_backend() -> str:
 
     """
     _ensure_entry_points()
+    # Prefer user registrations over plugin-discovered backends; among
+    # plugin-discovered ones, prefer 'trame' (the all-in-one backend)
+    # over the more specialized 'server'/'client'/'html' aliases.
+    for name, source in _custom_backend_sources.items():
+        if ':' not in source:  # explicit registration (module.qualname)
+            return name
+    if 'trame' in _custom_backends:
+        return 'trame'
     if _custom_backends:
         return next(iter(_custom_backends))
-
-    try:
-        from pyvista.trame.jupyter import show_trame as show_trame  # noqa: PLC0415
-    except ImportError:
-        pass
-    else:
-        return 'trame'
-
     return 'static'
 
 
@@ -244,10 +244,8 @@ def _validate_jupyter_backend(
 
     if _is_jupyter_backend(backend):
         if backend in ['server', 'client', 'trame', 'html']:
-            try:
-                from pyvista.trame.jupyter import show_trame as show_trame  # noqa: PLC0415
-            except ImportError:  # pragma: no cover
-                msg = 'Please install trame dependencies: pip install "pyvista[jupyter]"'
+            if _get_custom_backend_handler(backend) is None:  # pragma: no cover
+                msg = 'Please install trame dependencies: pip install trame-pyvista'
                 raise ImportError(msg)
         return backend
 
@@ -264,7 +262,7 @@ def _validate_jupyter_backend(
     raise ValueError(msg)
 
 
-def set_jupyter_backend(backend: JupyterBackendOptions | str, name=None, **kwargs):  # noqa: ARG001
+def set_jupyter_backend(backend: JupyterBackendOptions | str, name=None, **kwargs):
     """Set the plotting backend for a jupyter notebook.
 
     Parameters
@@ -307,9 +305,16 @@ def set_jupyter_backend(backend: JupyterBackendOptions | str, name=None, **kwarg
         time.
 
     name : str, optional
-        The unique name identifier for the server.
+        Unused.
+
+        .. deprecated:: 0.49
+            This parameter has never had any effect and will be removed.
+
     **kwargs : dict, optional
-        Any additional keyword arguments to pass to the server launch.
+        Unused.
+
+        .. deprecated:: 0.49
+            These parameters have never had any effect and will be removed.
 
     Examples
     --------
@@ -331,4 +336,10 @@ def set_jupyter_backend(backend: JupyterBackendOptions | str, name=None, **kwarg
     >>> pv.set_jupyter_backend(None)  # doctest:+SKIP
 
     """
+    if name is not None or kwargs:
+        warn_external(
+            'The `name` and `**kwargs` arguments of `set_jupyter_backend` are unused and '
+            'will be removed. Remove them from the call.',
+            PyVistaDeprecationWarning,
+        )
     pv.global_theme._jupyter_backend = _validate_jupyter_backend(backend)

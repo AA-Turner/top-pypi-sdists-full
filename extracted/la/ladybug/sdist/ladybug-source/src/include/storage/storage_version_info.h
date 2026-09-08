@@ -45,7 +45,8 @@ struct StorageVersionInfo {
             {"0.17.1", STORAGE_VERSION_41}, {"0.18.0", STORAGE_VERSION_42},
             {"0.18.1", STORAGE_VERSION_42}, {"0.19.0", STORAGE_VERSION_43},
             {"0.19.1", STORAGE_VERSION_43}, {"0.20.0", STORAGE_VERSION_47},
-            {"0.20.1", STORAGE_VERSION_47}, {"0.20.2", STORAGE_VERSION_47}};
+            {"0.20.1", STORAGE_VERSION_47}, {"0.20.2", STORAGE_VERSION_47},
+            {"0.20.3", STORAGE_VERSION_47}};
     }
 
     static LBUG_API storage_version_t getStorageVersion();
@@ -53,7 +54,7 @@ struct StorageVersionInfo {
         return storageVersion == STORAGE_VERSION_40 || storageVersion == STORAGE_VERSION_41 ||
                storageVersion == STORAGE_VERSION_42 || storageVersion == STORAGE_VERSION_43 ||
                storageVersion == STORAGE_VERSION_44 || storageVersion == STORAGE_VERSION_45 ||
-               storageVersion == getStorageVersion();
+               storageVersion == STORAGE_VERSION_46 || storageVersion == getStorageVersion();
     }
 
     static constexpr const char* MAGIC_BYTES = "LBUG";

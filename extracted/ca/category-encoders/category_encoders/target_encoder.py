@@ -39,12 +39,17 @@ class TargetEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
     return_df: bool
         boolean for whether to return a pandas DataFrame from transform
         (otherwise it will be a numpy array).
-    handle_missing: str
+    handle_missing: str, int, float or callable
         options are 'error', 'return_nan'  and 'value', defaults to 'value',
-        which returns the target mean.
-    handle_unknown: str
+        which returns the target mean. A number is used as the encoded value
+        for missing values that were not seen at fit time, and a callable
+        fn(value, mapping) is evaluated once per column when the mapping is
+        finalized during fit.
+    handle_unknown: str, int, float or callable
         options are 'error', 'return_nan' and 'value', defaults to 'value',
-        which returns the target mean.
+        which returns the target mean. A number is used as the encoded value
+        for unseen categories, and a callable fn(value, mapping) is evaluated
+        once per column when the mapping is finalized during fit.
     min_samples_leaf: int
         For regularization the weighted average between category mean and global mean is taken.
         The weight is an S-shaped curve between 0 and 1 with the number of samples for a category
@@ -150,6 +155,11 @@ class TargetEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
         min_samples_leaf: int = 20,
         smoothing: float = 10,
         hierarchy: dict = None,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
+        composite_cols: list[tuple[str, ...]] | None = None,
+        keep_components: bool = False,
     ) -> None:
         super().__init__(
             verbose=verbose,
@@ -158,6 +168,11 @@ class TargetEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
+            composite_cols=composite_cols,
+            keep_components=keep_components,
         )
         self.min_samples_leaf = min_samples_leaf
         self.smoothing = smoothing
@@ -272,15 +287,9 @@ class TargetEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
 
                 smoothing = scalar * (1 - smoove) + stats['mean'] * smoove
 
-                if self.handle_unknown == 'return_nan':
-                    smoothing.loc[-1] = np.nan
-                elif self.handle_unknown == 'value':
-                    smoothing.loc[-1] = prior
-
-                if self.handle_missing == 'return_nan':
-                    smoothing.loc[values.loc[np.nan]] = np.nan
-                elif self.handle_missing == 'value':
-                    smoothing.loc[-2] = prior
+                smoothing = util.finalize_encoding_mapping(
+                    smoothing, values, self.handle_unknown, self.handle_missing, prior
+                )
 
                 mapping[col] = smoothing
 
@@ -291,7 +300,7 @@ class TargetEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
         X = self.ordinal_encoder.transform(X)
 
         if self.handle_unknown == 'error':
-            if X[self.cols].isin([-1]).any().any():
+            if X[self.cols].isin([util.UNKNOWN_SENTINEL]).any().any():
                 raise ValueError('Unexpected categories found in dataframe')
 
         X = self.target_encode(X)

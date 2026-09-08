@@ -32,7 +32,8 @@ from .screens import InputScreen
 from .screens import JumpToScreen
 from .screens import KeyDialogScreen
 from .screens import LoadScreen
-from .screens import SaveScreen
+from .screens import SaveMinimalConfigScreen
+from .screens import SaveMinimalResult
 from .widgets import MenuOptionList
 
 if TYPE_CHECKING:
@@ -99,10 +100,10 @@ class MenuConfigApp(App[str]):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Static(id="path-bar")
+        yield Static(id="path-bar", markup=False)
         yield MenuOptionList(id="menu-list")
         yield Static(id="mode-bar")
-        yield Static(id="help-bar")
+        yield Static(id="help-bar", markup=False)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -139,7 +140,7 @@ class MenuConfigApp(App[str]):
         if msg:
             self.state.conf_changed = False
             self.state.reload_sdkconfig_file(self.state.conf_filename)
-            self.notify(msg)
+            self.notify(msg, markup=False)
 
     def action_load(self) -> None:
         if self.state.conf_changed:
@@ -174,57 +175,36 @@ class MenuConfigApp(App[str]):
                     self.state.show_all = True
                 self.state._update_menu()
                 self._refresh_menu()
-                self.notify(f"Loaded {filename}")
+                self.notify(f"Loaded {filename}", markup=False)
             else:
-                self.notify(error or "Load failed", severity="error")
+                self.notify(error or "Load failed", severity="error", markup=False)
 
     def action_save_minimal(self) -> None:
-        labels_env = os.environ.get("ESP_IDF_KCONFIG_MIN_LABELS")
-        if labels_env is not None:
-            self._do_save_minimal(labels_env == "1")
-        else:
-            self.push_screen(
-                KeyDialogScreen(
-                    title="Minimal configuration",
-                    text=(
-                        "Include menu section labels in sdkconfig.defaults?\n\n"
-                        "When enabled, config options are grouped by the menus\n"
-                        "they belong to, and menu names are included as comments.\n\n"
-                        "(Y)es  (N)o  (C)ancel"
-                    ),
-                    keys="ync",
-                ),
-                callback=self._handle_min_labels_response,
-            )
-
-    def _handle_min_labels_response(self, key: Optional[str]) -> None:
-        if key == "y":
-            self._do_save_minimal(True)
-        elif key == "n":
-            self._do_save_minimal(False)
-
-    def _do_save_minimal(self, use_labels: bool) -> None:
-        desc = "minimal configuration (with menu labels)" if use_labels else "minimal configuration"
+        default_labels = os.environ.get("ESP_IDF_KCONFIG_MIN_LABELS") == "1"
         self.push_screen(
-            SaveScreen(default_filename=self.state.minconf_filename, description=desc),
-            callback=lambda f: self._handle_save_minimal_result(f, use_labels),
+            SaveMinimalConfigScreen(
+                default_filename=self.state.minconf_filename,
+                default_labels=default_labels,
+            ),
+            callback=self._handle_save_minimal_result,
         )
 
-    def _handle_save_minimal_result(self, filename: Optional[str], use_labels: bool) -> None:
-        if filename:
-            from .idf_headers import idf_min_config_save_header
+    def _handle_save_minimal_result(self, result: Optional[SaveMinimalResult]) -> None:
+        if result is None:
+            return
+        from .idf_headers import idf_min_config_save_header
 
-            try:
-                self.state.kconf.write_min_config(
-                    filename,
-                    header=idf_min_config_save_header(self.state.kconf),
-                    labels=use_labels,
-                    normalize_unset=True,
-                )
-                self.state.minconf_filename = filename
-                self.notify(f"Saved minimal config to {filename}")
-            except EnvironmentError as e:
-                self.notify(f"Error: {e}", severity="error")
+        try:
+            self.state.kconf.write_min_config(
+                result.filename,
+                header=idf_min_config_save_header(self.state.kconf),
+                labels=result.use_labels,
+                normalize_unset=True,
+            )
+            self.state.minconf_filename = result.filename
+            self.notify(f"Saved minimal config to {result.filename}", markup=False)
+        except EnvironmentError as e:
+            self.notify(f"Error: {e}", severity="error", markup=False)
 
     def action_jump_to(self) -> None:
         self.push_screen(JumpToScreen(self.state), callback=self._handle_jump_result)
@@ -446,11 +426,13 @@ class MenuConfigApp(App[str]):
         from .idf_headers import idf_sdkconfig_header
 
         try:
-            return self.state.kconf.write_config(
+            msg = self.state.kconf.write_config(
                 filepath,
                 header=idf_sdkconfig_header(),
                 write_deprecated=False,
             )
+            self.state.saved = True
+            return msg
         except EnvironmentError as e:
-            self.notify(f"Error saving to '{filepath}': {e}", severity="error")
+            self.notify(f"Error saving to '{filepath}': {e}", severity="error", markup=False)
             return None

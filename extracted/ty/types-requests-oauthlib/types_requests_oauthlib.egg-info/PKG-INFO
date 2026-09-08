@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-requests-oauthlib
-Version: 2.0.0.20260610
+Version: 2.0.0.20260907
 Summary: Typing stubs for requests-oauthlib
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -13,8 +13,8 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: types-oauthlib
 Requires-Dist: requests>=2.34.0
+Requires-Dist: types-oauthlib
 Dynamic: license-file
 
 ## Typing stubs for requests-oauthlib
@@ -33,8 +33,10 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.410
+* [mypy](https://www.mypy-lang.org/) 2.3.0
+* [pyrefly](https://pyrefly.org/) 1.3.0.dev1
+* [pyright](https://microsoft.github.io/pyright/) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`d3504ddc24c92b960a9661813efcdef10fad6d29`](https://github.com/python/typeshed/commit/d3504ddc24c92b960a9661813efcdef10fad6d29).
+[`c3d8b210ebe6d16deca945cc49e32cf39823f49f`](https://github.com/python/typeshed/commit/c3d8b210ebe6d16deca945cc49e32cf39823f49f).

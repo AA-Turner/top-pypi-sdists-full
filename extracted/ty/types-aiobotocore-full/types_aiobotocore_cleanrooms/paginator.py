@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_cleanrooms.client import CleanRoomsServiceClient
     from types_aiobotocore_cleanrooms.paginator import (
+        ListAnalysisLogExportsPaginator,
         ListAnalysisTemplatesPaginator,
         ListCollaborationAnalysisTemplatesPaginator,
         ListCollaborationChangeRequestsPaginator,
@@ -40,6 +41,7 @@ Usage::
     with session.create_client("cleanrooms") as client:
         client: CleanRoomsServiceClient
 
+        list_analysis_log_exports_paginator: ListAnalysisLogExportsPaginator = client.get_paginator("list_analysis_log_exports")
         list_analysis_templates_paginator: ListAnalysisTemplatesPaginator = client.get_paginator("list_analysis_templates")
         list_collaboration_analysis_templates_paginator: ListCollaborationAnalysisTemplatesPaginator = client.get_paginator("list_collaboration_analysis_templates")
         list_collaboration_change_requests_paginator: ListCollaborationChangeRequestsPaginator = client.get_paginator("list_collaboration_change_requests")
@@ -73,6 +75,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListAnalysisLogExportsInputPaginateTypeDef,
+    ListAnalysisLogExportsOutputTypeDef,
     ListAnalysisTemplatesInputPaginateTypeDef,
     ListAnalysisTemplatesOutputTypeDef,
     ListCollaborationAnalysisTemplatesInputPaginateTypeDef,
@@ -126,6 +130,7 @@ else:
 
 
 __all__ = (
+    "ListAnalysisLogExportsPaginator",
     "ListAnalysisTemplatesPaginator",
     "ListCollaborationAnalysisTemplatesPaginator",
     "ListCollaborationChangeRequestsPaginator",
@@ -149,6 +154,27 @@ __all__ = (
     "ListProtectedQueriesPaginator",
     "ListSchemasPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _ListAnalysisLogExportsPaginatorBase = AioPaginator[ListAnalysisLogExportsOutputTypeDef]
+else:
+    _ListAnalysisLogExportsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListAnalysisLogExportsPaginator(_ListAnalysisLogExportsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListAnalysisLogExports.html#CleanRoomsService.Paginator.ListAnalysisLogExports)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listanalysislogexportspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAnalysisLogExportsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListAnalysisLogExportsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListAnalysisLogExports.html#CleanRoomsService.Paginator.ListAnalysisLogExports.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listanalysislogexportspaginator)
+        """
 
 
 if TYPE_CHECKING:

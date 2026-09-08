@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from weakref import proxy
-import xml.dom.minidom as md
+from typing import TYPE_CHECKING
+import weakref
 from xml.etree import ElementTree as ET
 
 import numpy as np
@@ -16,6 +15,9 @@ from pyvista.core._vtk_utilities import DisableVtkSnakeCase
 from pyvista.core.utilities.misc import _NoNewAttrMixin
 
 from .helpers import view_vectors
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
@@ -54,7 +56,7 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
             if not isinstance(renderer, pv.Renderer):
                 msg = 'Camera only accepts a pyvista.Renderer or None as the ``renderer`` argument'
                 raise TypeError(msg)
-            self._renderer = proxy(renderer)
+            self._renderer = weakref.proxy(renderer)
         else:
             self._renderer = None  # type: ignore[assignment]
 
@@ -88,7 +90,7 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
     __hash__ = None  # type: ignore[assignment]  # https://github.com/pyvista/pyvista/pull/7671
 
     def __repr__(self):
-        """Print a repr specifying the id of the camera and its camera type."""
+        """Print a ``repr`` specifying the id of the camera and its camera type."""
         repr_str = f'{self.__class__.__name__} ({hex(id(self))})'
         repr_str += f'\n  Position:            {self.position}'
         repr_str += f'\n  Focal Point:         {self.focal_point}'
@@ -120,7 +122,7 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
 
     @classmethod
     def from_paraview_pvcc(cls, filename: str | Path) -> Camera:
-        """Load a Paraview camera file (.pvcc extension).
+        """Load a ParaView camera file (.pvcc extension).
 
         Returns a pyvista.Camera object for which attributes has been read
         from the filename argument.
@@ -128,7 +130,7 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
         Parameters
         ----------
         filename : str or pathlib.Path
-            Path to Paraview camera file (.pvcc).
+            Path to ParaView camera file (.pvcc).
 
         Returns
         -------
@@ -181,12 +183,12 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
         return camera
 
     def to_paraview_pvcc(self, filename: str | Path):
-        """Write the camera parameters to a Paraview camera file (.pvcc extension).
+        """Write the camera parameters to a ParaView camera file (.pvcc extension).
 
         Parameters
         ----------
         filename : str or pathlib.Path
-            Path to Paraview camera file (.pvcc).
+            Path to ParaView camera file (.pvcc).
 
         Examples
         --------
@@ -246,10 +248,8 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
                 e.append(tmp)
                 e.append(ET.Element('Domain', dict(name='bool', id=f'0.{name}.bool')))
 
-        xmlstr = ET.tostring(root).decode()
-        newxml = md.parseString(xmlstr)
-        with Path(filename).open('w') as outfile:
-            outfile.write(newxml.toprettyxml(indent='\t', newl='\n'))
+        ET.indent(root, space='\t')
+        ET.ElementTree(root).write(filename, encoding='utf-8', xml_declaration=True)
 
     @property
     def position(self):  # numpydoc ignore=RT01
@@ -481,6 +481,13 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
     def up(self):  # numpydoc ignore=RT01
         """Return or set the "up" of the camera.
 
+        The vector is normalized, so it must have a non-zero magnitude.
+
+        .. versionchanged:: 0.49
+
+            Setting a zero-length vector now raises a ``ValueError``. Previously
+            it was silently replaced with ``(0, 1, 0)`` by VTK.
+
         Examples
         --------
         >>> import pyvista as pv
@@ -496,6 +503,11 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
 
     @up.setter
     def up(self, vector):
+        # VTK normalizes the view up vector and silently substitutes (0, 1, 0) when it
+        # has no magnitude, so a zero vector must be rejected before SetViewUp.
+        if np.allclose(vector, 0.0):
+            msg = 'Camera up vector cannot be zero.'
+            raise ValueError(msg)
         self.SetViewUp(vector)
         self.is_set = True
 
@@ -822,7 +834,7 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
         Parameters
         ----------
         padding : float, default: 0.0
-            Additional padding around the actor(s). This is effectively a zoom,
+            Additional padding around the actors. This is effectively a zoom,
             where a value of 0.01 results in a zoom out of 1%.
 
         adjust_render_window : bool, default: True
@@ -841,23 +853,26 @@ class Camera(_NoNewAttrMixin, DisableVtkSnakeCase, _vtk.vtkCamera):
 
         Examples
         --------
-        Display the bird image with a tight view.
+        .. pyvista-plot::
+            :force_static:
 
-        >>> import pyvista as pv
-        >>> from pyvista import examples
-        >>> bird = examples.download_bird()
-        >>> pl = pv.Plotter(border=True, border_width=5)
-        >>> _ = pl.add_mesh(bird, rgb=True)
-        >>> pl.camera.tight()
-        >>> pl.show()
+            Display the bird image with a tight view.
 
-        Set the background to blue use a 5% padding around the image.
+            >>> import pyvista as pv
+            >>> from pyvista import examples
+            >>> bird = examples.download_bird()
+            >>> pl = pv.Plotter(border=True, border_width=5)
+            >>> _ = pl.add_mesh(bird, rgb=True)
+            >>> pl.camera.tight()
+            >>> pl.show()
 
-        >>> pl = pv.Plotter()
-        >>> _ = pl.add_mesh(bird, rgb=True)
-        >>> pl.background_color = 'b'
-        >>> pl.camera.tight(padding=0.05)
-        >>> pl.show()
+            Set the background to blue use a 5% padding around the image.
+
+            >>> pl = pv.Plotter()
+            >>> _ = pl.add_mesh(bird, rgb=True)
+            >>> pl.background_color = 'b'
+            >>> pl.camera.tight(padding=0.05)
+            >>> pl.show()
 
         """
         # Inspired by vedo resetCamera. Thanks @marcomusy.

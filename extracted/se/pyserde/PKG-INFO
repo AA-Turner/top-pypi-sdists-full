@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyserde
-Version: 0.32.1
+Version: 0.32.2
 Summary: Yet another serialization library on top of dataclasses
 Project-URL: Repository, https://github.com/yukinarit/pyserde
 Project-URL: Homepage, https://github.com/yukinarit/pyserde
@@ -42,7 +42,7 @@ Requires-Dist: beartype>=0.18.4
 Requires-Dist: casefy
 Requires-Dist: jinja2
 Requires-Dist: plum-dispatch>=2.3
-Requires-Dist: typing-extensions<4.16.0,>=4.1.0
+Requires-Dist: typing-extensions<4.17.0,>=4.1.0
 Requires-Dist: typing-inspect>=0.4.0
 Provides-Extra: all
 Requires-Dist: jaxtyping; extra == 'all'

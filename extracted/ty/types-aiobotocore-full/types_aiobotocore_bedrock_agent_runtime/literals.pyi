@@ -25,6 +25,8 @@ __all__ = (
     "ActionGroupSignatureType",
     "ActionInvocationTypeType",
     "AgentCollaborationType",
+    "AgenticRetrieveMemoryMetadataFilterOperatorType",
+    "AgenticRetrieveMemoryPersistenceModeType",
     "AgenticRetrieveRerankingConfigurationTypeType",
     "AgenticRetrieveRerankingModelTypeType",
     "AgenticRetrieveStatusType",
@@ -36,6 +38,8 @@ __all__ = (
     "ConversationRoleType",
     "CreationModeType",
     "CustomControlMethodType",
+    "DocumentAclMemberRelationType",
+    "DocumentAclMembershipTypeType",
     "DocumentOutputFormatType",
     "ExecutionTypeType",
     "ExternalSourceTypeType",
@@ -122,18 +126,33 @@ ActionGroupSignatureType = Literal[
 ]
 ActionInvocationTypeType = Literal["RESULT", "USER_CONFIRMATION", "USER_CONFIRMATION_AND_RESULT"]
 AgentCollaborationType = Literal["DISABLED", "SUPERVISOR", "SUPERVISOR_ROUTER"]
+AgenticRetrieveMemoryMetadataFilterOperatorType = Literal[
+    "AFTER",
+    "BEFORE",
+    "CONTAINS",
+    "EQUALS_TO",
+    "EXISTS",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUALS",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUALS",
+    "NOT_EXISTS",
+]
+AgenticRetrieveMemoryPersistenceModeType = Literal["DEFAULT", "NONE"]
 AgenticRetrieveRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 AgenticRetrieveRerankingModelTypeType = Literal["CUSTOM", "MANAGED", "NONE"]
 AgenticRetrieveStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 AgenticRetrieveStepType = Literal[
-    "FullDocumentExpansion", "Planning", "Retrieval", "SpeculativeRetrieval"
+    "FullDocumentExpansion", "Planning", "Retrieval", "SessionHistoryLoad", "SpeculativeRetrieval"
 ]
-AgenticRetrieveTypeType = Literal["BedrockKnowledgeBase"]
+AgenticRetrieveTypeType = Literal["BedrockAgentCoreMemory", "BedrockKnowledgeBase"]
 AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 ConfirmationStateType = Literal["CONFIRM", "DENY"]
 ConversationRoleType = Literal["assistant", "user"]
 CreationModeType = Literal["DEFAULT", "OVERRIDDEN"]
 CustomControlMethodType = Literal["RETURN_CONTROL"]
+DocumentAclMemberRelationType = Literal["AND", "OR"]
+DocumentAclMembershipTypeType = Literal["DATA_SOURCE", "KNOWLEDGE_BASE"]
 DocumentOutputFormatType = Literal["EXTRACTED", "RAW"]
 ExecutionTypeType = Literal["LAMBDA", "RETURN_CONTROL"]
 ExternalSourceTypeType = Literal["BYTE_CONTENT", "S3"]
@@ -279,8 +298,11 @@ AgentsforBedrockRuntimeServiceName = Literal["bedrock-agent-runtime"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -585,6 +607,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

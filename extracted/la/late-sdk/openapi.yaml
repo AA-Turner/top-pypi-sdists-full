@@ -31,7 +31,7 @@ info:
 
     Key features: Unified posting to 16 platforms, ads management on 7 ad networks (via /v1/ads), aggregated analytics, unified inbox (DMs, comments, reviews), webhooks, OAuth connect, queue scheduling, and white-label support for agencies managing unlimited accounts.
 
-    Supported posting platforms: Twitter/X, Instagram, WhatsApp, Facebook, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Bluesky, Threads, Google Business, Telegram, Snapchat, Discord, Slack. Supported ad platforms: Meta Ads, Google Ads, TikTok Ads, LinkedIn Ads, Pinterest Ads, X Ads, OpenAI Ads.
+    Supported posting platforms: Twitter/X, Instagram, WhatsApp, Facebook, LinkedIn, TikTok, YouTube, Pinterest, Reddit, Bluesky, Threads, Google Business, Telegram, Snapchat, Discord, Slack. Supported ad platforms: Meta Ads, Google Ads, TikTok Ads, LinkedIn Ads, Pinterest Ads, X Ads, OpenAI Ads. Snapchat is a closed beta with no public release date: connections are gated behind approval and return 403 `PLATFORM_BETA_RESTRICTED` until then.
   x-category: Social
   x-website: https://zernio.com
   x-thumbnail: https://rapidapi-prod-apis.s3.amazonaws.com/b24d3df5-563c-4a50-9e1e-1ad3eb1fce69.png
@@ -121,6 +121,8 @@ x-documentation:
     | Telegram | Yes | - | - | - |
     | Snapchat | Yes | - | - | - |
 
+    > **Snapchat Note:** Snapchat is a closed beta with no public release date. Connecting a Snapchat account is gated behind approval and returns 403 `PLATFORM_BETA_RESTRICTED` until then.
+
     > **LinkedIn Analytics Note:** For personal LinkedIn accounts, analytics are only available for posts published through Zernio. This is a LinkedIn API limitation: the `memberCreatorPostAnalytics` endpoint only returns metrics for posts authored by the authenticated user. Company/organization page analytics are not affected and work for all posts.
 
     > **Google Business Analytics Note:** Per-post analytics for Google Business Profile are deprecated by Google with no replacement, so Google Business posts always report `syncStatus: "unavailable"` with an explanatory `errorMessage`. Location-level metrics (impressions, clicks, calls, directions, bookings) are available via the dedicated `/v1/analytics/googlebusiness/performance` endpoint.
@@ -172,7 +174,7 @@ x-documentation:
     - `referral.received` - Someone opened an existing Instagram/Messenger thread through an ig.me/m.me `ref` link or a returning Messenger ad click; carries Meta's referral object (a referral that rides an inbound message arrives on `message.received` under `metadata.referral` instead)
     - `comment.received` - New comment received on a post
     - `review.new` - New review posted on a connected account (Google Business Profile)
-    - `review.updated` - Review updated or reply added (Google Business Profile, or via reply API)
+    - `review.updated` - A Google Business Profile reviewer edited their review text or rating, or a reply was posted through `POST /v1/inbox/reviews/{reviewId}/reply`. A reply written directly in Google's own interface does NOT fire this event, because Google emits no notification for it.
     - `lead.received` - New lead submitted against a Meta Lead Gen (Instant) Form. `lead.fields` is the question-key → answer map; `lead.formId`/`lead.adId` give provenance.
     - `ad.status_changed` - Ad, ad set, or campaign changed status on the ad platform (Meta: `in_process_ad_objects` entry/exit and `with_issues_ad_objects` violations)
     - `whatsapp.template.status_updated` - WhatsApp Business template completed (re)review by Meta. `template.status` carries the new state (APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION); `template.reason` is Meta's free-form reason or "NONE".
@@ -196,7 +198,7 @@ x-documentation:
     - `verification.failed` - A managed-OTP verification was exhausted after too many wrong code attempts
     - `webhook.test` - Test event sent when verifying a webhook endpoint
 
-    Webhook payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header.
+    Every delivery carries `X-Zernio-Event` (the event name) and `X-Zernio-Event-Id` (the payload's `id`, a UUID generated once when the event is emitted). That id is identical on every subscription that receives the event, on every automatic retry and on a redelivery via `POST /v1/webhooks/logs/redeliver`, so it is the key to dedupe on. Payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header when the subscription has a secret. Legacy `X-Late-*` copies of these three headers are still sent and will be removed in a future major version.
 
     ## Full Documentation
 
@@ -389,6 +391,10 @@ tags:
       Targeting discovery: search interests/behaviors/geo/demographics, estimate reach, and (LinkedIn)
       bid pricing and supply forecasts. Feeds the targeting fields on create.
       Requires the Ads add-on.
+  - name: Ad Library
+    description: |
+      Competitor and market research over the public ad archives (Meta Ad Library, LinkedIn Ad Library),
+      searched with the customer's own connected token. Requires the Ads add-on.
   - name: Ad Insights
     description: |
       Measurement: cached aggregate analytics per ad/campaign, plus live Meta Graph insight queries
@@ -433,7 +439,7 @@ tags:
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
       Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, webhook.test.
-      Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
+      Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
       Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.* and verification.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
   - name: Webhook Events
@@ -2509,7 +2515,7 @@ components:
           description: Name of the webhook configuration at delivery time
         eventId:
           type: string
-          description: Stable webhook event ID (correlates to the delivered payload)
+          description: 'Stable webhook event ID: the payload `id`, also sent as the X-Zernio-Event-Id header. Shared by every attempt and redelivery of the same event.'
         event:
           type: string
           description: Event type that triggered the delivery (e.g. post.published)
@@ -2724,11 +2730,15 @@ components:
           description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
     PhoneNumberStockWatch:
       type: object
-      required: [id, country, countryName, createdAt]
+      required: [id, country, countryName, numberType, createdAt]
       properties:
         id: { type: string }
         country: { type: string, description: 'ISO 3166-1 alpha-2.' }
         countryName: { type: string }
+        numberType:
+          type: [string, "null"]
+          enum: [local, mobile, national, toll_free, null]
+          description: 'The watched number type, or null when the watch covers every type in the country.'
         createdAt: { type: string, format: date-time }
     WebhookPayloadPhoneNumberStockAvailable:
       type: object
@@ -3269,10 +3279,12 @@ components:
     WebhookPayloadReviewUpdated:
       type: object
       description: |
-        Webhook payload for the review.updated event. Fired when the reviewer edits
-        their text or rating, or when a reply is added (via the API or directly on the
-        platform). Same shape as review.new. When a reply is present, review.hasReply
-        is true and review.reply is populated.
+        Webhook payload for the review.updated event. Fired when the reviewer edits their
+        text or rating, or when a reply is posted through POST /v1/inbox/reviews/{reviewId}/reply.
+        A reply written
+        directly in Google's own interface does NOT fire this event: Google emits no
+        notification when a reviewReply is written. Same shape as review.new. When a reply
+        is present, review.hasReply is true and review.reply is populated.
       required: [id, event, review, account, timestamp]
       properties:
         id:
@@ -5161,7 +5173,7 @@ components:
         status:
           type: string
           example: pending
-          description: "Platform-specific status: pending, publishing, published, failed"
+          description: "Platform-specific status: pending, processing, uploading, published, failed, cancelled (removed from the platform via DELETE /v1/posts/{postId}/unpublish)"
         platformPostId:
           type: string
           description: The native post ID on the platform (populated after successful publish)
@@ -5231,7 +5243,10 @@ components:
           items: { $ref: '#/components/schemas/PlatformTarget' }
         scheduledFor: { type: string, format: date-time }
         timezone: { type: string }
-        status: { type: string, enum: [draft, scheduled, publishing, published, failed, partial] }
+        status:
+          type: string
+          enum: [draft, scheduled, publishing, published, partial, failed, cancelled]
+          description: '`cancelled` is set by DELETE /v1/posts/{postId}/unpublish once every platform entry has been removed from its platform (a post with published entries left becomes `partial`); cancelled posts can be edited and rescheduled like drafts.'
         tags:
           type: array
           description: "YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates removed."
@@ -6358,7 +6373,7 @@ components:
         playlistId:
           type: string
           description: "Optional YouTube playlist ID to add the video to after upload (e.g. 'PLxxxxxxxxxxxxx'). Use GET /v1/accounts/{id}/youtube-playlists to list available playlists. Works for both immediate and scheduled uploads. Quota cost: 50 YouTube API units per call."
-      description: Videos under 3 min auto-detected as Shorts. Custom thumbnails for regular videos only. Scheduled videos are uploaded immediately with the specified visibility.
+      description: 'Videos under 3 min auto-detected as Shorts. Custom thumbnails for regular videos only. Scheduled videos are uploaded immediately with the specified visibility. There is no description field here: the video description comes from the post content, or from customContent on this platform target when set, and is truncated to 5000 characters.'
 
     GoogleBusinessPlatformData:
       type: object
@@ -7890,6 +7905,40 @@ components:
           type: array
           items:
             type: string
+    PostPublishIncompleteResponse:
+      type: object
+      description: 'Body of the 207 returned by createPost and updatePost when the post was saved but the inline publish did not fully succeed. Read `post.status` to tell the three outcomes apart.'
+      properties:
+        post:
+          $ref: '#/components/schemas/Post'
+        message:
+          type: string
+          description: Human-readable summary of the publish outcome.
+        error:
+          type: string
+          description: 'Present when no platform published. Absent on a partial success. Informational only; the per-platform detail is in `platformResults` and in `post.platforms[]`.'
+        platformResults:
+          type: array
+          description: 'Per-platform outcome of the publish attempt. Omitted when the attempt aborted before producing per-platform results (for example the post was already being processed); read `post.platforms[]` in that case.'
+          items:
+            type: object
+            required: [platform, status, error]
+            properties:
+              platform:
+                type: string
+                description: 'Platform slug, matching `post.platforms[].platform`.'
+              status:
+                type: string
+                example: failed
+                description: 'Per-platform status: pending, processing, published, failed, cancelled, uploading.'
+              error:
+                type: [string, "null"]
+                description: 'Failure detail for this platform, or null when it did not fail.'
+        warnings:
+          type: array
+          description: Advisory notices about the post that was still created. Absent when there are none.
+          items:
+            type: string
     PostDeleteResponse:
       type: object
       properties:
@@ -8131,6 +8180,9 @@ components:
               cpc: { type: number, description: "Cost per click in native currency." }
               cpm: { type: number, description: "Cost per 1000 impressions in native currency." }
               conversions: { type: number, description: "Sum of conversion events over the range. Fractional values are normal (attribution splitting + Google modeled conversions). Meta: events matching the campaign optimization goal. Google: tracked conversions. X / LinkedIn: reported website/lead conversions (added 2026-07)." }
+              allConversions:
+                type: number
+                description: 'All conversions, including actions excluded from the Conversions column (Google metrics.all_conversions). 0 on platforms without the concept.'
               costPerConversion: { type: number }
               actions:
                 type: object
@@ -8224,6 +8276,9 @@ components:
         conversions:
           type: number
           description: "Count of conversion events over the requested date range. FRACTIONAL: attribution splits one conversion across touchpoints and Google additionally reports modeled conversions, so values like 0.347 are normal. Meta: events matching the campaign's promoted_object.custom_event_type (PURCHASE, LEAD, etc.). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). 0 for non-conversion campaigns or when no events have fired."
+        allConversions:
+          type: number
+          description: 'All conversions, including actions excluded from the Conversions column (Google metrics.all_conversions). 0 on platforms without the concept.'
         costPerConversion:
           type: number
           description: "Derived spend / conversions in the same currency as spend. 0 when conversions is 0."
@@ -8496,6 +8551,45 @@ components:
           - `LOWEST_COST_WITH_MIN_ROAS`: requires `roasAverageFloor` (decimal multiplier, 2.0 = 2.0x).
         Source: facebook-business-sdk-codegen api_specs/specs/enum_types.json (`AdSet_bid_strategy`,
         `Campaign_bid_strategy`).
+    PortfolioBidStrategy:
+      type: object
+      description: "A Google Ads portfolio bid strategy: a named bidding strategy shared across campaigns, with its R.130 report metrics over the queried date range."
+      properties:
+        id: { type: string, description: "Numeric bid strategy id; pass as portfolioBidStrategyId or in the {strategyId} path." }
+        name: { type: string }
+        type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
+        status: { type: string, description: "ENABLED or REMOVED." }
+        campaignCount: { type: integer, description: "Number of campaigns currently attached." }
+        clicks: { type: integer }
+        cost: { type: number, description: "Cost in the account's currency units (converted from micros)." }
+        costPerConversion: { type: number, description: "Cost per conversion in the account's currency units." }
+        impressions: { type: integer }
+        averageCpc: { type: number, description: "Average CPC in the account's currency units." }
+        conversions: { type: number }
+        targetCpa: { type: [number, "null"], description: "Current target, in the account's currency units. Null for a ROAS-family type (TARGET_ROAS, MAXIMIZE_CONVERSION_VALUE), or a Maximize type with no target set. Pre-fills the edit form's target field." }
+        targetRoas: { type: [number, "null"], description: "Current target as a decimal multiplier (2.0 = 2.0x). Null for a CPA-family type (TARGET_CPA, MAXIMIZE_CONVERSIONS), or a Maximize type with no target set." }
+    CampaignBidding:
+      type: object
+      description: "A Google campaign's current bidding, mapped onto the same triplet PUT /v1/ads/campaigns/{campaignId} accepts."
+      properties:
+        channel: { type: string, enum: [SEARCH, DISPLAY], description: "campaign.advertising_channel_type. COST_CAP's underlying Google field differs by channel; see bidStrategy on PUT." }
+        biddingStrategyType: { type: string, description: "Google's raw enum: MAXIMIZE_CONVERSIONS, TARGET_CPA, MAXIMIZE_CONVERSION_VALUE, TARGET_ROAS, TARGET_SPEND, MANUAL_CPC, TARGET_IMPRESSION_SHARE, or another Google adds later." }
+        bidSpec:
+          type: [object, "null"]
+          description: "Null when the campaign is on a strategy PUT does not model (Manual CPC, Target Impression Share, ...); show biddingStrategyType instead in that case."
+          properties:
+            bidStrategy: { $ref: '#/components/schemas/BidStrategy' }
+            bidAmount: { type: number, description: "Whole currency units. Present for COST_CAP and LOWEST_COST_WITH_BID_CAP, and omitted when the campaign is on a bare TARGET_SPEND with no CPC ceiling set." }
+            roasAverageFloor: { type: number, description: "Decimal ROAS multiplier (2.0 = 2.0x). Present for LOWEST_COST_WITH_MIN_ROAS." }
+            portfolioBidStrategyId: { type: string, description: "Present alone (bidStrategy omitted) when the campaign is on a portfolio strategy; see portfolio." }
+        portfolio:
+          type: [object, "null"]
+          description: "Set only when the campaign is on a portfolio bid strategy (campaign.bidding_strategy); null otherwise."
+          properties:
+            id: { type: string }
+            name: { type: string }
+        cachedAt: { type: [string, "null"], format: date-time, description: "When this data was fetched from Google. Null when it was never served from cache." }
+        stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
     AdBudget:
       type: object
       description: Budget amount in the ad account's native currency (see the campaign's `currency` field for the code).
@@ -9130,6 +9224,49 @@ components:
             page_id: { type: string }
         earliestAd: { type: string, format: date-time }
         latestAd: { type: string, format: date-time }
+    AdKeyword:
+      type: object
+      properties:
+        id: { type: string }
+        accountId: { type: string, description: Social account ID owning the sync }
+        profileId: { type: string }
+        platform: { type: string, enum: [google] }
+        adAccountId: { type: string, description: Google customer ID }
+        campaignId: { type: string }
+        campaignName: { type: [string, "null"] }
+        campaignStatus: { type: [string, "null"] }
+        adSetId: { type: string, description: Google ad group ID }
+        adSetName: { type: [string, "null"] }
+        adSetStatus: { type: [string, "null"] }
+        keyword: { type: string }
+        matchType: { type: string, enum: [exact, phrase, broad, unknown] }
+        status: { type: string, enum: [active, paused] }
+        negative: { type: boolean }
+        qualityScore: { type: [integer, "null"], description: 'Google Quality Score, 1-10. Null when unrated.' }
+        syncedAt: { type: [string, "null"], format: date-time }
+        metrics:
+          type: [object, "null"]
+          description: 'Trailing 30-day window. Null on rows synced before the metrics columns existed (re-synced on the keyword''s next weekly sweep).'
+          properties:
+            windowDays: { type: integer }
+            clicks: { type: integer }
+            impressions: { type: integer }
+            cost: { type: number, description: 'Account currency, not USD-normalized' }
+            conversions: { type: number }
+            firstPageCpc: { type: [number, "null"], description: Account currency }
+            firstPositionCpc: { type: [number, "null"], description: Account currency }
+    KeywordEntry:
+      description: 'A Google Search keyword: a bare string (BROAD match), or an object naming the match type.'
+      oneOf:
+        - type: string
+          minLength: 1
+          maxLength: 80
+          description: 'Keyword text; defaults to BROAD match'
+        - type: object
+          required: [text]
+          properties:
+            text: { type: string, minLength: 1, maxLength: 80 }
+            matchType: { type: string, enum: [exact, phrase, broad] }
     ConversionEvent:
       type: object
       description: |
@@ -9286,6 +9423,33 @@ components:
             Set by adapters whose destinations are scoped to a specific ad
             account (LinkedIn). Pass back on subsequent CRUD calls to
             identify the parent ad account.
+
+    ConversionAction:
+      type: object
+      description: |
+        A Google Ads conversion action, e.g. a WEBPAGE conversion created via
+        `createConversionAction`. Returned by `listConversionActions` and
+        `createConversionAction`.
+      required: [id, name, type, status, category, tagSnippets]
+      properties:
+        id: { type: string, description: "Google Ads conversion action id." }
+        name: { type: string }
+        type: { type: string, description: "Google's ConversionActionType, e.g. WEBPAGE, UPLOAD_CLICKS." }
+        status: { type: string, description: "Google's ConversionActionStatus, e.g. ENABLED, REMOVED, HIDDEN." }
+        category: { type: string, description: "Google's ConversionActionCategory, e.g. DEFAULT, PURCHASE, LEAD." }
+        tagSnippets:
+          type: array
+          description: |
+            The code a customer pastes onto their site. Present for types
+            Google generates a snippet for (e.g. WEBPAGE); empty otherwise.
+          items:
+            type: object
+            required: [type]
+            properties:
+              type: { type: string, description: "Google's TrackingCodeType, e.g. WEBPAGE." }
+              pageFormat: { type: string, description: "Google's TrackingCodePageFormat, e.g. HTML, AMP." }
+              globalSiteTag: { type: string, description: "The gtag.js snippet to install once per site." }
+              eventSnippet: { type: string, description: "The per-conversion-page snippet that fires the event." }
 
     CtwaSingleResponse:
       type: object
@@ -10002,9 +10166,11 @@ webhooks:
       operationId: onReviewUpdated
       summary: Review updated event
       description: |
-        Fired when a review changes: the reviewer edits their text or rating, or a
-        reply is added (via the API or directly through the Google Business dashboard).
-        Payload shape matches review.new. Requires the Inbox add-on.
+        Fired when a Google Business Profile reviewer edits their review text or rating,
+        or when a reply is posted through POST /v1/inbox/reviews/{reviewId}/reply.
+        A reply written directly in Google's own interface does NOT fire this event,
+        because Google emits no notification for it. Payload shape matches review.new.
+        Requires the Inbox add-on.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -14839,7 +15005,7 @@ paths:
             full synced history (we keep up to the last ~12 months per account).
         - name: status
           in: query
-          schema: { type: string, enum: [draft, scheduled, published, failed] }
+          schema: { type: string, enum: [draft, scheduled, publishing, published, partial, failed, cancelled] }
         - name: platform
           in: query
           schema: { type: string, example: twitter }
@@ -14966,6 +15132,10 @@ paths:
         Create and optionally publish a post. Immediate posts (`publishNow: true`) include `platformPostUrl` in the response.
         Content is optional when media is attached, all platforms have `customContent`, every platform entry is an X Article (`platformSpecificData.article`), or every platform entry is a LinkedIn text-free reshare (`platformSpecificData.reshareUrl` with no text). See each platform's schema for media constraints.
 
+        ## Scheduling
+
+        Pick one of `scheduledFor` (schedule), `publishNow: true` (publish synchronously) or `queuedFromProfile` (next queue slot). With none of them and `isDraft` unset, the post is saved as a draft. `platforms` is required unless the post is a draft. `isDraft: true` wins over `publishNow` and `scheduledFor` (the post is saved, never published); `publishNow: true` wins over `scheduledFor`. A `scheduledFor` already in the past is not rejected: the post is published synchronously in the same request, exactly like `publishNow`.
+
         ## Idempotency
 
         Two layers of duplicate-protection apply, so safe-to-retry callers (network blips, n8n / Zapier retries, etc.) don't accidentally double-post.
@@ -15003,6 +15173,7 @@ paths:
                   description: 'Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.'
                 mediaItems:
                   type: array
+                  description: 'Media attached to every platform in the request (a platform entry can override it with `customMedia`). Each entry needs a publicly reachable HTTPS `url`; `type` (image, video, gif, document) is inferred from the URL extension when omitted and a `type` that contradicts the extension is rejected with 400. Upload files with `POST /v1/media/presign` first; per-platform size, duration and format limits are listed on each platform schema.'
                   items: { $ref: '#/components/schemas/MediaItem' }
                 platforms:
                   type: array
@@ -15040,13 +15211,26 @@ paths:
                           - $ref: '#/components/schemas/BlueskyPlatformData'
                           - $ref: '#/components/schemas/DiscordPlatformData'
                           - $ref: '#/components/schemas/SlackPlatformData'
-                scheduledFor: { type: string, format: date-time }
-                publishNow: { type: boolean, default: false }
+                scheduledFor:
+                  type: string
+                  format: date-time
+                  description: 'When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. An ISO 8601 value with a `Z` or offset (`2026-01-15T10:00:00Z`, `2026-01-15T11:00:00+01:00`) is taken as-is; a value without one (`2026-01-15T10:00:00` or `2026-01-15 10:00`) is read as local time in `timezone`. A value already in the past is published synchronously in the same request. Ignored when `publishNow` is true.'
+                publishNow:
+                  type: boolean
+                  default: false
+                  description: 'Publish to every platform synchronously in this request instead of scheduling; the response then carries each platform result and `platformPostUrl`, with HTTP 207 when some platforms failed. Takes precedence over `scheduledFor`; ignored when `isDraft` is true.'
                 isDraft:
                   type: boolean
                   default: false
                   description: When true, saves the post as a draft. When none of scheduledFor, publishNow, or queuedFromProfile are provided, the post defaults to draft automatically.
-                timezone: { type: string, default: UTC }
+                dryRun:
+                  type: boolean
+                  default: false
+                  description: 'TikTok only. Preview whether each `tiktok` entry in `platforms` could publish right now under the TikTok Direct Post daily limits, without creating, scheduling or publishing anything: no post is persisted and no upload slot is claimed, so it can be repeated freely. The request still goes through auth, the payment gate and body validation, then returns HTTP 200 with `{ dryRun: true, canPublish, tiktok: [...] }` instead of 201. Only `tiktok` entries are evaluated; other platforms in the body are ignored, and a body with no `tiktok` entry is rejected with 400 `invalid_field_value` on `platforms`. An entry with `platformSpecificData.tiktokSettings.draft: true` (Creator Inbox upload) is not subject to the limit and always reports `canPublish: true`.'
+                timezone:
+                  type: string
+                  default: UTC
+                  description: 'IANA timezone (`Europe/Madrid`, `America/New_York`) used to interpret a `scheduledFor` (root or per-platform) that carries no `Z` or offset. Has no effect on values that already carry one. An unknown name returns 400 when `scheduledFor` is set.'
                 tags:
                   type: array
                   description: "Tags/keywords. YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates auto-removed."
@@ -15059,8 +15243,14 @@ paths:
                   type: array
                   description: "Stored for reference only. This field does NOT automatically create @mentions when publishing. For LinkedIn @mentions, use the /v1/accounts/{accountId}/linkedin-mentions endpoint to resolve profile URLs to URNs, then embed the returned mentionFormat directly in the post content field."
                   items: { type: string }
-                crosspostingEnabled: { type: boolean, default: true }
-                metadata: { type: object, additionalProperties: true }
+                crosspostingEnabled:
+                  type: boolean
+                  default: true
+                  description: 'Stored on the post and echoed back on reads. Publishing does not branch on it: every entry in `platforms` is published regardless, so treat it as a label for your own tooling.'
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: 'Free-form key/value pairs of your own, stored on the post and returned on reads and in webhook payloads. Zernio also writes the bookkeeping keys `usageCounted`, `usageRefunded` and `hidden` into this object; do not set them, and they are stripped from webhook payloads.'
                 tiktokSettings:
                   $ref: '#/components/schemas/TikTokPlatformData'
                   description: 'Root-level TikTok settings applied to the TikTok platforms sent in the same request. Merged into each platform''s platformSpecificData, with platform-specific settings taking precedence.'
@@ -15312,6 +15502,39 @@ paths:
                   scheduledFor: "2024-11-01T10:00:00Z"
                   timezone: "America/New_York"
       responses:
+        '200':
+          description: 'dryRun preview (TikTok only): nothing was created. Deliberately carries no numeric cap detail, only a per-account go/no-go and a reason.'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [dryRun, canPublish, tiktok]
+                properties:
+                  dryRun: { type: boolean, description: Always true on this response }
+                  canPublish: { type: boolean, description: True only when every evaluated TikTok account can publish now }
+                  tiktok:
+                    type: array
+                    description: One verdict per `tiktok` entry in the request, in request order
+                    items:
+                      type: object
+                      required: [accountId, canPublish, reason]
+                      properties:
+                        accountId: { type: string }
+                        canPublish: { type: boolean }
+                        alreadyPostedToday: { type: boolean, description: 'Whether this account already published a Direct Post today (an account that did can keep publishing). Absent for Creator Inbox drafts and when no per-user limit applies.' }
+                        reason: { type: string, description: Human-readable explanation of the verdict }
+              example:
+                dryRun: true
+                canPublish: false
+                tiktok:
+                  - accountId: "64e1f0a9e2b5af0012ab34de"
+                    canPublish: true
+                    alreadyPostedToday: false
+                    reason: "Account can publish now."
+                  - accountId: "64e1f0a9e2b5af0012ab34df"
+                    canPublish: false
+                    alreadyPostedToday: false
+                    reason: "Daily TikTok Direct Post limit reached. Use tiktokSettings.draft: true to continue posting via Creator Inbox."
         '201':
           description: Post created
           content:
@@ -15394,6 +15617,58 @@ paths:
                             isActive: true
                           status: "pending"
                     message: "Post scheduled successfully"
+        '207':
+          description: |
+            The post was created, but the inline publish (`publishNow: true`, or a `scheduledFor` that is already due) did not fully succeed.
+
+            **207 is a 2xx status.** `fetch(...).ok` is `true` and axios' default `validateStatus` resolves, so a client that only checks for success will read this as a published post. Branch on the status code explicitly.
+
+            Tell the outcomes apart with `post.status`:
+            - `partial` - at least one platform published and at least one failed. Per-platform detail is in `platformResults` and in `post.platforms[]`.
+            - `failed` - no platform published. Terminal; nothing will be retried. Read `platforms[].errorMessage`, `platforms[].errorCategory` and `platforms[].errorSource` to decide whether the caller, the platform or Zernio must act.
+            - `scheduled` - every platform hit a transient error and was reset to `pending`. Zernio retries automatically. This is **not** a failure and must not be surfaced to an end user as one.
+
+            A publish attempt that aborted before it started (for example the post was already being processed) reports none of the three: `post.status` is whatever it already was and `platformResults` is absent. Read `error` and `post.platforms[]`, which is always present.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPublishIncompleteResponse'
+              examples:
+                allPlatformsFailed:
+                  summary: Every platform failed (post.status is failed, terminal)
+                  value:
+                    post:
+                      _id: "6a9e43f7fd28fe46ce033d98"
+                      content: "We just launched!"
+                      status: "failed"
+                      platforms:
+                        - platform: "facebook"
+                          status: "failed"
+                          errorMessage: "Facebook needs you to confirm your identity before you can publish as this Page. Open the Facebook mobile app, go to this Page, and complete the identity confirmation, then try again."
+                          errorCategory: "platform_rejected"
+                          errorSource: "platform"
+                    message: "Post created but publishing failed"
+                    error: "All platforms failed"
+                    platformResults:
+                      - platform: "facebook"
+                        status: "failed"
+                        error: "Facebook needs you to confirm your identity before you can publish as this Page. Open the Facebook mobile app, go to this Page, and complete the identity confirmation, then try again."
+                temporaryErrorsWillRetry:
+                  summary: Transient errors (post.status is scheduled, Zernio retries)
+                  value:
+                    post:
+                      _id: "6a9e43f7fd28fe46ce033d99"
+                      content: "We just launched!"
+                      status: "scheduled"
+                      platforms:
+                        - platform: "instagram"
+                          status: "pending"
+                    message: "Post created but publishing failed"
+                    error: "Publishing encountered temporary errors. The post will be retried automatically."
+                    platformResults:
+                      - platform: "instagram"
+                        status: "pending"
+                        error: null
         '400':
           description: Validation error
           content:
@@ -15778,7 +16053,16 @@ paths:
                   status: "scheduled"
                   scheduledFor: "2024-11-02T14:00:00Z"
         '207':
-          description: Partial publish success
+          description: |
+            The post was updated, but the inline publish that followed did not fully succeed.
+
+            **207 is a 2xx status**, so `fetch(...).ok` is `true` and axios resolves. Branch on the status code explicitly.
+
+            Read `post.status`: `partial` (some platforms published), `failed` (none published, terminal), or `scheduled` (transient errors, platforms reset to `pending`, Zernio retries automatically and this is not a failure). `platformResults` is omitted when the attempt aborted before producing per-platform results; `post.platforms[]` is always present.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostPublishIncompleteResponse'
         '400':
           description: Invalid request
           content:
@@ -15969,7 +16253,24 @@ paths:
                       platformPostId: "1234567890"
                       platformPostUrl: "https://twitter.com/acme/status/1234567890"
         '207':
-          description: Partial success
+          description: |
+            The retry ran, but publishing did not fully succeed. Covers both a partial publish and a retry in which no platform published.
+
+            **207 is a 2xx status**, so `fetch(...).ok` is `true` and axios resolves. Branch on the status code explicitly.
+
+            This response carries no `platformResults`. Read `post.status` (`partial`, `failed`, or `scheduled` when transient errors will be retried automatically) and `post.platforms[]` for per-platform detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  error:
+                    type: string
+                    description: Summary of why the retry did not fully succeed.
+                  post:
+                    $ref: '#/components/schemas/Post'
         '400':
           description: Invalid state
           content:
@@ -17437,7 +17738,32 @@ paths:
                       maxVideoDurationSec: { type: integer, description: Maximum video duration in seconds }
                       interactionSettings:
                         type: object
-                        description: Available interaction toggles (comment, duet, stitch) and their defaults
+                        description: 'Per-interaction descriptors for the comment, duet and stitch toggles. Each key matches the tiktokSettings field of the same name on the create-post request. allow_duet and allow_stitch are null when mediaType is photo, because TikTok does not apply duet or stitch to photo posts.'
+                        properties:
+                          allow_comment:
+                            type: object
+                            description: 'Descriptor for the allow_comment toggle.'
+                            properties:
+                              enabled: { type: boolean, description: 'Whether the creator permits this interaction. False means they disabled it in the TikTok app. This is availability, never the value the user selected.' }
+                              required: { type: boolean, description: 'Whether tiktokSettings.allow_comment must be supplied when creating a post. Always true, because TikTok forbids defaulting it.' }
+                              default: { type: boolean, description: 'Initial value a post composer should render. A UI seed only, never applied server-side when the field is omitted.' }
+                              label: { type: string, description: 'Human-readable toggle label.' }
+                          allow_duet:
+                            type: [object, "null"]
+                            description: 'Descriptor for the allow_duet toggle. Null when mediaType is photo.'
+                            properties:
+                              enabled: { type: boolean, description: 'Whether the creator permits this interaction. False means they disabled it in the TikTok app. This is availability, never the value the user selected.' }
+                              required: { type: boolean, description: 'Whether tiktokSettings.allow_duet must be supplied when creating a post. Always true, because TikTok forbids defaulting it.' }
+                              default: { type: boolean, description: 'Initial value a post composer should render. A UI seed only, never applied server-side when the field is omitted.' }
+                              label: { type: string, description: 'Human-readable toggle label.' }
+                          allow_stitch:
+                            type: [object, "null"]
+                            description: 'Descriptor for the allow_stitch toggle. Null when mediaType is photo.'
+                            properties:
+                              enabled: { type: boolean, description: 'Whether the creator permits this interaction. False means they disabled it in the TikTok app. This is availability, never the value the user selected.' }
+                              required: { type: boolean, description: 'Whether tiktokSettings.allow_stitch must be supplied when creating a post. Always true, because TikTok forbids defaulting it.' }
+                              default: { type: boolean, description: 'Initial value a post composer should render. A UI seed only, never applied server-side when the field is omitted.' }
+                              label: { type: string, description: 'Human-readable toggle label.' }
                   commercialContentTypes:
                     type: array
                     description: Available commercial content disclosure options
@@ -17465,9 +17791,21 @@ paths:
                 postingLimits:
                   maxVideoDurationSec: 600
                   interactionSettings:
-                    comment: true
-                    duet: true
-                    stitch: true
+                    allow_comment:
+                      enabled: true
+                      required: true
+                      default: false
+                      label: "Allow Comment"
+                    allow_duet:
+                      enabled: true
+                      required: true
+                      default: false
+                      label: "Allow Duet"
+                    allow_stitch:
+                      enabled: false
+                      required: true
+                      default: false
+                      label: "Allow Stitch"
                 commercialContentTypes:
                   - value: "none"
                     label: "No Commercial Content"
@@ -17844,7 +18182,7 @@ paths:
           schema:
             type: string
             enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, reddit, pinterest, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp]
-          description: Social media platform to connect
+          description: 'Social media platform to connect. `snapchat` is a closed beta with no public release date: it returns 403 `PLATFORM_BETA_RESTRICTED` until the account is approved.'
         - name: profileId
           in: query
           required: true
@@ -17959,7 +18297,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403':
-          description: "No access to profile, or BYOK required for AppSumo Twitter"
+          description: "No access to profile, BYOK required for AppSumo Twitter, or Snapchat closed beta (code PLATFORM_BETA_RESTRICTED)"
         '404':
           description: Profile not found
     post:
@@ -19638,6 +19976,7 @@ paths:
             schema:
               type: object
               required: [updateMask]
+              additionalProperties: true
               properties:
                 updateMask:
                   type: string
@@ -21566,6 +21905,10 @@ paths:
                   value:
                     error: "Cannot connect to this profile. It exceeds your Pro plan limit of 5 profiles."
                     code: "PROFILE_LIMIT_EXCEEDED"
+                betaRestricted:
+                  value:
+                    error: "Snapchat integration is currently in beta. Please wait until it is publicly released."
+                    code: "PLATFORM_BETA_RESTRICTED"
         '500':
           description: Failed to connect Snapchat account
 
@@ -21947,7 +22290,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
-          description: 'Conflict with an existing connection. Either the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile), or the number is already actively connected on another profile or workspace (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile.'
+          description: 'Conflict with an existing connection. One of: the target profile already has a WhatsApp number connected (code ONE_WHATSAPP_PER_PROFILE, each profile holds exactly one WhatsApp number, so connect this number to a different or new profile); the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile); or the number is already actively connected on another profile or workspace (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile.'
         '500':
           description: Failed to bind phone number
           content:
@@ -22008,6 +22351,93 @@ paths:
         '404': { description: Profile not found }
 
   /v1/connect/slack:
+    get:
+      x-resource-group: "accounts"
+      operationId: listSlackChannels
+      tags: [Connect]
+      summary: List Slack channels for the channel picker
+      description: |
+        Serves the channel picker of the Slack connect flow. Slack's OAuth installs the bot into a
+        workspace, not a channel, so after the redirect the caller lists the workspace's channels
+        here and finalizes one with `POST /v1/connect/slack`. Served by a dedicated route that
+        shadows `GET /v1/connect/{platform}` for `slack`.
+
+        Send exactly one of `pendingDataToken` (first connect: the nonce from the OAuth redirect,
+        bound to the same `profileId`) or `accountId` (add another channel to a workspace already
+        connected: the existing Slack account's workspace token is reused, no re-OAuth). With
+        neither, the endpoint behaves like `GET /v1/connect/{platform}` and returns `authUrl` and
+        `state` to start the OAuth flow.
+
+        Channels are read live from Slack (`conversations.list`, public and private, archived
+        excluded, up to 2,000). `isMember` says whether the Zernio bot is already in the channel:
+        a public channel is joined automatically on finalize, a private one must be invited
+        (`/invite @Zernio`) first.
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema: { type: string }
+          description: Zernio profile the channel account will belong to. Must match the profile the OAuth flow was started on when `pendingDataToken` is used.
+        - name: pendingDataToken
+          in: query
+          schema: { type: string, minLength: 16 }
+          description: Nonce from the OAuth redirect (first connect).
+        - name: accountId
+          in: query
+          schema: { type: string }
+          description: Existing active Slack account (yours or a team member's) whose workspace token is reused.
+        - name: redirect_url
+          in: query
+          schema: { type: string, format: uri }
+          description: 'Start-OAuth mode only: where to send the user after the connect completes. `redirectUrl` is accepted as an alias.'
+      responses:
+        '200':
+          description: Channel list (picker mode), or the OAuth URL when neither `pendingDataToken` nor `accountId` is sent
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    title: Channel picker
+                    required: [team, channels]
+                    properties:
+                      team:
+                        type: object
+                        properties:
+                          id: { type: string, description: Slack workspace (team) id }
+                          name: { type: [string, "null"] }
+                          icon: { type: [string, "null"], format: uri, description: Workspace icon URL }
+                      channels:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, name, isPrivate, isMember]
+                          properties:
+                            id: { type: string, description: 'Channel id (C... or G...), the value to send as channelId on POST' }
+                            name: { type: string }
+                            isPrivate: { type: boolean }
+                            isMember: { type: boolean, description: Whether the Zernio bot is already a member of the channel }
+                  - type: object
+                    title: Start OAuth
+                    required: [authUrl, state]
+                    properties:
+                      authUrl: { type: string, format: uri }
+                      state: { type: string }
+              examples:
+                picker:
+                  value:
+                    team: { id: "T0123ABCD", name: "Acme", icon: "https://avatars.slack-edge.com/acme_88.png" }
+                    channels:
+                      - { id: "C0123ABCD", name: "general", isPrivate: false, isMember: true }
+                      - { id: "G0456EFGH", name: "leadership", isPrivate: true, isMember: false }
+                startOAuth:
+                  value:
+                    authUrl: "https://slack.com/oauth/v2/authorize?client_id=...&state=..."
+                    state: "user123-profile456-1234567890-https%3A%2F%2Fzernio.com%2Fdashboard%2Fconnections"
+        '400': { description: 'Invalid profileId or accountId format, or pendingDataToken invalid, expired or issued for another profile (code: invalid_field_value)' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'No access to the profile, or Slack connections are temporarily unavailable (code: feature_not_available)' }
+        '404': { description: 'Profile not found (start-OAuth mode), or no active Slack account with that accountId for this user or their team (code: account_not_found)' }
     post:
       x-resource-group: "accounts"
       operationId: connectSlackChannel
@@ -25791,7 +26221,7 @@ paths:
 
         `name`, `url` and `events` are required. `url` must be a valid URL and `events` must contain at least one event. Whitespace is trimmed from `url` before validation.
 
-        Webhooks are automatically disabled after 10 consecutive delivery failures.
+        Webhooks are auto-disabled only once the endpoint has had no successful delivery for 3 days AND has either reached 20 consecutive terminal failures (each one an event that exhausted the full retry ladder) or been failing continuously for 3 days. The owner is emailed; re-enable it with `isActive: true`.
 
         A restricted (zrk_) API key can only subscribe to events whose resource group
         the key holds; an event outside the key's groups is rejected with 403, so a
@@ -25903,7 +26333,7 @@ paths:
 
         When provided, `name` must be 1-50 characters, `url` must be a valid URL, and `events` must contain at least one event. Whitespace is trimmed from `url` before validation.
 
-        Webhooks are automatically disabled after 10 consecutive delivery failures.
+        Webhooks are auto-disabled only once the endpoint has had no successful delivery for 3 days AND has either reached 20 consecutive terminal failures (each one an event that exhausted the full retry ladder) or been failing continuously for 3 days. The owner is emailed; re-enable it with `isActive: true`.
 
         A restricted (zrk_) API key can only set `events` to events whose resource
         group the key holds; an event outside the key's groups is rejected with 403.
@@ -26902,14 +27332,14 @@ paths:
                         type: [string, "null"]
                         description: Twitter username of the recipient
         '400':
-          description: 'Validation error, platform not supported, category combined with templateName or used on a non-WhatsApp account, or the WhatsApp Business Account is not eligible for Direct Send'
+          description: 'Validation error, platform not supported, an attachment the platform does not accept (PLATFORM_LIMITATION), template required to start a WhatsApp conversation (TEMPLATE_REQUIRED), template variables that do not match the approved definition (INVALID_TEMPLATE_PARAMS, INVALID_TEMPLATE_BUTTON_PARAM), category combined with templateName or used on a non-WhatsApp account, or the WhatsApp Business Account is not eligible for Direct Send: DIRECT_SEND_NOT_ELIGIBLE and DIRECT_SEND_BLOCKED require Meta to grant or restore Direct Send access, while DIRECT_SEND_LIMITED is temporary and lifts on its own'
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   error: { type: string }
-                  code: { type: string, enum: [PLATFORM_NOT_SUPPORTED] }
+                  code: { type: string, enum: [PLATFORM_NOT_SUPPORTED, PLATFORM_LIMITATION, TEMPLATE_REQUIRED, INVALID_TEMPLATE_PARAMS, INVALID_TEMPLATE_BUTTON_PARAM, DIRECT_SEND_NOT_ELIGIBLE, DIRECT_SEND_LIMITED, DIRECT_SEND_BLOCKED] }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required or profile limit reached
@@ -28134,8 +28564,8 @@ paths:
                   error: { type: string }
                   code:
                     type: string
-                    description: "Stable machine-readable reason. PLATFORM_LIMITATION covers a capability the platform does not offer (e.g. Bluesky and Reddit DMs reject media); MISSING_PARTICIPANT means the stored conversation has no recipient to send to."
-                    enum: [PLATFORM_LIMITATION, MISSING_PARTICIPANT]
+                    description: "Stable machine-readable reason. PLATFORM_LIMITATION covers a capability the platform does not offer (e.g. Bluesky and Reddit DMs reject media); MISSING_PARTICIPANT means the stored conversation has no recipient to send to; DIRECT_SEND_NOT_ELIGIBLE and DIRECT_SEND_BLOCKED mean the WhatsApp Business Account needs Meta to grant or restore Direct Send access; DIRECT_SEND_LIMITED is temporary, Meta lifts it on its own."
+                    enum: [PLATFORM_LIMITATION, MISSING_PARTICIPANT, DIRECT_SEND_NOT_ELIGIBLE, DIRECT_SEND_LIMITED, DIRECT_SEND_BLOCKED]
                   platformError:
                     type: object
                     description: "Instagram/Facebook only. Meta's own diagnostic fields for the rejected send, passed through verbatim so you can tell failure classes apart and quote them to Meta. Absent when the failure did not come from Meta."
@@ -29930,6 +30360,18 @@ paths:
                     type: "platform_error"
                     code: "platform_api_error"
                     platform: "instagram"
+                declinedByMeta:
+                  summary: "Meta declined the private reply on this media (subcode 2534066, reply NOT consumed)"
+                  value:
+                    error: "Instagram declined this private reply (Meta error 2534066). Despite Meta's wording, the token and permissions are fine and the comment ID is valid, so reconnecting the account or retrying this comment will not change the result."
+                    type: "platform_error"
+                    code: "platform_api_error"
+                    platform: "instagram"
+                    platformError:
+                      code: 200
+                      error_subcode: 2534066
+                      type: "IGApiException"
+                      message: "Please check if access token has enough IG permissions granular scopes for IG private reply. Or, verify if the comment ID is valid"
                 missingMessage:
                   summary: Missing message
                   value:
@@ -36506,9 +36948,14 @@ paths:
         Get notified the first time an out-of-stock country has deliverable
         numbers again: an email to the account holder plus the
         `phone_number.stock_available` webhook. Stock is re-checked every 6h.
-        One watch per country; a repeat request returns the existing watch
-        (200). The watch is consumed when it fires, so re-create it if you
-        miss the stock. Up to 20 countries can be watched at once.
+        One watch per country and number type; a repeat request returns the
+        existing watch (200). The watch is consumed when it fires, so re-create
+        it if you miss the stock. Up to 20 watches at once.
+
+        Countries and types marked `fulfilment: request` by
+        GET /v1/phone-numbers/countries can also be watched. Those are sourced
+        by a carrier request rather than held in stock, so a watch records
+        interest and no date is implied.
       security:
         - bearerAuth: []
       requestBody:
@@ -36520,6 +36967,10 @@ paths:
               required: [country]
               properties:
                 country: { type: string, minLength: 2, maxLength: 2, description: 'ISO 3166-1 alpha-2 code of a country listed by GET /v1/phone-numbers/countries.' }
+                numberType:
+                  type: string
+                  enum: [local, mobile, national, toll_free]
+                  description: 'Narrow the watch to one number type. Omit to be notified when any type in the country is back.'
       responses:
         '201':
           description: Watch created.
@@ -36528,7 +36979,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PhoneNumberStockWatch'
         '200':
-          description: A watch for this country already existed; returned unchanged.
+          description: 'A watch for this country and type already existed; returned unchanged.'
           content:
             application/json:
               schema:
@@ -40879,9 +41330,11 @@ paths:
       description: |-
         The actual search queries that triggered your ads, with matched-keyword
         status and spend metrics — the raw material for wasted-spend analysis and
-        negative-keyword lists. Reads Google's `search_term_view` live; defaults
-        to the last 30 days. Rows are ordered by cost, descending. Draws on the
-        shared Google Ads operations budget.
+        negative-keyword lists. Reads Google's `search_term_view`, cached for
+        the quota window; defaults to the last 30 days. Rows are ordered by
+        cost, descending. Draws on the shared Google Ads operations budget.
+        The response carries `cachedAt` and `stale`, set when a quota-exhausted
+        call falls back to the last-good copy instead of a live read.
       security:
         - bearerAuth: []
       parameters:
@@ -40922,8 +41375,149 @@ paths:
                     type: object
                     properties:
                       nextPageToken: { type: [string, "null"], description: "Null when the last page was returned." }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this data was fetched from Google. Null when it was never served from cache." }
+                  stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: "Google Ads operations budget exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/bid-strategies:
+    get:
+      x-resource-group: "ads"
+      operationId: listBidStrategies
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: List Google Ads portfolio bid strategies
+      description: >-
+        Bidding strategy report: type, status, campaign count, clicks, cost, cost per
+        conversion, impressions, average CPC and conversions over the date range (default
+        last 30 days). Reads Google's `bidding_strategy` resource, cached for the quota
+        window. Draws on the shared Google Ads operations budget. The response carries
+        `cachedAt` and `stale`, set when a quota-exhausted call falls back to the
+        last-good copy instead of a live read.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: customerId, in: query, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+        - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Defaults to 30 days ago." }
+        - { name: toDate, in: query, schema: { type: string, format: date }, description: "Defaults to today." }
+      responses:
+        '200':
+          description: Portfolio bid strategies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  currency: { type: string, description: "Account currency code; money fields are in this currency's units." }
+                  strategies:
+                    type: array
+                    items: { $ref: '#/components/schemas/PortfolioBidStrategy' }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this data was fetched from Google. Null when it was never served from cache." }
+                  stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { description: "Google Ads operations budget exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+    post:
+      x-resource-group: "ads"
+      operationId: createBidStrategy
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Create a Google Ads portfolio bid strategy
+      description: >-
+        Creates a standalone bid strategy shared across campaigns. Attach it to a campaign
+        with `portfolioBidStrategyId` on POST /v1/ads/create, PUT /v1/ads/campaigns/{campaignId},
+        or PUT /v1/ads/ad-sets/{adSetId}. Attaching a strategy aligned to a shared budget fails
+        there with a 400 (Google's `BIDDING_STRATEGY_AND_BUDGET_MUST_BE_ALIGNED`); this is not retryable.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name, type]
+              properties:
+                accountId: { type: string, description: "Google ads SocialAccount id." }
+                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+                name: { type: string, minLength: 1, maxLength: 255 }
+                type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
+                targetCpa: { type: number, exclusiveMinimum: 0, description: "Required when type is TARGET_CPA, in the account's currency units." }
+                targetRoas: { type: number, exclusiveMinimum: 0, description: "Required when type is TARGET_ROAS; a multiplier (2.0 = 2.0x)." }
+      responses:
+        '201':
+          description: Bid strategy created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  strategy:
+                    type: object
+                    properties:
+                      customerId: { type: string }
+                      id: { type: string, description: "Numeric bid strategy id; pass as portfolioBidStrategyId or in the {strategyId} path." }
+                      resourceName: { type: string }
+        '400': { description: "Invalid input, or Google rejected the strategy (e.g. shared-budget alignment). The message carries Google's error." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: "No Google Ads customer accounts on this connection. Reconnect Google Ads." }
+        '429': { description: "Google Ads operations budget exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/bid-strategies/{strategyId}:
+    patch:
+      x-resource-group: "ads"
+      operationId: updateBidStrategy
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Update a Google Ads portfolio bid strategy
+      description: >-
+        Renames or retargets a portfolio bid strategy. The strategy's status is output only
+        on Google's side, so it cannot be changed here; remove a strategy in Google Ads.
+        `type` is only needed alongside `targetCpa`/`targetRoas` to disambiguate the field
+        Google writes to (TARGET_CPA and MAXIMIZE_CONVERSIONS both take a target CPA;
+        TARGET_ROAS and MAXIMIZE_CONVERSION_VALUE both take a target ROAS); the strategy's
+        family is otherwise immutable once created.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: strategyId, in: path, required: true, schema: { type: string }, description: "Numeric Google Ads bid strategy id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string, description: "Google ads SocialAccount id." }
+                customerId: { type: string, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+                name: { type: string, minLength: 1, maxLength: 255 }
+                type: { type: string, enum: [TARGET_CPA, TARGET_ROAS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE] }
+                targetCpa: { type: number, exclusiveMinimum: 0 }
+                targetRoas: { type: number, exclusiveMinimum: 0 }
+      responses:
+        '200':
+          description: Bid strategy updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  strategy:
+                    type: object
+                    properties:
+                      customerId: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '429': { description: "Google Ads operations budget exhausted; retry later." }
         '501': { description: Only available on Google Ads accounts }
 
@@ -41093,30 +41687,126 @@ paths:
                 properties:
                   keywords:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string }
-                        accountId: { type: string, description: Social account ID owning the sync }
-                        profileId: { type: string }
-                        platform: { type: string, enum: [google] }
-                        adAccountId: { type: string, description: Google customer ID }
-                        campaignId: { type: string }
-                        campaignName: { type: [string, "null"] }
-                        campaignStatus: { type: [string, "null"] }
-                        adSetId: { type: string, description: Google ad group ID }
-                        adSetName: { type: [string, "null"] }
-                        adSetStatus: { type: [string, "null"] }
-                        keyword: { type: string }
-                        matchType: { type: string, enum: [exact, phrase, broad, unknown] }
-                        status: { type: string, enum: [active, paused] }
-                        negative: { type: boolean }
-                        syncedAt: { type: [string, "null"], format: date-time }
+                    items: { $ref: '#/components/schemas/AdKeyword' }
                   pagination: { $ref: '#/components/schemas/Pagination' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+    post:
+      x-resource-group: "ads"
+      operationId: addAdKeywords
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Add Search keywords to an ad group
+      description: |
+        Adds one or more keyword criteria to an existing Google Search ad group,
+        without touching the keywords already there (unlike the whole-set diff on
+        `PUT /v1/ads/{adId}`, `keywords`/`negativeKeywords` in `platformSpecificData`,
+        which replaces the set). Set `negative: true` to add ad-group-level negatives
+        instead of positive keywords.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, adSetId, keywords]
+              properties:
+                accountId: { type: string, description: Social account ID (Google Ads) }
+                adSetId: { type: string, description: Google ad group ID to add the keywords to }
+                keywords:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items:
+                    anyOf:
+                      - type: string
+                        description: 'Keyword text; defaults to BROAD match'
+                      - type: object
+                        required: [text]
+                        properties:
+                          text: { type: string, minLength: 1, maxLength: 80 }
+                          matchType: { type: string, enum: [exact, phrase, broad] }
+                negative: { type: boolean, default: false, description: 'Add as ad-group-level negatives instead of positive keywords' }
+      responses:
+        '201':
+          description: Keywords added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keywords:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdKeyword' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'The ad group ("adSetId") was not found for this account.' }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/keywords/{keywordId}:
+    patch:
+      x-resource-group: "ads"
+      operationId: updateAdKeyword
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Pause or enable a Search keyword
+      description: |
+        Changes `ad_group_criterion.status` for one keyword criterion (M.140).
+        Negative keywords have no status on Google and cannot be paused or enabled.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: keywordId, in: path, required: true, schema: { type: string }, description: Zernio keyword ID (not the Google criterion ID) }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [active, paused] }
+      responses:
+        '200':
+          description: Keyword updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keyword: { $ref: '#/components/schemas/AdKeyword' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Keyword not found }
+        '422': { description: 'Negative keywords have no status on Google; they cannot be paused or enabled.' }
+    delete:
+      x-resource-group: "ads"
+      operationId: removeAdKeyword
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Remove a Search keyword
+      description: Removes one keyword criterion (positive or negative) from its ad group (M.140).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: keywordId, in: path, required: true, schema: { type: string }, description: Zernio keyword ID (not the Google criterion ID) }
+      responses:
+        '200':
+          description: Keyword removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed: { type: boolean, description: Always true on success }
+                  keywordId: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Keyword not found }
 
   /v1/ads/campaigns:
     get:
@@ -41184,8 +41874,9 @@ paths:
         Creates a campaign WITHOUT its first ad set / ad, on the platform of the given
         `accountId`. Ad sets join it later via `existingCampaignId` on the create endpoints.
         Platform notes: on Meta a budget here is campaign-level (CBO) by definition; omit it
-        for ABO (each ad set carries its own budget), and `specialAdCategories` /
-        `bidStrategy` are Meta-only (400 elsewhere). Google, X and OpenAI require a budget
+        for ABO (each ad set carries its own budget), and `specialAdCategories` is Meta-only
+        (400 elsewhere); `bidStrategy` is Meta and Google (400 elsewhere), and Google also
+        accepts `portfolioBidStrategyId` instead. Google, X and OpenAI require a budget
         (422 without one; OpenAI accepts only `budgetType: lifetime`, Google only
         `budgetType: daily`). LinkedIn creates the
         campaign GROUP (our campaign level) and rejects a budget, which lives on the
@@ -41231,9 +41922,10 @@ paths:
                 bidStrategy:
                   type: string
                   enum: [LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS]
-                  description: "Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level, set the strategy there instead."
-                bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. Validated here but NOT stored by Meta: the campaign object has no bid_amount field, only bid_strategy lives on it. The amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there." }
+                  description: "Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level on Meta, set the strategy there instead. On Google: LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling; portfolioBidStrategyId attaches a portfolio strategy instead."
+                bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. On Meta, validated here but NOT stored: the campaign object has no bid_amount field, only bid_strategy lives on it, and the amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there. On Google, stored directly on the campaign's bidding strategy." }
                 roasAverageFloor: { type: number, description: "Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS." }
+                portfolioBidStrategyId: { type: string, pattern: '^\d+$', description: "Google only. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy." }
       responses:
         '201':
           description: Campaign created
@@ -41306,6 +41998,55 @@ paths:
         '404':
           description: No ads found for this campaign
 
+  /v1/ads/campaigns/{campaignId}/bidding:
+    get:
+      x-resource-group: "ads"
+      operationId: getCampaignBidding
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Read a campaign's current bidding
+      description: |
+        Read of the campaign's bidding strategy on Google, cached for the quota window, for
+        pre-filling the bid strategy block before a PUT to /v1/ads/campaigns/{campaignId}.
+        Google Ads only; `platform` is required and rejected when it is anything else, since
+        a `campaignId` is not globally unique. The response carries `cachedAt` and `stale`,
+        set when a quota-exhausted call falls back to the last-good copy instead of a live
+        read.
+
+        Maps Google's bidding strategy onto the same triplet PUT accepts: `LOWEST_COST_WITHOUT_CAP`
+        (Maximize Conversions, no target), `COST_CAP` + `bidAmount` (Target CPA), `LOWEST_COST_WITH_MIN_ROAS`
+        + `roasAverageFloor` (Target ROAS), `LOWEST_COST_WITH_BID_CAP` + `bidAmount` (Maximize Clicks with
+        a CPC ceiling). A campaign on a portfolio strategy returns `portfolio` (id + name) and
+        `bidSpec.portfolioBidStrategyId` instead of the triplet. Anything else (Manual CPC, Target
+        Impression Share, ...) returns `bidSpec: null`; show `biddingStrategyType` as-is.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string }, description: "Numeric Google platform campaign id." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio Google Ads SocialAccount id: resolves the customer id + refresh token." }
+        - { name: platform, in: query, required: true, schema: { type: string, enum: [google] }, description: "Required: campaign IDs are not globally unique. Only \"google\" is supported today." }
+        - { name: customerId, in: query, required: false, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Required when the connection has multiple Google Ads accounts; optional (and inferred) when it has only one." }
+      responses:
+        '200':
+          description: Campaign bidding
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      campaignId: { type: string }
+                  - $ref: '#/components/schemas/CampaignBidding'
+        '400':
+          description: "Invalid input (accountId, customerId, or a non-numeric campaignId), or a platform other than \"google\""
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: "Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans."
+        '404':
+          description: Campaign not found on Google Ads
+        '501':
+          description: "Not a Google Ads account: the connection behind accountId resolves to another platform."
+
   /v1/ads/campaigns/{campaignId}:
     put:
       x-resource-group: "ads"
@@ -41314,25 +42055,27 @@ paths:
       x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x", "openai"]
       summary: Update a campaign
       description: |
-        Campaign-level edits. Send at least one of `budget`, `bidStrategy`, `name`
-        or `platformSpecificData`. An unsupported field is always an error, never a
-        silent drop.
+        Campaign-level edits. Send at least one of `budget`, `bidStrategy`,
+        `portfolioBidStrategyId`, `name` or `platformSpecificData`. An unsupported
+        field is always an error, never a silent drop.
 
         | Body field | Meta | Google | Others |
         |---|---|---|---|
         | `bidStrategy` | Yes | Yes | 501 |
         | `bidAmount`, `roasAverageFloor` | 400 — ad-set level | Yes | 400 |
+        | `portfolioBidStrategyId` | 400 | Yes | 400 |
         | `budget` (CBO; ABO returns 409) | Yes | 501 | 501 |
         | `name` | Yes | 501 | 501 |
         | `platformSpecificData.spendCap` | Yes | 400 | 400 |
         | `accountId` (empty campaigns) | Yes | - | - |
 
-        Google maps the shared enum onto its own strategies: `LOWEST_COST_WITHOUT_CAP`
-        to Maximize Clicks, `LOWEST_COST_WITH_BID_CAP` to Maximize Clicks with a max
-        CPC (`bidAmount`), `COST_CAP` to Target CPA (`bidAmount`),
-        `LOWEST_COST_WITH_MIN_ROAS` to Target ROAS (`roasAverageFloor`). A campaign on
-        a PORTFOLIO bidding strategy is rejected: detach it in Google Ads first, since
-        it is shared across campaigns.
+        On Google: `LOWEST_COST_WITHOUT_CAP` = Maximize Conversions, `COST_CAP` +
+        `bidAmount` = Target CPA, `LOWEST_COST_WITH_MIN_ROAS` + `roasAverageFloor` =
+        Target ROAS, `LOWEST_COST_WITH_BID_CAP` + `bidAmount` = Maximize Clicks with a
+        CPC ceiling; `portfolioBidStrategyId` attaches a portfolio strategy instead
+        (exclusive with `bidStrategy`). Setting the standard triplet on a campaign that
+        is currently on a PORTFOLIO strategy is rejected: detach it in Google Ads
+        first, since it is shared across campaigns.
 
         `accountId` forwards the update straight to Meta for a campaign with zero ads,
         which would otherwise 404; the response then carries `updated: 0`.
@@ -41352,9 +42095,10 @@ paths:
                 accountId: { type: string, description: "**Meta only.** Zernio SocialAccount id owning the ad account. Needed only for an EMPTY campaign (zero ads); ignored otherwise." }
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
-                  description: "**Meta + Google.** On Meta, the campaign default that ad sets inherit unless they override it. On Google, the campaign's own bidding strategy."
+                  description: "**Meta + Google.** On Meta, the campaign default that ad sets inherit unless they override it. On Google, the campaign's own bidding strategy. On Google: LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling; portfolioBidStrategyId attaches a portfolio strategy instead."
                 bidAmount: { type: number, description: "**Google only.** Whole currency units (USD: 12 = $12.00). Max CPC for LOWEST_COST_WITH_BID_CAP, CPA target for COST_CAP; required for both." }
                 roasAverageFloor: { type: number, description: "**Google only.** Decimal ROAS multiplier (2.0 = 2.0x), required for LOWEST_COST_WITH_MIN_ROAS." }
+                portfolioBidStrategyId: { type: string, pattern: '^\d+$', description: "**Google only.** Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) instead of setting bidStrategy. Exclusive with bidStrategy." }
                 budget:
                   type: object
                   description: "**Meta only.** The CBO budget."
@@ -41383,6 +42127,7 @@ paths:
                   bidStrategy: { $ref: '#/components/schemas/BidStrategy' }
                   bidAmount: { type: number }
                   roasAverageFloor: { type: number }
+                  portfolioBidStrategyId: { type: string, description: "Google only. Echoed back, but NOT mirrored onto local Ad documents (no column for it yet)." }
                   platformSpecificData: { type: object }
         '400': { description: "Invalid input, or a field the resolved platform does not support at the campaign level (see the support table)" }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -41437,6 +42182,106 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Campaign not found }
         '501': { description: Operation not supported on this platform }
+
+  /v1/ads/campaigns/{campaignId}/negative-keywords:
+    get:
+      x-resource-group: "ads"
+      operationId: listCampaignNegativeKeywords
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: List campaign-level negative keywords
+      description: |
+        Returns the campaign-level negative keywords (`campaign_criterion.negative`),
+        distinct from the ad-group-level negatives under `GET /v1/ads/keywords`. Cached
+        for the quota window (not synced to Postgres), and gated by the shared Google
+        Ads operations budget like every other on-demand Google surface. The response
+        carries `cachedAt` and `stale`, set when a quota-exhausted call falls back to
+        the last-good copy instead of a live read.
+
+        The platform is always discovered from the campaign itself; a non-Google
+        campaign returns 501 rather than 404, whether or not `platform` was passed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string }, description: Platform campaign ID }
+        - { name: platform, in: query, schema: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai] }, description: 'Optional and NOT authoritative: the resolved campaign''s own platform decides 200 vs 501, never this hint.' }
+      responses:
+        '200':
+          description: Campaign-level negative keywords
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keywords:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        criterionId: { type: string }
+                        text: { type: string }
+                        matchType: { type: string, enum: [exact, phrase, broad] }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this list was fetched from Google. Null when it was never served from cache." }
+                  stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Campaign not found }
+        '429': { description: Google Ads operations budget exhausted; retry later }
+        '501': { description: Only available on Google Ads campaigns }
+    put:
+      x-resource-group: "ads"
+      operationId: replaceCampaignNegativeKeywords
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Replace campaign-level negative keywords
+      description: |
+        Replaces the FULL set of campaign-level negative keywords (C.270): the desired
+        list is diffed against what Google already has, and the difference is applied
+        as one `create`/`remove` mutate. Send an empty array to clear every campaign
+        negative.
+
+        The platform is always discovered from the campaign itself; a non-Google
+        campaign returns 501 rather than 404, whether or not `platform` was sent.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string }, description: Platform campaign ID }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keywords]
+              properties:
+                platform: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai], description: 'Optional and NOT authoritative: the resolved campaign''s own platform decides 200 vs 501, never this hint.' }
+                keywords:
+                  type: array
+                  maxItems: 1000
+                  items: { $ref: '#/components/schemas/KeywordEntry' }
+      responses:
+        '200':
+          description: Campaign-level negative keywords replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created: { type: integer, description: Negative criteria newly created on Google }
+                  removed: { type: integer, description: Negative criteria removed from Google }
+                  keywords:
+                    type: array
+                    description: The full negative-keyword set after the replace
+                    items:
+                      type: object
+                      properties:
+                        criterionId: { type: string }
+                        text: { type: string }
+                        matchType: { type: string, enum: [exact, phrase, broad] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Campaign not found }
+        '429': { description: Google Ads operations budget exhausted; retry later }
+        '501': { description: Only available on Google Ads campaigns }
 
   /v1/ads/campaigns/bulk-status:
     post:
@@ -41597,6 +42442,296 @@ paths:
           description: 'Returned with code `ads_allowance_exceeded` when the team has no payment method on file and has reached the 500 free live ads: add a card to resume.'
         '404': { description: Source campaign not found }
         '501': { description: Operation not supported on this platform }
+
+  /v1/ads/campaigns/{campaignId}/targeting:
+    get:
+      x-resource-group: "ads"
+      operationId: getCampaignTargeting
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Read a Google campaign's device, location, and language targeting
+      description: |
+        Google Ads compliance requires geo, language, budget, and bidding targeting
+        set at creation to stay editable afterwards; this reads the campaign state
+        so an integrator can build an editor around it. Cached for the quota window
+        (10 minutes fresh, up to 7 days last-good), not always a live read. Google
+        only; every other platform returns 501.
+
+        `devices` always lists all four device types with `included` reflecting
+        Google's negative device criteria (a device absent from any negative
+        criterion is included by default). This read has no bid-modifier source,
+        so `bidModifier` is always `null` even for a device with one configured.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string }, description: Google platform campaign ID }
+        - { name: platform, in: query, schema: { type: string, enum: [google] }, description: "Disambiguates when the same campaignId string exists on more than one connected platform." }
+      responses:
+        '200':
+          description: Current campaign targeting
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        device: { type: string, enum: [MOBILE, DESKTOP, TABLET, CONNECTED_TV] }
+                        included: { type: boolean }
+                        bidModifier: { type: [number, "null"], description: "Always null on this read (see description)." }
+                  locations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        geoTargetId: { type: string, description: "Numeric id from Google's geoTargetConstants/{id}." }
+                        negative: { type: boolean, description: "true = excluded location." }
+                  languages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string, description: "Google's language code (ISO 639-1, plus variants such as `zh_CN`). Empty when the campaign's language_constant id is not in Zernio's checked-in table." }
+                        id: { type: string, description: "Google's languageConstants/{id} numeric id." }
+                        name: { type: string }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this targeting was fetched from Google. Null when it was never served from cache." }
+                  stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404': { description: Campaign not found }
+        '501': { description: Only available on Google Ads campaigns }
+    put:
+      x-resource-group: "ads"
+      operationId: updateCampaignTargeting
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Edit a Google campaign's device, location, or language targeting
+      description: |
+        Google Ads compliance row M.10: geo and language targeting set at
+        creation must stay editable afterwards. Send at least one of `devices`,
+        `locations`, `languages`; each provided field REPLACES that field's
+        existing criteria on the campaign (a full set, not a delta). Fields left
+        out of the body are untouched. Google only; every other platform returns
+        501.
+
+        `locations` accepts the same shapes as campaign creation: a bare array of
+        ISO country codes, or an object with `countries`/`regions`/`cities`/`zips`/`metros`
+        key lists (`key` from GET /v1/ads/targeting/search?dimension=geo). Negative
+        (excluded) locations are left untouched by this endpoint.
+
+        `languages` is an array of Google's language codes (ISO 639-1, plus variants
+        such as `zh_CN`); an unknown code returns 400.
+
+        The response includes the refreshed `devices`/`locations`/`languages` state
+        read back from Google after the edit, and invalidates the cached copy
+        `GET` on this campaign would otherwise keep serving.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string }, description: Google platform campaign ID }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, targeting]
+              properties:
+                platform: { type: string, enum: [google] }
+                targeting:
+                  type: object
+                  minProperties: 1
+                  properties:
+                    devices:
+                      type: array
+                      items:
+                        oneOf:
+                          - type: string
+                            enum: [MOBILE, DESKTOP, TABLET, CONNECTED_TV]
+                          - type: object
+                            required: [device, bidModifier]
+                            properties:
+                              device: { type: string, enum: [MOBILE, DESKTOP, TABLET, CONNECTED_TV] }
+                              bidModifier: { type: number, description: "Bid modifier for this device; devices without one use the campaign's base bid." }
+                      description: "Devices to include. Devices not listed become excluded (negative) criteria, same contract as the existing devices-only edit."
+                    locations:
+                      description: "Bare country-code array, or the nested creation-time shape (countries/regions/cities/zips/metros)."
+                      oneOf:
+                        - type: array
+                          items: { type: string, description: "ISO 3166-1 alpha-2 country code." }
+                        - type: object
+                          properties:
+                            countries: { type: array, items: { type: string } }
+                            regions:
+                              type: array
+                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                            cities:
+                              type: array
+                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                            zips:
+                              type: array
+                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                            metros:
+                              type: array
+                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                    languages: { type: array, items: { type: string }, description: "Google's language codes (ISO 639-1, plus variants such as `zh_CN`), e.g. [\"en\", \"de\"]." }
+      responses:
+        '200':
+          description: Targeting updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaignId: { type: string }
+                  updated: { type: array, items: { type: string, enum: [devices, locations, languages] }, description: "Which targeting fields were applied." }
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        device: { type: string, enum: [MOBILE, DESKTOP, TABLET, CONNECTED_TV] }
+                        included: { type: boolean }
+                        bidModifier: { type: [number, "null"], description: "Always null on this read; see GET's description." }
+                  locations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        geoTargetId: { type: string, description: "Numeric id from Google's geoTargetConstants/{id}." }
+                        negative: { type: boolean, description: "true = excluded location." }
+                  languages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code: { type: string }
+                        id: { type: string }
+                        name: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 'Returned with code `ads_allowance_exceeded` when the team has no payment method on file and has reached the 500 free live ads: add a card to resume.'
+        '404': { description: Campaign not found }
+        '501': { description: Only available on Google Ads campaigns }
+
+  /v1/ads/ad-sets:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdSets
+      tags: ["Ad Campaigns"]
+      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x"]
+      summary: List ad sets
+      description: |-
+        Ad sets (Google ad groups) synced for the connection, optionally
+        filtered by platform and campaignId. Reads the `ad_sets` table
+        directly, independent of the `ads` rollup GET /v1/ads/tree uses, so a
+        just-created standalone ad group with no ad yet (POST /v1/ads/ad-sets,
+        Google only) is visible here even though it is invisible in the tree
+        until an ad joins it via `existingAdGroupId`. Returns at most 500
+        rows, newest first.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, schema: { type: string }, description: Social account ID }
+        - { name: campaignId, in: query, schema: { type: string }, description: Platform campaign ID }
+        - { name: platform, in: query, schema: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai] } }
+      responses:
+        '200':
+          description: Ad sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adSets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        platformAdSetId: { type: string }
+                        platform: { type: string }
+                        adSetName: { type: [string, "null"] }
+                        status: { type: [string, "null"] }
+                        platformAdSetStatus: { type: [string, "null"] }
+                        platformCampaignId: { type: [string, "null"] }
+                        platformAdAccountId: { type: string }
+                        accountId: { type: [string, "null"] }
+                        profileId: { type: string }
+                        currency: { type: [string, "null"] }
+                        budget: { type: [object, "null"] }
+                        isExternal: { type: [boolean, "null"] }
+                        platformCreatedAt: { type: [string, "null"], format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+
+    post:
+      x-resource-group: "ads"
+      operationId: createAdSet
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Create a standalone ad group
+      description: |-
+        Google Ads compliance row C.190: creates an ad group WITHOUT an ad,
+        under an existing campaign. Ads join it later via `existingAdGroupId`
+        on POST /v1/ads/create. Google only; every other platform returns 501.
+
+        Created `PAUSED` unless `status: ACTIVE`. The new ad group has no ad
+        yet, so it will not appear in GET /v1/ads/tree (built purely from `ads`
+        rows) until one is added; use GET /v1/ads/ad-sets to see it in the
+        meantime.
+
+        **Idempotency:** send an `Idempotency-Key` header to make retries safe.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: >-
+            Optional client-generated unique key (e.g. a UUID) that makes
+            retries safe. Same key + same body replays the original response;
+            same key + different body → 422; key still processing → 409. Only
+            2xx responses are stored, so a request that failed with a 4xx can
+            be retried with a corrected body under the SAME key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, platform, campaignId, name]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id owning the Google Ads connection." }
+                platform: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai], description: "Only \"google\" is implemented today; every other value returns 501." }
+                campaignId: { type: string, description: "Google platform campaign ID (numeric) the ad group is created under." }
+                name: { type: string, minLength: 1, maxLength: 255 }
+                status: { type: string, enum: [ACTIVE, PAUSED], default: PAUSED }
+                customerId: { type: string, description: "Numeric Google Ads customer id. Only required when the connection has more than one." }
+      responses:
+        '201':
+          description: Ad group created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adSetId: { type: string, description: Platform id of the new ad group }
+                  campaignId: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 'Returned with code `ads_allowance_exceeded` when the team has no payment method on file and has reached the 500 free live ads: add a card to resume.'
+        '404': { description: accountId does not belong to a Google Ads connection }
+        '501': { description: Only supported on Google Ads }
 
   /v1/ads/ad-sets/{adSetId}/duplicate:
     post:
@@ -42112,6 +43247,8 @@ paths:
         than the ingested history return a `202` immediately with the covered part
         and `backfillPending: true` while the rest is backfilled in the background;
         repeat the request shortly until it returns 200 with full data.
+
+        With adAccountId set to a Google customer id this is the customer-level performance report (clicks, cost, impressions, conversions, all conversions per day).
       security:
         - bearerAuth: []
       parameters:
@@ -42196,11 +43333,12 @@ paths:
         - **Meta** (Facebook + Instagram): all fields supported.
         - **TikTok**: status, budget, targeting (via `/v2/adgroup/update/`), and creative
           (via `/v2/ad/update/` patch-style — `headline` is ignored, `body` becomes `ad_text`).
-        - **Google**: status, budget, and KEYWORD edits via `targeting.keywords` /
-          `targeting.negativeKeywords` — each list you send becomes the FULL new set of its
-          kind on the ad group (criteria not in the list are removed); a kind left out is
-          untouched. Any other `targeting` field returns 400: Google cannot mutate broad
-          targeting post-create without recreating the campaign. `creative` returns 501.
+        - **Google**: status, budget, KEYWORD edits via `targeting.keywords` /
+          `targeting.negativeKeywords`, and DEVICE bid adjustments via `targeting.devices`
+          — each list you send becomes the FULL new set of its kind (criteria not in the
+          list are removed); a kind left out is untouched. Any other `targeting` field
+          returns 400: Google cannot mutate broad targeting post-create without recreating
+          the campaign. `creative` returns 501.
         - **LinkedIn**: status, budget, targeting (geo countries only, applied to the
           LinkedIn Campaign via PARTIAL_UPDATE), and creative (uploads new media, creates a
           replacement inline creative on the same campaign, pauses the old one).
@@ -42227,8 +43365,9 @@ paths:
                 targeting:
                   type: object
                   description: |
-                    Meta + TikTok (demographics/interests), Google (keyword edits only),
-                    and LinkedIn (geo countries). Pinterest / X return 501.
+                    Meta + TikTok (demographics/interests), Google (keyword and device
+                    bid adjustment edits only), and LinkedIn (geo countries). Pinterest / X
+                    return 501.
                   properties:
                     keywords:
                       type: array
@@ -42244,6 +43383,17 @@ paths:
                         oneOf:
                           - { type: string }
                           - { type: object, required: [text], properties: { text: { type: string, maxLength: 80 }, matchType: { type: string, enum: [exact, phrase, broad] } } }
+                    devices:
+                      type: array
+                      description: "Google only. The FULL new set of device criteria for the campaign; devices not listed are excluded. Entries are a device name alone (included, no bid adjustment) or { device, bidModifier }."
+                      items:
+                        oneOf:
+                          - { type: string, enum: [MOBILE, DESKTOP, TABLET, CONNECTED_TV] }
+                          - type: object
+                            required: [device]
+                            properties:
+                              device: { type: string, enum: [MOBILE, DESKTOP, TABLET, CONNECTED_TV] }
+                              bidModifier: { type: number, minimum: 0.1, maximum: 10, description: 'Google device bid modifier, 0.1 to 10 (minus 90% to plus 900%). Omit a device to exclude it.' }
                     ageMin: { type: integer, minimum: 13, maximum: 65 }
                     ageMax: { type: integer, minimum: 13, maximum: 65 }
                     countries: { type: array, items: { type: string } }
@@ -44080,6 +45230,144 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
+  /v1/ads/accounts/callouts:
+    get:
+      x-resource-group: "ads"
+      operationId: listAccountCallouts
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: List account-level callout extensions
+      description: |-
+        Google Ads compliance row C.75: callout assets linked at the CUSTOMER
+        level via `customer_asset` (not a campaign or ad group), so they serve
+        fleet-wide across the account. Google only; every other platform
+        returns 501. Cached for the quota window (10 minutes fresh, up to 7
+        days last-good), and gated by the shared Google Ads operations budget
+        on a cache miss. The response carries `cachedAt` and `stale`, set when
+        a quota-exhausted call falls back to the last-good copy instead of a
+        live read.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: customerId, in: query, schema: { type: string }, description: "Numeric Google Ads customer id (no dashes). Defaults to the account's connected customer." }
+      responses:
+        '200':
+          description: Account-level callouts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  callouts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetId: { type: string }
+                        text: { type: string }
+                        status: { type: string, description: "customer_asset.status, e.g. ENABLED, REMOVED, PAUSED." }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this list was fetched from Google. Null when it was never served from cache." }
+                  stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { description: Google Ads operations budget exhausted; retry later }
+        '501': { description: Only available on Google Ads accounts }
+
+    post:
+      x-resource-group: "ads"
+      operationId: addAccountCallouts
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: Add account-level callout extensions
+      description: |-
+        Creates one asset plus one `customerAsset` link (field type CALLOUT)
+        per callout text, in a single mutate. Google only; every other
+        platform returns 501.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, callouts]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id owning the Google Ads connection." }
+                customerId: { type: string, description: "Numeric Google Ads customer id. Only required when the connection has more than one." }
+                callouts:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string, minLength: 1, maxLength: 25 }
+                  description: 'Callout text, 1-25 characters each; up to 20 per request (Google''s CalloutAsset limits).'
+      responses:
+        '201':
+          description: Callouts created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  callouts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetId: { type: string }
+                        text: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { description: Only supported on Google Ads }
+
+    delete:
+      x-resource-group: "ads"
+      operationId: removeAccountCallout
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: Remove an account-level callout extension
+      description: |-
+        Removes the `customerAsset` link (`customers/{cid}/customerAssets/{assetId}~CALLOUT`).
+        Google only; every other platform returns 501.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, assetId]
+              properties:
+                accountId: { type: string, description: "Zernio SocialAccount id owning the Google Ads connection." }
+                customerId: { type: string, description: "Numeric Google Ads customer id. Only required when the connection has more than one." }
+                assetId: { type: string, description: "Numeric asset id from GET /v1/ads/accounts/callouts." }
+      responses:
+        '200':
+          description: Callout removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed: { type: boolean }
+                  customerId: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501': { description: Only supported on Google Ads }
+
   /v1/ads/accounts/finance:
     get:
       x-resource-group: "ads"
@@ -44190,6 +45478,8 @@ paths:
                         minimumDailyBudget: { type: number, description: "Meta only. Minimum daily budget for the account, in the account currency's major units. This is the impressions-billed minimum; other billing events have higher minimums. Absent when the connected token cannot read it." }
                         selectable: { type: boolean, description: "Meta and X only. Whether the account can create/run ads now. Absent (treat as true) on other platforms." }
                         unusableReason: { type: [string, "null"], description: "Meta and X only. Human-readable reason when selectable is false; null when selectable." }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "Google only. When this list was fetched from Google. Null when it was never served from cache, or on other platforms." }
+                  stale: { type: boolean, description: "Google only. True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read. Absent on other platforms." }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Platform ads connection required (TikTok Ads, X Ads) or Instagram missing linked Facebook account
@@ -45040,7 +46330,7 @@ paths:
                     Normalized household-income tier. Meta and TikTok express all four; Google maps only
                     `top_10`; rejected on LinkedIn, X, and Pinterest. On Meta, income targeting is incompatible
                     with housing/employment/credit `specialAdCategories`.
-                languages: { type: array, items: { type: string }, description: "Language codes restricting the audience by language. On Meta, ISO 639-1 codes (e.g. ['en'], ['de']); a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code for a specific one (\"en_GB\", \"pt_BR\", \"zh_TW\"). Unknown codes are rejected. Other ad platforms use their own language-code systems." }
+                languages: { type: array, items: { type: string }, description: "e.g. [\"en\",\"es\"]. Google: campaign language targeting (language_constant) using Google's language codes (ISO 639-1, plus variants such as `zh_CN`); unknown codes return 400. On Meta, a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code for a specific one (\"en_GB\", \"pt_BR\", \"zh_TW\"); unknown codes are rejected. Other ad platforms use their own language-code systems." }
                 placements:
                   type: object
                   description: |
@@ -45369,8 +46659,9 @@ paths:
                                 items: { type: string, enum: [mobile, desktop] }
                 audienceId: { type: string, description: Custom audience ID for targeting }
                 campaignType: { type: string, enum: [display, search], default: display, description: Google only }
-                keywords: { type: array, maxItems: 1000, items: { type: string, maxLength: 80 }, description: "Google Search only. BROAD-match keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.keywords, which also sets match types." }
-                negativeKeywords: { type: array, items: { type: string, maxLength: 80 }, description: "Google Search only; other platforms return 400. BROAD-match negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords." }
+                keywords: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/KeywordEntry' }, description: "Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords." }
+                negativeKeywords: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/KeywordEntry' }, description: "Google Search only; other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords." }
+                campaignNegativeKeywords: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/KeywordEntry' }, description: "Google Search only; other platforms return 400. Campaign-level negative keywords (campaign_criterion.negative), created alongside the ad group. Editable later via PUT /v1/ads/campaigns/{campaignId}/negative-keywords." }
                 additionalHeadlines: { type: array, items: { type: string }, description: "Google Search RSA only. Extra headlines." }
                 additionalDescriptions: { type: array, items: { type: string }, description: "Google Search RSA only. Extra descriptions." }
                 sitelinks:
@@ -45457,6 +46748,8 @@ paths:
                     Meta bid strategy applied to the ad set.
 
                     OpenAI Ads: required on every ad group via this flat field, the only channel it supports (`platformSpecificData` is Meta/LinkedIn-only and returns 400 for OpenAI). No auto-bid option exists; send `LOWEST_COST_WITH_BID_CAP` or `COST_CAP` together with `bidAmount`, omitting it returns 400.
+
+                    Google (not deprecated there, this shared flat field is Google's only shape): applied to the campaign this call creates. On Google: LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling; portfolioBidStrategyId attaches a portfolio strategy instead. Omitted, the campaign falls back to a goal-based default.
                 bidAmount:
                   type: number
                   deprecated: true
@@ -45484,6 +46777,10 @@ paths:
                     `bid_constraints.roas_average_floor` × 10000. Known gap: a CBO campaign's
                     ROAS floor lives on the campaign only (set via `POST /v1/ads/campaigns`);
                     there is no supported way to set it while joining a CBO campaign here.
+                portfolioBidStrategyId:
+                  type: string
+                  pattern: '^\d+$'
+                  description: "Google only. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy."
                 valueRuleSetId:
                   type: string
                   pattern: '^\d+$'
@@ -46398,12 +47695,15 @@ paths:
         `POST /v1/ads/targeting/reach-estimate`, and `saved_targeting` audiences.
 
         The `dimension` param selects what is searched, `geo` (locations, further scoped
-        by `geoType`), `interest`, `behavior`, `income`, or the Meta-only work
-        demographics `workPosition`, `workEmployer` and `workIndustry` (their ids feed
-        `TargetingSpec.workPositions`/`workEmployers`/`workIndustries`). Availability of
-        each dimension varies by platform (e.g. behaviours are Meta/TikTok only).
+        by `geoType`), `interest`, `behavior`, `income`, `language` (Google-only), or the
+        Meta-only work demographics `workPosition`, `workEmployer` and `workIndustry` (their
+        ids feed `TargetingSpec.workPositions`/`workEmployers`/`workIndustries`). Availability
+        of each dimension varies by platform (e.g. behaviours are Meta/TikTok only).
         Work industries are a fixed ~30-entry Meta catalog with no server-side query,
-        so `workIndustry` matching, ranking and `limit` happen in Zernio.
+        so `workIndustry` matching, ranking and `limit` happen in Zernio. `language`
+        is likewise a fixed, checked-in table of Google's targetable
+        `language_constant` rows (id, ISO code, name) matched by name or code, capped
+        at 20, with no network call; its ids feed `TargetingSpec.languages`.
         Results are normalized
         across platforms into a single shape, so the same client code consumes Meta,
         TikTok, LinkedIn, X, Pinterest, and Google results.
@@ -46454,7 +47754,7 @@ paths:
       parameters:
         - { name: accountId, in: query, required: true, schema: { type: string }, description: "Social account ID (a connected account on the target ad platform)." }
         - { name: q, in: query, required: true, schema: { type: string }, description: "Search query. For geo, the locality name only (no region/country suffix)." }
-        - { name: dimension, in: query, required: false, schema: { type: string, enum: [geo, interest, behavior, income, workPosition, workEmployer, workIndustry], default: interest }, description: "What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities, `income` resolves income-tier options, `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics. Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias." }
+        - { name: dimension, in: query, required: false, schema: { type: string, enum: [geo, interest, behavior, income, language, workPosition, workEmployer, workIndustry], default: interest }, description: "What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities, `income` resolves income-tier options, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics. Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias." }
         - { name: geoType, in: query, required: false, schema: { type: string, enum: [all, country, region, city, subcity, neighborhood, place, zip, metro_area, geo_market], default: city }, description: "Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`." }
         - { name: countryCode, in: query, required: false, schema: { type: string, minLength: 2, maxLength: 2 }, description: "ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Maximum results to return." }
@@ -46484,6 +47784,117 @@ paths:
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404':
           description: Account not found, or the platform does not support the requested dimension
+
+  /v1/ads/library:
+    get:
+      x-resource-group: "ads"
+      operationId: searchAdLibrary
+      tags: ["Ad Library"]
+      x-platforms: ["meta", "linkedin"]
+      summary: Search the public Ad Library
+      description: |-
+        Competitor and market research over the platform's public ad archive, searched with the
+        customer's own connected token (no extra scope): Meta's Ad Library (`GET /ads_archive`) for
+        a `facebook` / `instagram` / `metaads` account, LinkedIn's Ad Library (`GET /rest/adLibrary`)
+        for a `linkedin` / `linkedinads` account. Rows are returned in the platform's raw shape under
+        `data`; `paging.after` is an opaque cursor on both (`null` when exhausted).
+
+        **Meta coverage.** Political and social-issue ads are searchable worldwide. Every other ad is
+        in the archive only if it was delivered to the EU or UK within the last year, so a US-only
+        commercial advertiser is invisible. Spend, impressions and demographics are political-only
+        fields and are left out of the default projection; request them via `fields`. Meta serves the
+        archive only to people who confirmed their identity and location at facebook.com/ID: until the
+        Facebook user behind the connection has done so, the call fails with
+        `meta_identity_confirmation_required` (403).
+
+        **LinkedIn coverage.** Ads served after June 1 2023, worldwide, kept for a year after their
+        last impression. EU-delivered ads carry impression ranges and the disclosed targeting facets.
+        Pages are capped at 25 ads (`limit` > 25 is a 400); `after` is the next offset.
+
+        Which params apply: `q`, `countries`, `since`, `until`, `limit`, `after` on both; `pageIds`,
+        `adType`, `status`, `platforms`, `mediaType`, `languages`, `searchType`, `fields` are Meta-only;
+        `advertiser` is LinkedIn-only. Passing a param the account's platform does not support is a 400
+        naming the param.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (facebook / instagram / metaads for Meta, linkedin / linkedinads for LinkedIn). Its token is the one that searches." }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: "Keyword search. Meta does not translate it, so write it in the ads' language. Required unless pageIds (Meta) or advertiser (LinkedIn) is given." }
+        - { name: pageIds, in: query, schema: { type: string }, description: "Meta only. Comma-separated Facebook Page ids (max 10) whose ads to list." }
+        - { name: advertiser, in: query, schema: { type: string, maxLength: 100 }, description: "LinkedIn only. Advertiser (Page) name to search." }
+        - { name: countries, in: query, schema: { type: string }, description: "Comma-separated ISO 3166-1 alpha-2 codes the ads reached. Meta defaults to ALL (an explicit ALL is Meta-only); LinkedIn searches every market when omitted." }
+        - { name: adType, in: query, schema: { type: string, enum: [ALL, POLITICAL_AND_ISSUE_ADS, HOUSING_ADS, EMPLOYMENT_ADS, FINANCIAL_PRODUCTS_AND_SERVICES_ADS], default: ALL }, description: "Meta only." }
+        - { name: status, in: query, schema: { type: string, enum: [ACTIVE, INACTIVE, ALL], default: ACTIVE }, description: "Meta only. ACTIVE = eligible for delivery right now." }
+        - { name: platforms, in: query, schema: { type: string }, description: "Meta only. Comma-separated publisher platforms: FACEBOOK, INSTAGRAM, AUDIENCE_NETWORK, MESSENGER, WHATSAPP, OCULUS, THREADS, STREAMING_SERVICES." }
+        - { name: mediaType, in: query, schema: { type: string, enum: [ALL, IMAGE, MEME, VIDEO, NONE] }, description: "Meta only." }
+        - { name: languages, in: query, schema: { type: string }, description: "Meta only. Comma-separated ISO 639-1 codes of the ad text." }
+        - { name: since, in: query, schema: { type: string, format: date }, description: "Earliest delivery date (YYYY-MM-DD)." }
+        - { name: until, in: query, schema: { type: string, format: date }, description: "Latest delivery date (YYYY-MM-DD)." }
+        - { name: searchType, in: query, schema: { type: string, enum: [KEYWORD_UNORDERED, KEYWORD_EXACT_PHRASE], default: KEYWORD_UNORDERED }, description: "Meta only. Whether q matches words in any order or as an exact phrase (comma-separate phrases to match all of them)." }
+        - { name: fields, in: query, schema: { type: string }, description: "Meta only. Raw Graph projection override, e.g. add spend,impressions,demographic_distribution for political ads." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Rows per page. LinkedIn accepts at most 25." }
+        - { name: after, in: query, schema: { type: string }, description: "paging.after of the previous page." }
+      responses:
+        '200':
+          description: Archived ads (raw platform shape)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [platform, data, paging]
+                properties:
+                  platform: { type: string, enum: [meta, linkedin] }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      description: "Meta: an ArchivedAd (id, page_id, page_name, ad_creation_time, ad_delivery_start_time, ad_delivery_stop_time, ad_creative_bodies[], ad_creative_link_titles[], ad_creative_link_descriptions[], ad_creative_link_captions[], ad_snapshot_url, publisher_platforms[], languages[], plus eu_total_reach, beneficiary_payers, target_ages, target_gender, target_locations, age_country_gender_reach_breakdown, total_reach_by_location on EU/UK ads). LinkedIn: { adUrl, isRestricted, details: { type, advertiser: { advertiserName, advertiserUrl, adPayer }, adStatistics: { firstImpressionAt, latestImpressionAt, totalImpressions: { from, to }, impressionsDistributionByCountry[] }, adTargeting: [{ facetName, includedSegments[], excludedSegments[] }] } } (adStatistics and adTargeting only on EU-delivered ads)."
+                  paging:
+                    type: object
+                    properties:
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
+                      total: { type: integer, description: "LinkedIn only. Total matching ads." }
+              examples:
+                meta:
+                  summary: Meta, an EU-delivered ad
+                  value:
+                    platform: meta
+                    data:
+                      - id: "1234567890"
+                        page_id: "811889972008357"
+                        page_name: "Zernio"
+                        ad_creation_time: "2026-08-02"
+                        ad_delivery_start_time: "2026-08-03"
+                        ad_creative_bodies: ["Schedule posts and run ads from one API."]
+                        ad_creative_link_titles: ["Zernio for developers"]
+                        ad_snapshot_url: "https://www.facebook.com/ads/archive/render_ad/?id=1234567890&access_token=..."
+                        publisher_platforms: ["facebook", "instagram"]
+                        languages: ["en"]
+                        eu_total_reach: 18400
+                        target_ages: ["25", "54"]
+                        target_gender: "All"
+                    paging: { after: "QVFIUm..." }
+                linkedin:
+                  summary: LinkedIn, an EU-delivered ad
+                  value:
+                    platform: linkedin
+                    data:
+                      - isRestricted: false
+                        adUrl: "https://www.linkedin.com/ad-library/detail/1521996423"
+                        details:
+                          type: SPONSORED_STATUS_UPDATE
+                          advertiser: { advertiserName: "CEE Microsoft Dynamics Partners", advertiserUrl: "https://www.linkedin.com/company/71491884", adPayer: "UAB Companial" }
+                          adStatistics: { firstImpressionAt: 1788623666998, latestImpressionAt: 1788780782520, totalImpressions: { from: 5000, to: 10000 }, impressionsDistributionByCountry: [] }
+                          adTargeting:
+                            - { facetName: Language, includedSegments: [polski], excludedSegments: [] }
+                            - { facetName: Location, includedSegments: [Polska], excludedSegments: [] }
+                    paging: { after: "25", total: 27147 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: "Ads access required (legacy plans need the Ads add-on), or, on Meta, `meta_identity_confirmation_required`: the Facebook user behind the connection has not confirmed identity and location at facebook.com/ID."
+        '404': { description: Account not found }
+        '501': { description: Only supported on Meta and LinkedIn accounts }
 
   /v1/ads/targeting/reach-estimate:
     post:
@@ -47541,6 +48952,114 @@ paths:
           description: Account not found or not accessible.
         '405':
           description: Conversion adjustments are only available for Google Ads (the account's platform is not `googleads`).
+
+  /v1/ads/conversions/actions:
+    get:
+      x-resource-group: "ads"
+      operationId: listConversionActions
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: List conversion actions and their tag snippets
+      description: |
+        Lists Google Ads conversion actions on the resolved customer, all types by
+        default. Each action's `tagSnippets` (global site tag + event snippet) is
+        included when Google has them for that action's type, e.g. `WEBPAGE`.
+        Google-only; other platforms return `501`. Requires the Ads add-on.
+
+        `customerId` is optional: when omitted, it is resolved from the connection's
+        accessible Google Ads customers, and the call fails with `400` when more than
+        one is accessible (pass `customerId` to disambiguate).
+
+        The list itself is cached for the quota window (1 hour fresh, up to 7 days
+        last-good; the cache key does not vary on `type`). The response carries
+        `cachedAt` and `stale`, set when a quota-exhausted call falls back to the
+        last-good copy instead of a live read.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "SocialAccount _id (must be a googleads account)." }
+        - { name: customerId, in: query, required: false, schema: { type: string }, description: "Google Ads customer id (digits only). Resolved automatically when the connection has exactly one accessible customer." }
+        - { name: type, in: query, required: false, schema: { type: string }, description: "Filter by Google's ConversionActionType enum (e.g. WEBPAGE, UPLOAD_CLICKS)." }
+      responses:
+        '200':
+          description: The resolved customer and its conversion actions.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string, description: "The Google Ads customer id the actions were read from." }
+                  actions:
+                    type: array
+                    items: { $ref: '#/components/schemas/ConversionAction' }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this list was fetched from Google. Null when it was never served from cache." }
+                  stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501':
+          description: Conversion actions are only available for Google Ads (the account's platform is not `googleads`).
+    post:
+      x-resource-group: "ads"
+      operationId: createConversionAction
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: Create a website conversion action
+      description: |
+        Creates a `WEBPAGE` conversion action (category `DEFAULT`) and returns it with
+        its tag snippets, read back after creation since Google never returns them on
+        the create response itself. Invalidates the cached list `GET` on this resource
+        would otherwise keep serving. Google-only; other platforms return `501`.
+        Requires the Ads add-on.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name, type]
+              properties:
+                accountId:
+                  type: string
+                  description: SocialAccount ID. Must be a `googleads` account.
+                customerId:
+                  type: string
+                  description: "Google Ads customer id (digits only). Resolved automatically when the connection has exactly one accessible customer."
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                type:
+                  type: string
+                  enum: [WEBPAGE]
+                  description: "Only WEBPAGE is supported for creation today."
+                defaultValue:
+                  type: number
+                  minimum: 0
+                  description: "Default conversion value used when an event doesn't carry its own value."
+                alwaysUseDefaultValue:
+                  type: boolean
+                  description: "When true, always use defaultValue and ignore any value sent with the event. Defaults to true when defaultValue is set."
+      responses:
+        '201':
+          description: The created conversion action, with its tag snippets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  action: { $ref: '#/components/schemas/ConversionAction' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404': { $ref: '#/components/responses/NotFound' }
+        '501':
+          description: Conversion actions are only available for Google Ads (the account's platform is not `googleads`).
 
   /v1/accounts/{accountId}/conversion-destinations:
     get:
@@ -48708,7 +50227,8 @@ paths:
         pixel.
 
         NOT idempotent on either platform: each call creates a new pixel (and,
-        for OpenAI, a new Conversions API key). Do not retry blindly on
+        for OpenAI, a new Conversions API key plus, with `defaultEventType`, a
+        new conversion event setting). Do not retry blindly on
         timeout. Meta (platform `metaads`) and OpenAI Ads (platform
         `openaiads`); other platforms return 405.
       security:
@@ -48725,6 +50245,10 @@ paths:
               properties:
                 adAccountId: { type: string, description: 'Meta ad account id, e.g. `act_123456789`. Required by this endpoint but ignored for OpenAI Ads.' }
                 name: { type: string, minLength: 1, maxLength: 200 }
+                defaultEventType:
+                  type: string
+                  enum: [order_created, lead_created, items_added, contents_viewed, checkout_started, registration_completed, subscription_created, trial_started, appointment_scheduled, page_viewed, app_installed, app_opened]
+                  description: 'OpenAI Ads only (ignored by Meta). When set, also provisions a standard conversion event setting wired to the new pixel, so `goal: conversions` ad creates on `POST /v1/ads/create` have an event to reference immediately.'
       responses:
         '201':
           description: Tracking tag created

@@ -1,4 +1,5 @@
 from locust import events
+from locust.runners import MasterRunner, WorkerRunner
 
 import logging
 import os
@@ -68,8 +69,16 @@ def setup_opentelemetry(locustfile: str, profile: str | None) -> bool:
             if runner is None:
                 return
 
+            if isinstance(runner, WorkerRunner):
+                # Workers will not report - only  Master would have the correct user count
+                return
+
             def observe_user_count(options):
-                for user_class, count in runner.user_classes_count.items():
+                if isinstance(runner, MasterRunner):
+                    user_classes_count = runner.reported_user_classes_count
+                else:
+                    user_classes_count = runner.user_classes_count
+                for user_class, count in user_classes_count.items():
                     yield metrics.Observation(count, {"user_class": user_class})
 
             meter.create_observable_gauge(

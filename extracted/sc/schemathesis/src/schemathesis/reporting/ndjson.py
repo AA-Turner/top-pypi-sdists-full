@@ -44,7 +44,9 @@ SKIP_FIELDS: dict[str, frozenset[str]] = {
 # Underscore-prefixed dataclass fields are skipped by default. EXPOSE_PRIVATE_FIELDS
 # whitelists per-class fields to keep, mapped to the public name they emit under.
 EXPOSE_PRIVATE_FIELDS: dict[str, dict[str, str]] = {
-    "Case": {"_meta": "meta"},
+    # `auth_identity` names a WFC auth entry, not a credential. Sanitization filters the header it
+    # produced, so without the name a report cannot tell which identity made a request.
+    "Case": {"_meta": "meta", "_auth_identity": "auth_identity"},
 }
 
 # Standard request headers that are always the same and not useful for analysis
@@ -168,7 +170,7 @@ class NdjsonWriter:
     def open(self, seed: int | None = None, *, command: str) -> None:
         """Open the output file and write the Initialize record."""
         if isinstance(self._output, Path):
-            self._owned_file = open(self._output, "w", encoding="utf-8")
+            self._owned_file = open(self._output, "w", encoding="utf-8")  # noqa: SIM115
             self._stream = self._owned_file
         else:
             self._stream = self._output

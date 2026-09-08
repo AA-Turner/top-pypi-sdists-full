@@ -1,6 +1,8 @@
 import dataclasses
 import gzip
+import hashlib
 import http.server
+import json
 import socketserver
 import threading
 import typing
@@ -72,6 +74,21 @@ def make_flaky_context(
     }
 
 
+def collection_fingerprint(test_ids: typing.Iterable[str]) -> str:
+    """The collection fingerprint, recomputed here from its specification.
+
+    Deliberately *not* `_mergify_ci.compute_test_collection_fingerprint`: a test
+    that asks the code under test to predict its own answer cannot tell a
+    correct fingerprint from a consistent mistake. Re-deriving it with `hashlib`
+    -- SHA-256 each identifier, sort the digests, SHA-256 their concatenation --
+    makes the Rust recipe and this one have to agree.
+    """
+    digests = sorted(
+        hashlib.sha256(test_id.encode("utf-8")).digest() for test_id in test_ids
+    )
+    return hashlib.sha256(b"".join(digests)).hexdigest()
+
+
 def install_fake_api_client(
     monkeypatch: pytest.MonkeyPatch,
     *,
@@ -81,6 +98,7 @@ def install_fake_api_client(
     quarantine_error: typing.Optional[str] = None,
     flaky_error: typing.Optional[str] = None,
     test_selection_error: typing.Optional[str] = None,
+    test_selection_calls: typing.Optional[typing.List[typing.Dict[str, str]]] = None,
 ) -> None:
     """Replace the binding's `CiApiClient` with a fake returning injected data.
 
@@ -119,7 +137,18 @@ def install_fake_api_client(
             head_sha: str,
             pipeline_name: str,
             job_name: str,
+            collection_fingerprint: str,
         ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+            if test_selection_calls is not None:
+                test_selection_calls.append(
+                    {
+                        "branch": branch,
+                        "head_sha": head_sha,
+                        "pipeline_name": pipeline_name,
+                        "job_name": job_name,
+                        "collection_fingerprint": collection_fingerprint,
+                    }
+                )
             if test_selection_error is not None:
                 raise RuntimeError(test_selection_error)
             return test_selection
@@ -140,7 +169,22 @@ def isolate_ci_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # A host CI (e.g. GitHub Actions running this very suite) sets provider vars
     # the Rust core would otherwise detect, leaking into tests. Clear them so
     # each test starts clean and opts into a provider explicitly.
-    for var in ("GITHUB_ACTIONS", "CIRCLECI", "JENKINS_URL", "BUILDKITE"):
+    #
+    # `GITHUB_EVENT_NAME`/`GITHUB_EVENT_PATH` belong here even though they name
+    # no provider: on a `pull_request` event the core deliberately reads the head
+    # sha out of the event payload rather than `GITHUB_SHA`, which there is the
+    # merge commit (`providers/github_actions.rs`, `head_sha`). Left alone, a test
+    # setting `GITHUB_SHA` is silently overridden by the real sha of whatever pull
+    # request is running this suite — green locally, red in CI, and only for the
+    # tests that assert a sha.
+    for var in (
+        "GITHUB_ACTIONS",
+        "CIRCLECI",
+        "JENKINS_URL",
+        "BUILDKITE",
+        "GITHUB_EVENT_NAME",
+        "GITHUB_EVENT_PATH",
+    ):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -262,10 +306,15 @@ def _decode_attributes(key_values: typing.Any) -> typing.Dict[str, typing.Any]:
     return {kv.key: _decode_any_value(kv.value) for kv in key_values}
 
 
+# OTLP's `Status.code` enum, as the names this plugin hands the binding.
+_UPLOADED_STATUS = {0: "unset", 1: "ok", 2: "error"}
+
+
 @dataclasses.dataclass
 class UploadedSpan:
     name: str
     attributes: typing.Dict[str, typing.Any]
+    status: str = "unset"
 
 
 @dataclasses.dataclass
@@ -298,6 +347,7 @@ class _OTLPServer(socketserver.TCPServer):
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         self.bodies: typing.List[bytes] = []
+        self.test_selection: typing.Optional[typing.Dict[str, typing.Any]] = None
         super().__init__(*args, **kwargs)
 
 
@@ -316,7 +366,21 @@ class _OTLPRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         # Quarantine and test selection share this base URL. Answering 404 keeps
-        # them out of the way without pretending they were served.
+        # them out of the way without pretending they were served -- unless the
+        # test asked for a selection to be served, which is the only way a run
+        # in a *subprocess* can be given one (the in-process fake client never
+        # reaches it).
+        if self.path.split("?")[0].endswith("/test-selection") and (
+            self.server.test_selection is not None
+        ):
+            payload = json.dumps(self.server.test_selection).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+            return
+
         self.send_response(404)
         self.end_headers()
 
@@ -337,6 +401,10 @@ class OTLPCollector:
     url: str
     _server: _OTLPServer
 
+    def serve_test_selection(self, payload: typing.Dict[str, typing.Any]) -> None:
+        """Answer the test-selection endpoint with `payload` from now on."""
+        self._server.test_selection = payload
+
     @property
     def batches(self) -> typing.List[UploadedBatch]:
         batches = []
@@ -350,6 +418,7 @@ class OTLPCollector:
                     UploadedSpan(
                         name=span.name,
                         attributes=_decode_attributes(span.attributes),
+                        status=_UPLOADED_STATUS[span.status.code],
                     )
                     for scope_spans in resource_spans.scope_spans
                     for span in scope_spans.spans
@@ -368,6 +437,26 @@ class OTLPCollector:
     @property
     def span_names(self) -> typing.Set[str]:
         return {span.name for batch in self.batches for span in batch.spans}
+
+
+def configure_upload(
+    monkeypatch: pytest.MonkeyPatch,
+    collector: OTLPCollector,
+) -> None:
+    """A CI whose traces and fetches both go to `collector`, over real HTTP.
+
+    For a run in a *subprocess*, which is the only kind that actually puts a
+    payload on the wire -- and the only kind `install_fake_api_client` cannot
+    reach, since it patches this process.
+    """
+    monkeypatch.setenv("CI", "true")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "Mergifyio/pytest-mergify")
+    monkeypatch.setenv("MERGIFY_TOKEN", "token")
+    monkeypatch.setenv("MERGIFY_API_URL", collector.url)
+    # Both of these swap the exporter for one that uploads nothing.
+    monkeypatch.delenv("_PYTEST_MERGIFY_TEST", raising=False)
+    monkeypatch.delenv("PYTEST_MERGIFY_DEBUG", raising=False)
 
 
 @pytest.fixture

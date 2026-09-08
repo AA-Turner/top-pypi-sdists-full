@@ -20,7 +20,7 @@ from schemathesis.hooks import (
     dispatch_after_load_schema,
     dispatch_before_load_schema,
 )
-from schemathesis.python import asgi, wsgi
+from schemathesis.python import asgi, django, wsgi
 
 if TYPE_CHECKING:
     from schemathesis.specs.openapi.schemas import OpenApiSchema
@@ -46,8 +46,8 @@ def from_asgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, 
 
     """
     require_relative_url(path)
-    client = asgi.get_client(app)
-    response = load_from_url(client.get, url=path, **kwargs)
+    with asgi.get_client(app) as client, django.explain_disallowed_host(app, host=asgi.HOST):
+        response = load_from_url(client.get, url=path, **kwargs)
     content_type = detect_content_type(headers=response.headers, path=path)
     schema = load_content(decode_lossy(response.content, response.encoding), content_type)
     loaded = from_dict(schema=schema, config=config)
@@ -79,7 +79,8 @@ def from_wsgi(path: str, app: Any, *, config: SchemathesisConfig | None = None, 
     prepare_request_kwargs(kwargs)
     client = wsgi.get_client(app)
     response = client.get(path=path, **kwargs)
-    raise_for_status(response)
+    with django.explain_disallowed_host(app, host=wsgi.HOST):
+        raise_for_status(response)
     content_type = detect_content_type(headers=response.headers, path=path)
     encoding = response.mimetype_params.get("charset", "utf-8")
     schema = load_content(decode_lossy(response.get_data(), encoding), content_type)
@@ -244,7 +245,7 @@ def from_dict(schema: dict[str, Any], *, config: SchemathesisConfig | None = Non
         from schemathesis.wfc.integration import register_wfc_auth
 
         try:
-            register_wfc_auth(instance, project_config.auth.wfc)
+            register_wfc_auth(instance, project_config.auth.wfc, user=project_config.auth.wfc_user)
         except WFCError as exc:
             raise LoaderError(
                 LoaderErrorKind.OPEN_API_INVALID_SCHEMA,

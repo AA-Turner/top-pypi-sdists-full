@@ -344,13 +344,9 @@ else:
         __orig_bases__: ClassVar[tuple[Any, ...]]
 
         @overload
-        def __init__(self, typename: str, fields: Iterable[tuple[str, Any]] = ...) -> None:
-            """Initialize self.  See help(type(self)) for accurate signature."""
-            ...
+        def __init__(self, typename: str, fields: Iterable[tuple[str, Any]] = ...) -> None: ...
         @overload
-        def __init__(self, typename: str, fields: None = None, **kwargs: Any) -> None:
-            """Initialize self.  See help(type(self)) for accurate signature."""
-            ...
+        def __init__(self, typename: str, fields: None = None, **kwargs: Any) -> None: ...
 
         @classmethod
         def _make(cls, iterable: Iterable[Any]) -> Self: ...
@@ -476,18 +472,7 @@ else:
 
     NoDefault: _NoDefaultType
     @final
-    class CapsuleType:
-        """
-        Capsule objects let you wrap a C "void *" pointer in a Python
-        object.  They're a way of passing data through the Python interpreter
-        without creating your own custom type.
-
-        Capsules are used for communication between extension modules.
-        They provide a way for an extension module to export a C interface
-        to other extension modules, so that extension modules can use the
-        Python import mechanism to link to one another.
-        """
-        ...
+    class CapsuleType: ...
 
     class deprecated:
         message: LiteralString

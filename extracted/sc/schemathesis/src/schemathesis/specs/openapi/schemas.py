@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterator, Mapping
-from contextlib import suppress
 from dataclasses import dataclass, field
 from difflib import get_close_matches
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, NoReturn, cast
+from urllib.parse import urljoin, urlsplit
 
 from packaging import version
 from requests.structures import CaseInsensitiveDict
@@ -50,6 +50,7 @@ from ._operation_lookup import OperationLookup
 from .examples import get_strategies_from_examples
 from .operations import HTTP_METHODS, SCHEMA_PARSING_ERRORS, OperationLoader
 from .stateful import create_state_machine
+from .utils import parse_spec_version
 from .validation import ResponseValidator
 
 if TYPE_CHECKING:
@@ -60,7 +61,7 @@ if TYPE_CHECKING:
 
     from schemathesis.auths import AuthContext, AuthProvider, AuthStorage
     from schemathesis.config import GenerationConfig
-    from schemathesis.core.adapter import OperationParameter
+    from schemathesis.core.adapter import ParsedParameters
     from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.schema_analysis import SchemaWarning
@@ -68,6 +69,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.observations import Observations
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.engine.run import Phase
+    from schemathesis.generation.coverage import GenerationSession
     from schemathesis.generation.stateful import APIStateMachine
     from schemathesis.python._constants.pool import ConstantsPool
     from schemathesis.specs.openapi.adapter import OpenApiResponses
@@ -99,8 +101,7 @@ class OpenApiSchema(BaseSchema):
         self._operation_lookup = OperationLookup(self, HTTP_METHODS)
         self._operations = OperationLoader(self)
         self._response_validator = ResponseValidator(self)
-        # Path-level dedup of undeclared-method coverage probes; cleared per coverage phase via
-        # `reset_coverage_state`.
+        # Path-level dedup of undeclared-method coverage probes for callers that pass no run-scoped set.
         self.coverage_unexpected_methods_seen: set[tuple[str, str]] = set()
         # Per-operation security overlays populated by runtime auth inference. Empty when the server
         # never enforces auth on a declared-public operation; otherwise generations consult this
@@ -117,7 +118,7 @@ class OpenApiSchema(BaseSchema):
         openapi_version = self.raw_schema.get("openapi")
         if openapi_version is not None:
             self._spec_version = openapi_version
-            parsed_version = version.parse(openapi_version)
+            parsed_version = parse_spec_version(openapi_version)
             if parsed_version >= _V3_2:
                 self.adapter = adapter.v3_2
             elif parsed_version >= _V3_1:
@@ -178,10 +179,6 @@ class OpenApiSchema(BaseSchema):
         )
 
     @override
-    def reset_coverage_state(self) -> None:
-        self.coverage_unexpected_methods_seen.clear()
-
-    @override
     def record_runtime_observations(
         self,
         *,
@@ -212,6 +209,8 @@ class OpenApiSchema(BaseSchema):
         generation_config: GenerationConfig,
         extra_data_source: ResourcePool | None = None,
         error_feedback: ErrorFeedbackStore | None = None,
+        unexpected_methods_seen: set[tuple[str, str]] | None = None,
+        session: GenerationSession | None = None,
     ) -> Iterator[Case]:
         from schemathesis.specs.openapi.coverage._operation import iter_coverage_cases
 
@@ -223,8 +222,11 @@ class OpenApiSchema(BaseSchema):
             unexpected_methods=phases_config.coverage.unexpected_methods,
             generation_config=generation_config,
             extra_data_source=extra_data_source,
-            unexpected_methods_seen=self.coverage_unexpected_methods_seen,
+            unexpected_methods_seen=unexpected_methods_seen
+            if unexpected_methods_seen is not None
+            else self.coverage_unexpected_methods_seen,
             error_feedback=error_feedback,
+            session=session,
         )
 
     @override
@@ -338,8 +340,11 @@ class OpenApiSchema(BaseSchema):
         if self.analysis.should_inject_links():
             injected += self.analysis.inject_links()
         # Injected links land in the schema, where operations may share a response definition, so one
-        # injection can add several transitions. Re-measure instead of adding the injection count.
-        transitions = self._measure_statistic().transitions if injected else self.statistic.transitions
+        # injection can add several transitions. Drop the memoized measurement so this call and every
+        # later reader see them, rather than the counts from before the injection.
+        if injected:
+            self.__dict__.pop("statistic", None)
+        transitions = self.statistic.transitions
         return StatefulInference(inferred=injected, total=transitions.total, selected=transitions.selected)
 
     @override
@@ -431,12 +436,25 @@ class OpenApiSchema(BaseSchema):
     def _get_base_path(self) -> str:
         return self.adapter.get_base_path(self.raw_schema)
 
+    @cached_property
+    def _schema_document_path(self) -> str | None:
+        """Path the schema document was served from, if it came over HTTP."""
+        if self.location is None:
+            return None
+        parts = urlsplit(self.location)
+        # A `file://` location points at the filesystem and can never be an endpoint of the API under test.
+        if parts.scheme not in ("", "http", "https"):
+            return None
+        # ASGI / WSGI loaders accept a path with no leading slash, while operation paths always have one.
+        return urljoin("/", parts.path).rstrip("/")
+
     @property
     @override
     def declared_base_url(self) -> str | None:
-        with suppress(InvalidSchema):
+        try:
             return self.adapter.get_base_url(self.raw_schema)
-        return None
+        except InvalidSchema:
+            return None
 
     def _get_paths(self) -> Mapping[str, Any] | None:
         paths = self.raw_schema.get("paths")
@@ -519,8 +537,10 @@ class OpenApiSchema(BaseSchema):
 
     @override
     def validate(self) -> None:
-        with suppress(TypeError):
+        try:
             self._validate()
+        except TypeError:
+            pass
 
     def _validate(self) -> None:
         self.adapter.validate_schema(self.raw_schema)
@@ -530,7 +550,7 @@ class OpenApiSchema(BaseSchema):
         definition: OperationObject,
         shared_parameters: Sequence[dict[str, Any]],
         resolver: Resolver | None = None,
-    ) -> list[OperationParameter]:
+    ) -> ParsedParameters:
         return self._operations._iter_parameters(definition, shared_parameters, resolver=resolver)
 
     def _parse_responses(
@@ -545,7 +565,7 @@ class OpenApiSchema(BaseSchema):
         self,
         path: str,
         method: HttpMethodSchema,
-        parameters: list[OperationParameter],
+        parameters: ParsedParameters,
         definition: OperationObject,
         scope: str,
         resolver: Resolver | None = None,

@@ -27,7 +27,7 @@ class DatabaseStatusResponse(UniversalBaseModel):
 
     provider: str = pydantic.Field()
     """
-    Database provider ('neon_cloud' or 'kronos')
+    Database provider ('kronos')
     """
 
     status: DatabaseStatusResponseStatus = pydantic.Field()

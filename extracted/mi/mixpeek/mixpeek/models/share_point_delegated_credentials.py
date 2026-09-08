@@ -25,12 +25,12 @@ from typing_extensions import Self
 
 class SharePointDelegatedCredentials(BaseModel):
     """
-    SharePoint/OneDrive delegated (user) authentication via OAuth2.  Delegated flow provides access on behalf of a specific user. Useful when you need to access files with user-level permissions.  Prerequisites:     1. Register an application in Azure AD     2. Grant Microsoft Graph API permissions:        - Sites.Read.All (Delegated) or Sites.Selected        - Files.Read.All (Delegated) or Files.Read     3. Configure redirect URI for OAuth flow     4. Complete OAuth consent to obtain refresh token  Security:     - client_secret and refresh_token encrypted at rest     - Access scoped to what the consenting user can access     - Refresh tokens can be revoked by user or admin  Use Cases:     - Personal OneDrive access     - User-specific SharePoint sites     - Respecting per-user permissions
+    SharePoint/OneDrive delegated (user) authentication via OAuth2.  Delegated flow provides access on behalf of a specific user. Useful when you need to access files with user-level permissions.  Prerequisites:     1. Register an application in Azure AD     2. Grant Microsoft Graph API permissions:        - Sites.Read.All (Delegated) or Sites.Selected        - Files.Read.All (Delegated) or Files.Read     3. Configure redirect URI for OAuth flow     4. Complete OAuth consent to obtain refresh token  Security:     - client_secret and refresh_token are secret credentials, redacted on read     - Access scoped to what the consenting user can access     - Refresh tokens can be revoked by user or admin  Use Cases:     - Personal OneDrive access     - User-specific SharePoint sites     - Respecting per-user permissions
     """ # noqa: E501
     type: Optional[StrictStr] = 'delegated'
     tenant_id: StrictStr = Field(description="REQUIRED. Azure AD tenant ID. Use 'common' for multi-tenant apps, or specific tenant ID for single-tenant.")
     client_id: StrictStr = Field(description="REQUIRED. Azure AD application (client) ID.")
-    client_secret: StrictStr = Field(description="REQUIRED. Azure AD client secret. SECURITY: Encrypted at rest via CSFLE.")
+    client_secret: StrictStr = Field(description="REQUIRED. Azure AD client secret. SECURITY: Secret credential, redacted on read. Never log or expose.")
     refresh_token: StrictStr = Field(description="REQUIRED. OAuth2 refresh token obtained from consent flow. SECURITY: Encrypted at rest. Can be revoked by user. Obtain via: Complete OAuth flow with Files.Read.All scope.")
     __properties: ClassVar[List[str]] = ["type", "tenant_id", "client_id", "client_secret", "refresh_token"]
 

@@ -34,7 +34,7 @@ class StorageConnectionUpdateRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. New metadata dictionary. Replaces existing metadata entirely (partial updates not supported). Set to empty dict {} to clear all metadata.")
     status: Optional[TaskStatusEnum] = Field(default=None, description="OPTIONAL. New operational status. ACTIVE: Connection is healthy and ready for use. SUSPENDED: Temporarily disabled, credentials preserved. FAILED: Health checks failing. ARCHIVED: Permanently retired (cannot be reactivated).")
     is_active: Optional[StrictBool] = Field(default=None, description="OPTIONAL. Quick boolean flag for filtering. True when status is ACTIVE, False otherwise. Automatically maintained when status changes.")
-    provider_config: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Updated provider configuration including credentials. Replaces entire provider_config (partial updates not supported). SECURITY: Sensitive fields are encrypted at rest.")
+    provider_config: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Updated provider configuration including credentials. Replaces entire provider_config (partial updates not supported). SECURITY: Sensitive fields are secret and redacted on read.")
     __properties: ClassVar[List[str]] = ["name", "description", "metadata", "status", "is_active", "provider_config"]
 
     model_config = ConfigDict(

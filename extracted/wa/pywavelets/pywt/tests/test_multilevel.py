@@ -14,7 +14,6 @@ from numpy.testing import (
     assert_equal,
     assert_raises,
     assert_raises_regex,
-    assert_warns,
 )
 
 import pywt
@@ -75,6 +74,12 @@ def test_wavedec():
     assert_allclose(cD2, [4., -3.5])
     assert_allclose(cD1, [-2.82842712, 0, -4.94974747, -1.41421356])
     assert_(pywt.dwt_max_level(len(x), db1) == 3)
+
+
+def test_wavedec_readonly_array():
+    data = np.random.randn(1000).astype(np.float64)
+    data.setflags(write=False)
+    pywt.wavedec(data, "db4", level=2)
 
 
 def test_waverec_invalid_inputs():
@@ -899,8 +904,9 @@ def test_fswavedecn_fswaverecn_variable_levels():
     assert_raises(ValueError, pywt.fswavedecn, data, 'haar', levels=(1, 1, 1, 1))
 
     # levels too large for array size
-    assert_warns(UserWarning, pywt.fswavedecn, data, 'haar',
-                 levels=int(np.log2(np.min(data.shape)))+1)
+    with pytest.warns(UserWarning):
+        pywt.fswavedecn(data, 'haar',
+                        levels=int(np.log2(np.min(data.shape)))+1)
 
 
 def test_fswavedecn_fswaverecn_variable_wavelets_and_modes():
@@ -967,8 +973,8 @@ def test_fswavedecnresult():
                   k, np.zeros(tuple([s + 1 for s in d.shape])))
 
     # warns on assigning with a non-matching dtype
-    assert_warns(UserWarning, result.__setitem__,
-                 k, np.zeros_like(d).astype(np.float32))
+    with pytest.warns(UserWarning):
+        result.__setitem__(k, np.zeros_like(d).astype(np.float32))
 
     # all coefficients are stacked into result.coeffs (same ndim)
     assert_equal(result.coeffs.ndim, data.ndim)

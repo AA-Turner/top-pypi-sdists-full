@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_sagemaker.type_defs import AIBenchmarkInferenceComponentTypeDef
+    from types_aiobotocore_sagemaker.type_defs import AIAdapterModelPackageEntryTypeDef
 
-    data: AIBenchmarkInferenceComponentTypeDef = ...
+    data: AIAdapterModelPackageEntryTypeDef = ...
     ```
 """
 
@@ -372,6 +372,11 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AIAdapterModelPackageEntryTypeDef",
+    "AIAdapterS3EntryTypeDef",
+    "AIAdapterSourceOutputTypeDef",
+    "AIAdapterSourceTypeDef",
+    "AIAdapterSourceUnionTypeDef",
     "AIBenchmarkEndpointOutputTypeDef",
     "AIBenchmarkEndpointTypeDef",
     "AIBenchmarkInferenceComponentTypeDef",
@@ -393,6 +398,7 @@ __all__ = (
     "AIMlflowConfigTypeDef",
     "AIModelSourceS3TypeDef",
     "AIModelSourceTypeDef",
+    "AIRecommendationAdapterDetailsTypeDef",
     "AIRecommendationComputeSpecOutputTypeDef",
     "AIRecommendationComputeSpecTypeDef",
     "AIRecommendationComputeSpecUnionTypeDef",
@@ -1828,6 +1834,7 @@ __all__ = (
     "PipelineVersionTypeDef",
     "PlacementSpecificationTypeDef",
     "PredefinedMetricSpecificationTypeDef",
+    "PrefixAwareRoutingConfigTypeDef",
     "PresignedUrlAccessConfigTypeDef",
     "PriorityClassTypeDef",
     "ProcessingClusterConfigTypeDef",
@@ -2234,6 +2241,14 @@ __all__ = (
     "WorkspaceSettingsTypeDef",
     "WorkteamTypeDef",
 )
+
+class AIAdapterModelPackageEntryTypeDef(TypedDict):
+    AdapterId: str
+    ModelPackageArn: str
+
+class AIAdapterS3EntryTypeDef(TypedDict):
+    AdapterId: str
+    S3Uri: str
 
 class AIBenchmarkInferenceComponentTypeDef(TypedDict):
     Identifier: str
@@ -3261,6 +3276,7 @@ class ServerlessJobConfigTypeDef(TypedDict):
     Peft: NotRequired[Literal["LORA"]]
     EvaluationType: NotRequired[EvaluationTypeType]
     EvaluatorArn: NotRequired[str]
+    SequenceLength: NotRequired[str]
 
 class SessionChainingConfigTypeDef(TypedDict):
     EnableSessionTagChaining: NotRequired[bool]
@@ -5231,9 +5247,6 @@ class RoleGroupAssignmentTypeDef(TypedDict):
     RoleName: str
     GroupPatterns: Sequence[str]
 
-class ProductionVariantRoutingConfigTypeDef(TypedDict):
-    RoutingStrategy: RoutingStrategyType
-
 class ProductionVariantStatusTypeDef(TypedDict):
     Status: VariantStatusType
     StatusMessage: NotRequired[str]
@@ -5274,14 +5287,18 @@ class TuningJobStepMetaDataTypeDef(TypedDict):
 class SelectiveExecutionResultTypeDef(TypedDict):
     SourcePipelineExecutionArn: NotRequired[str]
 
+class PrefixAwareRoutingConfigTypeDef(TypedDict):
+    PrefixLength: NotRequired[int]
+    ConcurrencyThreshold: NotRequired[int]
+
 class PriorityClassTypeDef(TypedDict):
     Name: str
     Weight: int
 
 class ProcessingClusterConfigTypeDef(TypedDict):
-    InstanceCount: int
-    InstanceType: ProcessingInstanceTypeType
     VolumeSizeInGB: int
+    InstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ProcessingInstanceTypeType]
     VolumeKmsKeyId: NotRequired[str]
 
 class ProcessingFeatureStoreOutputTypeDef(TypedDict):
@@ -5696,6 +5713,18 @@ class WorkforceVpcConfigResponseTypeDef(TypedDict):
     Subnets: list[str]
     VpcEndpointId: NotRequired[str]
 
+class AIAdapterSourceOutputTypeDef(TypedDict):
+    ModelPackageArns: NotRequired[list[AIAdapterModelPackageEntryTypeDef]]
+    S3Uris: NotRequired[list[AIAdapterS3EntryTypeDef]]
+
+class AIAdapterSourceTypeDef(TypedDict):
+    ModelPackageArns: NotRequired[Sequence[AIAdapterModelPackageEntryTypeDef]]
+    S3Uris: NotRequired[Sequence[AIAdapterS3EntryTypeDef]]
+
+class AIRecommendationAdapterDetailsTypeDef(TypedDict):
+    ModelPackageArns: list[AIAdapterModelPackageEntryTypeDef]
+    S3Uris: list[AIAdapterS3EntryTypeDef]
+
 class AIBenchmarkEndpointOutputTypeDef(TypedDict):
     Identifier: str
     TargetContainerHostname: NotRequired[str]
@@ -5795,6 +5824,7 @@ class AIRecommendationDeploymentConfigurationTypeDef(TypedDict):
     InstanceCount: NotRequired[int]
     CopyCountPerInstance: NotRequired[int]
     EnvironmentVariables: NotRequired[dict[str, str]]
+    MinCpuMemoryRequiredInMb: NotRequired[int]
 
 class AIRecommendationModelDetailsTypeDef(TypedDict):
     ModelPackageArn: NotRequired[str]
@@ -10016,6 +10046,10 @@ class PartnerAppConfigTypeDef(TypedDict):
     AssignedGroupPatterns: NotRequired[Sequence[str]]
     RoleGroupAssignments: NotRequired[Sequence[RoleGroupAssignmentTypeDef]]
 
+class ProductionVariantRoutingConfigTypeDef(TypedDict):
+    RoutingStrategy: RoutingStrategyType
+    PrefixAwareRoutingConfig: NotRequired[PrefixAwareRoutingConfigTypeDef]
+
 class SchedulerConfigOutputTypeDef(TypedDict):
     PriorityClasses: NotRequired[list[PriorityClassTypeDef]]
     FairShare: NotRequired[FairShareType]
@@ -10176,6 +10210,8 @@ class WorkforceTypeDef(TypedDict):
     FailureReason: NotRequired[str]
     IpAddressType: NotRequired[WorkforceIpAddressTypeType]
 
+AIAdapterSourceUnionTypeDef = Union[AIAdapterSourceTypeDef, AIAdapterSourceOutputTypeDef]
+
 class AIBenchmarkTargetOutputTypeDef(TypedDict):
     Endpoint: NotRequired[AIBenchmarkEndpointOutputTypeDef]
 
@@ -10217,6 +10253,7 @@ class AIRecommendationTypeDef(TypedDict):
     DeploymentConfiguration: NotRequired[AIRecommendationDeploymentConfigurationTypeDef]
     AIBenchmarkJobArn: NotRequired[str]
     ExpectedPerformance: NotRequired[list[AIRecommendationPerformanceMetricTypeDef]]
+    AdapterDetails: NotRequired[AIRecommendationAdapterDetailsTypeDef]
 
 class AIWorkloadInputDataConfigTypeDef(TypedDict):
     ChannelName: str
@@ -11609,6 +11646,7 @@ class CreateAIRecommendationJobRequestTypeDef(TypedDict):
     InferenceSpecification: NotRequired[AIRecommendationInferenceSpecificationTypeDef]
     OptimizeModel: NotRequired[bool]
     ComputeSpec: NotRequired[AIRecommendationComputeSpecUnionTypeDef]
+    AdapterSource: NotRequired[AIAdapterSourceUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class DescribeAIRecommendationJobResponseTypeDef(TypedDict):
@@ -11625,6 +11663,7 @@ class DescribeAIRecommendationJobResponseTypeDef(TypedDict):
     Recommendations: list[AIRecommendationTypeDef]
     RoleArn: str
     ComputeSpec: AIRecommendationComputeSpecOutputTypeDef
+    AdapterSource: AIAdapterSourceOutputTypeDef
     CreationTime: datetime
     StartTime: datetime
     EndTime: datetime
@@ -12338,6 +12377,7 @@ class DescribeOptimizationJobResponseTypeDef(TypedDict):
     RoleArn: str
     StoppingCondition: StoppingConditionTypeDef
     VpcConfig: OptimizationVpcConfigOutputTypeDef
+    TrainingPlanArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 CreatePartnerAppRequestTypeDef = TypedDict(
@@ -13163,6 +13203,7 @@ class CreateOptimizationJobRequestTypeDef(TypedDict):
     OptimizationEnvironment: NotRequired[Mapping[str, str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     VpcConfig: NotRequired[OptimizationVpcConfigUnionTypeDef]
+    TrainingPlanArns: NotRequired[Sequence[str]]
 
 class DescribeDataQualityJobDefinitionResponseTypeDef(TypedDict):
     JobDefinitionArn: str

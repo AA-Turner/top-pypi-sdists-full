@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.20.0
+Version: 2.21.1
 Summary: Rich MySQL terminal client with autocompletion, syntax highlighting, and dataframes
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -89,9 +89,17 @@ Documentation: [https://mycli.net/docs](https://mycli.net/docs)
   <img alt="CompletionGif" src="https://raw.githubusercontent.com/dbcli/mycli/main/doc/screenshots/main.gif">
 </div>
 
-Mycli is compatible with MySQL, MariaDB, Percona, TiDB, and Apache Doris.
+Mycli is known to be compatible with
 
-Postgres Equivalent: [https://pgcli.com](https://pgcli.com)
+ * [MySQL](https://www.mysql.com/)
+ * [MariaDB](https://mariadb.org/)
+ * [Percona](https://www.percona.com/)
+ * [TiDB](https://www.pingcap.com/)
+ * [Apache Doris](https://doris.apache.org/)
+
+Postgres equivalent
+
+ * [pgcli](https://pgcli.com)
 
 # Release 2.x
 
@@ -222,6 +230,14 @@ Fedora has a package available for mycli; install it using dnf.  The `fzf` and
 
 ```bash
 sudo dnf install mycli fzf python-pygments
+```
+
+### Docker
+
+The images on Dockerhub are out of date.  ghcr.io is preferred.  Example:
+
+```
+docker run -it ghcr.io/dbcli/mycli:latest mycli --help
 ```
 
 ### Windows

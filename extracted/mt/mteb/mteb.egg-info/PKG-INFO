@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.20.10
+Version: 2.20.11
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -255,6 +255,9 @@ Requires-Dist: librosa>=0.10.0; extra == "languagebind"
 Requires-Dist: datasets<5.0.0,>=3.3.0; extra == "languagebind"
 Provides-Extra: gme
 Requires-Dist: transformers<4.52.0; extra == "gme"
+Provides-Extra: imagebind
+Requires-Dist: imagebind-unofficial>=0.1.0; extra == "imagebind"
+Requires-Dist: soundfile>=0.13.1; extra == "imagebind"
 Dynamic: license-file
 
 <h1 align="center">

@@ -204,6 +204,8 @@ from .type_defs import (
     UpdateProxyRulePrioritiesResponseTypeDef,
     UpdateProxyRuleRequestTypeDef,
     UpdateProxyRuleResponseTypeDef,
+    UpdateProxySettingsRequestTypeDef,
+    UpdateProxySettingsResponseTypeDef,
     UpdateRuleGroupRequestTypeDef,
     UpdateRuleGroupResponseTypeDef,
     UpdateSubnetChangeProtectionRequestTypeDef,
@@ -327,7 +329,7 @@ class NetworkFirewallClient(AioBaseClient):
         self, **kwargs: Unpack[CreateContainerAssociationRequestTypeDef]
     ) -> CreateContainerAssociationResponseTypeDef:
         """
-        Creates a container association for Network Firewall.
+        Creates a Network Firewall container association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_container_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#create_container_association)
@@ -429,7 +431,7 @@ class NetworkFirewallClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteContainerAssociationRequestTypeDef]
     ) -> DeleteContainerAssociationResponseTypeDef:
         """
-        Deletes the specified container association.
+        Deletes a container association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_container_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_container_association)
@@ -550,7 +552,7 @@ class NetworkFirewallClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeContainerAssociationRequestTypeDef]
     ) -> DescribeContainerAssociationResponseTypeDef:
         """
-        Returns the properties of a container association.
+        Retrieves the configuration and status of a container association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_container_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_container_association)
@@ -767,7 +769,7 @@ class NetworkFirewallClient(AioBaseClient):
         self, **kwargs: Unpack[ListContainerAssociationsRequestTypeDef]
     ) -> ListContainerAssociationsResponseTypeDef:
         """
-        Retrieves the metadata for the container associations that you have defined.
+        Lists the container associations in your account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_container_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#list_container_associations)
@@ -968,7 +970,8 @@ class NetworkFirewallClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateContainerAssociationRequestTypeDef]
     ) -> UpdateContainerAssociationResponseTypeDef:
         """
-        Updates the properties of an existing container association.
+        Updates the monitoring configurations and description of a container
+        association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_container_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_container_association)
@@ -1094,6 +1097,16 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_rule_priorities.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_proxy_rule_priorities)
+        """
+
+    async def update_proxy_settings(
+        self, **kwargs: Unpack[UpdateProxySettingsRequestTypeDef]
+    ) -> UpdateProxySettingsResponseTypeDef:
+        """
+        Modifies the proxy listener configuration of a proxy mode firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_proxy_settings.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_proxy_settings)
         """
 
     async def update_rule_group(

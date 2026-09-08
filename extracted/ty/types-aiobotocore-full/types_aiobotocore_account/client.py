@@ -47,6 +47,8 @@ from .type_defs import (
     GetGovCloudAccountInformationResponseTypeDef,
     GetPrimaryEmailRequestTypeDef,
     GetPrimaryEmailResponseTypeDef,
+    GetPrimaryEmailUpdateStatusRequestTypeDef,
+    GetPrimaryEmailUpdateStatusResponseTypeDef,
     GetRegionOptStatusRequestTypeDef,
     GetRegionOptStatusResponseTypeDef,
     ListRegionsRequestTypeDef,
@@ -206,6 +208,17 @@ class AccountClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/get_primary_email.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_account/client/#get_primary_email)
+        """
+
+    async def get_primary_email_update_status(
+        self, **kwargs: Unpack[GetPrimaryEmailUpdateStatusRequestTypeDef]
+    ) -> GetPrimaryEmailUpdateStatusResponseTypeDef:
+        """
+        Retrieves the status of the most recent primary email update for the specified
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/get_primary_email_update_status.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_account/client/#get_primary_email_update_status)
         """
 
     async def get_region_opt_status(

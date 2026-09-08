@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aiobotocore
-Version: 3.9.0
+Version: 3.9.1
 Summary: Async client for aws services using botocore and aiohttp
 Project-URL: Repository, https://github.com/aio-libs/aiobotocore
 Project-URL: Documentation, https://aiobotocore.aio-libs.org
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: aiohttp<4.0.0,>=3.14.0
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.43.57,>=1.43.3
+Requires-Dist: botocore<1.43.76,>=1.43.66
 Requires-Dist: jmespath<2.0.0,>=0.7.1
 Requires-Dist: multidict<7.0.0,>=6.0.0
 Requires-Dist: python-dateutil<3.0.0,>=2.1
@@ -258,6 +258,21 @@ Requirements
 
 Changes
 -------
+
+3.9.1 (2026-08-20)
+^^^^^^^^^^^^^^^^^^^
+* bump botocore dependency specification to support
+  ``"botocore >= 1.43.66, < 1.43.76"`` (#1693, #1709)
+* seed the ``amz-sdk-request`` header's ``max`` token on the initial request
+  attempt (previously only appeared once a retry occurred) and honour a
+  per-request ``read_timeout`` override when computing retry timing, matching
+  botocore 1.43.66 and 1.43.72 (#1709)
+* fix login credential refreshes calling botocore's sync-only
+  ``create_o_auth2_token`` compatibility alias, which aiobotocore cannot
+  resolve asynchronously, by calling the generated ``create_oauth2_token``
+  method directly (closes #1697) (#1704)
+* fix a concurrency-safety issue in ``HTTPSession`` session management
+  (closes #1695) (#1696)
 
 3.9.0 (2026-08-01)
 ^^^^^^^^^^^^^^^^^^

@@ -75,7 +75,7 @@ sequence = ["typecheck-mypy", "typecheck-pyright", "typecheck-ty"]
 [tool.poe.tasks.buildcheck]
 help = "Validate built artifacts (run `uv build` first)"
 default_item_type = "cmd"
-sequence = ["uvx check-wheel-contents dist", "uvx twine check --strict dist/*"]
+sequence = ["uvx check-wheel-contents dist", "uvx twine check --strict dist/*.whl dist/*.tar.gz"]
 
 [tool.poe.tasks.check]
 help = "Run all lint/type/security/test checks"
@@ -90,6 +90,10 @@ minversion = "6.0"
 junit_family = "xunit2"
 addopts = ["--import-mode=importlib", "--strict-markers"]
 testpaths = ["tests"]
+filterwarnings = [
+    # aiosmtpd 1.4.6 still imports typing.ByteString (deprecated in 3.14)
+    "ignore:'typing.ByteString' and 'collections.abc.ByteString' are deprecated:DeprecationWarning:aiosmtpd.proxy_protocol",
+]
 markers = [
     "smtpd_options",
     "smtpd_mocks",

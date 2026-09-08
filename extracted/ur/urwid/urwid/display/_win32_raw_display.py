@@ -80,7 +80,9 @@ class Screen(_raw_display_base.Screen):
         """
         Initialize the screen and input mode.
 
-        alternate_buffer -- use alternate screen buffer
+        :param alternate_buffer: use alternate screen buffer
+        :raises TypeError: unexpected positional or keyword arguments were given.
+        :raises RuntimeError: the console mode could not be set.
         """
         if args or kwargs:
             raise TypeError(f"start() got unexpected arguments: {args=!r}, {kwargs=!r}")
@@ -129,12 +131,15 @@ class Screen(_raw_display_base.Screen):
     def _stop(self) -> None:
         """
         Restore the screen.
+
+        :raises RuntimeError: the original console mode could not be restored.
         """
         self.clear()
 
         signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
 
         self._stop_mouse_restore_buffer()
+        self._stop_restore_palette()
 
         if self._dwOriginalOutMode is not None and self._dwOriginalInMode is not None:
             handle_out = _win32.GetStdHandle(_win32.STD_OUTPUT_HANDLE)

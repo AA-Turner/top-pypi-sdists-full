@@ -8,7 +8,7 @@ import jsonschema_rs
 from packaging import version
 
 from schemathesis.core import INJECTED_PATH_PARAMETER_KEY
-from schemathesis.core.adapter import OperationParameter
+from schemathesis.core.adapter import OperationParameter, ParsedParameters
 from schemathesis.core.errors import (
     SCHEMA_ERROR_SUGGESTION,
     HookExecutionError,
@@ -18,7 +18,7 @@ from schemathesis.core.errors import (
     SchemaLocation,
 )
 from schemathesis.core.jsonschema.resolver import Resolver, resolve_reference
-from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.parameters import ParameterLocation, SkippedParameter
 from schemathesis.core.result import Err, Ok, Result
 from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transforms import get_template_fields
@@ -28,8 +28,9 @@ from schemathesis.hooks import HookContext, dispatch_before_init_operation, disp
 from schemathesis.schemas import APIOperation, OperationDefinition
 from schemathesis.specs.openapi.adapter import OpenApiResponses
 from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter, OpenApiParameterSet
-from schemathesis.specs.openapi.adapter.security import OpenApiSecurityParameters
+from schemathesis.specs.openapi.adapter.security import OpenApiSecurityParameters, has_optional_auth
 from schemathesis.specs.openapi.adapter.servers import resolve_operation_base_url
+from schemathesis.specs.openapi.utils import parse_spec_version
 
 if TYPE_CHECKING:
     from schemathesis.core.adapter import ResponsesContainer
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
     from schemathesis.specs.openapi.types import OperationObject
 
 HTTP_METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace", "query"})
-SCHEMA_PARSING_ERRORS = (KeyError, AttributeError, RefResolutionError, InvalidSchema, InfiniteRecursiveReference)
+SCHEMA_PARSING_ERRORS = (KeyError, RefResolutionError, InvalidSchema, InfiniteRecursiveReference)
 
 _V3_1 = version.parse("3.1")
 
@@ -114,13 +115,14 @@ class OperationLoader:
         schema = self.schema
         paths = schema._get_paths()
         if paths is None:
-            if version.parse(schema.specification.version) >= _V3_1:
+            if parse_spec_version(schema.specification.version) >= _V3_1:
                 return
             self._raise_invalid_schema(KeyError("paths"))
 
         context = HookContext()
         filters_active = not schema.filter_set.is_empty()
         should_skip = self._should_skip
+        serves_schema_document = self._serves_schema_document
         iter_parameters = self._iter_parameters
         make_operation = self.make_operation
         root_resolver = schema.root_resolver
@@ -128,18 +130,22 @@ class OperationLoader:
             method = None
             try:
                 dispatch_before_process_path(schema, context, path, path_item)
-                if "$ref" in path_item:
+                if isinstance(path_item, dict) and "$ref" in path_item:
                     path_resolver, path_item = resolve_reference(root_resolver, path_item["$ref"])
                     scope = path_resolver.base_uri
                 else:
                     path_resolver = root_resolver
                     scope = path_resolver.base_uri
+                if not isinstance(path_item, dict):
+                    raise InvalidSchema("Path item must be an object", path=path)
                 shared_parameters = path_item.get("parameters", [])
                 for method, entry in path_item.items():
                     if not is_http_method_schema(method):
                         continue
                     try:
                         if filters_active and should_skip(path, method, entry):
+                            continue
+                        if serves_schema_document(path, method, entry):
                             continue
                         parameters = iter_parameters(entry, shared_parameters, resolver=path_resolver)
                         operation = make_operation(
@@ -174,6 +180,8 @@ class OperationLoader:
                     if method not in HTTP_METHODS:
                         continue
                     if filters_active and should_skip(path, method, definition):
+                        continue
+                    if self._serves_schema_document(path, method, definition):
                         continue
                     yield method, path, definition
             except SCHEMA_PARSING_ERRORS:
@@ -212,6 +220,11 @@ class OperationLoader:
                     if not definition:
                         complete_walk = False
                         continue
+                    if self._serves_schema_document(path, method, definition):
+                        # Keep a filter that targets it from being reported as matching nothing.
+                        if usage is not None:
+                            usage.record(self._filter_context)
+                        continue
                     statistic.operations.total += 1
                     is_selected = not should_skip(path, method, definition) if filters_active else True
                     if usage is not None:
@@ -222,6 +235,9 @@ class OperationLoader:
                             selected_operations_by_id.add(definition["operationId"])
                         selected_operations_by_path.add((method, path))
                     for response in definition.get("responses", {}).values():
+                        # A vendor extension key inside `responses` may carry any JSON value.
+                        if not isinstance(response, dict):
+                            continue
                         if "$ref" in response:
                             _, response = resolve_reference(path_resolver, response["$ref"])
                         defined_links = response.get(links_keyword)
@@ -296,14 +312,29 @@ class OperationLoader:
         operation.definition.raw = definition
         return not schema.filter_set.match(context)
 
+    def _serves_schema_document(self, path: str, method: str, definition: OperationObject) -> bool:
+        """Whether this operation served the schema document, and so stays out unless a filter selects it."""
+        schema = self.schema
+        document_path = schema._schema_document_path
+        if document_path is None or method != "get" or schema.get_full_path(path).rstrip("/") != document_path:
+            return False
+        context = self._filter_context
+        operation = context.operation
+        operation.method = "get"
+        operation.path = path
+        operation.label = f"GET {path}"
+        operation.definition.raw = definition
+        return not schema.filter_set.is_explicitly_included(operation)
+
     def _iter_parameters(
         self,
         definition: OperationObject,
         shared_parameters: Sequence[dict[str, Any]],
         resolver: Resolver | None = None,
-    ) -> list[OperationParameter]:
+    ) -> ParsedParameters:
         schema = self.schema
-        return list(
+        skipped: list[SkippedParameter] = []
+        items = list(
             schema.adapter.iter_parameters(
                 definition,
                 shared_parameters,
@@ -312,8 +343,10 @@ class OperationLoader:
                 schema.adapter,
                 schema._bundler,
                 schema._bundle_cache,
+                skipped,
             )
         )
+        return ParsedParameters(items=items, skipped=skipped)
 
     def _parse_responses(
         self, definition: OperationObject, scope: str, resolver: Resolver | None = None
@@ -342,7 +375,7 @@ class OperationLoader:
         self,
         path: str,
         method: HttpMethodSchema,
-        parameters: list[OperationParameter],
+        parameters: ParsedParameters,
         definition: OperationObject,
         scope: str,
         resolver: Resolver | None = None,
@@ -377,9 +410,10 @@ class OperationLoader:
                 query=OpenApiParameterSet(ParameterLocation.QUERY, adapter=schema.adapter),
                 headers=OpenApiParameterSet(ParameterLocation.HEADER, adapter=schema.adapter),
                 cookies=OpenApiParameterSet(ParameterLocation.COOKIE, adapter=schema.adapter),
+                skipped_parameters=parameters.skipped,
             )
         )
-        for parameter in _named_after_placeholder(parameters, path):
+        for parameter in _named_after_placeholder(parameters.items, path):
             operation.add_parameter(parameter)
         missing_parameter_names = get_template_fields(operation.path) - {
             parameter.name for parameter in operation.path_parameters
@@ -389,7 +423,9 @@ class OperationLoader:
                 schema.adapter.build_path_parameter({"name": name, INJECTED_PATH_PARAMETER_KEY: True})
             )
         config = schema.config.generation_for(operation=operation)
-        if config.with_security_parameters:
+        # An empty `{}` requirement documents unauthenticated access as a valid alternative. A synthesized
+        # credential can only ever be rejected, so such requests are sent without one.
+        if config.with_security_parameters and not has_optional_auth(schema.raw_schema, definition):
             for param in operation.security.iter_parameters():
                 param_name = param.get("name")
                 param_location = param.get("in")

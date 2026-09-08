@@ -4,11 +4,11 @@ import json
 import platform
 import re
 import string
-from contextlib import suppress
 from io import StringIO
 from xml.etree import ElementTree
 
 import pytest
+from flask import jsonify, request
 from hypothesis import HealthCheck, Phase, given, settings
 from hypothesis import strategies as st
 
@@ -149,6 +149,54 @@ def test_serialize_any(ctx):
     test()
 
 
+@pytest.mark.parametrize(
+    ("declared", "expected"),
+    [
+        ("*/*", "application/json"),
+        ("application/*", "application/json"),
+        ("application/*+json", "application/json"),
+        ("text/*", "text/json"),
+        ("application/vnd.aipportal+json", "application/vnd.aipportal+json"),
+    ],
+)
+def test_media_range_sent_as_concrete_content_type(ctx, declared, expected):
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {"required": True, "content": {declared: {"schema": {"type": "object"}}}},
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+    case = schema["/data"]["POST"].Case(body={"key": "value"}, media_type=declared)
+    for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT):
+        assert transport.serialize_case(case)["headers"]["Content-Type"] == expected
+
+
+def test_multipart_content_type_left_to_requests(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "multipart/form-data": {
+                                "schema": {"type": "object", "properties": {"key": {"type": "string"}}}
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+    case = schema["/upload"]["POST"].Case(body={"key": "value"}, media_type="multipart/form-data")
+    assert "Content-Type" not in REQUESTS_TRANSPORT.serialize_case(case)["headers"]
+
+
 def test_serialization_not_possible_manual(ctx):
     schema = ctx.openapi.load_schema(
         {
@@ -218,6 +266,56 @@ def test_binary_data(ctx, media_type):
     assert_requests_call(case)
 
 
+def multipart_echo_schema(ctx):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "multipart/form-data": {
+                                "schema": {"type": "object", "properties": {"key": {"type": "string"}}}
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+
+    @app.route("/upload", methods=["POST"])
+    def upload():
+        return jsonify(
+            {
+                "mimetype": request.mimetype,
+                "has_boundary": "boundary=" in (request.headers.get("Content-Type") or ""),
+                "form": dict(request.form),
+                "raw": request.get_data().decode("latin-1"),
+            }
+        )
+
+    return schemathesis.openapi.from_wsgi("/openapi.json", app)
+
+
+def test_wsgi_multipart_form_fields_reach_the_app(ctx):
+    operation = multipart_echo_schema(ctx)["/upload"]["POST"]
+    received = operation.Case(body={"key": "value"}, media_type="multipart/form-data").call().json()
+    # The raw body carries a randomly generated boundary, so only the parsed view is comparable.
+    assert (received["mimetype"], received["has_boundary"], received["form"]) == (
+        "multipart/form-data",
+        True,
+        {"key": "value"},
+    )
+
+
+def test_wsgi_raw_multipart_body_reaches_the_app(ctx):
+    operation = multipart_echo_schema(ctx)["/upload"]["POST"]
+    case = operation.Case(body=b"\x92\x42", media_type="multipart/form-data")
+    assert case.call().json() == {"mimetype": "", "has_boundary": False, "form": {}, "raw": "\x92B"}
+
+
 def test_multipart_nested_object_serializes_as_json(ctx, case_factory):
     schema = ctx.openapi.load_schema(
         {
@@ -268,6 +366,60 @@ def _multipart_content_type(serialized: dict, name: str) -> str | None:
         if isinstance(payload, tuple) and len(payload) >= 3:
             return payload[2]
     return None
+
+
+def _multipart_upload_echo(ctx, properties: dict, media_type: str):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {media_type: {"schema": {"type": "object", "properties": properties}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/upload", methods=["POST"])
+    def upload():
+        return jsonify(
+            {
+                "content_type": request.headers.get("Content-Type", ""),
+                "files": {name: request.files[name].read().decode("latin-1") for name in request.files},
+                "filenames": {name: request.files[name].filename for name in request.files},
+                "form": dict(request.form),
+                "raw": request.get_data().decode("latin-1"),
+            }
+        )
+
+    return schemathesis.openapi.from_wsgi("/openapi.json", app)["/upload"]["POST"]
+
+
+def test_wsgi_multipart_binary_property_arrives_as_a_file(ctx):
+    operation = _multipart_upload_echo(
+        ctx,
+        {"file": {"type": "string", "format": "binary"}, "note": {"type": "string"}},
+        "multipart/form-data",
+    )
+    case = operation.Case(body={"file": b"\x01\x02data", "note": "hello"}, media_type="multipart/form-data")
+    received = case.call().json()
+    assert (received["files"], received["filenames"], received["form"]) == (
+        {"file": "\x01\x02data"},
+        {"file": "file"},
+        {"note": "hello"},
+    )
+
+
+def test_wsgi_multipart_mixed_body_arrives_intact(ctx):
+    operation = _multipart_upload_echo(ctx, {"note": {"type": "string"}}, "multipart/mixed")
+    received = operation.Case(body={"note": "hello"}, media_type="multipart/mixed").call().json()
+    boundary = received["content_type"].partition("boundary=")[2].strip('"')
+    assert received["raw"] == (
+        f'\r\n--{boundary}\r\nContent-Disposition: form-data; name="note"\r\n\r\nhello\r\n--{boundary}--\r\n'
+    )
 
 
 def test_multipart_ref_to_object_serializes_as_json(ctx, case_factory):
@@ -941,12 +1093,36 @@ def foo(ctx, value):
                 "application/xml",
             },
         ),
+        ("application/*+json", {"application/json", "application/problem+json"}),
+        ("application/*+xml", {"application/xml"}),
         ("*/form-data", {"multipart/form-data"}),
         ("*/*", set(TRANSPORT._serializers)),
     ],
 )
 def test_get_matching_serializers(media_type, expected):
     assert {media_type for media_type, _ in TRANSPORT.get_matching_media_types(media_type)} == expected
+
+
+def test_serialize_xml_with_boolean_schema(ctx):
+    # Open API 3.1 lets a body be written as `true`, which carries no XML metadata.
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"application/xml": {"schema": True}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+
+    @given(case=schema["/data"]["POST"].as_strategy())
+    @settings(max_examples=3)
+    def test(case):
+        assert "data" in REQUESTS_TRANSPORT.serialize_case(case)
+
+    test()
 
 
 @pytest.mark.parametrize(
@@ -1143,10 +1319,12 @@ def test_serialize_xml_hypothesis(ctx, data, schema_object, media_type):
 
     # Arrays may be serialized into multiple elements without root, therefore wrapping everything and check if
     # it can be parsed.
-    with suppress(SerializationError):
+    try:
         for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT):
             serialized_data = transport.serialize_case(case)["data"].decode("utf8")
             ElementTree.fromstring(f"<root xmlns:smp='http://example.com/schema'>{serialized_data}</root>")
+    except SerializationError:
+        pass
 
 
 def test_xml_with_binary(ctx):

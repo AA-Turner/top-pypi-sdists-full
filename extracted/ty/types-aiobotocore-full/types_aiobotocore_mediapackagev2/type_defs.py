@@ -45,6 +45,7 @@ from .literals import (
     ScteFilterType,
     ScteInManifestsType,
     ScteInSegmentsType,
+    StreamNameOutputModeType,
     TsEncryptionMethodType,
     UriPathTypeType,
     UriSeparatorType,
@@ -846,6 +847,7 @@ class OriginEndpointListConfigurationTypeDef(TypedDict):
     MssManifests: NotRequired[list[ListMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationOutputTypeDef]
     UriSeparator: NotRequired[UriSeparatorType]
+    StreamNameOutputMode: NotRequired[StreamNameOutputModeType]
 
 
 class PutOriginEndpointPolicyRequestTypeDef(TypedDict):
@@ -1089,6 +1091,7 @@ class CreateOriginEndpointResponseTypeDef(TypedDict):
     MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     UriSeparator: UriSeparatorType
+    StreamNameOutputMode: StreamNameOutputModeType
     ETag: str
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1112,6 +1115,7 @@ class GetOriginEndpointResponseTypeDef(TypedDict):
     MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     UriSeparator: UriSeparatorType
+    StreamNameOutputMode: StreamNameOutputModeType
     ETag: str
     Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1133,6 +1137,7 @@ class UpdateOriginEndpointResponseTypeDef(TypedDict):
     MssManifests: list[GetMssManifestConfigurationTypeDef]
     ForceEndpointErrorConfiguration: ForceEndpointErrorConfigurationOutputTypeDef
     UriSeparator: UriSeparatorType
+    StreamNameOutputMode: StreamNameOutputModeType
     ETag: str
     Tags: dict[str, str]
     DashManifests: list[GetDashManifestConfigurationTypeDef]
@@ -1157,6 +1162,7 @@ class CreateOriginEndpointRequestTypeDef(TypedDict):
     MssManifests: NotRequired[Sequence[CreateMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationUnionTypeDef]
     UriSeparator: NotRequired[UriSeparatorType]
+    StreamNameOutputMode: NotRequired[StreamNameOutputModeType]
     Tags: NotRequired[Mapping[str, str]]
 
 
@@ -1174,4 +1180,5 @@ class UpdateOriginEndpointRequestTypeDef(TypedDict):
     MssManifests: NotRequired[Sequence[CreateMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationUnionTypeDef]
     UriSeparator: NotRequired[UriSeparatorType]
+    StreamNameOutputMode: NotRequired[StreamNameOutputModeType]
     ETag: NotRequired[str]

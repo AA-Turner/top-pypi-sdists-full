@@ -13,12 +13,13 @@ import sys
 from contextlib import redirect_stdout
 
 import pytest
+import wheel.wheelfile
 
 import mesonpy
 
 from mesonpy import _editable
 
-from .test_wheel import EXT_SUFFIX, NOGIL_BUILD
+from .conftest import EXT_SUFFIX, FREE_THREADED_BUILD
 
 
 def find_cython_version():
@@ -75,7 +76,7 @@ def test_collect(package_complex):
     assert tree['complex']['more']['__init__.py'] == os.path.join(root, 'complex', 'more', '__init__.py')
 
 
-@pytest.mark.skipif(NOGIL_BUILD and CYTHON_VERSION < (3, 1, 0),
+@pytest.mark.skipif(FREE_THREADED_BUILD and CYTHON_VERSION < (3, 1, 0),
                     reason='Cython version too old, no free-threaded CPython support')
 def test_mesonpy_meta_finder(package_complex, tmp_path):
     # build a package in a temporary directory
@@ -158,7 +159,6 @@ def test_resources(tmp_path):
     assert text == 'ABC'
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason='importlib.resources not available')
 def test_importlib_resources(tmp_path):
     # build a package in a temporary directory
     package_path = pathlib.Path(__file__).parent / 'packages' / 'simple'
@@ -191,6 +191,21 @@ def test_editable_install(venv, editable_simple):
     assert venv.python('-c', 'import simple; print(simple.data())').strip() == 'ABC'
 
 
+def test_editable_contents(editable_simple):
+    artifact = wheel.wheelfile.WheelFile(editable_simple)
+
+    impl = 'start' if sys.version_info >= (3, 15) else 'pth'
+    expecting = {
+        'simple-1.0.0.dist-info/METADATA',
+        'simple-1.0.0.dist-info/RECORD',
+        'simple-1.0.0.dist-info/WHEEL',
+        '_simple_editable_loader.py',
+        f'simple-editable.{impl}',
+    }
+
+    assert set(artifact.namelist()) == expecting
+
+
 def test_editble_reentrant(venv, editable_imports_itself_during_build):
     venv.pip('install', os.fspath(editable_imports_itself_during_build))
     assert venv.python('-c', 'import plat; print(plat.data())').strip() == 'ABC'
@@ -210,7 +225,7 @@ def test_editble_reentrant(venv, editable_imports_itself_during_build):
         path.write_text(code)
 
 
-@pytest.mark.skipif(NOGIL_BUILD and CYTHON_VERSION < (3, 1, 0),
+@pytest.mark.skipif(FREE_THREADED_BUILD and CYTHON_VERSION < (3, 1, 0),
                     reason='Cython version too old, no free-threaded CPython support')
 def test_editable_pkgutils_walk_packages(package_complex, tmp_path):
     # build a package in a temporary directory
@@ -296,7 +311,7 @@ def test_editable_rebuild(package_purelib_and_platlib, tmp_path, verbose, args):
             sys.modules.pop('pure', None)
 
 
-@pytest.mark.skipif(NOGIL_BUILD and CYTHON_VERSION < (3, 1, 0),
+@pytest.mark.skipif(FREE_THREADED_BUILD and CYTHON_VERSION < (3, 1, 0),
                     reason='Cython version too old, no free-threaded CPython support')
 def test_editable_verbose(venv, package_complex, editable_complex, monkeypatch):
     monkeypatch.setenv('MESONPY_EDITABLE_VERBOSE', '1')
@@ -333,12 +348,52 @@ def test_editable_rebuild_error(package_purelib_and_platlib, tmp_path, verbose):
             # Insert invalid code in the extension module source code
             path.write_text('return')
 
+            # Import module and trigger rebuild: the build fails and ImportError is raised
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                with pytest.raises(ImportError, match='rebuilding the "purelib-and-platlib" ') as exc:
+                    import plat  # noqa: F401
+            assert not verbose or stdout.getvalue().startswith('meson-python: building ')
+
+            if sys.version_info >= (3, 11):
+                assert verbose or hasattr(exc.value, '__notes__')
+                assert verbose or 'ninja: build stopped: subcommand failed.' in exc.value.__notes__[0]
+            else:
+                assert verbose or 'ninja: build stopped: subcommand failed.' in exc.value.msg
+
+        finally:
+            del sys.meta_path[0]
+            sys.modules.pop('pure', None)
+            path.write_text(code)
+
+
+def test_editable_reconfigure_error(package_purelib_and_platlib, tmp_path):
+    with mesonpy._project({'builddir': os.fspath(tmp_path)}) as project:
+
+        finder = _editable.MesonpyMetaFinder(
+            project._metadata.name, {'plat', 'pure'},
+            os.fspath(tmp_path), project._build_command,
+            verbose=False,
+        )
+        path = package_purelib_and_platlib / 'meson.build'
+        code = path.read_text()
+
+        try:
+            # Install editable hooks
+            sys.meta_path.insert(0, finder)
+
+            # Emit an error (with unicode characters) during reconfigure
+            with open(path, 'a', encoding='utf8') as f:
+                f.write('\n\nerror(\'injected error \N{BOMB}\')\n')
+
             # Import module and trigger rebuild: the build fails and ImportErrror is raised
             stdout = io.StringIO()
             with redirect_stdout(stdout):
-                with pytest.raises(ImportError, match='re-building the purelib-and-platlib '):
+                with pytest.raises(ImportError, match='rebuilding the "purelib-and-platlib" ') as exc:
                     import plat  # noqa: F401
-            assert not verbose or stdout.getvalue().startswith('meson-python: building ')
+            msg = exc.value.__notes__[0] if sys.version_info >= (3, 11) else exc.value.msg
+            assert 'ERROR: Problem encountered: injected error' in msg
+            assert 'ninja: error: rebuilding \'build.ninja\': subcommand failed' in msg
 
         finally:
             del sys.meta_path[0]

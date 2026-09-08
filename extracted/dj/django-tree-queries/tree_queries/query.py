@@ -1,7 +1,7 @@
-from django.db import connections, models
+from django.db import NotSupportedError, models
 from django.db.models.sql.query import Query
 
-from tree_queries.compiler import SEPARATOR, TreeQuery
+from tree_queries.compiler import TreeQuery
 
 
 def pk(of):
@@ -28,7 +28,8 @@ class TreeQuerySet(models.QuerySet):
         if tree_fields:
             self.query.__class__ = TreeQuery
             self.query._setup_query()
-        else:
+        elif isinstance(self.query, TreeQuery):
+            self.query.remove_tree_annotations()
             self.query.__class__ = Query
         return self
 
@@ -37,6 +38,21 @@ class TreeQuerySet(models.QuerySet):
         Requests no tree fields on this queryset
         """
         return self.with_tree_fields(tree_fields=False)
+
+    def _combinator_query(self, combinator, *other_qs, all=False):  # noqa: A002
+        if any(isinstance(queryset.query, TreeQuery) for queryset in (self, *other_qs)):
+            # The recursive CTE can only be added at the very start of a SQL
+            # statement, not inside the compound statement which union() and
+            # friends generate. Without this check the error is a confusing
+            # syntax error from the database (or worse, a TypeError from
+            # get_compiler()).
+            raise NotSupportedError(
+                f"{combinator}() is not supported for tree queries. Perform the"
+                f" set operation on querysets without tree fields and add the"
+                f" tree fields afterwards:"
+                f" Model.objects.with_tree_fields().filter(pk__in=combined)"
+            )
+        return super()._combinator_query(combinator, *other_qs, all=all)
 
     def order_siblings_by(self, *order_by):
         """
@@ -92,6 +108,7 @@ class TreeQuerySet(models.QuerySet):
                 )
 
         self.query.tree_fields = tree_fields
+        self.query.add_tree_annotations()
         return self
 
     @classmethod
@@ -124,7 +141,7 @@ class TreeQuerySet(models.QuerySet):
             self
             .with_tree_fields()  # TODO tree fields not strictly required
             .filter(pk__in=ids)
-            .extra(order_by=["__tree.tree_depth"])
+            .order_by("tree_depth")
         )
 
     def descendants(self, of, *, include_self=False):
@@ -132,22 +149,7 @@ class TreeQuerySet(models.QuerySet):
         Returns descendants of the given node in depth-first order, optionally
         including and starting with the node itself
         """
-        connection = connections[self.db]
-        if connection.vendor == "postgresql":
-            queryset = self.with_tree_fields().extra(
-                where=["%s = ANY(__tree.tree_path)"],
-                params=[self.model._meta.pk.get_db_prep_value(pk(of), connection)],
-            )
-
-        else:
-            queryset = self.with_tree_fields().extra(
-                # NOTE! The representation of tree_path is NOT part of the API.
-                where=[
-                    # XXX This *may* be unsafe with some primary key field types.
-                    # It is certainly safe with integers.
-                    f'instr(__tree.tree_path, "{SEPARATOR}{self.model._meta.pk.get_db_prep_value(pk(of), connection)}{SEPARATOR}") <> 0'
-                ]
-            )
+        queryset = self.with_tree_fields().filter(tree_path__contains=pk(of))
 
         if not include_self:
             return queryset.exclude(pk=pk(of))

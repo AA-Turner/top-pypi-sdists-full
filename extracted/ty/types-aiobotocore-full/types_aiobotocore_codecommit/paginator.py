@@ -13,6 +13,7 @@ Usage::
     from types_aiobotocore_codecommit.client import CodeCommitClient
     from types_aiobotocore_codecommit.paginator import (
         DescribePullRequestEventsPaginator,
+        GetBlobDifferencesPaginator,
         GetCommentsForComparedCommitPaginator,
         GetCommentsForPullRequestPaginator,
         GetDifferencesPaginator,
@@ -26,6 +27,7 @@ Usage::
         client: CodeCommitClient
 
         describe_pull_request_events_paginator: DescribePullRequestEventsPaginator = client.get_paginator("describe_pull_request_events")
+        get_blob_differences_paginator: GetBlobDifferencesPaginator = client.get_paginator("get_blob_differences")
         get_comments_for_compared_commit_paginator: GetCommentsForComparedCommitPaginator = client.get_paginator("get_comments_for_compared_commit")
         get_comments_for_pull_request_paginator: GetCommentsForPullRequestPaginator = client.get_paginator("get_comments_for_pull_request")
         get_differences_paginator: GetDifferencesPaginator = client.get_paginator("get_differences")
@@ -45,6 +47,8 @@ from aiobotocore.paginate import AioPageIterator, AioPaginator
 from .type_defs import (
     DescribePullRequestEventsInputPaginateTypeDef,
     DescribePullRequestEventsOutputTypeDef,
+    GetBlobDifferencesInputPaginateTypeDef,
+    GetBlobDifferencesOutputTypeDef,
     GetCommentsForComparedCommitInputPaginateTypeDef,
     GetCommentsForComparedCommitOutputTypeDef,
     GetCommentsForPullRequestInputPaginateTypeDef,
@@ -67,6 +71,7 @@ else:
 
 __all__ = (
     "DescribePullRequestEventsPaginator",
+    "GetBlobDifferencesPaginator",
     "GetCommentsForComparedCommitPaginator",
     "GetCommentsForPullRequestPaginator",
     "GetDifferencesPaginator",
@@ -94,6 +99,27 @@ class DescribePullRequestEventsPaginator(_DescribePullRequestEventsPaginatorBase
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codecommit/paginator/DescribePullRequestEvents.html#CodeCommit.Paginator.DescribePullRequestEvents.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codecommit/paginators/#describepullrequesteventspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _GetBlobDifferencesPaginatorBase = AioPaginator[GetBlobDifferencesOutputTypeDef]
+else:
+    _GetBlobDifferencesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class GetBlobDifferencesPaginator(_GetBlobDifferencesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codecommit/paginator/GetBlobDifferences.html#CodeCommit.Paginator.GetBlobDifferences)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codecommit/paginators/#getblobdifferencespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetBlobDifferencesInputPaginateTypeDef]
+    ) -> AioPageIterator[GetBlobDifferencesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codecommit/paginator/GetBlobDifferences.html#CodeCommit.Paginator.GetBlobDifferences.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_codecommit/paginators/#getblobdifferencespaginator)
         """
 
 

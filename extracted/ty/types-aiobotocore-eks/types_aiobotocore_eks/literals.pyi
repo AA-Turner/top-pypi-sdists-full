@@ -37,6 +37,11 @@ __all__ = (
     "CapabilityTypeType",
     "CapacityTypesType",
     "CategoryType",
+    "CertificateAuthorityActivatedByType",
+    "CertificateAuthorityCreatedByType",
+    "CertificateAuthorityDistributionStatusType",
+    "CertificateAuthoritySigningStatusType",
+    "CertificateAuthorityUpdateCompleteWaiterName",
     "ClusterActiveWaiterName",
     "ClusterDeletedWaiterName",
     "ClusterIssueCodeType",
@@ -64,6 +69,7 @@ __all__ = (
     "ListAddonsPaginatorName",
     "ListAssociatedAccessPoliciesPaginatorName",
     "ListCapabilitiesPaginatorName",
+    "ListCertificateAuthoritiesPaginatorName",
     "ListClustersPaginatorName",
     "ListEksAnywhereSubscriptionsPaginatorName",
     "ListFargateProfilesPaginatorName",
@@ -84,6 +90,7 @@ __all__ = (
     "RepairActionType",
     "ResolveConflictsType",
     "ResourceServiceName",
+    "ScoringStrategyTypeType",
     "ServiceName",
     "SpreadLevelType",
     "SsoIdentityTypeType",
@@ -158,6 +165,13 @@ CapabilityStatusType = Literal[
 CapabilityTypeType = Literal["ACK", "ARGOCD", "KRO"]
 CapacityTypesType = Literal["CAPACITY_BLOCK", "ON_DEMAND", "SPOT"]
 CategoryType = Literal["MISCONFIGURATION", "ROLLBACK_READINESS", "UPGRADE_READINESS"]
+CertificateAuthorityActivatedByType = Literal["CUSTOMER", "EKS"]
+CertificateAuthorityCreatedByType = Literal["CUSTOMER", "EKS"]
+CertificateAuthorityDistributionStatusType = Literal[
+    "COMPLETE", "DELETING", "FAILED", "IN_PROGRESS"
+]
+CertificateAuthoritySigningStatusType = Literal["ACTIVATING", "IN_USE", "NOT_USED"]
+CertificateAuthorityUpdateCompleteWaiterName = Literal["certificate_authority_update_complete"]
 ClusterActiveWaiterName = Literal["cluster_active"]
 ClusterDeletedWaiterName = Literal["cluster_deleted"]
 ClusterIssueCodeType = Literal[
@@ -230,6 +244,7 @@ ListAccessPoliciesPaginatorName = Literal["list_access_policies"]
 ListAddonsPaginatorName = Literal["list_addons"]
 ListAssociatedAccessPoliciesPaginatorName = Literal["list_associated_access_policies"]
 ListCapabilitiesPaginatorName = Literal["list_capabilities"]
+ListCertificateAuthoritiesPaginatorName = Literal["list_certificate_authorities"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListEksAnywhereSubscriptionsPaginatorName = Literal["list_eks_anywhere_subscriptions"]
 ListFargateProfilesPaginatorName = Literal["list_fargate_profiles"]
@@ -286,13 +301,16 @@ NodegroupUpdateStrategiesType = Literal["DEFAULT", "MINIMAL"]
 ProvisionedControlPlaneTierType = Literal["standard", "tier-2xl", "tier-4xl", "tier-8xl", "tier-xl"]
 RepairActionType = Literal["NoAction", "Reboot", "Replace"]
 ResolveConflictsType = Literal["NONE", "OVERWRITE", "PRESERVE"]
+ScoringStrategyTypeType = Literal["LeastAllocated", "MostAllocated"]
 SpreadLevelType = Literal["host", "rack"]
 SsoIdentityTypeType = Literal["SSO_GROUP", "SSO_USER"]
 SupportTypeType = Literal["EXTENDED", "STANDARD"]
 TaintEffectType = Literal["NO_EXECUTE", "NO_SCHEDULE", "PREFER_NO_SCHEDULE"]
 UpdateParamTypeType = Literal[
+    "ActiveCertificateAuthority",
     "AddonVersion",
     "AuthenticationMode",
+    "CertificateAuthorityId",
     "ClusterLogging",
     "ComputeConfig",
     "ConfigurationValues",
@@ -303,6 +321,9 @@ UpdateParamTypeType = Literal[
     "EndpointPrivateAccess",
     "EndpointPublicAccess",
     "IdentityProviderConfig",
+    "KubeApiServerConfig",
+    "KubeControllerManagerConfig",
+    "KubeSchedulerConfig",
     "KubernetesNetworkConfig",
     "LabelsToAdd",
     "LabelsToRemove",
@@ -327,10 +348,12 @@ UpdateParamTypeType = Literal[
     "RoleMappingsToRemove",
     "SecurityGroups",
     "ServiceAccountRoleArn",
+    "SigningStatus",
     "StorageConfig",
     "Subnets",
     "TaintsToAdd",
     "TaintsToRemove",
+    "TrustedCertificateAuthorities",
     "UpdateStrategy",
     "UpdatedTier",
     "UpgradePolicy",
@@ -351,7 +374,9 @@ UpdateTypeType = Literal[
     "AssociateIdentityProviderConfig",
     "AutoModeUpdate",
     "CapabilityUpdate",
+    "CertificateAuthorityUpdate",
     "ConfigUpdate",
+    "ControlPlaneComponentConfigUpdate",
     "ControlPlaneEgressUpdate",
     "ControlPlaneScalingConfigUpdate",
     "DeletionProtectionUpdate",
@@ -372,8 +397,11 @@ EKSServiceName = Literal["eks"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -678,6 +706,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -807,6 +836,7 @@ PaginatorName = Literal[
     "list_addons",
     "list_associated_access_policies",
     "list_capabilities",
+    "list_certificate_authorities",
     "list_clusters",
     "list_eks_anywhere_subscriptions",
     "list_fargate_profiles",
@@ -819,6 +849,7 @@ PaginatorName = Literal[
 WaiterName = Literal[
     "addon_active",
     "addon_deleted",
+    "certificate_authority_update_complete",
     "cluster_active",
     "cluster_deleted",
     "fargate_profile_active",

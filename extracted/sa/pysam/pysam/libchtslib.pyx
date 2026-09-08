@@ -10,7 +10,7 @@
 from posix.unistd cimport dup
 from libc.errno  cimport errno
 from libc.stdint cimport INT32_MAX
-from cpython cimport PyBytes_FromStringAndSize
+from cpython.bytes cimport PyBytes_FromStringAndSize
 from pysam.libchtslib cimport *
 from pysam.libcutils cimport force_bytes, force_str, charptr_to_str, charptr_to_str_w_len
 from pysam.libcutils cimport encode_filename, from_string_and_size, libc_whence_from_io
@@ -32,7 +32,7 @@ from warnings import warn
 ## Constants
 ########################################################################
 
-__all__ = ['get_verbosity', 'set_verbosity', 'HFile', 'HTSFile']
+__all__ = ['get_verbosity', 'set_verbosity', 'set_runtime_libraries', 'HFile', 'HTSFile']
 
 # maximum genomic coordinace
 cdef int MAX_POS = (1 << 31) - 1
@@ -56,6 +56,28 @@ cpdef set_verbosity(int verbosity):
 cpdef get_verbosity():
     """Return the value of htslib's hts_verbose global variable."""
     return hts_get_verbosity()
+
+
+cdef extern from * nogil:
+    r"""
+    #ifdef DYNAMIC_NETWORK_LIBS
+    extern void dynamic_set_libcurl_soname(const char *);
+    extern void dynamic_set_libcrypto_soname(const char *);
+    #else
+    #define dynamic_set_libcurl_soname(s)
+    #define dynamic_set_libcrypto_soname(s)
+    #endif
+    """
+    void dynamic_set_libcurl_soname(const char *)
+    void dynamic_set_libcrypto_soname(const char *)
+
+cdef dict _runtime_libraries = {}
+
+def set_runtime_libraries(**kwargs):
+    for lib, soname in kwargs.items():
+        csoname = _runtime_libraries[lib] = force_bytes(soname)
+        if lib == "libcurl": dynamic_set_libcurl_soname(csoname)
+        elif lib == "libcrypto": dynamic_set_libcrypto_soname(csoname)
 
 
 ########################################################################

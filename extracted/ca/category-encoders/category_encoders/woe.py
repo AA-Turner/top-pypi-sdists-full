@@ -28,10 +28,15 @@ class WOEEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
     return_df: bool
         boolean for whether to return a pandas DataFrame from transform
         (otherwise it will be a numpy array).
-    handle_missing: str
+    handle_missing: str, int, float or callable
         options are 'return_nan', 'error' and 'value', defaults to 'value', which will assume WOE=0.
-    handle_unknown: str
+        A number is used as the encoded value for missing values that were not seen at fit time,
+        and a callable fn(value, mapping) is evaluated once per column when the mapping is
+        finalized during fit.
+    handle_unknown: str, int, float or callable
         options are 'return_nan', 'error' and 'value', defaults to 'value', which will assume WOE=0.
+        A number is used as the encoded value for unseen categories, and a callable
+        fn(value, mapping) is evaluated once per column when the mapping is finalized during fit.
     randomized: bool,
         adds Gaussian regularization noise to the encoded values during fit
         to decrease overfitting. The noise is multiplicative — encoded values
@@ -102,6 +107,11 @@ class WOEEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
         randomized=False,
         sigma=0.05,
         regularization=1.0,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
+        composite_cols=None,
+        keep_components=False,
     ):
         super().__init__(
             verbose=verbose,
@@ -110,6 +120,11 @@ class WOEEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
+            composite_cols=composite_cols,
+            keep_components=keep_components,
         )
         self.ordinal_encoder = None
         self._sum = None
@@ -144,20 +159,50 @@ class WOEEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
             )
             raise ValueError(msg)
 
-        self.ordinal_encoder = OrdinalEncoder(
-            verbose=self.verbose, cols=self.cols, handle_unknown='value', handle_missing='value'
+        # One ordinal pass: derive the category mapping read-only, then fit the
+        # helper encoder from that mapping. With a mapping supplied, fit only
+        # binds column metadata (the #503 contract: the mapping, not the data,
+        # is the source of truth), so it needs no full-frame pass over the data.
+        _, categories = OrdinalEncoder.ordinal_encoding(
+            X, cols=self.cols, handle_unknown='value', handle_missing='value'
         )
-        self.ordinal_encoder = self.ordinal_encoder.fit(X)
-        X_ordinal = self.ordinal_encoder.transform(X)
+        self.ordinal_encoder = OrdinalEncoder(
+            verbose=self.verbose,
+            cols=self.cols,
+            mapping=categories,
+            handle_unknown='value',
+            handle_missing='value',
+        )
+        self.ordinal_encoder.fit(X.iloc[0:0])
+
+        # Ordinal-encode one disposable copy in place for training.
+        X_ordinal = X.copy(deep=True)
+        OrdinalEncoder.ordinal_encoding(
+            X_ordinal,
+            mapping=self.ordinal_encoder.mapping,
+            cols=self.ordinal_encoder.cols,
+            handle_unknown=self.ordinal_encoder.handle_unknown,
+            handle_missing=self.ordinal_encoder.handle_missing,
+            index_start=self.ordinal_encoder.index_start,
+        )
 
         # Training
         self.mapping = self._train(X_ordinal, y)
 
     def _transform(self, X, y=None):
-        X = self.ordinal_encoder.transform(X)
+        # X is the private copy made by the transformer API (the #503 contract):
+        # ordinal-encode it in place instead of stacking another wrapper copy.
+        OrdinalEncoder.ordinal_encoding(
+            X,
+            mapping=self.ordinal_encoder.mapping,
+            cols=self.ordinal_encoder.cols,
+            handle_unknown=self.ordinal_encoder.handle_unknown,
+            handle_missing=self.ordinal_encoder.handle_missing,
+            index_start=self.ordinal_encoder.index_start,
+        )
 
         if self.handle_unknown == 'error':
-            if X[self.cols].isin([-1]).any().any():
+            if X[self.cols].isin([util.UNKNOWN_SENTINEL]).any().any():
                 raise ValueError('Unexpected categories found in dataframe')
 
         # Loop over columns and replace nominal values with WOE
@@ -190,15 +235,9 @@ class WOEEncoder( util.SupervisedTransformerMixin,util.BaseEncoder):
             # Ignore unique values. This helps to prevent overfitting on id-like columns.
             woe[stats['count'] == 1] = 0
 
-            if self.handle_unknown == 'return_nan':
-                woe.loc[-1] = np.nan
-            elif self.handle_unknown == 'value':
-                woe.loc[-1] = 0
-
-            if self.handle_missing == 'return_nan':
-                woe.loc[values.loc[np.nan]] = np.nan
-            elif self.handle_missing == 'value':
-                woe.loc[-2] = 0
+            woe = util.finalize_encoding_mapping(
+                woe, values, self.handle_unknown, self.handle_missing, 0
+            )
 
             # Store WOE for transform() function
             mapping[col] = woe

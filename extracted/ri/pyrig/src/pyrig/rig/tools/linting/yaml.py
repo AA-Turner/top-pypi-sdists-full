@@ -56,9 +56,12 @@ class YAMLLinter(CheckHookTool):
         Runs after the sequential text-fixing chain, alongside the other
         file-type-specific fixers.
 
+        The default `line-length` max of 80 is raised to 90, since
+        hash-pinned `uses:` references (40-character SHA plus the action
+        name) can exceed 80 characters.
+
         Returns:
-            Hook metadata dict for
-            `ryl check --config-data=extends: default --fix`.
+            Hook metadata dict for `ryl check --config-data=... --fix`.
         """
         return VersionControlHookManager.I.hook(
             self.lint_yaml,
@@ -66,10 +69,10 @@ class YAMLLinter(CheckHookTool):
                 EndOfFileFormatter.I.format_hook(),
             ),
             types=["yaml"],
-            args=[
+            args=Args(
                 "--fix",
-                "--config-data=extends: default",
-            ],
+                "--config-data={extends: default, rules: {line-length: {max: 90}}}",
+            ),
         )
 
     def lint_yaml(self) -> Args:

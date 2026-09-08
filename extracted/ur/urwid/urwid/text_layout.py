@@ -76,6 +76,7 @@ class TextLayout:
         :param width: number of screen columns available
         :param align: align mode for text
         :param wrap: wrap mode for text
+        :raises NotImplementedError: the subclass does not provide a layout implementation.
 
         Layout structure is a list of line layouts, one per output line.
         Line layouts are lists than may contain the following tuples:
@@ -142,6 +143,8 @@ class StandardTextLayout(TextLayout):
         """Return a minimal maxcol value that would result in the same number of lines for layout.
 
         layout must be a layout structure returned by self.layout().
+
+        :raises ValueError: *layout* is empty.
         """
         maxwidth = 0
         if not layout:
@@ -161,7 +164,10 @@ class StandardTextLayout(TextLayout):
         wrap: Literal["any", "space", "clip", "ellipsis"] | WrapMode,
         align: Literal["left", "center", "right"] | Align,
     ) -> _LayoutFormat:
-        """Convert the layout segments to an aligned layout."""
+        """Convert the layout segments to an aligned layout.
+
+        :raises ValueError: *align* is not a supported alignment.
+        """
         out = []
         for lines in segs:
             sc = line_width(lines)
@@ -184,7 +190,10 @@ class StandardTextLayout(TextLayout):
         width: int,
         wrap: Literal["clip", "ellipsis", WrapMode.CLIP, WrapMode.ELLIPSIS],
     ) -> list[list[tuple[int, int, int | bytes] | tuple[int, int]]]:
-        """Calculate text segments for cases of a text trimmed (wrap is clip or ellipsis)."""
+        """Calculate text segments for cases of a text trimmed (wrap is clip or ellipsis).
+
+        :raises ValueError: the computed padding or start offset contradicts a start column of ``0``.
+        """
         segments = []
 
         nl: str | bytes = "\n" if isinstance(text, str) else b"\n"
@@ -247,6 +256,9 @@ class StandardTextLayout(TextLayout):
         wrap - wrapping mode used
 
         Returns a layout structure without an alignment applied.
+
+        :raises CanNotDisplayText: a wide character has to be placed in a single column.
+        :raises ValueError: *wrap* is not a supported wrapping mode.
         """
         if wrap in {"clip", "ellipsis"}:
             return self._calculate_trimmed_segments(text, width, wrap)  # type: ignore[arg-type]  # filtered by if
@@ -378,7 +390,11 @@ class LayoutSegment:
     end: int | None
 
     def __init__(self, seg: _LayoutSegment) -> None:
-        """Create object from line layout segment structure"""
+        """Create object from line layout segment structure
+
+        :raises TypeError: *seg* is not a tuple, or one of its members has the wrong type.
+        :raises ValueError: *seg* does not have 2 or 3 members, or holds an out-of-range screen column count.
+        """
 
         if not isinstance(seg, tuple):
             raise TypeError(seg)
@@ -426,6 +442,8 @@ class LayoutSegment:
         A list is returned to handle cases where wide characters
         need to be replaced with a space character at either edge
         so two or three segments will be returned.
+
+        :raises ValueError: this segment carries text or an end offset but no text offset.
         """
         start = max(start, 0)
         end = min(end, self.sc)
@@ -487,8 +505,10 @@ def shift_line(
 ) -> _LayoutLine:
     """
     Return a shifted line from a layout structure to the left or right.
-    segs -- line of a layout structure
-    amount -- screen columns to shift right (+ve) or left (-ve)
+
+    :param segs: line of a layout structure
+    :param amount: screen columns to shift right (+ve) or left (-ve)
+    :raises TypeError: *amount* is not an integer.
     """
     if not isinstance(amount, int):
         raise TypeError(amount)
@@ -513,9 +533,10 @@ def trim_line(
 ) -> _LayoutLine:
     """
     Return a trimmed line of a text layout structure.
-    text -- text to which this layout structure applies
-    start -- starting screen column
-    end -- ending screen column
+
+    :param text: text to which this layout structure applies
+    :param start: starting screen column
+    :param end: ending screen column
     """
     result = []
     x = 0
@@ -549,6 +570,11 @@ def _calc_literal_line_pos(
     line_layout: _LayoutLine,
     pref_col: Literal["left", "right", Align.LEFT, Align.RIGHT],
 ) -> int | None:
+    """
+    Return the text position closest to *pref_col* on a line laid out without wrapping.
+
+    :raises ValueError: *pref_col* is neither an integer nor ``'left'``/``'right'``.
+    """
     if pref_col == "left":
         for seg in line_layout:
             layout = LayoutSegment(seg)
@@ -587,6 +613,8 @@ def calc_line_pos(
     """
     Calculate the closest linear position to pref_col given a line layout structure.
     Returns None if no position found.
+
+    :raises TypeError: *pref_col* is neither an integer nor ``'left'``/``'right'``.
     """
     if pref_col in {"left", "right"}:
         return _calc_literal_line_pos(text, line_layout, pref_col)
@@ -635,6 +663,8 @@ def calc_pos(
     """
     Calculate the closest linear position to pref_col and row given a
     layout structure.
+
+    :raises ValueError: *row* is outside the rows of *layout*.
     """
 
     if row < 0 or row >= len(layout):
@@ -668,10 +698,10 @@ def calc_coords(
     """
     Calculate the coordinates closest to position pos in text with layout.
 
-    text -- raw string or unicode string
-    layout -- layout structure applied to text
-    pos -- integer position into text
-    clamp -- ignored right now
+    :param text: raw string or unicode string
+    :param layout: layout structure applied to text
+    :param pos: integer position into text
+    :param clamp: ignored right now
     """
     closest: tuple[int, tuple[int, int]] | None = None
     y = 0

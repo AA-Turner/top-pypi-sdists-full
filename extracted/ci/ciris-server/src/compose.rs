@@ -74,6 +74,30 @@ pub async fn serve(cfg: ServerConfig) -> Result<()> {
 pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) -> Result<()> {
     cfg.ensure_dirs()?;
 
+    // SIGTERM handling for the life of the PROCESS, installed before anything
+    // is bound or spawned (CIRISServer#555; #556 review): a `docker stop`
+    // during boot is latched and honoured the moment the serve starts waiting,
+    // and one between the embedded fold's serve calls is honoured by the next.
+    // Idempotent across re-serves; returns once the handler is registered.
+    crate::node_control::install_terminate_broker();
+    crate::node_control::serve_began();
+    // Every exit from here on — the stop-select's teardown or any `?` on a boot
+    // step — runs `serve_ended`, which propagates a latched SIGTERM the serve
+    // did not get to answer itself (#556 review: a boot that fails past the
+    // broker's installation must not leave a suppressed SIGTERM behind).
+    struct ServeGuard;
+    impl Drop for ServeGuard {
+        fn drop(&mut self) {
+            crate::node_control::serve_ended();
+        }
+    }
+    let _serve_guard = ServeGuard;
+
+    // A re-serve in this process (the embedded fold's restart) may be another
+    // home: the config snapshot is process-global, so it is dropped here
+    // (CIRISServer#557).
+    crate::graph_config::invalidate();
+
     // ── RNG startup health-check (CIRISServer#283 finding 2) ──────────────────
     // Arm the SP 800-90B latch ONCE at boot so `ciris_crypto::random::fill`'s
     // fail-secure gate is live: if the OS entropy source is producing detectably
@@ -578,7 +602,15 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     // (stable for the node's lifetime), served verbatim by
     // GET /v1/federation/self-key-record and the public record a peer registers
     // to admit this node's replicated rows.
-    let self_key_record_json = self_key_record_json(&engine, &cfg).await?;
+    //
+    // On a SPLIT node the engine's record names the ACTOR; the peer that
+    // registers it would then refuse every node-signed row as an unknown
+    // attester. The record served is the one for the key that signs this
+    // node's rows — the held node key record (CIRISServer#563, Codex on #564).
+    let self_key_record_json = match crate::node_key::held_node_key_record_json() {
+        Some(node_record) => node_record,
+        None => self_key_record_json(&engine, &cfg).await?,
+    };
 
     // THIS node's own NodeCode (the QR-able federation-key bootstrap handle, CEG
     // §0.10) — built ONCE at boot from the node's steward key_id + the raw Ed25519
@@ -1202,7 +1234,14 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     // POST peering (each node authors its OWN consent grant).
                     .merge(crate::federation_admin::router(
                         Arc::clone(&engine),
-                        cfg.key_id.clone(),
+                        // The NODE's identity: the wire identity the split
+                        // established, else the configured key (which then IS
+                        // the node). `cfg.key_id` is the ACTOR on a split node,
+                        // and the owner-binding and consent both live on the
+                        // node key (CC 3.4.7.3, CIRISServer#563).
+                        crate::node_key::wire_identity()
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| cfg.key_id.clone()),
                         self_key_record_json.clone(),
                         // Nudge the reconciler after a consent write (CEG changed)
                         // — but ONLY when a runtime exists to converge. The handler
@@ -1726,15 +1765,28 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     tracing::info!(
         ret = %cfg.listen_addr,
         mode = %initial_config.mode,
-        "CIRISServer up as a Reticulum node — ctrl-c or shutdown_node() to stop"
+        "CIRISServer up as a Reticulum node — SIGINT (ctrl-c), SIGTERM or shutdown_node() to stop"
     );
     crate::compose_status::complete();
-    // Wait for a stop trigger: ctrl-c (standalone) OR an in-process
-    // shutdown_node() request (the embedded fold's clean restart, #276). The
-    // read-API addr was armed in node_control when the listener bound, so
-    // shutdown_node() can wait for :4243 to actually free after teardown below.
+    // Wait for a stop trigger: SIGINT (ctrl-c), SIGTERM (`docker stop`, systemd,
+    // a launcher's kill — CIRISServer#555: until 0.5.201 only SIGINT was
+    // handled and SIGTERM killed the process abruptly, ports and WAL included;
+    // the broker installed at the top of this fn owns the receiver for the
+    // process lifetime, so a SIGTERM that arrived during boot resolves here at
+    // once) OR an in-process shutdown_node() request (the embedded fold's
+    // clean restart, #276). The read-API addr was armed in node_control when
+    // the listener bound, so shutdown_node() can wait for :4243 to actually
+    // free after teardown below.
+    let mut stopped_by_sigterm = false;
     tokio::select! {
-        r = tokio::signal::ctrl_c() => { r.context("await ctrl_c")?; }
+        r = tokio::signal::ctrl_c() => {
+            r.context("await ctrl_c")?;
+            tracing::info!("SIGINT — stopping the node cleanly (releasing :4243)");
+        }
+        _ = crate::node_control::terminated() => {
+            tracing::info!("SIGTERM — stopping the node cleanly (releasing :4243)");
+            stopped_by_sigterm = true;
+        }
         _ = crate::node_control::shutdown_requested() => {
             tracing::info!("node shutdown requested (shutdown_node) — releasing :4243");
         }
@@ -1775,6 +1827,16 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     // `None` in the #221 fold — the agent owns the edge's run loop (init_edge_runtime).
     if let Some(edge_join) = edge_join {
         let _ = edge_join.await;
+    }
+    // A SIGTERM asked for the PROCESS to end, not only this serve. Now that
+    // the node has unwound cleanly, finish what the signal asked for unless an
+    // embedding host owns SIGTERM and decides for itself (#556 review): an
+    // embedded fold has no `main` to return to, and a host left alive with a
+    // stopped node inside it is what turns `docker stop` into SIGKILL.
+    // The LATCH decides, not the arm that won: a SIGTERM that landed during a
+    // teardown that SIGINT or shutdown_node() started is answered the same way.
+    if stopped_by_sigterm || crate::node_control::terminated_now() {
+        crate::node_control::propagate_terminate();
     }
     Ok(())
 }
@@ -3206,7 +3268,16 @@ async fn node_self_code(
     cfg: &ServerConfig,
     alias_hint: Option<String>,
 ) -> Result<crate::nodecode::NodeCode> {
-    let record = build_self_key_record(engine, cfg).await?;
+    // Same rule as the self-key-record: on a split node the code carries the
+    // NODE's key (the transport identity peers dial), not the actor's.
+    let record = match crate::node_key::held_node_key_record_json() {
+        Some(json) => {
+            serde_json::from_str::<ciris_persist::federation::SignedKeyRecord>(&json)
+                .context("parse the held node SignedKeyRecord")?
+                .record
+        }
+        None => build_self_key_record(engine, cfg).await?,
+    };
     Ok(crate::federation_nodecode::build_node_code(
         &record.key_id,
         &record.pubkey_ed25519_base64,
@@ -4255,7 +4326,7 @@ pub(crate) fn ip_addrs_from_hints(
 }
 
 /// `ciris-server config set <key> <value>` (console-trusted, node-signed). Writes a
-/// signed `config:v1` CEG object — the SAME path the node itself + `POST /v1/config`
+/// signed `config:{key}:v1` CEG object — the SAME path the node itself + `POST /v1/config`
 /// use — so a HEADLESS node (console-only, no app/session) can set `config:*` knobs
 /// like `net.bootstrap_peers`. Returns the freshly-written entry.
 pub async fn run_config_set(
@@ -4276,7 +4347,7 @@ pub async fn run_config_set(
 }
 
 /// `ciris-server config get <key>` (console). Reads the latest-wins value for `key`
-/// from the node's signed `config:v1` store (`None` if unset/tombstoned).
+/// from the node's signed `config:{key}:v1` store (`None` if unset/tombstoned).
 pub async fn run_config_get(
     cfg: ServerConfig,
     key: &str,

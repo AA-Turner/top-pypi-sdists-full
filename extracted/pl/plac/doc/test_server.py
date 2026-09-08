@@ -3,7 +3,11 @@ import plac
 from ishelve2 import ShelveInterface
 import multiprocessing as mp
 
-multiprocessing = mp.get_context("fork")
+# MPTask requires fork; 3.14 default is forkserver/spawn.
+try:
+    multiprocessing = mp.get_context("fork")
+except (ValueError, AttributeError):  # Windows / Py<3.4
+    multiprocessing = mp
 
 i = plac.Interpreter(ShelveInterface(configfile=None))
 
@@ -40,3 +44,4 @@ def test():
         cl.join()
     server.terminate()
     # should trap the output and check it
+

@@ -1909,6 +1909,16 @@ def _try_local_store_token_attribution(wanted_sid: str = "", limit: int = 100):
     except Exception:
         return None
 
+    try:
+        from clawmetry.providers_pricing import provider_for_model as _pfm
+    except Exception:
+        _pfm = None
+
+    # Tracks the true input-context denominator for cache_hit_ratio_pct.
+    # For Anthropic (additive schema) each row contributes input + cache_read;
+    # for OpenAI (inclusive schema) cache_read is already in input_tokens.
+    _real_input_context = 0
+
     for r in rows:
         if not isinstance(r, dict):
             continue
@@ -1930,7 +1940,16 @@ def _try_local_store_token_attribution(wanted_sid: str = "", limit: int = 100):
         output_tok = int(splits.get("output_tokens", 0) or 0)
         cache_read = int(splits.get("cache_read_tokens", 0) or 0)
         cache_write = int(splits.get("cache_write_tokens", 0) or 0)
-        total_tok = input_tok + output_tok + cache_read + cache_write
+        _row_prov = _pfm(r.get("model") or "") if _pfm else ""
+        if _row_prov == "openai":
+            # OpenAI inclusive schema: cache_read_tokens are already counted in
+            # input_tokens (total prompt tokens), so adding them again inflates total.
+            total_tok = input_tok + output_tok + cache_write
+            _real_input_context += input_tok
+        else:
+            # Anthropic (and others) additive schema: cache_read is additional context.
+            total_tok = input_tok + output_tok + cache_read + cache_write
+            _real_input_context += input_tok + cache_read
 
         # Fall back to the daemon-stamped scalar column when the data
         # blob splits are empty (e.g. slim ``model.completed`` rows that
@@ -1998,10 +2017,13 @@ def _try_local_store_token_attribution(wanted_sid: str = "", limit: int = 100):
 
         sid = r.get("session_id") or ""
         ts = r.get("ts") or ""
-        cache_hit_pct = (
-            round(cache_read / (input_tok + cache_read) * 100, 1)
-            if (input_tok + cache_read) > 0 else 0.0
-        )
+        if _row_prov == "openai":
+            cache_hit_pct = round(cache_read / input_tok * 100, 1) if input_tok > 0 else 0.0
+        else:
+            cache_hit_pct = (
+                round(cache_read / (input_tok + cache_read) * 100, 1)
+                if (input_tok + cache_read) > 0 else 0.0
+            )
         messages.append({
             "session_id": sid,
             "timestamp": ts,
@@ -2047,10 +2069,9 @@ def _try_local_store_token_attribution(wanted_sid: str = "", limit: int = 100):
     messages.sort(key=lambda m: m.get("timestamp") or "", reverse=True)
     messages = messages[:limit]
 
-    input_plus_cache = totals["input_tokens"] + totals["cache_read_tokens"]
     totals["cache_hit_ratio_pct"] = (
-        round(totals["cache_read_tokens"] / input_plus_cache * 100, 1)
-        if input_plus_cache else 0.0
+        round(totals["cache_read_tokens"] / _real_input_context * 100, 1)
+        if _real_input_context else 0.0
     )
 
     return {
@@ -3835,11 +3856,14 @@ def _empty_cache_bucket():
     }
 
 
-def _summarise_cache_bucket(label, b, key):
-    in_plus_cache = b["input_tokens"] + b["cache_read_tokens"]
+def _summarise_cache_bucket(label, b, key, *, openai_schema=False):
+    # OpenAI inclusive schema: cache_read is already counted inside input_tokens,
+    # so the effective context denominator is input_tokens alone.
+    # Anthropic (and others) additive schema: cache_read is on top of input_tokens.
+    in_context = b["input_tokens"] if openai_schema else b["input_tokens"] + b["cache_read_tokens"]
     cache_hit_pct = (
-        round(b["cache_read_tokens"] / in_plus_cache * 100, 1)
-        if in_plus_cache
+        round(b["cache_read_tokens"] / in_context * 100, 1)
+        if in_context
         else 0.0
     )
     # Anthropic prompt-cache reads cost ~10% of fresh input tokens, so the
@@ -3892,6 +3916,11 @@ def _try_local_store_cache_trends(days: int):
     if rows is None:
         return None
 
+    try:
+        from clawmetry.providers_pricing import provider_for_model as _pfm_ct
+    except Exception:
+        _pfm_ct = None
+
     daily: dict = {}
     by_model: dict = {}
     for r in rows:
@@ -3921,7 +3950,10 @@ def _try_local_store_cache_trends(days: int):
         )
 
     by_model_out = [
-        _summarise_cache_bucket(m, b, key="model")
+        _summarise_cache_bucket(
+            m, b, key="model",
+            openai_schema=(_pfm_ct(m) == "openai" if _pfm_ct else False),
+        )
         for m, b in sorted(by_model.items(), key=lambda kv: -kv[1]["total_cost"])
     ]
 

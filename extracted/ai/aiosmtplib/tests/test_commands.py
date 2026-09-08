@@ -56,6 +56,26 @@ async def test_helo_with_hostname_unset_after_connect(smtp_client: SMTP) -> None
         assert response.code == SMTPStatus.completed
 
 
+@pytest.mark.parametrize(
+    "helo_hostname",
+    ["me.example.com XCLIENT ADDR=1.2.3.4", "me.example.com\r\nQUIT", ""],
+    ids=["space", "crlf", "empty"],
+)
+async def test_helo_with_hostname_injection_raises_error(
+    smtp_client: SMTP, helo_hostname: str
+) -> None:
+    async with smtp_client:
+        with pytest.raises(ValueError):
+            await smtp_client.helo(hostname=helo_hostname)
+
+
+async def test_helo_with_hostname_strips_whitespace(smtp_client: SMTP) -> None:
+    async with smtp_client:
+        response = await smtp_client.helo(hostname=" example.com ")
+
+        assert response.code == SMTPStatus.completed
+
+
 @pytest.mark.smtpd_mocks(smtp_HELO=mock_response_unrecognized_command)
 async def test_helo_error(smtp_client: SMTP) -> None:
     async with smtp_client:
@@ -82,6 +102,26 @@ async def test_ehlo_with_hostname_unset_after_connect(smtp_client: SMTP) -> None
     async with smtp_client:
         smtp_client.local_hostname = None
         response = await smtp_client.ehlo()
+
+        assert response.code == SMTPStatus.completed
+
+
+@pytest.mark.parametrize(
+    "helo_hostname",
+    ["me.example.com XCLIENT ADDR=1.2.3.4", "me.example.com\r\nQUIT", ""],
+    ids=["space", "crlf", "empty"],
+)
+async def test_ehlo_with_hostname_injection_raises_error(
+    smtp_client: SMTP, helo_hostname: str
+) -> None:
+    async with smtp_client:
+        with pytest.raises(ValueError):
+            await smtp_client.ehlo(hostname=helo_hostname)
+
+
+async def test_ehlo_with_hostname_strips_whitespace(smtp_client: SMTP) -> None:
+    async with smtp_client:
+        response = await smtp_client.ehlo(hostname=" example.com ")
 
         assert response.code == SMTPStatus.completed
 
@@ -472,6 +512,64 @@ async def test_address_command_rejects_injection(
         assert received_commands == []
 
 
+@pytest.mark.parametrize("command", ("mail", "rcpt", "vrfy", "expn"))
+@pytest.mark.parametrize(
+    "address",
+    (
+        "test@example.com> AUTH=<attacker@example.com",
+        "test@example.com> NOTIFY=SUCCESS,FAILURE ORCPT=rfc822;<attacker@example.com",
+        "test@example.com> SIZE=1",
+    ),
+    ids=("auth", "dsn", "size"),
+)
+async def test_address_command_rejects_parameter_injection(
+    smtp_client: SMTP,
+    received_commands: list[tuple[str, tuple[Any, ...]]],
+    command: str,
+    address: str,
+) -> None:
+    """
+    Addresses that would smuggle ESMTP parameters onto the command line
+    (without using control characters) must never be sent.
+    """
+    async with smtp_client:
+        await smtp_client.ehlo()
+        received_commands.clear()
+
+        method = getattr(smtp_client, command)
+        with pytest.raises(ValueError):
+            await method(address)
+
+        assert received_commands == []
+
+
+async def test_sendmail_rejects_parameter_injection(
+    smtp_client: SMTP,
+    received_commands: list[tuple[str, tuple[Any, ...]]],
+    received_messages: list[email.message.EmailMessage],
+) -> None:
+    async with smtp_client:
+        await smtp_client.ehlo()
+        received_commands.clear()
+
+        with pytest.raises(ValueError):
+            await smtp_client.sendmail(
+                "test@example.com> AUTH=<attacker@example.com",
+                ["recipient@example.com"],
+                "Subject: legit\n\nhi",
+            )
+
+        with pytest.raises(ValueError):
+            await smtp_client.sendmail(
+                "test@example.com",
+                ["recipient@example.com> NOTIFY=SUCCESS,FAILURE"],
+                "Subject: legit\n\nhi",
+            )
+
+        assert received_commands == []
+        assert received_messages == []
+
+
 async def test_sendmail_rejects_command_injection(
     smtp_client: SMTP,
     received_commands: list[tuple[str, tuple[Any, ...]]],
@@ -522,3 +620,13 @@ async def test_send_message_compat32_does_not_smuggle_envelope_commands(
 
     for _, args in received_commands:
         assert all("hijacker" not in str(arg) for arg in args)
+
+
+@pytest.mark.smtpd_mocks(smtp_HELO=mock_response_unrecognized_command)
+async def test_helo_error_does_not_set_last_helo_response(smtp_client: SMTP) -> None:
+    async with smtp_client:
+        with pytest.raises(SMTPHeloError):
+            await smtp_client.helo()
+
+        assert smtp_client.last_helo_response is None
+        assert smtp_client.is_ehlo_or_helo_needed

@@ -6,12 +6,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from http.cookies import SimpleCookie
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urljoin, urlsplit
 
 import requests
 
 from schemathesis.core.transport import decode_lossy, load_json_lossy
 from schemathesis.python import asgi, wsgi
-from schemathesis.schemas import get_full_path
 from schemathesis.transport import is_asgi_app
 
 from .errors import WFCLoginError
@@ -80,8 +80,23 @@ class LoginEndpointAuthProvider:
         if self.config.external_endpoint_url is not None:
             return self.config.external_endpoint_url
         base = context.operation.schema.get_base_url()
+        return urljoin(base, self._path())
+
+    def _path(self) -> str:
+        """Login path, relative to the server root rather than to the schema's base path."""
+        if self.config.external_endpoint_url is not None:
+            return urlsplit(self.config.external_endpoint_url).path
         assert self.config.endpoint is not None
-        return get_full_path(base + "/", self.config.endpoint)
+        return "/" + self.config.endpoint.lstrip("/")
+
+    def _login_bounce(self, response: _LoginResponse) -> str | None:
+        """Redirect target when a sign-in attempt is sent straight back to the login endpoint."""
+        location = response.headers.get("Location")
+        if location is None:
+            return None
+        path = self._path()
+        # Relative targets resolve against the login path, so both sides end up comparable.
+        return location if urlsplit(urljoin(path, location)).path == path else None
 
     def _body_and_headers(self) -> tuple[str | bytes | None, dict[str, str]]:
         try:
@@ -105,6 +120,8 @@ class LoginEndpointAuthProvider:
                 url,
                 data=body,
                 headers=headers,
+                # A session cookie rides on the redirect itself, so following it would discard the sign-in.
+                allow_redirects=False,
                 timeout=config.request_timeout_for(operation=context.operation),
                 verify=config.tls_verify_for(operation=context.operation),
                 cert=config.request_cert_for(operation=context.operation),
@@ -137,10 +154,17 @@ class LoginEndpointAuthProvider:
     def _fetch_asgi(self, app: Any, context: AuthContext) -> _LoginResponse:
         timeout = context.operation.schema.config.request_timeout_for(operation=context.operation)
         body, headers = self._body_and_headers()
+        assert self.config.endpoint is not None
         try:
             with asgi.get_client(app) as client:
                 response = client.request(
-                    self.config.verb, self.config.endpoint, data=body, headers=headers, timeout=timeout
+                    self.config.verb,
+                    self.config.endpoint,
+                    data=body,
+                    headers=headers,
+                    # A session cookie rides on the redirect itself, so following it would discard the sign-in.
+                    allow_redirects=False,
+                    timeout=timeout,
                 )
         except Exception as exc:
             raise WFCLoginError(f"ASGI login request failed: {exc}") from exc
@@ -153,12 +177,23 @@ class LoginEndpointAuthProvider:
         )
 
     def _auth_data(self, response: _LoginResponse) -> dict[str, str] | str:
-        if response.status_code not in (200, 201):
+        # No token to extract means the login can only hand back a session.
+        is_cookie_login = self.config.expect_cookies or self.config.token is None
+        # Form-login servers commonly answer a successful sign-in with a redirect to a landing page.
+        accepts_redirect = is_cookie_login and 300 <= response.status_code < 400
+        bounce = self._login_bounce(response) if accepts_redirect else None
+        if bounce is not None:
             raise WFCLoginError(
-                f"Login endpoint returned status {response.status_code}. Expected 200 or 201. "
+                f"Login endpoint redirected back to the login endpoint ({bounce}). "
+                "The credentials were likely rejected."
+            )
+        if response.status_code not in (200, 201) and not accepts_redirect:
+            expected = "200, 201 or a redirect" if is_cookie_login else "200 or 201"
+            raise WFCLoginError(
+                f"Login endpoint returned status {response.status_code}. Expected {expected}. "
                 f"Response: {response.text[:200]}"
             )
-        if self.config.expect_cookies:
+        if is_cookie_login:
             if not response.cookies:
                 raise WFCLoginError("No cookies returned from login endpoint")
             return response.cookies

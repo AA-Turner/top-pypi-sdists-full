@@ -25,11 +25,11 @@ from typing_extensions import Self
 
 class BoxCCGCredentials(BaseModel):
     """
-    Credentials for Box Client Credentials Grant (CCG) authentication.  CCG provides server-to-server authentication without user interaction. Recommended for enterprise and automated sync operations.  Prerequisites:     - Create a Box application with Server Authentication (Client Credentials Grant)     - Authorize the application in the Box Admin Console     - Optionally configure an enterprise or user ID to act as  Security:     - client_secret encrypted at rest via CSFLE     - No user tokens involved; app authenticates as itself or as a user/enterprise
+    Credentials for Box Client Credentials Grant (CCG) authentication.  CCG provides server-to-server authentication without user interaction. Recommended for enterprise and automated sync operations.  Prerequisites:     - Create a Box application with Server Authentication (Client Credentials Grant)     - Authorize the application in the Box Admin Console     - Optionally configure an enterprise or user ID to act as  Security:     - client_secret is a secret credential, redacted on read     - No user tokens involved; app authenticates as itself or as a user/enterprise
     """ # noqa: E501
     type: Optional[StrictStr] = 'ccg'
     client_id: StrictStr = Field(description="REQUIRED. Box application client ID from Developer Console.")
-    client_secret: StrictStr = Field(description="REQUIRED. Box application client secret. SECURITY: Encrypted at rest via CSFLE.")
+    client_secret: StrictStr = Field(description="REQUIRED. Box application client secret. SECURITY: Secret credential, redacted on read. Never log or expose.")
     enterprise_id: Optional[StrictStr] = Field(default=None, description="Enterprise ID to authenticate as. Required when using CCG to act as the enterprise (service account). Find in: Box Admin Console > Enterprise Settings.")
     user_id: Optional[StrictStr] = Field(default=None, description="User ID to authenticate as. Used when the app needs to act as a specific managed user. Mutually exclusive with enterprise_id for token acquisition.")
     __properties: ClassVar[List[str]] = ["type", "client_id", "client_secret", "enterprise_id", "user_id"]

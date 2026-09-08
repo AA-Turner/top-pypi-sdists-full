@@ -180,6 +180,162 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.add_knowledge_file_with_options_async(request, runtime)
 
+    def add_knowledge_tags_with_options(
+        self,
+        request: main_models.AddKnowledgeTagsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.AddKnowledgeTagsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.tags):
+            query['Tags'] = request.tags
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'AddKnowledgeTags',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.AddKnowledgeTagsResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def add_knowledge_tags_with_options_async(
+        self,
+        request: main_models.AddKnowledgeTagsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.AddKnowledgeTagsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.tags):
+            query['Tags'] = request.tags
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'AddKnowledgeTags',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.AddKnowledgeTagsResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def add_knowledge_tags(
+        self,
+        request: main_models.AddKnowledgeTagsRequest,
+    ) -> main_models.AddKnowledgeTagsResponse:
+        runtime = RuntimeOptions()
+        return self.add_knowledge_tags_with_options(request, runtime)
+
+    async def add_knowledge_tags_async(
+        self,
+        request: main_models.AddKnowledgeTagsRequest,
+    ) -> main_models.AddKnowledgeTagsResponse:
+        runtime = RuntimeOptions()
+        return await self.add_knowledge_tags_with_options_async(request, runtime)
+
+    def add_knowledge_upload_user_with_options(
+        self,
+        request: main_models.AddKnowledgeUploadUserRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.AddKnowledgeUploadUserResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.users):
+            query['Users'] = request.users
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'AddKnowledgeUploadUser',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.AddKnowledgeUploadUserResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def add_knowledge_upload_user_with_options_async(
+        self,
+        request: main_models.AddKnowledgeUploadUserRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.AddKnowledgeUploadUserResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.users):
+            query['Users'] = request.users
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'AddKnowledgeUploadUser',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.AddKnowledgeUploadUserResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def add_knowledge_upload_user(
+        self,
+        request: main_models.AddKnowledgeUploadUserRequest,
+    ) -> main_models.AddKnowledgeUploadUserResponse:
+        runtime = RuntimeOptions()
+        return self.add_knowledge_upload_user_with_options(request, runtime)
+
+    async def add_knowledge_upload_user_async(
+        self,
+        request: main_models.AddKnowledgeUploadUserRequest,
+    ) -> main_models.AddKnowledgeUploadUserResponse:
+        runtime = RuntimeOptions()
+        return await self.add_knowledge_upload_user_with_options_async(request, runtime)
+
     def allocate_cluster_public_connection_with_options(
         self,
         request: main_models.AllocateClusterPublicConnectionRequest,
@@ -4269,6 +4425,80 @@ class Client(OpenApiClient):
     ) -> main_models.DeleteFormationCrawlerResponse:
         runtime = RuntimeOptions()
         return await self.delete_formation_crawler_with_options_async(request, runtime)
+
+    def delete_knowledge_file_with_options(
+        self,
+        request: main_models.DeleteKnowledgeFileRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteKnowledgeFileResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteKnowledgeFile',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteKnowledgeFileResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def delete_knowledge_file_with_options_async(
+        self,
+        request: main_models.DeleteKnowledgeFileRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.DeleteKnowledgeFileResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'DeleteKnowledgeFile',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.DeleteKnowledgeFileResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def delete_knowledge_file(
+        self,
+        request: main_models.DeleteKnowledgeFileRequest,
+    ) -> main_models.DeleteKnowledgeFileResponse:
+        runtime = RuntimeOptions()
+        return self.delete_knowledge_file_with_options(request, runtime)
+
+    async def delete_knowledge_file_async(
+        self,
+        request: main_models.DeleteKnowledgeFileRequest,
+    ) -> main_models.DeleteKnowledgeFileResponse:
+        runtime = RuntimeOptions()
+        return await self.delete_knowledge_file_with_options_async(request, runtime)
 
     def delete_lake_storage_with_options(
         self,
@@ -17220,6 +17450,154 @@ class Client(OpenApiClient):
         runtime = RuntimeOptions()
         return await self.list_aps_webhook_with_options_async(request, runtime)
 
+    def list_knowledge_tags_with_options(
+        self,
+        request: main_models.ListKnowledgeTagsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListKnowledgeTagsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListKnowledgeTags',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListKnowledgeTagsResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def list_knowledge_tags_with_options_async(
+        self,
+        request: main_models.ListKnowledgeTagsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListKnowledgeTagsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListKnowledgeTags',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListKnowledgeTagsResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def list_knowledge_tags(
+        self,
+        request: main_models.ListKnowledgeTagsRequest,
+    ) -> main_models.ListKnowledgeTagsResponse:
+        runtime = RuntimeOptions()
+        return self.list_knowledge_tags_with_options(request, runtime)
+
+    async def list_knowledge_tags_async(
+        self,
+        request: main_models.ListKnowledgeTagsRequest,
+    ) -> main_models.ListKnowledgeTagsResponse:
+        runtime = RuntimeOptions()
+        return await self.list_knowledge_tags_with_options_async(request, runtime)
+
+    def list_knowledge_upload_user_with_options(
+        self,
+        request: main_models.ListKnowledgeUploadUserRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListKnowledgeUploadUserResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListKnowledgeUploadUser',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListKnowledgeUploadUserResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def list_knowledge_upload_user_with_options_async(
+        self,
+        request: main_models.ListKnowledgeUploadUserRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.ListKnowledgeUploadUserResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'ListKnowledgeUploadUser',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.ListKnowledgeUploadUserResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def list_knowledge_upload_user(
+        self,
+        request: main_models.ListKnowledgeUploadUserRequest,
+    ) -> main_models.ListKnowledgeUploadUserResponse:
+        runtime = RuntimeOptions()
+        return self.list_knowledge_upload_user_with_options(request, runtime)
+
+    async def list_knowledge_upload_user_async(
+        self,
+        request: main_models.ListKnowledgeUploadUserRequest,
+    ) -> main_models.ListKnowledgeUploadUserResponse:
+        runtime = RuntimeOptions()
+        return await self.list_knowledge_upload_user_with_options_async(request, runtime)
+
     def list_lake_storages_with_options(
         self,
         request: main_models.ListLakeStoragesRequest,
@@ -21157,6 +21535,84 @@ class Client(OpenApiClient):
     ) -> main_models.ReleaseClusterPublicConnectionResponse:
         runtime = RuntimeOptions()
         return await self.release_cluster_public_connection_with_options_async(request, runtime)
+
+    def remove_knowledge_tags_with_options(
+        self,
+        request: main_models.RemoveKnowledgeTagsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.RemoveKnowledgeTagsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.tags):
+            query['Tags'] = request.tags
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'RemoveKnowledgeTags',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.RemoveKnowledgeTagsResponse(),
+            self.call_api(params, req, runtime)
+        )
+
+    async def remove_knowledge_tags_with_options_async(
+        self,
+        request: main_models.RemoveKnowledgeTagsRequest,
+        runtime: RuntimeOptions,
+    ) -> main_models.RemoveKnowledgeTagsResponse:
+        request.validate()
+        query = {}
+        if not DaraCore.is_null(request.dbcluster_id):
+            query['DBClusterId'] = request.dbcluster_id
+        if not DaraCore.is_null(request.file_location):
+            query['FileLocation'] = request.file_location
+        if not DaraCore.is_null(request.tags):
+            query['Tags'] = request.tags
+        req = open_api_util_models.OpenApiRequest(
+            query = Utils.query(query)
+        )
+        params = open_api_util_models.Params(
+            action = 'RemoveKnowledgeTags',
+            version = '2021-12-01',
+            protocol = 'HTTPS',
+            pathname = '/',
+            method = 'POST',
+            auth_type = 'AK',
+            style = 'RPC',
+            req_body_type = 'formData',
+            body_type = 'json'
+        )
+        return DaraCore.from_map(
+            main_models.RemoveKnowledgeTagsResponse(),
+            await self.call_api_async(params, req, runtime)
+        )
+
+    def remove_knowledge_tags(
+        self,
+        request: main_models.RemoveKnowledgeTagsRequest,
+    ) -> main_models.RemoveKnowledgeTagsResponse:
+        runtime = RuntimeOptions()
+        return self.remove_knowledge_tags_with_options(request, runtime)
+
+    async def remove_knowledge_tags_async(
+        self,
+        request: main_models.RemoveKnowledgeTagsRequest,
+    ) -> main_models.RemoveKnowledgeTagsResponse:
+        runtime = RuntimeOptions()
+        return await self.remove_knowledge_tags_with_options_async(request, runtime)
 
     def rename_semantic_view_with_options(
         self,

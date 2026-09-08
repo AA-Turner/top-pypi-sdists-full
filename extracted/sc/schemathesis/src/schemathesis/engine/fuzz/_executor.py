@@ -179,7 +179,11 @@ def run_forever(ctx: EngineContext, config: FuzzConfig) -> EventGenerator:
     from hypothesis.errors import HypothesisWarning
 
     event_queue: queue.Queue[events.EngineEvent] = queue.Queue()
-    operations = [op.ok() for op in ctx.schema.get_all_operations() if isinstance(op, Ok)]
+    operations = [
+        op.ok()
+        for op in ctx.schema.get_all_operations()
+        if isinstance(op, Ok) and not op.ok().has_skipped_required_body
+    ]
     if not operations:
         return
 
@@ -209,6 +213,7 @@ def _run_forever(
         event_queue=event_queue,
     )
     plan = build_fuzz_plan(ctx, operations=active_operations)
+    scenario_started = threading.Event()
     threads = [
         threading.Thread(
             target=_run_forever_thread,
@@ -221,6 +226,7 @@ def _run_forever(
                 "plan": plan,
                 "strategy_kwargs_by_label": strategy_kwargs_by_label,
                 "generation_modes_by_label": active_generation_modes_by_label,
+                "scenario_started": scenario_started,
             },
             daemon=True,  # killed when the main thread exits; prevents _thread._shutdown() hang
         )
@@ -233,9 +239,8 @@ def _run_forever(
         while True:
             try:
                 event = event_queue.get(timeout=EVENT_QUEUE_TIMEOUT)
-                if isinstance(event, events.FuzzScenarioFinished):
-                    if event.status in (Status.FAILURE, Status.ERROR):
-                        ctx.control.count_failure()
+                if isinstance(event, events.FuzzScenarioFinished) and event.status in (Status.FAILURE, Status.ERROR):
+                    ctx.control.count_failure(event.id)
                 yield event
             except queue.Empty:
                 if not any(t.is_alive() for t in threads):
@@ -259,6 +264,7 @@ def _run_forever_thread(
     plan: FuzzPlan,
     strategy_kwargs_by_label: dict[str, dict[str, object]],
     generation_modes_by_label: dict[str, list],
+    scenario_started: threading.Event,
 ) -> None:
     import hypothesis
     import hypothesis.strategies as st
@@ -290,8 +296,12 @@ def _run_forever_thread(
     @st.composite  # type: ignore[untyped-decorator]
     def scheduler(draw: hypothesis.strategies.DrawFn) -> ScenarioRecorder:
         """Compose a scenario: weighted-random producers, then link-biased follow-ups."""
-        if ctx.has_to_stop or not weighted_operations:
+        if not weighted_operations:
             raise _StopFuzzing
+        # A budget too small to survive startup would otherwise buy nothing at all.
+        if ctx.has_to_stop and scenario_started.is_set():
+            raise _StopFuzzing
+        scenario_started.set()
 
         # Capture timing before any draws so elapsed_time covers HTTP calls made in the strategy.
         scenario_started_at = time.monotonic()
@@ -300,10 +310,10 @@ def _run_forever_thread(
 
         last_step: tuple[APIOperation, Case, Response] | None = None
 
-        for _ in range(MAX_SCENARIO_STEPS):
-            if ctx.has_to_stop:
+        for step in range(MAX_SCENARIO_STEPS):
+            if step > 0 and ctx.has_to_stop:
                 # Outer `except Flaky` swallows any data-tree fallout from this mid-draw break.
-                break  # type: ignore[unreachable]
+                break
             link_overrides: dict[str, Any] = {}
             candidates: list[tuple[APIOperation, dict[str, Any]]] = []
             if last_step is not None:

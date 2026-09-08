@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -41,13 +42,20 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             {'col': 'col1', 'mapping': {None: 0, 'a': 1, 'b': 2}},
             {'col': 'col2', 'mapping': {None: 0, 'x': 1, 'y': 2}}
         ]
-    handle_unknown: str
+    handle_unknown: str, int, float or callable
         options are 'error', 'return_nan' and 'value', defaults to 'value',
-        which will impute the category -1.
-    handle_missing: str
+        which will impute the category -1. A number is imputed directly, and
+        a callable fn(value, mapping) is evaluated per unseen value at transform
+        time, where `value` is the unseen label and `mapping` is the fitted
+        category-to-label mapping.
+    handle_missing: str, int, float or callable
         options are 'error', 'return_nan', and 'value, default to 'value',
         which treat nan as a category at fit time,
         or -2 at transform time if nan is not a category during fit.
+        A number replaces the -2 default for missing values that were not seen
+        at fit time, and a callable fn(value, mapping) is evaluated once per
+        column with `value` = np.nan and `mapping` the fitted
+        category-to-label mapping.
     index_start: int
         integer at which to start labelling the categories. Defaults to 1.
         Set to 0 for zero-indexed labels, which can be convenient when feeding
@@ -113,6 +121,9 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         handle_unknown: str = 'value',
         handle_missing: str = 'value',
         index_start: int = 1,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
     ):
         super().__init__(
             verbose=verbose,
@@ -121,6 +132,9 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
         )
         self.mapping_supplied = mapping is not None
         if self.mapping_supplied:
@@ -135,11 +149,11 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
     def _fit(self, X: pd.DataFrame, y: pd.Series | None = None, **kwargs) -> None:
         # reset mapping in case of refit
-        if not self.mapping_supplied:
-            self.mapping = None
+        if self.mapping_supplied:
+            return
+        self.mapping = None
         _, categories = self.ordinal_encoding(
             X,
-            mapping=self.mapping,
             cols=self.cols,
             handle_unknown=self.handle_unknown,
             handle_missing=self.handle_missing,
@@ -178,8 +192,9 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         if self._dim is None:
             raise ValueError('Must train encoder before it can be used to inverse_transform data')
 
-        # first check the type and make deep copy
-        X = util.convert_input(X_in, deep=True)
+        # first check the type and make deep copy; re-attach the fitted output names
+        # for arraylike input, matching the BaseN/OneHot inverse_transform precedent
+        X = util.convert_input(X_in, columns=self.feature_names_out_, deep=True)
 
         # then make sure that it is the right size
         if X.shape[1] != self._dim:
@@ -196,10 +211,10 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
         if self.handle_unknown == 'value':
             for col in self.cols:
-                if any(X[col] == -1):
+                if any(X[col] == util.UNKNOWN_SENTINEL):
                     warnings.warn(
                         'inverse_transform is not supported because transform impute '
-                        f'the unknown category -1 when encode {col}',
+                        f'the unknown category {util.UNKNOWN_SENTINEL} when encode {col}',
                         stacklevel=4,
                     )
 
@@ -235,9 +250,7 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         Otherwise, the classes are assumed to have no true order and integers are selected
         at random.
         """
-        return_nan_series = pd.Series(data=[np.nan], index=[-2])
-
-        X = X_in.copy(deep=True)
+        X = X_in
 
         if cols is None:
             cols = X.columns
@@ -247,70 +260,141 @@ class OrdinalEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             for switch in mapping:
                 column = switch.get('col')
                 col_mapping = switch['mapping']
-
-                # Convert to object to accept np.nan (dtype string doesn't)
-                # fillna changes None and pd.NA to np.nan
-                try:
-                    with pd.option_context('future.no_silent_downcasting', True):
-                        X[column] = X[column].astype('object').fillna(np.nan).map(col_mapping)
-                except pd._config.config.OptionError:  # old pandas versions
-                    X[column] = X[column].astype('object').fillna(np.nan).map(col_mapping)
-                if util.is_category(X[column].dtype):
-                    nan_identity = col_mapping.loc[col_mapping.index.isna()].array[0]
-                    X[column] = X[column].cat.add_categories(nan_identity)
-                    X[column] = X[column].fillna(nan_identity)
-                try:
-                    X[column] = X[column].astype(int)
-                except ValueError:
-                    X[column] = X[column].astype(float)
-
-                if handle_unknown == 'value':
-                    X[column] = X[column].fillna(-1)
-                elif handle_unknown == 'error':
-                    missing = X[column].isna()
-                    if any(missing):
-                        raise ValueError(f'Unexpected categories found in column {column}')
-
-                if handle_missing == 'return_nan':
-                    X[column] = X[column].map(return_nan_series).where(X[column] == -2, X[column])
-
+                raw_values = X[column] if callable(handle_unknown) else None
+                X[column] = OrdinalEncoder._map_column(X[column], col_mapping)
+                X[column] = OrdinalEncoder._apply_unknown_policy(
+                    X[column], column, handle_unknown, raw_values, col_mapping
+                )
+                X[column] = OrdinalEncoder._apply_missing_policy(
+                    X[column], handle_missing, column, col_mapping
+                )
         else:
             mapping_out = []
             for col in cols:
-                nan_identity = np.nan
-                categories = X[col].unique()
-                # make nan last category
-                if pd.isna(categories).any():
-                    categories = [c for c in categories if not pd.isna(c)] + [nan_identity]
-                else:
-                    categories = list(categories)
-                if util.is_category(X[col].dtype):
-                    # Avoid using pandas category dtype meta-data if possible, see #235, #238.
-                    if X[col].dtype.ordered:
-                        category_set = set(
-                            categories
-                        )  # convert to set for faster membership checks c.f. #407
-                        categories = [c for c in X[col].dtype.categories if c in category_set]
-                    if X[col].isna().any():
-                        categories += [np.nan]
-
-                index = pd.Series(categories).fillna(nan_identity).unique()
-
-                data = pd.Series(
-                    index=index,
-                    data=range(index_start, len(index) + index_start),
-                )
-
-                if handle_missing == 'value' and ~data.index.isna().any():
-                    data.loc[nan_identity] = -2
-                elif handle_missing == 'return_nan':
-                    data.loc[nan_identity] = -2
-
                 mapping_out.append(
-                    {'col': col, 'mapping': data, 'data_type': X[col].dtype},
+                    {
+                        'col': col,
+                        'mapping': OrdinalEncoder._fit_column_mapping(
+                            X[col], handle_missing, index_start
+                        ),
+                        'data_type': X[col].dtype,
+                    }
                 )
 
         return X, mapping_out
+
+    @staticmethod
+    def _map_column(values: pd.Series, col_mapping: pd.Series) -> pd.Series:
+        """Map one column through its fitted category-to-code mapping."""
+        # Convert to object to accept np.nan (dtype string doesn't)
+        # fillna changes None and pd.NA to np.nan
+        try:
+            with pd.option_context('future.no_silent_downcasting', True):
+                values = values.astype('object').fillna(np.nan).map(col_mapping)
+        except pd._config.config.OptionError:  # old pandas versions
+            values = values.astype('object').fillna(np.nan).map(col_mapping)
+        if util.is_category(values.dtype):
+            nan_identity = col_mapping.loc[col_mapping.index.isna()].array[0]
+            values = values.cat.add_categories(nan_identity)
+            values = values.fillna(nan_identity)
+        try:
+            values = values.astype(int)
+        except ValueError:
+            values = values.astype(float)
+        return values
+
+    @staticmethod
+    def _apply_unknown_policy(
+        values: pd.Series,
+        column: str,
+        handle_unknown: str | float | Callable,
+        raw_values: pd.Series | None,
+        col_mapping: pd.Series,
+    ) -> pd.Series:
+        """Resolve unseen categories after mapping: impute, raise, or defer to a scalar/callable."""
+        unknown_mask = values.isna()
+        if handle_unknown == 'value':
+            return values.fillna(util.UNKNOWN_SENTINEL)
+        if handle_unknown == 'error':
+            if unknown_mask.any():
+                raise ValueError(f'Unexpected categories found in column {column}')
+        elif callable(handle_unknown):
+            # each unseen raw value is passed to the callable individually, so unlike
+            # handle_missing (a single conceptual nan) this bypasses evaluate_handle_callable
+            filled = raw_values[unknown_mask].map(lambda value: handle_unknown(value, col_mapping))
+            values = values.mask(unknown_mask, filled)
+        elif isinstance(handle_unknown, util.NUMERIC_SCALARS):
+            util.validate_scalar_handle_value(handle_unknown, col_mapping, 'handle_unknown', column)
+            values = values.fillna(handle_unknown)
+        return values
+
+    @staticmethod
+    def _apply_missing_policy(
+        values: pd.Series,
+        handle_missing: str | float | Callable,
+        column: str,
+        col_mapping: pd.Series,
+    ) -> pd.Series:
+        """Map the missing sentinel to NaN, or to a scalar/callable result, per handle_missing."""
+        if handle_missing == 'return_nan':
+            return_nan_series = pd.Series(data=[np.nan], index=[util.MISSING_SENTINEL])
+            return values.map(return_nan_series).where(values == util.MISSING_SENTINEL, values)
+        if callable(handle_missing):
+            missing_value = util.evaluate_handle_callable(
+                handle_missing, np.nan, col_mapping, 'handle_missing'
+            )
+            return values.mask(values == util.MISSING_SENTINEL, missing_value)
+        if isinstance(handle_missing, util.NUMERIC_SCALARS):
+            util.validate_scalar_handle_value(handle_missing, col_mapping, 'handle_missing', column)
+            return values.mask(values == util.MISSING_SENTINEL, handle_missing)
+        return values
+
+    @staticmethod
+    def _get_categories(values: pd.Series) -> list:
+        """Collect the unique categories of one column, NaN last."""
+        nan_identity = np.nan
+        categories = values.unique()
+        # make nan last category
+        if pd.isna(categories).any():
+            categories = [c for c in categories if not pd.isna(c)] + [nan_identity]
+        else:
+            categories = list(categories)
+        if util.is_category(values.dtype):
+            # Avoid using pandas category dtype meta-data if possible, see #235, #238.
+            if values.dtype.ordered:
+                category_set = set(
+                    categories
+                )  # convert to set for faster membership checks c.f. #407
+                categories = [c for c in values.dtype.categories if c in category_set]
+            if values.isna().any():
+                categories += [np.nan]
+        return categories
+
+    @staticmethod
+    def _fit_column_mapping(
+        values: pd.Series, handle_missing: str | float | Callable, index_start: int
+    ) -> pd.Series:
+        """Build the category-to-code mapping of one column from the fit data."""
+        nan_identity = np.nan
+        categories = OrdinalEncoder._get_categories(values)
+
+        index = pd.Series(categories).fillna(nan_identity).unique()
+
+        data = pd.Series(
+            index=index,
+            data=range(index_start, len(index) + index_start),
+        )
+
+        if handle_missing == 'value' and ~data.index.isna().any():
+            data.loc[nan_identity] = util.MISSING_SENTINEL
+        elif handle_missing == 'return_nan':
+            data.loc[nan_identity] = util.MISSING_SENTINEL
+        elif callable(handle_missing) or isinstance(handle_missing, util.NUMERIC_SCALARS):
+            # reserve the missing code so transform can replace it with
+            # the user's scalar / callable result
+            data.loc[nan_identity] = util.MISSING_SENTINEL
+
+        return data
 
     def _validate_supplied_mapping(
         self, supplied_mapping: list[dict[str, str | dict | pd.Series]]

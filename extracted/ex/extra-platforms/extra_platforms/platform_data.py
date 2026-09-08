@@ -81,6 +81,8 @@ CLEARLINUX = Platform("clearlinux", "Clear Linux OS", "✳️", "https://clearli
 
 CLOUDLINUX = Platform("cloudlinux", "CloudLinux OS", "꩜", "https://cloudlinux.com")
 
+CRUX = Platform("crux", "CRUX", "✜", "https://crux.nu")
+
 CYGWIN = Platform("cygwin", "Cygwin", "Ͼ", "https://cygwin.com")
 
 DEBIAN = Platform("debian", "Debian", "🌀", "https://debian.org")
@@ -162,6 +164,8 @@ Unicode-based, the other that is NerdFont-based.
 ```
 """
 
+NUTYX = Platform("nutyx", "NuTyX", "🃏", "https://nutyx.org")
+
 OPENBSD = Platform("openbsd", "OpenBSD", "🐡", "https://openbsd.org")
 
 OPENSUSE = Platform("opensuse", "openSUSE", "🦎", "https://opensuse.org")
@@ -202,6 +206,22 @@ SLES = Platform(
 SLITAZ = Platform("slitaz", "SliTaz GNU/Linux", "🕷️", "https://slitaz.org")
 
 SOLARIS = Platform("solaris", "Solaris", "🌞", "https://oracle.com/solaris")
+
+SOLUS = Platform("solus", "Solus", "", "https://getsol.us")
+"""
+```{note}
+Solus has no representative Unicode emoji, and the 🌞 that would evoke its name is
+already taken by {data}`~extra_platforms.SOLARIS`. So like
+{data}`~extra_platforms.ALMALINUX` it uses a [NerdFont](https://www.nerdfonts.com)
+icon instead:
+[`` (i.e. `nf-linux-solus` /
+`f32d`)](https://www.nerdfonts.com/cheat-sheet?glyphSearch=nf-linux-solus).
+
+The side-effect of using a NerdFont character is it will only display correctly
+when using a supported font. Otherwise, it will appear as an unknown or invisible
+character depending on the fonts.
+```
+"""
 
 SOURCEMAGE = Platform(
     "sourcemage", "Source Mage GNU/Linux", "🧙", "https://sourcemage.org"

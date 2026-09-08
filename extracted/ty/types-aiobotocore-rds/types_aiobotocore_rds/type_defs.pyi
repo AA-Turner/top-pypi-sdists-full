@@ -608,6 +608,8 @@ class TagTypeDef(TypedDict):
 class AdditionalStorageVolumeOutputTypeDef(TypedDict):
     VolumeName: NotRequired[str]
     StorageVolumeStatus: NotRequired[str]
+    StorageOperationStatus: NotRequired[str]
+    StorageOperationPercentProgress: NotRequired[int]
     AllocatedStorage: NotRequired[int]
     IOPS: NotRequired[int]
     MaxAllocatedStorage: NotRequired[int]
@@ -4394,6 +4396,8 @@ class DBInstanceTypeDef(TypedDict):
     EngineLifecycleSupport: NotRequired[str]
     AdditionalStorageVolumes: NotRequired[list[AdditionalStorageVolumeOutputTypeDef]]
     StorageVolumeStatus: NotRequired[str]
+    StorageOperationStatus: NotRequired[str]
+    StorageOperationPercentProgress: NotRequired[int]
 
 class DBSubnetGroupMessageTypeDef(TypedDict):
     Marker: str

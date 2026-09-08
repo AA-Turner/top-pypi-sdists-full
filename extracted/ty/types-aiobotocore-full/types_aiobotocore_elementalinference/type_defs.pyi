@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping, Sequence
-from typing import Any, Union
+from datetime import datetime
+from typing import Union
 
 from .literals import (
+    DataSourceSportType,
     DictionaryLanguageType,
     DictionaryStatusType,
     FeedStatusType,
@@ -30,20 +32,25 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AspectRatioTypeDef",
     "AssociateFeedRequestTypeDef",
     "AssociateFeedResponseTypeDef",
     "ClippingConfigTypeDef",
+    "CompetitorTypeDef",
     "CreateDictionaryRequestTypeDef",
     "CreateDictionaryResponseTypeDef",
     "CreateFeedRequestTypeDef",
     "CreateFeedResponseTypeDef",
     "CreateOutputTypeDef",
+    "CroppingConfigOutputTypeDef",
+    "CroppingConfigTypeDef",
+    "CroppingConfigUnionTypeDef",
+    "DataSourceConfigurationTypeDef",
     "DeleteDictionaryRequestTypeDef",
     "DeleteDictionaryResponseTypeDef",
     "DeleteFeedRequestTypeDef",
@@ -56,6 +63,7 @@ __all__ = (
     "ExportDictionaryEntriesResponseTypeDef",
     "FeedAssociationTypeDef",
     "FeedSummaryTypeDef",
+    "FixtureSummaryTypeDef",
     "GetDictionaryRequestTypeDef",
     "GetDictionaryResponseTypeDef",
     "GetFeedRequestTypeDef",
@@ -75,8 +83,15 @@ __all__ = (
     "OutputConfigUnionTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
+    "SearchFilterTypeDef",
+    "SearchFixturesRequestPaginateTypeDef",
+    "SearchFixturesRequestTypeDef",
+    "SearchFixturesResponseTypeDef",
     "SubtitlingConfigTypeDef",
     "TagResourceRequestTypeDef",
+    "TemplateGroupOutputTypeDef",
+    "TemplateGroupTypeDef",
+    "TemplateGroupUnionTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateDictionaryRequestTypeDef",
     "UpdateDictionaryResponseTypeDef",
@@ -97,8 +112,12 @@ class ResponseMetadataTypeDef(TypedDict):
     RetryAttempts: int
     HostId: NotRequired[str]
 
-class ClippingConfigTypeDef(TypedDict):
-    callbackMetadata: NotRequired[str]
+class DataSourceConfigurationTypeDef(TypedDict):
+    fixtureId: str
+
+class CompetitorTypeDef(TypedDict):
+    name: NotRequired[str]
+    isHome: NotRequired[bool]
 
 class CreateDictionaryRequestTypeDef(TypedDict):
     name: str
@@ -108,6 +127,10 @@ class CreateDictionaryRequestTypeDef(TypedDict):
 
 class FeedAssociationTypeDef(TypedDict):
     associatedResourceName: str
+
+class TemplateGroupOutputTypeDef(TypedDict):
+    name: str
+    templateUris: list[str]
 
 DeleteDictionaryRequestTypeDef = TypedDict(
     "DeleteDictionaryRequestTypeDef",
@@ -178,9 +201,17 @@ class ListFeedsRequestTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
+class SearchFilterTypeDef(TypedDict):
+    name: Literal["COMPETITOR"]
+    values: Sequence[str]
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
+
+class TemplateGroupTypeDef(TypedDict):
+    name: str
+    templateUris: Sequence[str]
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -288,6 +319,19 @@ UpdateDictionaryResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+class ClippingConfigTypeDef(TypedDict):
+    callbackMetadata: NotRequired[str]
+    dataSourceConfiguration: NotRequired[DataSourceConfigurationTypeDef]
+
+class FixtureSummaryTypeDef(TypedDict):
+    fixtureId: str
+    name: str
+    status: str
+    competitors: list[CompetitorTypeDef]
+    fixtureGroup: NotRequired[str]
+    scheduledStart: NotRequired[datetime]
+
 FeedSummaryTypeDef = TypedDict(
     "FeedSummaryTypeDef",
     {
@@ -298,6 +342,9 @@ FeedSummaryTypeDef = TypedDict(
         "association": NotRequired[FeedAssociationTypeDef],
     },
 )
+
+class CroppingConfigOutputTypeDef(TypedDict):
+    templateGroups: NotRequired[list[TemplateGroupOutputTypeDef]]
 
 class ListDictionariesResponseTypeDef(TypedDict):
     dictionaries: list[DictionarySummaryTypeDef]
@@ -318,20 +365,40 @@ class ListDictionariesRequestPaginateTypeDef(TypedDict):
 class ListFeedsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class OutputConfigOutputTypeDef(TypedDict):
-    cropping: NotRequired[dict[str, Any]]
-    clipping: NotRequired[ClippingConfigTypeDef]
-    subtitling: NotRequired[SubtitlingConfigTypeDef]
+class SearchFixturesRequestPaginateTypeDef(TypedDict):
+    sport: DataSourceSportType
+    startDate: str
+    endDate: NotRequired[str]
+    filters: NotRequired[Sequence[SearchFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class OutputConfigTypeDef(TypedDict):
-    cropping: NotRequired[Mapping[str, Any]]
-    clipping: NotRequired[ClippingConfigTypeDef]
-    subtitling: NotRequired[SubtitlingConfigTypeDef]
+class SearchFixturesRequestTypeDef(TypedDict):
+    sport: DataSourceSportType
+    startDate: str
+    endDate: NotRequired[str]
+    filters: NotRequired[Sequence[SearchFilterTypeDef]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+TemplateGroupUnionTypeDef = Union[TemplateGroupTypeDef, TemplateGroupOutputTypeDef]
+
+class SearchFixturesResponseTypeDef(TypedDict):
+    fixtures: list[FixtureSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListFeedsResponseTypeDef(TypedDict):
     feeds: list[FeedSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class OutputConfigOutputTypeDef(TypedDict):
+    cropping: NotRequired[CroppingConfigOutputTypeDef]
+    clipping: NotRequired[ClippingConfigTypeDef]
+    subtitling: NotRequired[SubtitlingConfigTypeDef]
+
+class CroppingConfigTypeDef(TypedDict):
+    templateGroups: NotRequired[Sequence[TemplateGroupUnionTypeDef]]
 
 class GetOutputTypeDef(TypedDict):
     name: str
@@ -340,7 +407,7 @@ class GetOutputTypeDef(TypedDict):
     description: NotRequired[str]
     fromAssociation: NotRequired[bool]
 
-OutputConfigUnionTypeDef = Union[OutputConfigTypeDef, OutputConfigOutputTypeDef]
+CroppingConfigUnionTypeDef = Union[CroppingConfigTypeDef, CroppingConfigOutputTypeDef]
 CreateFeedResponseTypeDef = TypedDict(
     "CreateFeedResponseTypeDef",
     {
@@ -384,6 +451,13 @@ UpdateFeedResponseTypeDef = TypedDict(
     },
 )
 
+class OutputConfigTypeDef(TypedDict):
+    cropping: NotRequired[CroppingConfigUnionTypeDef]
+    clipping: NotRequired[ClippingConfigTypeDef]
+    subtitling: NotRequired[SubtitlingConfigTypeDef]
+
+OutputConfigUnionTypeDef = Union[OutputConfigTypeDef, OutputConfigOutputTypeDef]
+
 class CreateOutputTypeDef(TypedDict):
     name: str
     outputConfig: OutputConfigUnionTypeDef
@@ -410,6 +484,7 @@ AssociateFeedRequestTypeDef = TypedDict(
 class CreateFeedRequestTypeDef(TypedDict):
     name: str
     outputs: Sequence[CreateOutputTypeDef]
+    accessRoleArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 UpdateFeedRequestTypeDef = TypedDict(
@@ -418,5 +493,6 @@ UpdateFeedRequestTypeDef = TypedDict(
         "name": str,
         "id": str,
         "outputs": Sequence[UpdateOutputTypeDef],
+        "accessRoleArn": NotRequired[str],
     },
 )

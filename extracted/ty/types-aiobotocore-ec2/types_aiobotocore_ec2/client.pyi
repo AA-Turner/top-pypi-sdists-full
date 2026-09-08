@@ -192,6 +192,7 @@ from .paginator import (
     GetTransitGatewayAttachmentPropagationsPaginator,
     GetTransitGatewayMulticastDomainAssociationsPaginator,
     GetTransitGatewayPolicyTableAssociationsPaginator,
+    GetTransitGatewayPolicyTableEntriesPaginator,
     GetTransitGatewayPrefixListReferencesPaginator,
     GetTransitGatewayRouteTableAssociationsPaginator,
     GetTransitGatewayRouteTablePropagationsPaginator,
@@ -239,6 +240,8 @@ from .type_defs import (
     AssignPrivateNatGatewayAddressResultTypeDef,
     AssociateAddressRequestTypeDef,
     AssociateAddressResultTypeDef,
+    AssociateApplicationStatusCheckRequestTypeDef,
+    AssociateApplicationStatusCheckResultTypeDef,
     AssociateCapacityReservationBillingOwnerRequestTypeDef,
     AssociateCapacityReservationBillingOwnerResultTypeDef,
     AssociateClientVpnTargetNetworkRequestTypeDef,
@@ -292,6 +295,8 @@ from .type_defs import (
     AuthorizeSecurityGroupEgressResultTypeDef,
     AuthorizeSecurityGroupIngressRequestTypeDef,
     AuthorizeSecurityGroupIngressResultTypeDef,
+    BatchModifyIpamRoutingPolicyRegistrationsRequestTypeDef,
+    BatchModifyIpamRoutingPolicyRegistrationsResultTypeDef,
     BundleInstanceRequestTypeDef,
     BundleInstanceResultTypeDef,
     CancelBundleTaskRequestTypeDef,
@@ -326,6 +331,8 @@ from .type_defs import (
     CopySnapshotResultTypeDef,
     CopyVolumesRequestTypeDef,
     CopyVolumesResultTypeDef,
+    CreateApplicationStatusCheckRequestTypeDef,
+    CreateApplicationStatusCheckResultTypeDef,
     CreateCapacityManagerDataExportRequestTypeDef,
     CreateCapacityManagerDataExportResultTypeDef,
     CreateCapacityReservationBySplittingRequestTypeDef,
@@ -380,6 +387,8 @@ from .type_defs import (
     CreateInterruptibleCapacityReservationAllocationResultTypeDef,
     CreateIpamExternalResourceVerificationTokenRequestTypeDef,
     CreateIpamExternalResourceVerificationTokenResultTypeDef,
+    CreateIpamInternetRegistryAssociationRequestTypeDef,
+    CreateIpamInternetRegistryAssociationResultTypeDef,
     CreateIpamPolicyRequestTypeDef,
     CreateIpamPolicyResultTypeDef,
     CreateIpamPoolRequestTypeDef,
@@ -392,6 +401,8 @@ from .type_defs import (
     CreateIpamResourceDiscoveryRequestTypeDef,
     CreateIpamResourceDiscoveryResultTypeDef,
     CreateIpamResultTypeDef,
+    CreateIpamRoutingPolicyRegistrationRequestTypeDef,
+    CreateIpamRoutingPolicyRegistrationResultTypeDef,
     CreateIpamScopeRequestTypeDef,
     CreateIpamScopeResultTypeDef,
     CreateKeyPairRequestTypeDef,
@@ -485,6 +496,8 @@ from .type_defs import (
     CreateTransitGatewayMulticastDomainResultTypeDef,
     CreateTransitGatewayPeeringAttachmentRequestTypeDef,
     CreateTransitGatewayPeeringAttachmentResultTypeDef,
+    CreateTransitGatewayPolicyTableEntryRequestTypeDef,
+    CreateTransitGatewayPolicyTableEntryResultTypeDef,
     CreateTransitGatewayPolicyTableRequestTypeDef,
     CreateTransitGatewayPolicyTableResultTypeDef,
     CreateTransitGatewayPrefixListReferenceRequestTypeDef,
@@ -529,6 +542,8 @@ from .type_defs import (
     CreateVpnConnectionRouteRequestTypeDef,
     CreateVpnGatewayRequestTypeDef,
     CreateVpnGatewayResultTypeDef,
+    DeleteApplicationStatusCheckRequestTypeDef,
+    DeleteApplicationStatusCheckResultTypeDef,
     DeleteCapacityManagerDataExportRequestTypeDef,
     DeleteCapacityManagerDataExportResultTypeDef,
     DeleteCarrierGatewayRequestTypeDef,
@@ -560,6 +575,8 @@ from .type_defs import (
     DeleteInternetGatewayRequestTypeDef,
     DeleteIpamExternalResourceVerificationTokenRequestTypeDef,
     DeleteIpamExternalResourceVerificationTokenResultTypeDef,
+    DeleteIpamInternetRegistryAssociationRequestTypeDef,
+    DeleteIpamInternetRegistryAssociationResultTypeDef,
     DeleteIpamPolicyRequestTypeDef,
     DeleteIpamPolicyResultTypeDef,
     DeleteIpamPoolRequestTypeDef,
@@ -572,6 +589,8 @@ from .type_defs import (
     DeleteIpamResourceDiscoveryRequestTypeDef,
     DeleteIpamResourceDiscoveryResultTypeDef,
     DeleteIpamResultTypeDef,
+    DeleteIpamRoutingPolicyRegistrationRequestTypeDef,
+    DeleteIpamRoutingPolicyRegistrationResultTypeDef,
     DeleteIpamScopeRequestTypeDef,
     DeleteIpamScopeResultTypeDef,
     DeleteKeyPairRequestTypeDef,
@@ -655,6 +674,8 @@ from .type_defs import (
     DeleteTransitGatewayMulticastDomainResultTypeDef,
     DeleteTransitGatewayPeeringAttachmentRequestTypeDef,
     DeleteTransitGatewayPeeringAttachmentResultTypeDef,
+    DeleteTransitGatewayPolicyTableEntryRequestTypeDef,
+    DeleteTransitGatewayPolicyTableEntryResultTypeDef,
     DeleteTransitGatewayPolicyTableRequestTypeDef,
     DeleteTransitGatewayPolicyTableResultTypeDef,
     DeleteTransitGatewayPrefixListReferenceRequestTypeDef,
@@ -724,6 +745,12 @@ from .type_defs import (
     DescribeAddressTransfersResultTypeDef,
     DescribeAggregateIdFormatRequestTypeDef,
     DescribeAggregateIdFormatResultTypeDef,
+    DescribeApplicationStatusCheckAssociationsRequestTypeDef,
+    DescribeApplicationStatusCheckAssociationsResultTypeDef,
+    DescribeApplicationStatusChecksRequestTypeDef,
+    DescribeApplicationStatusChecksResultTypeDef,
+    DescribeApplicationStatusRequestTypeDef,
+    DescribeApplicationStatusResultTypeDef,
     DescribeAvailabilityZonesRequestTypeDef,
     DescribeAvailabilityZonesResultTypeDef,
     DescribeAwsNetworkPerformanceMetricSubscriptionsRequestTypeDef,
@@ -858,6 +885,8 @@ from .type_defs import (
     DescribeIpamByoasnResultTypeDef,
     DescribeIpamExternalResourceVerificationTokensRequestTypeDef,
     DescribeIpamExternalResourceVerificationTokensResultTypeDef,
+    DescribeIpamInternetRegistryAssociationsRequestTypeDef,
+    DescribeIpamInternetRegistryAssociationsResultTypeDef,
     DescribeIpamPoliciesRequestTypeDef,
     DescribeIpamPoliciesResultTypeDef,
     DescribeIpamPoolAllocationsRequestTypeDef,
@@ -1100,6 +1129,8 @@ from .type_defs import (
     DisableAddressTransferResultTypeDef,
     DisableAllowedImagesSettingsRequestTypeDef,
     DisableAllowedImagesSettingsResultTypeDef,
+    DisableApplicationStatusCheckSuppressionRequestTypeDef,
+    DisableApplicationStatusCheckSuppressionResultTypeDef,
     DisableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef,
     DisableAwsNetworkPerformanceMetricSubscriptionResultTypeDef,
     DisableCapacityManagerRequestTypeDef,
@@ -1138,6 +1169,8 @@ from .type_defs import (
     DisableVpcClassicLinkRequestTypeDef,
     DisableVpcClassicLinkResultTypeDef,
     DisassociateAddressRequestTypeDef,
+    DisassociateApplicationStatusCheckRequestTypeDef,
+    DisassociateApplicationStatusCheckResultTypeDef,
     DisassociateCapacityReservationBillingOwnerRequestTypeDef,
     DisassociateCapacityReservationBillingOwnerResultTypeDef,
     DisassociateClientVpnTargetNetworkRequestTypeDef,
@@ -1176,6 +1209,8 @@ from .type_defs import (
     EnableAddressTransferResultTypeDef,
     EnableAllowedImagesSettingsRequestTypeDef,
     EnableAllowedImagesSettingsResultTypeDef,
+    EnableApplicationStatusCheckSuppressionRequestTypeDef,
+    EnableApplicationStatusCheckSuppressionResultTypeDef,
     EnableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef,
     EnableAwsNetworkPerformanceMetricSubscriptionResultTypeDef,
     EnableCapacityManagerRequestTypeDef,
@@ -1196,6 +1231,8 @@ from .type_defs import (
     EnableImageResultTypeDef,
     EnableInstanceSqlHaStandbyDetectionsRequestTypeDef,
     EnableInstanceSqlHaStandbyDetectionsResultTypeDef,
+    EnableIpamInternetRegistryAssociationRequestTypeDef,
+    EnableIpamInternetRegistryAssociationResultTypeDef,
     EnableIpamOrganizationAdminAccountRequestTypeDef,
     EnableIpamOrganizationAdminAccountResultTypeDef,
     EnableIpamPolicyRequestTypeDef,
@@ -1288,6 +1325,12 @@ from .type_defs import (
     GetIpamDiscoveredPublicAddressesResultTypeDef,
     GetIpamDiscoveredResourceCidrsRequestTypeDef,
     GetIpamDiscoveredResourceCidrsResultTypeDef,
+    GetIpamDiscoveredRoutesRequestTypeDef,
+    GetIpamDiscoveredRoutesResultTypeDef,
+    GetIpamInternetRegistryAssociationAsnsRequestTypeDef,
+    GetIpamInternetRegistryAssociationAsnsResultTypeDef,
+    GetIpamInternetRegistryAssociationCidrsRequestTypeDef,
+    GetIpamInternetRegistryAssociationCidrsResultTypeDef,
     GetIpamPolicyAllocationRulesRequestTypeDef,
     GetIpamPolicyAllocationRulesResultTypeDef,
     GetIpamPolicyOrganizationTargetsRequestTypeDef,
@@ -1304,6 +1347,14 @@ from .type_defs import (
     GetIpamPrefixListResolverVersionsResultTypeDef,
     GetIpamResourceCidrsRequestTypeDef,
     GetIpamResourceCidrsResultTypeDef,
+    GetIpamRouteOriginAuthorizationsRequestTypeDef,
+    GetIpamRouteOriginAuthorizationsResultTypeDef,
+    GetIpamRouteProtectionFindingsRequestTypeDef,
+    GetIpamRouteProtectionFindingsResultTypeDef,
+    GetIpamRoutingPolicyRegistrationDeltasRequestTypeDef,
+    GetIpamRoutingPolicyRegistrationDeltasResultTypeDef,
+    GetIpamRoutingPolicyRegistrationsRequestTypeDef,
+    GetIpamRoutingPolicyRegistrationsResultTypeDef,
     GetLaunchTemplateDataRequestTypeDef,
     GetLaunchTemplateDataResultTypeDef,
     GetManagedPrefixListAssociationsRequestTypeDef,
@@ -1393,6 +1444,8 @@ from .type_defs import (
     ModifyAccountVpcEncryptionControlResultTypeDef,
     ModifyAddressAttributeRequestTypeDef,
     ModifyAddressAttributeResultTypeDef,
+    ModifyApplicationStatusCheckRequestTypeDef,
+    ModifyApplicationStatusCheckResultTypeDef,
     ModifyAvailabilityZoneGroupRequestTypeDef,
     ModifyAvailabilityZoneGroupResultTypeDef,
     ModifyCapacityReservationFleetRequestTypeDef,
@@ -1453,6 +1506,8 @@ from .type_defs import (
     ModifyIpamResourceDiscoveryRequestTypeDef,
     ModifyIpamResourceDiscoveryResultTypeDef,
     ModifyIpamResultTypeDef,
+    ModifyIpamRoutingPolicyRegistrationRequestTypeDef,
+    ModifyIpamRoutingPolicyRegistrationResultTypeDef,
     ModifyIpamScopeRequestTypeDef,
     ModifyIpamScopeResultTypeDef,
     ModifyLaunchTemplateRequestTypeDef,
@@ -1488,6 +1543,8 @@ from .type_defs import (
     ModifyTrafficMirrorSessionResultTypeDef,
     ModifyTransitGatewayMeteringPolicyRequestTypeDef,
     ModifyTransitGatewayMeteringPolicyResultTypeDef,
+    ModifyTransitGatewayPolicyTableEntryRequestTypeDef,
+    ModifyTransitGatewayPolicyTableEntryResultTypeDef,
     ModifyTransitGatewayPrefixListReferenceRequestTypeDef,
     ModifyTransitGatewayPrefixListReferenceResultTypeDef,
     ModifyTransitGatewayRequestTypeDef,
@@ -1972,6 +2029,17 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#associate_address)
         """
 
+    async def associate_application_status_check(
+        self, **kwargs: Unpack[AssociateApplicationStatusCheckRequestTypeDef]
+    ) -> AssociateApplicationStatusCheckResultTypeDef:
+        """
+        Associates an application status check with instances or <a
+        href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html">tags</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/associate_application_status_check.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#associate_application_status_check)
+        """
+
     async def associate_capacity_reservation_billing_owner(
         self, **kwargs: Unpack[AssociateCapacityReservationBillingOwnerRequestTypeDef]
     ) -> AssociateCapacityReservationBillingOwnerResultTypeDef:
@@ -2265,6 +2333,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#authorize_security_group_ingress)
         """
 
+    async def batch_modify_ipam_routing_policy_registrations(
+        self, **kwargs: Unpack[BatchModifyIpamRoutingPolicyRegistrationsRequestTypeDef]
+    ) -> BatchModifyIpamRoutingPolicyRegistrationsResultTypeDef:
+        """
+        Modifies multiple routing policy registrations in a single operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/batch_modify_ipam_routing_policy_registrations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#batch_modify_ipam_routing_policy_registrations)
+        """
+
     async def bundle_instance(
         self, **kwargs: Unpack[BundleInstanceRequestTypeDef]
     ) -> BundleInstanceResultTypeDef:
@@ -2435,6 +2513,17 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/copy_volumes.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#copy_volumes)
+        """
+
+    async def create_application_status_check(
+        self, **kwargs: Unpack[CreateApplicationStatusCheckRequestTypeDef]
+    ) -> CreateApplicationStatusCheckResultTypeDef:
+        """
+        Creates an application status check for monitoring the health of applications
+        running on your instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_application_status_check.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_application_status_check)
         """
 
     async def create_capacity_manager_data_export(
@@ -2728,6 +2817,17 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_ipam_external_resource_verification_token)
         """
 
+    async def create_ipam_internet_registry_association(
+        self, **kwargs: Unpack[CreateIpamInternetRegistryAssociationRequestTypeDef]
+    ) -> CreateIpamInternetRegistryAssociationResultTypeDef:
+        """
+        Creates an association between an IPAM and a Regional Internet Registry (RIR)
+        for Resource Public Key Infrastructure (RPKI) management.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_internet_registry_association.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_ipam_internet_registry_association)
+        """
+
     async def create_ipam_policy(
         self, **kwargs: Unpack[CreateIpamPolicyRequestTypeDef]
     ) -> CreateIpamPolicyResultTypeDef:
@@ -2776,6 +2876,17 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_resource_discovery.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_ipam_resource_discovery)
+        """
+
+    async def create_ipam_routing_policy_registration(
+        self, **kwargs: Unpack[CreateIpamRoutingPolicyRegistrationRequestTypeDef]
+    ) -> CreateIpamRoutingPolicyRegistrationResultTypeDef:
+        """
+        Creates a routing policy registration and publishes Route Origin Authorizations
+        (ROAs) to the RPKI for the specified CIDR prefix and ASNs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_routing_policy_registration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_ipam_routing_policy_registration)
         """
 
     async def create_ipam_scope(
@@ -3305,6 +3416,17 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_transit_gateway_policy_table)
         """
 
+    async def create_transit_gateway_policy_table_entry(
+        self, **kwargs: Unpack[CreateTransitGatewayPolicyTableEntryRequestTypeDef]
+    ) -> CreateTransitGatewayPolicyTableEntryResultTypeDef:
+        """
+        Creates an entry in a transit gateway policy table to route matching traffic to
+        a specified route table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_transit_gateway_policy_table_entry.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_transit_gateway_policy_table_entry)
+        """
+
     async def create_transit_gateway_prefix_list_reference(
         self, **kwargs: Unpack[CreateTransitGatewayPrefixListReferenceRequestTypeDef]
     ) -> CreateTransitGatewayPrefixListReferenceResultTypeDef:
@@ -3527,6 +3649,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#create_vpn_gateway)
         """
 
+    async def delete_application_status_check(
+        self, **kwargs: Unpack[DeleteApplicationStatusCheckRequestTypeDef]
+    ) -> DeleteApplicationStatusCheckResultTypeDef:
+        """
+        Deletes an application status check.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_application_status_check.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_application_status_check)
+        """
+
     async def delete_capacity_manager_data_export(
         self, **kwargs: Unpack[DeleteCapacityManagerDataExportRequestTypeDef]
     ) -> DeleteCapacityManagerDataExportResultTypeDef:
@@ -3707,6 +3839,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_ipam_external_resource_verification_token)
         """
 
+    async def delete_ipam_internet_registry_association(
+        self, **kwargs: Unpack[DeleteIpamInternetRegistryAssociationRequestTypeDef]
+    ) -> DeleteIpamInternetRegistryAssociationResultTypeDef:
+        """
+        Deletes an IPAM internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_internet_registry_association.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_ipam_internet_registry_association)
+        """
+
     async def delete_ipam_policy(
         self, **kwargs: Unpack[DeleteIpamPolicyRequestTypeDef]
     ) -> DeleteIpamPolicyResultTypeDef:
@@ -3755,6 +3897,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_resource_discovery.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_ipam_resource_discovery)
+        """
+
+    async def delete_ipam_routing_policy_registration(
+        self, **kwargs: Unpack[DeleteIpamRoutingPolicyRegistrationRequestTypeDef]
+    ) -> DeleteIpamRoutingPolicyRegistrationResultTypeDef:
+        """
+        Deletes a routing policy registration for a specified CIDR prefix.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_routing_policy_registration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_ipam_routing_policy_registration)
         """
 
     async def delete_ipam_scope(
@@ -4249,6 +4401,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_transit_gateway_policy_table)
         """
 
+    async def delete_transit_gateway_policy_table_entry(
+        self, **kwargs: Unpack[DeleteTransitGatewayPolicyTableEntryRequestTypeDef]
+    ) -> DeleteTransitGatewayPolicyTableEntryResultTypeDef:
+        """
+        Deletes the specified transit gateway policy table entry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_policy_table_entry.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#delete_transit_gateway_policy_table_entry)
+        """
+
     async def delete_transit_gateway_prefix_list_reference(
         self, **kwargs: Unpack[DeleteTransitGatewayPrefixListReferenceRequestTypeDef]
     ) -> DeleteTransitGatewayPrefixListReferenceResultTypeDef:
@@ -4608,6 +4770,36 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_aggregate_id_format.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_aggregate_id_format)
+        """
+
+    async def describe_application_status(
+        self, **kwargs: Unpack[DescribeApplicationStatusRequestTypeDef]
+    ) -> DescribeApplicationStatusResultTypeDef:
+        """
+        Describes the application status for the specified instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_application_status)
+        """
+
+    async def describe_application_status_check_associations(
+        self, **kwargs: Unpack[DescribeApplicationStatusCheckAssociationsRequestTypeDef]
+    ) -> DescribeApplicationStatusCheckAssociationsResultTypeDef:
+        """
+        Describes the associations for one or more application status checks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status_check_associations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_application_status_check_associations)
+        """
+
+    async def describe_application_status_checks(
+        self, **kwargs: Unpack[DescribeApplicationStatusChecksRequestTypeDef]
+    ) -> DescribeApplicationStatusChecksResultTypeDef:
+        """
+        Describes one or more application status checks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_application_status_checks.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_application_status_checks)
         """
 
     async def describe_availability_zones(
@@ -5319,6 +5511,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_external_resource_verification_tokens.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_ipam_external_resource_verification_tokens)
+        """
+
+    async def describe_ipam_internet_registry_associations(
+        self, **kwargs: Unpack[DescribeIpamInternetRegistryAssociationsRequestTypeDef]
+    ) -> DescribeIpamInternetRegistryAssociationsResultTypeDef:
+        """
+        Describes one or more IPAM internet registry associations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_internet_registry_associations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_ipam_internet_registry_associations)
         """
 
     async def describe_ipam_policies(
@@ -6579,6 +6781,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#disable_allowed_images_settings)
         """
 
+    async def disable_application_status_check_suppression(
+        self, **kwargs: Unpack[DisableApplicationStatusCheckSuppressionRequestTypeDef]
+    ) -> DisableApplicationStatusCheckSuppressionResultTypeDef:
+        """
+        Disables suppression of application status checks for the specified instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disable_application_status_check_suppression.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#disable_application_status_check_suppression)
+        """
+
     async def disable_aws_network_performance_metric_subscription(
         self, **kwargs: Unpack[DisableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef]
     ) -> DisableAwsNetworkPerformanceMetricSubscriptionResultTypeDef:
@@ -6788,6 +7000,17 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#disassociate_address)
         """
 
+    async def disassociate_application_status_check(
+        self, **kwargs: Unpack[DisassociateApplicationStatusCheckRequestTypeDef]
+    ) -> DisassociateApplicationStatusCheckResultTypeDef:
+        """
+        Disassociates an application status check from instances or <a
+        href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html">tags</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disassociate_application_status_check.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#disassociate_application_status_check)
+        """
+
     async def disassociate_capacity_reservation_billing_owner(
         self, **kwargs: Unpack[DisassociateCapacityReservationBillingOwnerRequestTypeDef]
     ) -> DisassociateCapacityReservationBillingOwnerResultTypeDef:
@@ -6983,6 +7206,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#enable_allowed_images_settings)
         """
 
+    async def enable_application_status_check_suppression(
+        self, **kwargs: Unpack[EnableApplicationStatusCheckSuppressionRequestTypeDef]
+    ) -> EnableApplicationStatusCheckSuppressionResultTypeDef:
+        """
+        Suppresses application status checks for the specified instances.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_application_status_check_suppression.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#enable_application_status_check_suppression)
+        """
+
     async def enable_aws_network_performance_metric_subscription(
         self, **kwargs: Unpack[EnableAwsNetworkPerformanceMetricSubscriptionRequestTypeDef]
     ) -> EnableAwsNetworkPerformanceMetricSubscriptionResultTypeDef:
@@ -7085,6 +7318,18 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_instance_sql_ha_standby_detections.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#enable_instance_sql_ha_standby_detections)
+        """
+
+    async def enable_ipam_internet_registry_association(
+        self, **kwargs: Unpack[EnableIpamInternetRegistryAssociationRequestTypeDef]
+    ) -> EnableIpamInternetRegistryAssociationResultTypeDef:
+        """
+        Enables Resource Public Key Infrastructure (RPKI) on an existing IPAM internet
+        registry association by providing BGP Public Key Infrastructure (BPKI)
+        certificate details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_ipam_internet_registry_association.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#enable_ipam_internet_registry_association)
         """
 
     async def enable_ipam_organization_admin_account(
@@ -7584,6 +7829,39 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_discovered_resource_cidrs)
         """
 
+    async def get_ipam_discovered_routes(
+        self, **kwargs: Unpack[GetIpamDiscoveredRoutesRequestTypeDef]
+    ) -> GetIpamDiscoveredRoutesResultTypeDef:
+        """
+        Retrieves Border Gateway Protocol (BGP) routes discovered by IPAM resource
+        discovery for a specified Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_discovered_routes.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_discovered_routes)
+        """
+
+    async def get_ipam_internet_registry_association_asns(
+        self, **kwargs: Unpack[GetIpamInternetRegistryAssociationAsnsRequestTypeDef]
+    ) -> GetIpamInternetRegistryAssociationAsnsResultTypeDef:
+        """
+        Retrieves Autonomous System Numbers (ASNs) registered with an internet registry
+        for an IPAM internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_internet_registry_association_asns.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_internet_registry_association_asns)
+        """
+
+    async def get_ipam_internet_registry_association_cidrs(
+        self, **kwargs: Unpack[GetIpamInternetRegistryAssociationCidrsRequestTypeDef]
+    ) -> GetIpamInternetRegistryAssociationCidrsResultTypeDef:
+        """
+        Retrieves IP address CIDRs registered with an internet registry for an IPAM
+        internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_internet_registry_association_cidrs.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_internet_registry_association_cidrs)
+        """
+
     async def get_ipam_policy_allocation_rules(
         self, **kwargs: Unpack[GetIpamPolicyAllocationRulesRequestTypeDef]
     ) -> GetIpamPolicyAllocationRulesResultTypeDef:
@@ -7663,6 +7941,49 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_resource_cidrs.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_resource_cidrs)
+        """
+
+    async def get_ipam_route_origin_authorizations(
+        self, **kwargs: Unpack[GetIpamRouteOriginAuthorizationsRequestTypeDef]
+    ) -> GetIpamRouteOriginAuthorizationsResultTypeDef:
+        """
+        Retrieves the current Route Origin Authorizations (ROAs) published to the RPKI
+        for an IPAM internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_route_origin_authorizations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_route_origin_authorizations)
+        """
+
+    async def get_ipam_route_protection_findings(
+        self, **kwargs: Unpack[GetIpamRouteProtectionFindingsRequestTypeDef]
+    ) -> GetIpamRouteProtectionFindingsResultTypeDef:
+        """
+        Retrieves route protection findings for an IPAM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_route_protection_findings.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_route_protection_findings)
+        """
+
+    async def get_ipam_routing_policy_registration_deltas(
+        self, **kwargs: Unpack[GetIpamRoutingPolicyRegistrationDeltasRequestTypeDef]
+    ) -> GetIpamRoutingPolicyRegistrationDeltasResultTypeDef:
+        """
+        Retrieves the history of routing policy registration changes for an IPAM
+        internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_routing_policy_registration_deltas.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_routing_policy_registration_deltas)
+        """
+
+    async def get_ipam_routing_policy_registrations(
+        self, **kwargs: Unpack[GetIpamRoutingPolicyRegistrationsRequestTypeDef]
+    ) -> GetIpamRoutingPolicyRegistrationsResultTypeDef:
+        """
+        Retrieves routing policy registrations for an IPAM internet registry
+        association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_routing_policy_registrations.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_ipam_routing_policy_registrations)
         """
 
     async def get_launch_template_data(
@@ -8120,6 +8441,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_address_attribute)
         """
 
+    async def modify_application_status_check(
+        self, **kwargs: Unpack[ModifyApplicationStatusCheckRequestTypeDef]
+    ) -> ModifyApplicationStatusCheckResultTypeDef:
+        """
+        Modifies an existing application status check.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_application_status_check.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_application_status_check)
+        """
+
     async def modify_availability_zone_group(
         self, **kwargs: Unpack[ModifyAvailabilityZoneGroupRequestTypeDef]
     ) -> ModifyAvailabilityZoneGroupResultTypeDef:
@@ -8450,6 +8781,16 @@ class EC2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_ipam_resource_discovery)
         """
 
+    async def modify_ipam_routing_policy_registration(
+        self, **kwargs: Unpack[ModifyIpamRoutingPolicyRegistrationRequestTypeDef]
+    ) -> ModifyIpamRoutingPolicyRegistrationResultTypeDef:
+        """
+        Modifies an existing routing policy registration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_routing_policy_registration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_ipam_routing_policy_registration)
+        """
+
     async def modify_ipam_scope(
         self, **kwargs: Unpack[ModifyIpamScopeRequestTypeDef]
     ) -> ModifyIpamScopeResultTypeDef:
@@ -8649,6 +8990,16 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_metering_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_transit_gateway_metering_policy)
+        """
+
+    async def modify_transit_gateway_policy_table_entry(
+        self, **kwargs: Unpack[ModifyTransitGatewayPolicyTableEntryRequestTypeDef]
+    ) -> ModifyTransitGatewayPolicyTableEntryResultTypeDef:
+        """
+        Modifies the specified transit gateway policy table entry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_policy_table_entry.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#modify_transit_gateway_policy_table_entry)
         """
 
     async def modify_transit_gateway_prefix_list_reference(
@@ -11533,6 +11884,17 @@ class EC2Client(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_transit_gateway_policy_table_associations"]
     ) -> GetTransitGatewayPolicyTableAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_transit_gateway_policy_table_entries"]
+    ) -> GetTransitGatewayPolicyTableEntriesPaginator:
         """
         Create a paginator for an operation.
 

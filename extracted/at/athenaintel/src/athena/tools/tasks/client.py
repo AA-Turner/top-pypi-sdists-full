@@ -40,6 +40,10 @@ class TasksClient:
 
         Executes a serverless function script or flow synchronously. Server handles polling internally.
 
+        When Tool Studio is disabled in the environment, returns HTTP 403 with
+        detail.code `ENVIRONMENT_FEATURE_DISABLED` and detail.key `task_studio_toolkit`
+        before creating or running a job. This restriction also applies to administrators.
+
         Parameters
         ----------
         task_id : str
@@ -103,6 +107,10 @@ class AsyncTasksClient:
         Run a [task](https://resources.athenaintel.com/docs/task-studio/home) and wait for the result.
 
         Executes a serverless function script or flow synchronously. Server handles polling internally.
+
+        When Tool Studio is disabled in the environment, returns HTTP 403 with
+        detail.code `ENVIRONMENT_FEATURE_DISABLED` and detail.key `task_studio_toolkit`
+        before creating or running a job. This restriction also applies to administrators.
 
         Parameters
         ----------

@@ -1,6 +1,6 @@
 [project]
 name = "librouteros"
-version = "4.2.0"
+version = "4.2.1"
 description = "Python implementation of MikroTik RouterOS API"
 license = "GPL-2.0-or-later"
 readme = "README.rst"

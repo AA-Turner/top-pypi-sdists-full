@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class BrightDataCredentials(BaseModel):
     """
-    API token credentials for BrightData platform.  Security:     - api_token is encrypted at rest via CSFLE     - Tokens can be created/rotated in the BrightData dashboard
+    API token credentials for BrightData platform.  Security:     - api_token is a secret credential, redacted on read     - Tokens can be created/rotated in the BrightData dashboard
     """ # noqa: E501
     type: Optional[StrictStr] = 'api_token'
     api_token: StrictStr = Field(description="REQUIRED. BrightData API token. SECURITY: Encrypted at rest. Never log or expose. Find in: BrightData Dashboard > Account > API Token.")

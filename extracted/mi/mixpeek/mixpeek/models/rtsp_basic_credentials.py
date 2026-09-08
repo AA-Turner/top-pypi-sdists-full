@@ -30,7 +30,7 @@ class RTSPBasicCredentials(BaseModel):
     """ # noqa: E501
     type: Optional[StrictStr] = 'basic'
     username: Annotated[str, Field(min_length=1, strict=True)] = Field(description="REQUIRED. RTSP username.")
-    password: Annotated[str, Field(min_length=1, strict=True)] = Field(description="REQUIRED. RTSP password. Redacted on read; encrypted at rest where CSFLE is active.")
+    password: Annotated[str, Field(min_length=1, strict=True)] = Field(description="REQUIRED. RTSP password. Secret credential, redacted on read. Never log or expose.")
     __properties: ClassVar[List[str]] = ["type", "username", "password"]
 
     @field_validator('type')

@@ -1,4 +1,5 @@
 //! TCP stream types for async I/O.
+#![warn(clippy::undocumented_unsafe_blocks)]
 //!
 //! This module provides:
 //! - [`TcpStream`]: An async TCP stream that can use either completion-based or poll-based I/O.
@@ -8,18 +9,18 @@
 //!
 //! - On Linux with io_uring support, TCP operations use native async syscalls via the async driver.
 //! - When io_uring completion is available, operations complete directly.
-//! - For platforms without native async support, operations fall back to synchronous std::net calls.
-//! - The runtime must be active when calling these types' methods; otherwise they will panic.
+//! - Poll mode uses nonblocking socket calls and driver readiness notifications.
+//! - Register sockets and drive async I/O inside a runtime. Registration without
+//!   one returns an error; direct address/option queries need no current runtime.
 
 use std::cell::RefCell;
 use std::future::poll_fn;
 use std::io::{self, IoSlice};
-use std::mem::{ManuallyDrop, MaybeUninit};
 use std::net::{Shutdown, SocketAddr, ToSocketAddrs};
 #[cfg(unix)]
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
-use std::os::windows::io::{AsRawSocket, FromRawSocket, IntoRawSocket, RawSocket};
+use std::os::windows::io::{AsRawSocket, IntoRawSocket, RawSocket};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -28,16 +29,15 @@ use mio::Interest;
 use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
 #[cfg(windows)]
-use windows_sys::Win32::Networking::WinSock::{
-    self, AF_INET, AF_INET6, SOCK_STREAM, SOCKADDR, SOCKADDR_IN, SOCKADDR_IN6, SOCKADDR_STORAGE,
-    WSADATA,
-};
+use windows_sys::Win32::Networking::WinSock::SOCKADDR_STORAGE;
 
 use crate::vibeio::io::{
     AsInnerRawHandle, AsyncReadPoll, AsyncWritePoll, IoBuf, IoBufMut, IoBufTemporaryPoll,
     IoVectoredBuf, IoVectoredBufMut, IoVectoredBufTemporaryPoll,
 };
-use crate::vibeio::op::{ConnectOp, ReadOp, ReadinessOp, ReadvOp, RecvOp, WriteOp, WritevOp};
+use crate::vibeio::op::{
+    ConnectOp, ReadOp, ReadinessOp, ReadvOp, RecvOp, WriteOp, WritevOp, socket_addr_to_raw,
+};
 use crate::vibeio::{
     driver::RegistrationMode,
     fd_inner::InnerRawHandle,
@@ -45,161 +45,29 @@ use crate::vibeio::{
 };
 
 #[cfg(unix)]
-fn socket_addr_to_raw(
-    address: SocketAddr,
-) -> (libc::c_int, libc::sockaddr_storage, libc::socklen_t) {
-    match address {
-        SocketAddr::V4(address) => {
-            let sockaddr = libc::sockaddr_in {
-                sin_family: libc::AF_INET as libc::sa_family_t,
-                sin_port: address.port().to_be(),
-                sin_addr: libc::in_addr {
-                    s_addr: u32::from_ne_bytes(address.ip().octets()),
-                },
-                sin_zero: [0; 8],
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin_len: 0,
-            };
-
-            let mut storage = MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in>()
-                    .write(sockaddr);
-                (
-                    libc::AF_INET,
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in>() as libc::socklen_t,
-                )
-            }
-        }
-        SocketAddr::V6(address) => {
-            let sockaddr = libc::sockaddr_in6 {
-                sin6_family: libc::AF_INET6 as libc::sa_family_t,
-                sin6_port: address.port().to_be(),
-                sin6_flowinfo: address.flowinfo(),
-                sin6_addr: libc::in6_addr {
-                    s6_addr: address.ip().octets(),
-                },
-                sin6_scope_id: address.scope_id(),
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin6_len: 0,
-            };
-
-            let mut storage = MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in6>()
-                    .write(sockaddr);
-                (
-                    libc::AF_INET6,
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in6>() as libc::socklen_t,
-                )
-            }
-        }
-    }
-}
-
-#[cfg(windows)]
-fn socket_addr_to_raw(address: SocketAddr) -> (i32, SOCKADDR_STORAGE, i32) {
-    match address {
-        SocketAddr::V4(address) => {
-            let mut sockaddr = SOCKADDR_IN::default();
-            sockaddr.sin_family = AF_INET;
-            sockaddr.sin_port = address.port().to_be();
-            sockaddr.sin_addr.S_un.S_addr = u32::from_ne_bytes(address.ip().octets());
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN>(),
-                );
-            }
-            (
-                AF_INET as _,
-                storage,
-                std::mem::size_of::<SOCKADDR_IN>() as i32,
-            )
-        }
-        SocketAddr::V6(address) => {
-            let mut sockaddr = SOCKADDR_IN6::default();
-            sockaddr.sin6_family = AF_INET6;
-            sockaddr.sin6_port = address.port().to_be();
-            sockaddr.sin6_flowinfo = address.flowinfo();
-            sockaddr.sin6_addr.u.Byte = address.ip().octets();
-            sockaddr.Anonymous.sin6_scope_id = address.scope_id() as u32;
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN6 as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN6>(),
-                );
-            }
-            (
-                AF_INET6 as _,
-                storage,
-                std::mem::size_of::<SOCKADDR_IN6>() as i32,
-            )
-        }
-    }
-}
-
-#[cfg(unix)]
 fn new_socket(
     address: SocketAddr,
 ) -> Result<(std::net::TcpStream, libc::sockaddr_storage, libc::socklen_t), io::Error> {
-    let (domain, raw_addr, raw_addr_len) = socket_addr_to_raw(address);
-    let socket_fd = unsafe { libc::socket(domain, libc::SOCK_STREAM, 0) };
-    if socket_fd == -1 {
-        return Err(io::Error::last_os_error());
-    }
-    let stream = unsafe { std::net::TcpStream::from_raw_fd(socket_fd.into_raw_fd()) };
-    Ok((stream, raw_addr, raw_addr_len))
+    let (raw_addr, raw_addr_len) = socket_addr_to_raw(address);
+    let socket = socket2::Socket::new(
+        socket2::Domain::for_address(address),
+        socket2::Type::STREAM,
+        None,
+    )?;
+    Ok((socket.into(), raw_addr, raw_addr_len))
 }
 
 #[cfg(windows)]
 fn new_socket(
     address: SocketAddr,
 ) -> Result<(std::net::TcpStream, SOCKADDR_STORAGE, i32), io::Error> {
-    // 0x202 = MAKEWORD(2, 2)
-    let mut wsadata = WSADATA::default();
-    if unsafe { WinSock::WSAStartup(0x202, &mut wsadata as *mut WSADATA) } != 0 {
-        return Err(io::Error::last_os_error());
-    }
-    let (domain, raw_addr, raw_addr_len) = socket_addr_to_raw(address);
-    let socket = unsafe { WinSock::socket(domain, SOCK_STREAM, 0) };
-    if socket == WinSock::INVALID_SOCKET {
-        let err = io::Error::last_os_error();
-        let _ = unsafe { WinSock::WSACleanup() };
-        return Err(err);
-    }
-    let stream = unsafe { std::net::TcpStream::from_raw_socket(socket as _) };
-    Ok((stream, raw_addr, raw_addr_len))
+    let (raw_addr, raw_addr_len) = socket_addr_to_raw(address);
+    let socket = socket2::Socket::new(
+        socket2::Domain::for_address(address),
+        socket2::Type::STREAM,
+        None,
+    )?;
+    Ok((socket.into(), raw_addr, raw_addr_len))
 }
 
 /// An async TCP stream that can use either completion-based or poll-based I/O.
@@ -210,23 +78,19 @@ fn new_socket(
 ///
 /// - On Linux with io_uring support, TCP operations use native async syscalls via the async driver.
 /// - When io_uring completion is available, operations complete directly.
-/// - For platforms without native async support, operations fall back to synchronous std::net calls.
-/// - The runtime must be active when calling these methods; otherwise they will panic.
+/// - Poll mode uses nonblocking socket calls and driver readiness notifications.
+/// - Registration needs an entered runtime and returns an error without one.
+///   Drive async I/O inside a runtime; direct socket queries need no current runtime.
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::net::TcpStream;
-///
-/// let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
-/// stream.write(b"hello").await.0?;
-/// let mut buf = [0u8; 1024];
-/// let (read, buf) = stream.read(buf).await;
-/// let read = read?;
-/// ```
+/// See "TCP loopback with the Tokio I/O adapter" in
+/// `tools/vibeio-check/EXAMPLES.md` for a timeout-bounded exchange that handles
+/// partial transfers and flushes buffered writes.
 pub struct TcpStream {
+    // Deregister before closing the socket (field declaration order).
+    handle: InnerRawHandle,
     inner: Arc<std::net::TcpStream>,
-    handle: ManuallyDrop<InnerRawHandle>,
 }
 
 /// A poll-only variant that always uses readiness-based operations.
@@ -236,7 +100,7 @@ pub struct TcpStream {
 ///
 /// # Implementation details
 ///
-/// - Always uses readiness-based I/O via `mio`.
+/// - Always uses readiness-based I/O through the owning runtime driver.
 /// - Can be converted to [`TcpStream`] with adaptive or completion mode.
 pub struct PollTcpStream {
     stream: TcpStream,
@@ -275,12 +139,8 @@ impl TcpStream {
         let (inner, raw_addr, raw_addr_len) = new_socket(address)?;
         let stream = Self::from_std(inner)?;
 
-        #[cfg(unix)]
-        let raw_addr_ptr = (&raw_addr as *const libc::sockaddr_storage).cast::<libc::sockaddr>();
-        #[cfg(windows)]
-        let raw_addr_ptr = (&raw_addr as *const SOCKADDR_STORAGE).cast::<SOCKADDR>();
         let handle = &stream.handle;
-        let mut op = ConnectOp::new(handle, raw_addr_ptr, raw_addr_len);
+        let mut op = ConnectOp::new(handle, raw_addr, raw_addr_len)?;
         poll_fn(move |cx| handle.poll_op(cx, &mut op)).await?;
 
         Ok(stream)
@@ -387,17 +247,17 @@ impl TcpStream {
         mode: RegistrationMode,
     ) -> Result<Self, io::Error> {
         #[cfg(unix)]
-        let handle = ManuallyDrop::new(InnerRawHandle::new_with_mode(
+        let handle = InnerRawHandle::new_with_mode(
             inner.as_raw_fd(),
             Interest::READABLE | Interest::WRITABLE,
             mode,
-        )?);
+        )?;
         #[cfg(windows)]
-        let handle = ManuallyDrop::new(InnerRawHandle::new_with_mode(
+        let handle = InnerRawHandle::new_with_mode(
             crate::vibeio::fd_inner::RawOsHandle::Socket(inner.as_raw_socket()),
             Interest::READABLE | Interest::WRITABLE,
             mode,
-        )?);
+        )?;
         inner.set_nonblocking(!handle.uses_completion())?;
         Ok(Self { inner, handle })
     }
@@ -441,13 +301,8 @@ impl PollTcpStream {
         let (inner, raw_addr, raw_addr_len) = new_socket(address)?;
         let stream = Self::from_std(inner)?;
 
-        #[cfg(unix)]
-        let raw_addr_ptr = (&raw_addr as *const libc::sockaddr_storage).cast::<libc::sockaddr>();
-        #[cfg(windows)]
-        let raw_addr_ptr = (&raw_addr as *const SOCKADDR_STORAGE).cast::<SOCKADDR>();
-
         let handle = &stream.stream.handle;
-        let mut op = ConnectOp::new(handle, raw_addr_ptr, raw_addr_len);
+        let mut op = ConnectOp::new(handle, raw_addr, raw_addr_len)?;
         poll_fn(move |cx| handle.poll_op(cx, &mut op)).await?;
 
         Ok(stream)
@@ -526,9 +381,15 @@ impl PollTcpStream {
     #[inline]
     pub async fn peek(&self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let handle = &self.stream.handle;
-        let buf = unsafe { IoBufTemporaryPoll::new(buf.as_mut_ptr(), buf.len()) };
-        let mut op = RecvOp::new_peek(handle, buf);
-        poll_fn(move |cx| handle.poll_op_poll(cx, &mut op)).await
+        poll_fn(move |cx| {
+            // SAFETY: the caller exclusively lends initialized writable bytes
+            // for this poll. The local operation only uses synchronous poll I/O
+            // and is destroyed before returning, including when it is Pending.
+            let buf = unsafe { IoBufTemporaryPoll::new(buf.as_mut_ptr(), buf.len()) };
+            let mut op = RecvOp::new_peek(handle, buf);
+            handle.poll_op_poll(cx, &mut op)
+        })
+        .await
     }
 
     /// Tries to perform an I/O operation on the socket, returning an error if it is not ready.
@@ -537,15 +398,7 @@ impl PollTcpStream {
     where
         Io: FnOnce() -> io::Result<IoR>,
     {
-        if *self.read_ready.borrow() {
-            let result = io();
-            if result.is_err() {
-                *self.read_ready.borrow_mut() = false;
-            }
-            result
-        } else {
-            Err(io::Error::new(io::ErrorKind::WouldBlock, "read not ready"))
-        }
+        crate::vibeio::net::try_io_ready(&self.read_ready, "read not ready", io)
     }
 
     /// Tries to perform an I/O operation on the socket, returning an error if it is not ready.
@@ -554,15 +407,7 @@ impl PollTcpStream {
     where
         Io: FnOnce() -> io::Result<IoR>,
     {
-        if *self.write_ready.borrow() {
-            let result = io();
-            if result.is_err() {
-                *self.write_ready.borrow_mut() = false;
-            }
-            result
-        } else {
-            Err(io::Error::new(io::ErrorKind::WouldBlock, "write not ready"))
-        }
+        crate::vibeio::net::try_io_ready(&self.write_ready, "write not ready", io)
     }
 }
 
@@ -586,20 +431,14 @@ impl AsRawFd for PollTcpStream {
 impl IntoRawFd for TcpStream {
     #[inline]
     fn into_raw_fd(self) -> RawFd {
-        let mut this = ManuallyDrop::new(self);
-
-        // Safety: `this` will not be dropped, so we must drop the registration handle manually.
-        // We then move out the inner std stream and transfer its fd ownership to the caller.
-        unsafe {
-            ManuallyDrop::drop(&mut this.handle);
-            let inner = std::ptr::read(&this.inner);
-            match Arc::try_unwrap(inner) {
-                Ok(inner) => inner.into_raw_fd(),
-                Err(inner) => inner
-                    .try_clone()
-                    .expect("failed to duplicate shared TCP stream")
-                    .into_raw_fd(),
-            }
+        let Self { handle, inner } = self;
+        drop(handle);
+        match Arc::try_unwrap(inner) {
+            Ok(inner) => inner.into_raw_fd(),
+            Err(inner) => inner
+                .try_clone()
+                .expect("failed to duplicate shared TCP stream")
+                .into_raw_fd(),
         }
     }
 }
@@ -624,20 +463,14 @@ impl AsRawSocket for TcpStream {
 impl IntoRawSocket for TcpStream {
     #[inline]
     fn into_raw_socket(self) -> RawSocket {
-        let mut this = ManuallyDrop::new(self);
-
-        // Safety: `this` will not be dropped, so we must drop the registration handle manually.
-        // We then move out the inner std stream and transfer its socket ownership to the caller.
-        unsafe {
-            ManuallyDrop::drop(&mut this.handle);
-            let inner = std::ptr::read(&this.inner);
-            match Arc::try_unwrap(inner) {
-                Ok(inner) => inner.into_raw_socket(),
-                Err(inner) => inner
-                    .try_clone()
-                    .expect("failed to duplicate shared TCP stream")
-                    .into_raw_socket(),
-            }
+        let Self { handle, inner } = self;
+        drop(handle);
+        match Arc::try_unwrap(inner) {
+            Ok(inner) => inner.into_raw_socket(),
+            Err(inner) => inner
+                .try_clone()
+                .expect("failed to duplicate shared TCP stream")
+                .into_raw_socket(),
         }
     }
 }
@@ -708,12 +541,16 @@ impl TokioAsyncRead for PollTcpStream {
         }
 
         let this = self.get_mut();
-        // Equivalent to .assume_init_mut() in Rust 1.93.0+
-        let unfilled = unsafe { &mut *(buf.unfilled_mut() as *mut [MaybeUninit<u8>] as *mut [u8]) };
-        let buf_temp = unsafe { IoBufTemporaryPoll::new(unfilled.as_mut_ptr(), unfilled.len()) };
+        // SAFETY: only a raw pointer is passed to the synchronous read below;
+        // no initialized-byte reference is formed and no pointer is retained.
+        let unfilled = unsafe { buf.unfilled_mut() };
+        // SAFETY: ReadBuf exclusively owns this writable region for this poll.
+        let buf_temp =
+            unsafe { IoBufTemporaryPoll::new_uninit(unfilled.as_mut_ptr().cast(), unfilled.len()) };
         let mut op = ReadOp::new(&this.stream.handle, buf_temp);
         match this.stream.handle.poll_op_poll(cx, &mut op) {
             Poll::Ready(Ok(read)) => {
+                // SAFETY: the successful read initialized exactly this prefix.
                 unsafe {
                     buf.assume_init(read);
                 }
@@ -760,6 +597,9 @@ impl TokioAsyncWrite for PollTcpStream {
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
         let this = self.get_mut();
+        // SAFETY: the source remains initialized and borrowed for this call.
+        // WriteOp only reads it; poll_op_poll rejects completion submission and
+        // the local operation cannot retain the pointer after returning Pending.
         let buf = unsafe { IoBufTemporaryPoll::new(buf.as_ptr() as *mut u8, buf.len()) };
         let mut op = WriteOp::new(&this.stream.handle, buf);
         this.stream.handle.poll_op_poll(cx, &mut op)
@@ -775,6 +615,9 @@ impl TokioAsyncWrite for PollTcpStream {
             return Poll::Ready(Ok(0));
         }
         let this = self.get_mut();
+        // SAFETY: these initialized IoSlice regions remain borrowed throughout
+        // the synchronous WritevOp poll. Metadata is copied, and the local op is
+        // dropped before this call returns; no completion I/O can retain it.
         let bufs = unsafe { IoVectoredBufTemporaryPoll::new(bufs) };
         let mut op = WritevOp::new(&this.stream.handle, bufs);
         this.stream.handle.poll_op_poll(cx, &mut op)
@@ -826,12 +669,71 @@ impl AsyncWritePoll for PollTcpStream {
     }
 }
 
-impl Drop for TcpStream {
-    #[inline]
-    fn drop(&mut self) {
-        // Safety: The struct is dropped after the handle is dropped.
-        unsafe {
-            ManuallyDrop::drop(&mut self.handle);
+#[cfg(test)]
+mod socket_creation_tests {
+    use super::*;
+
+    #[test]
+    fn cancelled_poll_peek_releases_buffer_without_consuming_data() {
+        use crate::vibeio::{Runtime, driver::AnyDriver};
+        use std::future::Future;
+        use std::io::Write;
+        #[cfg(unix)]
+        let driver = AnyDriver::new_mio().unwrap();
+        #[cfg(windows)]
+        let driver = AnyDriver::new_iocp().unwrap();
+        Runtime::new(driver).block_on(async {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let socket = std::net::TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut stream = PollTcpStream::from_std(socket).unwrap();
+            let mut buffer = [b'_'; 8];
+            let mut pending = Box::pin(stream.peek(&mut buffer));
+            assert!(
+                pending
+                    .as_mut()
+                    .poll(&mut Context::from_waker(std::task::Waker::noop()))
+                    .is_pending()
+            );
+            drop(pending);
+            assert_eq!(buffer, [b'_'; 8]);
+            buffer.fill(b'x');
+            peer.write_all(b"peek").unwrap();
+            crate::vibeio::time::timeout(crate::vibeio::test_support::WATCHDOG, async {
+                let count = stream.peek(&mut buffer).await.unwrap();
+                assert!(count > 0 && count <= 4);
+                assert_eq!(&buffer[..count], &b"peek"[..count]);
+                assert!(buffer[count..].iter().all(|byte| *byte == b'x'));
+                let mut received = [0; 4];
+                tokio::io::AsyncReadExt::read_exact(&mut stream, &mut received)
+                    .await
+                    .unwrap();
+                assert_eq!(&received, b"peek");
+            })
+            .await
+            .unwrap();
+        });
+    }
+
+    #[test]
+    fn created_socket_is_close_on_exec() {
+        let socket = new_socket("127.0.0.1:0".parse().unwrap()).unwrap().0;
+        #[cfg(unix)]
+        {
+            // SAFETY: socket owns the live descriptor; F_GETFD has no pointer arguments.
+            let flags = unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_GETFD) };
+            assert_ne!(flags, -1);
+            assert_ne!(flags & libc::FD_CLOEXEC, 0);
+        }
+        #[cfg(windows)]
+        {
+            use windows_sys::Win32::Foundation::{GetHandleInformation, HANDLE_FLAG_INHERIT};
+            let mut flags = 0;
+            // SAFETY: socket owns the live kernel handle and flags is writable.
+            let result =
+                unsafe { GetHandleInformation(socket.as_raw_socket() as *mut _, &mut flags) };
+            assert_ne!(result, 0, "{}", io::Error::last_os_error());
+            assert_eq!(flags & HANDLE_FLAG_INHERIT, 0);
         }
     }
 }

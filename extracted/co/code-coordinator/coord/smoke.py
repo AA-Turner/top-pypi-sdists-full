@@ -17,6 +17,13 @@ Public entry points:
 
 - `match_rules(touched_files, rules)`  — pure: returns the union of required
   capabilities for any rule whose `files` prefix matches a touched file.
+- `partition_capability_requirements(touched_files, rules, capable_for)`
+  (#3177) — pure: groups matched rules' requirements into the fewest
+  capability sets a single configured machine can each satisfy, and reports
+  separately any requirement no machine can EVER satisfy. `dispatch_smoke`
+  uses it only to give an unroutable flat union a more accurate diagnosis
+  (naming the machines that WOULD cover it split apart) — it does not yet
+  drive an actual multi-leg dispatch; see the note above its definition.
 - `resolve_smoke_command(repo, smoke_cfg, touched_files=None)` — pure: picks
   the Test-stage command, provenance included. A matched rule's own
   `command` (#3056) outranks the repo/fleet-wide sources — see
@@ -192,6 +199,17 @@ A `baseline-red` verdict has no `coord test` flag — print the marker only.
 # ── Rule matching ───────────────────────────────────────────────────────────
 
 
+def _rule_matches(touched_files: list[str], rule: SmokeRule) -> bool:
+    """Does any touched path start with any of `rule.files`'s prefixes?
+
+    The one "does this rule apply" test, shared by `match_rules` and
+    `partition_capability_requirements` so the two matchers can't silently
+    drift apart (e.g. one growing a case-insensitive or glob match the other
+    doesn't) — see the #3177 review note this was factored out to satisfy.
+    """
+    return any(path.startswith(pattern) for path in touched_files for pattern in rule.files)
+
+
 def match_rules(touched_files: list[str], rules: list[SmokeRule]) -> list[str]:
     """Return the union of `requires` for any rule that any touched file hits.
 
@@ -201,15 +219,417 @@ def match_rules(touched_files: list[str], rules: list[SmokeRule]) -> list[str]:
     the trailing slash form to be strict.
 
     Returns capabilities in deterministic order (first-seen across rules).
+
+    #3177: this union assumes a SINGLE machine will satisfy everything it
+    returns — true whenever the matched rules' capabilities all live on one
+    machine, false the moment they don't (GTK+Windows vs. macOS: no machine
+    ever has both). See `partition_capability_requirements` for the routing
+    query that doesn't make that assumption.
     """
     seen: dict[str, None] = {}
-    for path in touched_files:
-        for rule in rules:
-            if not any(path.startswith(pattern) for pattern in rule.files):
-                continue
-            for cap in rule.requires:
-                seen.setdefault(cap, None)
+    for rule in rules:
+        if not _rule_matches(touched_files, rule):
+            continue
+        for cap in rule.requires:
+            seen.setdefault(cap, None)
     return list(seen.keys())
+
+
+# ── Partitioning (#3177) ─────────────────────────────────────────────────────
+#
+# `match_rules` above returns ONE union — every capability any matched rule
+# asked for, on the assumption a single machine will end up satisfying all of
+# it. That assumption breaks the moment two matched rules need capabilities no
+# single machine will ever carry together (GTK+Windows vs. macOS is the
+# canonical case, #3177): the union becomes unroutable even though each half,
+# routed separately, is perfectly satisfiable.
+#
+# `partition_capability_requirements` is the fix at the ROUTING layer: it
+# groups matched rules' requirements into the fewest sets that some
+# configured machine can each satisfy on its own, and separately reports any
+# single rule's requirement that NO machine can ever satisfy (a config error,
+# not a routing puzzle). It does not, by itself, dispatch more than one Test
+# leg — `dispatch_smoke` still dispatches exactly one leg, sized to the first
+# partition, and only *diagnoses* the multi-partition case (see its call site)
+# so the failure names the real cause ("this needs N machines together")
+# instead of the misleading "no machine declares capability X" a flat union
+# produces. Actually fanning out into N concurrent smoke legs — and ANDing
+# their verdicts into the parent's `test_state` — is real follow-up work: the
+# rest of the pipeline (`coord.claim`'s branch-scoped smoke dedupe, the
+# `test`-stage leg count in `coord.stage_projection._leg_count_for_stage`, the
+# single-authoritative-write model in `coord.notify._record_smoke_verdict`,
+# and the Rust mirror in `tui/src/app/pipeline.rs`) all currently assume
+# exactly one smoke assignment represents one Test-stage attempt. Wiring
+# concurrent siblings through those without turning "3 fan-out legs" into "3
+# retries" on the board is a second, larger change on top of this one.
+
+
+@dataclass(frozen=True)
+class SmokePartition:
+    """One capability set that some single configured machine can satisfy —
+    i.e. one Test-stage leg, if/when the fan-out described above ships.
+    """
+
+    capabilities: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class UnroutableCapability:
+    """A matched rule's `requires` that NO configured machine satisfies at
+    all — a config error, never a routing puzzle: no amount of splitting
+    into more legs makes an uninstalled capability appear.
+    """
+
+    capabilities: tuple[str, ...]
+    rule_index: int
+    rule_files: tuple[str, ...]
+
+    def describe(self) -> str:
+        caps = ", ".join(self.capabilities)
+        files = ", ".join(self.rule_files)
+        return (
+            f"capability set [{caps}] required by "
+            f"smoke_tests.capability_rules[{self.rule_index}] (files={files!r}) "
+            "— no configured machine declares all of it"
+        )
+
+
+def partition_capability_requirements(
+    touched_files: list[str],
+    rules: list[SmokeRule],
+    capable_for: Callable[[list[str]], bool],
+) -> tuple[list[SmokePartition], list[UnroutableCapability]]:
+    """Group matched rules' `requires` into the fewest capability sets each
+    satisfiable by a single machine, per the module-level note above.
+
+    *capable_for(caps)* answers "does at least one configured machine (that
+    can also build/test this repo) declare every capability in `caps`?" —
+    callers pass a closure over :func:`_capability_matched_machines` so this
+    function stays config/board-shape agnostic and unit-testable without a
+    real `Config`.
+
+    Algorithm: distinct non-empty `requires` sets are visited in first-match
+    rule-declaration order (deterministic — that order is the config
+    author's own explicit list, not set/dict iteration order). A set that no
+    machine can satisfy AT ALL becomes an :class:`UnroutableCapability` and
+    is never merged into anything (merging never helps — no machine gaining
+    a partner requirement makes an absent capability present). Every
+    routable set is greedily folded into the first existing partition whose
+    UNION with it is still satisfiable by some one machine; if none accepts
+    it, it starts a new partition.
+
+    This is deliberately greedy, not minimum-partition-optimal: declaration
+    order is a natural, predictable tiebreak, and the artifact under test —
+    coordinator.yml's own hand-written rule list — is small enough that
+    greedy-vs-optimal never actually differs in practice (see the module
+    docstring's GTK+Windows / macOS example, where greedy already finds the
+    2-partition optimum).
+
+    Rules with an empty `requires` never enter this — they mean "no extra
+    capability needed", already handled by the existing any-capable-machine
+    path in `dispatch_smoke`, not a partition of their own.
+    """
+    seen: dict[frozenset[str], tuple[int, list[str]]] = {}
+    order: list[frozenset[str]] = []
+    for i, rule in enumerate(rules):
+        if not rule.requires:
+            continue
+        if not _rule_matches(touched_files, rule):
+            continue
+        key = frozenset(rule.requires)
+        if key not in seen:
+            seen[key] = (i, list(rule.files))
+            order.append(key)
+
+    groups: list[set[str]] = []
+    unroutable: list[UnroutableCapability] = []
+    for key in order:
+        rule_index, rule_files = seen[key]
+        caps = set(key)
+        if not capable_for(sorted(caps)):
+            unroutable.append(UnroutableCapability(
+                capabilities=tuple(sorted(caps)),
+                rule_index=rule_index,
+                rule_files=tuple(rule_files),
+            ))
+            continue
+        merged = False
+        for i, group in enumerate(groups):
+            candidate = group | caps
+            if capable_for(sorted(candidate)):
+                groups[i] = candidate
+                merged = True
+                break
+        if not merged:
+            groups.append(caps)
+
+    partitions = [SmokePartition(capabilities=tuple(sorted(g))) for g in groups]
+    return partitions, unroutable
+
+
+# ── Capability-partition fan-out (#3182) ─────────────────────────────────────
+#
+# `partition_capability_requirements` above is the ROUTING half: the fewest
+# capability sets a single machine can each satisfy. This is the DISPATCH
+# half — one smoke leg per partition — plus the bookkeeping that folds
+# however many legs' terminal verdicts back into ONE aggregate verdict on the
+# parent work row, which is what the module note above `partition_capability_
+# requirements` flagged as "a second, larger change on top of this one".
+#
+# The trap: #1819 built a single-authoritative-write model on the assumption
+# that a branch only ever has ONE Test-stage leg in flight — a smoke worker
+# is told to self-record its verdict straight onto the parent row via `coord
+# test --passed|--fail <parent>` (#2217). That is exactly right with one leg
+# and exactly wrong with several: two concurrent legs racing to overwrite the
+# SAME shared row reproduces #1797's shape, just via legitimate parallel legs
+# instead of a duplicate dispatch. So a #3182 fan-out leg is NEVER told to
+# self-record onto the parent (`build_smoke_briefing(parent_assignment_id=
+# None, ...)` below) — only the `SMOKE: pass/fail` marker/exit-code path
+# applies, and it is reused UNCHANGED (`coord.notify._record_smoke_verdict`),
+# just retargeted at the LEG'S OWN assignment_id. (That id is only known
+# *after* the dispatch POST returns, unlike the parent's, which already
+# exists — so it could never have been embedded in the pre-dispatch briefing
+# text regardless.)
+#
+# Folding those per-leg verdicts back together needs a way to find "my
+# siblings" starting from any one leg's own id. A new query surface for that
+# — a daemon HTTP route plus a client method, on top of the thin-client
+# dual-path every read in this module already juggles — is real
+# infrastructure for what is otherwise a handful of rows. Instead, the
+# parent's own `test_reason` (already treated as significant free text
+# elsewhere here — the #2272 mute-leg tally is the precedent) carries a small
+# manifest of `leg_id=capabilities` pairs, written once at dispatch and
+# preserved verbatim across every later rewrite of that field. Aggregation
+# then reads it back with the SAME single-row, thin-client-safe accessors
+# every other verdict read in this file already uses
+# (`load_assignment_test_reason`/`load_assignment_test_state`) — no new
+# endpoint, no new wire shape, and it degrades exactly like every other read
+# here (best-effort, never raises).
+#
+# A gap this deliberately leaves open: a leg whose OWN retry budget exhausts
+# (#2272's mute-leg counter, unchanged, now scoped per-leg) settles at
+# `blocked` and stays there — it does not get a fresh replacement leg on the
+# next tick. That is not a silent loop (the #1678 shape this issue is
+# explicit about avoiding): the aggregate settles at `blocked`, `coord gates`
+# and the TUI show it, and `coord.diagnose.sweep_stuck_test_state_rows`
+# (#2803) is what eventually clears a wedged `running` parent for a fresh
+# sweep if a partition never got a machine at all — the existing, generic
+# mechanism, not a fan-out-specific reinvention of it.
+
+# Restricted to `[a-z0-9+_-]` — every capability name in this codebase
+# (gtk, windows, macos, browser, provider:opencode via `+`-joining, etc.)
+# fits that class. If `coordinator.yml` ever declares a capability with an
+# uppercase letter, a dot, or another character outside it,
+# `smoke_leg_capabilities()` silently returns None for that leg (misread as
+# an ordinary untagged row) rather than raising — nothing today validates
+# capability naming at config-load time, so keep new capability names
+# lowercase/`[a-z0-9+_-]` until that validation exists.
+_LEG_TAG_RE = re.compile(r"^\[smoke:([a-z0-9+_-]+)\] ")
+
+
+def smoke_leg_issue_title(base_title: str, capabilities: tuple[str, ...]) -> str:
+    """The ``issue_title`` for one capability-partition leg of a #3182 fan-out.
+
+    Encodes *capabilities* (sorted, ``+``-joined) as a parseable prefix —
+    ``"[smoke:gtk+windows] <base_title>"`` — so :func:`smoke_leg_capabilities`
+    can read it back off the board. Used both for the per-partition in-flight
+    dedupe (:func:`_find_leg_for_partition`) and for telling a fan-out leg's
+    own verdict apart from an ordinary single-leg smoke row's when processing
+    it (``coord.notify``).
+    """
+    tag = "+".join(sorted(capabilities))
+    return f"[smoke:{tag}] {base_title}"
+
+
+def smoke_leg_capabilities(issue_title: str | None) -> tuple[str, ...] | None:
+    """The capability set :func:`smoke_leg_issue_title` encoded, or ``None``.
+
+    ``None`` for an ordinary (untagged) smoke row — every pre-#3182 ``[smoke]
+    ...`` single-partition dispatch, which never carries this prefix — or for
+    any non-smoke row. Never raises on a malformed or missing title.
+    """
+    if not issue_title:
+        return None
+    m = _LEG_TAG_RE.match(issue_title)
+    if not m:
+        return None
+    return tuple(m.group(1).split("+"))
+
+
+_FANOUT_MANIFEST_RE = re.compile(r"^\[\[smoke-fanout:([^\]]*)\]\]\n?")
+
+
+def _encode_fanout_manifest(legs: list[tuple[str, tuple[str, ...]]]) -> str:
+    """The manifest line stamped at the FRONT of the parent's ``test_reason``
+    for a #3182 fan-out: ``[[smoke-fanout:<id>=<caps>,...]]``, one entry per
+    leg dispatched (or already active/completed) this round. Preserved
+    byte-for-byte across every later rewrite of the parent's ``test_reason``
+    (the running-progress stamp, and the final aggregate) so
+    :func:`finalize_smoke_fanout` can always find its siblings again from
+    just the parent's own row — see the module note above for why this, and
+    not a new query endpoint.
+    """
+    body = ",".join(
+        f"{leg_id}={'+'.join(sorted(caps))}" for leg_id, caps in legs
+    )
+    return f"[[smoke-fanout:{body}]]"
+
+
+def _parse_fanout_manifest(
+    test_reason: str | None,
+) -> list[tuple[str, tuple[str, ...]]] | None:
+    """The ``(leg_id, capabilities)`` pairs :func:`_encode_fanout_manifest`
+    wrote, or ``None`` when *test_reason* carries no manifest (not a fan-out
+    row). Tolerates a malformed entry by skipping just that entry, never
+    raising.
+    """
+    if not test_reason:
+        return None
+    m = _FANOUT_MANIFEST_RE.match(test_reason)
+    if not m:
+        return None
+    legs: list[tuple[str, tuple[str, ...]]] = []
+    for entry in m.group(1).split(","):
+        if not entry:
+            continue
+        leg_id, _, caps = entry.partition("=")
+        if not leg_id or not caps:
+            continue
+        legs.append((leg_id, tuple(caps.split("+"))))
+    return legs
+
+
+def _find_leg_for_partition(
+    board: Board, *, repo_name: str, branch: str | None, capabilities: tuple[str, ...],
+) -> Assignment | None:
+    """The most-recently-dispatched smoke leg on ``(repo_name, branch)`` whose
+    capability tag matches *capabilities*, from either ``board.active`` or
+    ``board.completed``.
+
+    The per-partition peer of ``coord.claim.has_active_branch_followup``
+    (#1819), which dedupes at whole-branch granularity — exactly right for a
+    single leg, but it would starve every OTHER partition's retry the moment
+    any one partition's leg is in flight. Checking ``board.completed`` too
+    (not active-only) matters because a fast leg can finish before its
+    sibling partition ever gets a machine — a later tick must still recognise
+    the finished one as already handled rather than re-dispatching a
+    duplicate for it.
+
+    A COMPLETED leg with no genuine verdict (``test_state`` still ``None``/
+    ``"running"`` — an #1605 environmental death cleared it for retry, same
+    as the single-leg path) is deliberately NOT treated as "already handled":
+    unlike a single-leg row, a fan-out leg's own row never gets a fresh
+    dispatch of its own once it's in ``board.completed``, so skipping it here
+    would strand that partition forever instead of retrying it.
+    """
+    if not branch:
+        return None
+    target = tuple(sorted(capabilities))
+    best: Assignment | None = None
+    for a in list(board.active) + list(board.completed):
+        if a.type != "smoke" or a.repo_name != repo_name or a.branch != branch:
+            continue
+        if smoke_leg_capabilities(a.issue_title) != target:
+            continue
+        if a.status not in ("running", "pending") and a.test_state in (None, "running"):
+            continue  # terminal row, no real verdict — retryable, not "handled"
+        if best is None or (a.dispatched_at or 0.0) >= (best.dispatched_at or 0.0):
+            best = a
+    return best
+
+
+def finalize_smoke_fanout(work_parent_id: str) -> None:
+    """#3182: fold every fan-out leg's own terminal verdict into ONE
+    aggregate verdict on the parent work row, once enough of them are in.
+
+    Called after every fan-out leg's own verdict is recorded — both the
+    ``SMOKE:``-marker/exit-code path (``coord.notify._record_smoke_verdict``,
+    retargeted at the leg's own id) and the crashed-worker path
+    (``coord.reconcile.propagate_smoke_terminal_failure``, same retargeting).
+    Always safe to call: a no-op when *work_parent_id* carries no fan-out
+    manifest (an ordinary single-leg row), a no-op once the parent already
+    carries a terminal verdict (protects a human's `coord test` override, and
+    makes repeat calls as later legs land idempotent), and never raises.
+
+    Severity order across legs, worst wins — the AND across legs #3182 asks
+    for, with ``blocked``/``skipped`` filling in the same relative priority
+    they already carry for a single leg in ``_record_smoke_verdict``:
+    ``failed`` > ``blocked`` > ``skipped`` > ``passed``. Any leg still
+    ``running``/unset holds the aggregate at ``running`` — not everyone has
+    reported in yet.
+    """
+    from coord.state import (  # noqa: PLC0415
+        load_assignment_test_reason,
+        load_assignment_test_state,
+        record_test_verdict,
+    )
+
+    try:
+        current = load_assignment_test_state(work_parent_id)
+        if current not in (None, "running"):
+            return  # already terminal — never clobber (human override or
+            # our own prior aggregate write; recomputing changes nothing).
+
+        legs = _parse_fanout_manifest(load_assignment_test_reason(work_parent_id))
+        if not legs:
+            return  # not a fan-out row
+
+        leg_states: list[tuple[tuple[str, ...], str | None, str | None]] = [
+            (
+                caps,
+                load_assignment_test_state(leg_id),
+                load_assignment_test_reason(leg_id),
+            )
+            for leg_id, caps in legs
+        ]
+        if any(state in (None, "running") for _, state, _ in leg_states):
+            return  # not everyone has reported in yet
+
+        severity = {"failed": 3, TEST_STATE_BLOCKED: 2, "skipped": 1, "passed": 0}
+        worst = max(
+            (state for _, state, _ in leg_states if state in severity),
+            key=lambda s: severity[s],
+            default="passed",
+        )
+        summary = "; ".join(
+            f"[{'+'.join(caps)}]={state}" for caps, state, _ in leg_states
+        )
+        manifest_line = _encode_fanout_manifest([(lid, caps) for lid, caps in legs])
+
+        if worst == "failed":
+            named = "; ".join(
+                f"capability set [{'+'.join(caps)}] failed"
+                + (f" — {reason}" if reason else "")
+                for caps, state, reason in leg_states
+                if state == "failed"
+            )
+            final_state, headline = "failed", f"Test stage failed (#3182): {named}."
+        elif worst == TEST_STATE_BLOCKED:
+            final_state, headline = TEST_STATE_BLOCKED, (
+                "Test stage blocked (#3182): at least one capability-"
+                "partition leg never reached a clean terminal verdict."
+            )
+        elif worst == "skipped":
+            final_state, headline = "skipped", (
+                "Test stage skipped (#3182): every leg either passed or hit "
+                "baseline-red."
+            )
+        else:
+            final_state, headline = "passed", (
+                f"Test stage passed (#3182) across {len(leg_states)} "
+                "capability-partition leg(s)."
+            )
+
+        record_test_verdict(
+            assignment_id=work_parent_id,
+            test_state=final_state,
+            test_reason=f"{manifest_line}\n{headline} All legs: {summary}.",
+        )
+    except Exception:  # noqa: BLE001 — must never break the caller's own reap
+        logger.exception(
+            "finalize_smoke_fanout: failed to fold leg verdicts for parent %s",
+            work_parent_id,
+        )
 
 
 # ── Machine selection ───────────────────────────────────────────────────────
@@ -945,6 +1365,20 @@ def _report_unroutable_smoke(
 ) -> None:
     """Report — once — that the Test stage has no machine it can run on.
 
+    #3182: this used to also carry a *partition_hint* — the flat union of
+    matched rules' capabilities is unroutable, but
+    :func:`partition_capability_requirements` shows the SAME rules would be
+    individually routable, split across more than one machine. That is now a
+    REAL fan-out (see :func:`_dispatch_smoke_fanout`), not a diagnosis on a
+    stuck flat union — a diff whose partitions are all individually routable
+    dispatches a leg to each and never reaches this function for that reason
+    anymore. What DOES still reach here per-partition is the ordinary
+    "tried every capability-matched candidate, none worked" dead end (the
+    *attempts*-driven branches below), same as the single-leg path always
+    had; :func:`_report_unroutable_partitions` covers the OTHER, static case
+    — a capability set no configured machine declares AT ALL, which is a
+    config error no amount of splitting into more legs fixes.
+
     #1672/#1678: the old code logged a WARNING and returned. Nothing was
     written anywhere the TUI, `coord gates` or the board could show it, and
     the daemon re-ran the identical refusal every 30 s forever. The Test stage
@@ -1069,11 +1503,192 @@ def _report_unroutable_smoke(
     completed.test_reason = reason
 
 
+def _report_unroutable_partitions(
+    completed: Assignment, unroutable: list[UnroutableCapability],
+) -> None:
+    """#3182: fail LOUDLY, at dispatch time, when a matched rule's own
+    ``requires`` is a capability set NO configured machine declares at all.
+
+    This is a `coordinator.yml` config error, never a routing puzzle — see
+    :class:`UnroutableCapability`'s docstring: no amount of splitting into
+    more legs makes an uninstalled capability appear. It is checked, and
+    reported, BEFORE any partition is dispatched or any machine is tried —
+    unlike :func:`_report_unroutable_smoke`, which covers the OTHER,
+    per-partition case (every candidate that DOES declare the capability
+    turned out to be unreachable/paused/refused at dispatch time).
+
+    Recording ``test_state=blocked`` here (same terminal marker as every
+    other unroutable report in this module) is what stops this from becoming
+    the #1678 shape the issue calls out by name: a router that keeps
+    re-trying the identical missing capability every 30s forever, with the
+    Test stage never visibly moving. `dispatch_pending_smoke` skips any row
+    already carrying a verdict, so this fires once.
+
+    Never raises: a board-write failure must not take the caller down.
+    """
+    reason = (
+        "Test stage cannot be routed (#3182): "
+        + "; ".join(u.describe() for u in unroutable)
+        + f". Add a machine that declares the missing capability, or adjust "
+        f"smoke_tests.capability_rules, then clear this with `coord "
+        f"diagnose {completed.repo_name} {completed.issue_number} --stage "
+        "test --reset` to re-dispatch."
+    )
+    if completed.test_state == TEST_STATE_BLOCKED:
+        return  # already recorded — the report has been made
+    logger.error(
+        "dispatch_smoke: %s#%s — %s", completed.repo_name,
+        completed.issue_number, reason,
+    )
+    if completed.assignment_id is None:
+        return
+    try:
+        from coord.state import record_test_verdict
+
+        record_test_verdict(
+            assignment_id=completed.assignment_id,
+            test_state=TEST_STATE_BLOCKED,
+            test_reason=reason,
+        )
+    except Exception:  # noqa: BLE001 — reporting must never break dispatch
+        logger.exception(
+            "dispatch_smoke: failed to record the blocked Test verdict for %s",
+            completed.assignment_id,
+        )
+        return
+    completed.test_state = TEST_STATE_BLOCKED
+    completed.test_reason = reason
+
+
 # ── Dispatch ────────────────────────────────────────────────────────────────
 
 
 PRLookup = Callable[..., dict | None]
 DiffLookup = Callable[[str, str], list[str]]
+
+
+def _walk_candidates_and_dispatch(
+    candidates: list[SmokeMachineChoice],
+    *,
+    completed: Assignment,
+    repo,
+    required_caps: list[str],
+    issue_title: str,
+    build_briefing: Callable[[bool], str],
+    smoke_model_wire: str,
+    http_client: httpx.Client | None,
+) -> tuple[tuple[SmokeMachineChoice, str, dict] | None, list[SmokeAttempt]]:
+    """Walk *candidates* best-first, probing then POSTing ``/assign`` — the
+    #1672 full-candidate-list walk every smoke dispatch does. Returns the
+    dispatched ``(choice, briefing, agent_response)`` (or ``None`` if every
+    candidate was exhausted) and the `SmokeAttempt`\\ s burned getting there.
+
+    *build_briefing(is_worker)* builds the briefing for one candidate — a
+    callback rather than a plain string because the briefing's "you are the
+    worker machine" note (and, for a #3182 fan-out leg, whether it is told to
+    self-record at all) depends on *which* candidate this is.
+
+    Factored out of what used to be a single dispatch path so the #3182
+    fan-out path (:func:`_dispatch_smoke_fanout`) cannot silently drift from
+    the probe/POST handling the pre-existing single-leg path
+    (:func:`_dispatch_smoke_single_leg`) already got right — the same
+    reasoning `_rule_matches` was pulled out for.
+    """
+    attempts: list[SmokeAttempt] = []
+    client = http_client or httpx
+    for choice in candidates:
+        if required_caps:
+            unmet = _capability_probe_reasons(
+                choice.machine, required_caps, http_client=http_client
+            )
+            if unmet:
+                # #1570 D: the machine *claims* every required capability in
+                # `coordinator.yml`, but its own `/health` probe (#1570 B)
+                # says otherwise — refuse to route HERE rather than dispatch
+                # a worker that fails 20 minutes in with a confusing,
+                # unrelated error. #1672: that refusal is per-machine, so
+                # keep walking the candidate list instead of ending the
+                # stage. Durable, not transient — the probe disagrees until
+                # somebody installs the tool.
+                logger.warning(
+                    "dispatch_smoke: skipping machine %s for %s#%s — its own "
+                    "/health probe disagrees with its declared capabilities "
+                    "%s — %s — refusing to route (#1570 D). Trying the next "
+                    "capability-matched machine (#1672); run `coord doctor` "
+                    "to check the fleet.",
+                    choice.machine.name, completed.repo_name,
+                    completed.issue_number, required_caps, unmet,
+                )
+                attempts.append(SmokeAttempt(
+                    machine_name=choice.machine.name,
+                    reason=(
+                        f"/health probe contradicts its declared capabilities "
+                        f"{required_caps} — {unmet} (#1570 D)"
+                    ),
+                ))
+                continue
+
+        repo_path = choice.machine.repo_path(completed.repo_name)
+        if repo_path is None:
+            logger.warning(
+                "dispatch_smoke: skipping machine %s for %s#%s — it has no "
+                "repo_paths entry for %r.",
+                choice.machine.name, completed.repo_name,
+                completed.issue_number, completed.repo_name,
+            )
+            attempts.append(SmokeAttempt(
+                machine_name=choice.machine.name,
+                reason=f"no repo_paths entry for {completed.repo_name!r}",
+            ))
+            continue
+
+        briefing = build_briefing(choice.is_worker)
+
+        payload = {
+            "repo_name": completed.repo_name,
+            "repo_path": repo_path,
+            "issue_number": completed.issue_number,
+            "issue_title": issue_title,
+            "briefing": briefing,
+            "files_allowed": [],
+            "files_forbidden": [],
+            "pull_repos": [],
+            "type": "smoke",
+            "system_prompt": SMOKE_SYSTEM_PROMPT,
+            "review_target": completed.branch,
+            # #255: smoke checks out the worker's PR branch but the agent still
+            # consults `branch` as the integration base.
+            "branch": repo.default_branch or "main",
+            "model": smoke_model_wire,
+        }
+
+        url = f"http://{choice.machine.host}:{AGENT_PORT}/assign"
+        try:
+            resp = client.post(url, json=payload, timeout=15)
+            resp.raise_for_status()
+            agent_response = resp.json()
+        except (httpx.HTTPError, httpx.TimeoutException) as exc:
+            # #1672: TRANSIENT — the machine is capable and its probe agreed,
+            # it just didn't answer. Try the next candidate, but if none is
+            # left the row stays re-dispatchable rather than blocked: a
+            # rebooting machine comes back, and poisoning the row would cost
+            # an operator a manual reset for something the next tick fixes.
+            logger.warning(
+                "dispatch_smoke: POST /assign to %s for %s#%s failed (%s) — "
+                "trying the next capability-matched machine (#1672).",
+                choice.machine.name, completed.repo_name,
+                completed.issue_number, exc,
+            )
+            attempts.append(SmokeAttempt(
+                machine_name=choice.machine.name,
+                reason=f"POST /assign failed — {exc}",
+                transient=True,
+            ))
+            continue
+
+        return (choice, briefing, agent_response), attempts
+
+    return None, attempts
 
 
 def dispatch_smoke(
@@ -1088,24 +1703,56 @@ def dispatch_smoke(
     """Queue a smoke test for a completed work-like assignment (#930: also
     ``type="mock-author"`` — see :data:`coord.models.WORK_LIKE_TYPES`).
 
-    Returns the new smoke `Assignment`, or None when no smoke is needed
-    (no rules matched, no capable machine, smoke disabled, etc.). The
-    caller is responsible for persisting the board.
+    Returns the FIRST smoke `Assignment` dispatched this call, or None when
+    nothing was dispatched (no rules matched, no capable machine, smoke
+    disabled, already in flight, etc). The caller is responsible for
+    persisting the board.
+
+    #3182: a diff whose matched capability rules partition (#3177) into MORE
+    THAN ONE machine-satisfiable set dispatches one leg PER partition — see
+    `_dispatch_smoke_fanout`. This return value is then only the first of
+    however many legs were dispatched; `board.active` (every leg is appended
+    there, same as always) is the complete picture, and
+    `dispatch_pending_smoke`'s own returned list carries every leg too (it
+    calls the full-list-returning `_dispatch_smoke_legs` directly). A diff
+    whose matched rules partition into at most one set is unaffected: it
+    takes the pre-#3182 `_dispatch_smoke_single_leg` path unchanged.
 
     #1672: routing walks the FULL capability-matched candidate list (see
     :func:`rank_smoke_machines`) instead of standing or falling on one
     machine, and a dead end is reported on the row rather than re-logged on
     every daemon tick — see :func:`_report_unroutable_smoke`.
     """
+    legs = _dispatch_smoke_legs(
+        completed, board, config,
+        http_client=http_client, diff_lookup=diff_lookup, now=now,
+    )
+    return legs[0] if legs else None
+
+
+def _dispatch_smoke_legs(
+    completed: Assignment,
+    board: Board,
+    config: Config,
+    *,
+    http_client: httpx.Client | None = None,
+    diff_lookup: DiffLookup = _fetch_touched_files,
+    now: float | None = None,
+) -> list[Assignment]:
+    """The real implementation behind :func:`dispatch_smoke` — returns EVERY
+    leg dispatched this call (0, 1, or, for a #3182 fan-out, more). Also
+    called directly by `dispatch_pending_smoke`'s bulk driver so a multi-leg
+    dispatch is never silently truncated to one leg in its returned list.
+    """
     smoke_cfg = getattr(config, "smoke_tests", SmokeTestsConfig())
     if not smoke_cfg.auto_queue:
-        return None
+        return []
     if completed.type not in WORK_LIKE_TYPES:
-        return None
+        return []
     if completed.status != "done":
-        return None
+        return []
     if not completed.branch:
-        return None
+        return []
     if completed.test_state == TEST_STATE_BLOCKED:
         # #1672: already reported as unroutable, with the reason on the row.
         # Re-probing the same broken fleet on every tick is exactly the spin
@@ -1113,14 +1760,94 @@ def dispatch_smoke(
         # --stage test --reset`) once the fleet is fixed. `dispatch_pending_
         # smoke` already skips rows with a verdict; this covers the callers
         # that hand us a row directly (reconcile).
+        return []
+
+    # #1819: a row that a LATER work-like row superseded on the same branch is
+    # not a dispatch target at all. It did not produce the branch's current
+    # content, so testing it burns a machine on a result the later row's own
+    # dispatch already computes, and the verdict lands on a row nothing gates
+    # on. This is what keeps the round-1 row (review=request-changes, fixed by
+    # round 2) from consuming a machine every time the base moves.
+    from coord.claim import superseding_work_row  # noqa: PLC0415
+
+    superseded_by = superseding_work_row(board, completed)
+    if superseded_by is not None:
+        logger.debug(
+            "dispatch_smoke: skipping %s#%s row %s — superseded on branch %s "
+            "by the later work row %s (#1819).",
+            completed.repo_name, completed.issue_number,
+            completed.assignment_id, completed.branch,
+            getattr(superseded_by, "assignment_id", None),
+        )
+        return []
+
+    repo = config.repo(completed.repo_name)
+    if repo is None:
+        return []
+
+    touched = diff_lookup(repo.github, completed.branch)
+
+    # #3182: partition BEFORE computing the flat union — a diff whose matched
+    # rules split across capability sets no one machine carries together must
+    # dispatch one leg per partition, not silently narrow to (or fail on) the
+    # flat union. See `partition_capability_requirements`'s module docstring.
+    def _capable_for(caps: list[str]) -> bool:
+        return bool(_capability_matched_machines(caps, completed.repo_name, config))
+
+    partitions, unroutable = partition_capability_requirements(
+        touched, smoke_cfg.capability_rules, _capable_for
+    )
+
+    if unroutable:
+        # A config error (a rule asks for a capability NO machine declares at
+        # all), never a routing puzzle — fails LOUDLY at dispatch time,
+        # naming the capability and the rule, rather than looping every tick
+        # against hardware that will never appear (#1678's shape).
+        _report_unroutable_partitions(completed, unroutable)
+        return []
+
+    if len(partitions) <= 1:
+        # Exactly today's behaviour — the pre-#3182 single-leg path.
+        leg = _dispatch_smoke_single_leg(
+            completed, board, config, touched=touched,
+            http_client=http_client, now=now,
+        )
+        return [leg] if leg is not None else []
+
+    return _dispatch_smoke_fanout(
+        completed, board, config, touched=touched, partitions=partitions,
+        http_client=http_client, now=now,
+    )
+
+
+def _dispatch_smoke_single_leg(
+    completed: Assignment,
+    board: Board,
+    config: Config,
+    *,
+    touched: list[str],
+    http_client: httpx.Client | None = None,
+    now: float | None = None,
+) -> Assignment | None:
+    """The pre-#3182 single-Test-stage-leg dispatch path, unchanged — used
+    whenever a diff's matched capability rules partition (#3177) into AT MOST
+    one machine-satisfiable set. See `dispatch_smoke` for the #3182 fan-out
+    this now sits beside for the multi-partition case.
+    """
+    smoke_cfg = getattr(config, "smoke_tests", SmokeTestsConfig())
+    repo = config.repo(completed.repo_name)
+    if repo is None:
         return None
 
-    # Dedupe: don't fire a second smoke if one's already in flight.
-    from coord.claim import (
-        has_active_branch_followup,
-        has_active_followup,
-        superseding_work_row,
-    )
+    # Dedupe: don't fire a second smoke if one's already in flight. Both
+    # checks are BRANCH/ROW-wide — correct here because a single-leg row's
+    # smoke assignment is untagged (`smoke_leg_capabilities` reads `None` off
+    # it), so "any smoke on this branch" and "this partition's leg" are the
+    # same question when there is only one partition. The #3182 fan-out path
+    # does NOT use these (see `_dispatch_smoke_fanout`) — they would starve
+    # every other partition's retry the moment any one partition's leg is in
+    # flight.
+    from coord.claim import has_active_branch_followup, has_active_followup  # noqa: PLC0415
 
     if has_active_followup(
         board, of_assignment_id=completed.assignment_id, assignment_type="smoke"
@@ -1141,28 +1868,6 @@ def dispatch_smoke(
     ):
         return None
 
-    # #1819: a row that a LATER work-like row superseded on the same branch is
-    # not a dispatch target at all. It did not produce the branch's current
-    # content, so testing it burns a machine on a result the later row's own
-    # dispatch already computes, and the verdict lands on a row nothing gates
-    # on. This is what keeps the round-1 row (review=request-changes, fixed by
-    # round 2) from consuming a machine every time the base moves.
-    superseded_by = superseding_work_row(board, completed)
-    if superseded_by is not None:
-        logger.debug(
-            "dispatch_smoke: skipping %s#%s row %s — superseded on branch %s "
-            "by the later work row %s (#1819).",
-            completed.repo_name, completed.issue_number,
-            completed.assignment_id, completed.branch,
-            getattr(superseded_by, "assignment_id", None),
-        )
-        return None
-
-    repo = config.repo(completed.repo_name)
-    if repo is None:
-        return None
-
-    touched = diff_lookup(repo.github, completed.branch)
     required_caps = match_rules(touched, smoke_cfg.capability_rules)
     # #2091: resolve *with* provenance — the Test verdict this dispatch will
     # produce is only as meaningful as the suite behind it. #3056: pass the
@@ -1250,57 +1955,19 @@ def dispatch_smoke(
 
             paused = follow_on_paused_set(config.machines)
             paused_capable = sorted(m.name for m in capable if m.name in paused)
-    attempts: list[SmokeAttempt] = []
-    client = http_client or httpx
-    dispatched: tuple[SmokeMachineChoice, str, dict] | None = None
 
-    for choice in candidates:
-        if required_caps:
-            unmet = _capability_probe_reasons(
-                choice.machine, required_caps, http_client=http_client
-            )
-            if unmet:
-                # #1570 D: the machine *claims* every required capability in
-                # `coordinator.yml`, but its own `/health` probe (#1570 B)
-                # says otherwise — refuse to route HERE rather than dispatch
-                # a worker that fails 20 minutes in with a confusing,
-                # unrelated error. #1672: that refusal is per-machine, so
-                # keep walking the candidate list instead of ending the
-                # stage. Durable, not transient — the probe disagrees until
-                # somebody installs the tool.
-                logger.warning(
-                    "dispatch_smoke: skipping machine %s for %s#%s — its own "
-                    "/health probe disagrees with its declared capabilities "
-                    "%s — %s — refusing to route (#1570 D). Trying the next "
-                    "capability-matched machine (#1672); run `coord doctor` "
-                    "to check the fleet.",
-                    choice.machine.name, completed.repo_name,
-                    completed.issue_number, required_caps, unmet,
-                )
-                attempts.append(SmokeAttempt(
-                    machine_name=choice.machine.name,
-                    reason=(
-                        f"/health probe contradicts its declared capabilities "
-                        f"{required_caps} — {unmet} (#1570 D)"
-                    ),
-                ))
-                continue
+    # #2168: pin the Test stage's model to avoid the agent falling through to
+    # the machine's ambient `claude -p` default (Opus). Mirrors the review
+    # path (coord/review.py, coord/gate_b.py): deliberately
+    # `config.models.default`, NOT `config.models.labels` — the Test stage's
+    # job (checkout, run one command, read an exit code) is a property of the
+    # repo's test command, never of the issue's tier label, so label routing
+    # (#1798) must not leak in here either.
+    smoke_model_alias = config.models.default
+    smoke_model_wire = config.models.resolve(smoke_model_alias)
 
-        repo_path = choice.machine.repo_path(completed.repo_name)
-        if repo_path is None:
-            logger.warning(
-                "dispatch_smoke: skipping machine %s for %s#%s — it has no "
-                "repo_paths entry for %r.",
-                choice.machine.name, completed.repo_name,
-                completed.issue_number, completed.repo_name,
-            )
-            attempts.append(SmokeAttempt(
-                machine_name=choice.machine.name,
-                reason=f"no repo_paths entry for {completed.repo_name!r}",
-            ))
-            continue
-
-        briefing = build_smoke_briefing(
+    def _build_briefing(is_worker: bool) -> str:
+        return build_smoke_briefing(
             repo_github=repo.github,
             repo_name=repo.name,
             branch=completed.branch,
@@ -1309,66 +1976,19 @@ def dispatch_smoke(
             smoke_command=smoke_command,
             required_caps=required_caps,
             timeout_seconds=smoke_cfg.timeout_seconds,
-            is_worker=choice.is_worker,
+            is_worker=is_worker,
             command_source=resolved,
             parent_assignment_id=completed.assignment_id,
         )
 
-        # #2168: pin the Test stage's model to avoid the agent falling
-        # through to the machine's ambient `claude -p` default (Opus).
-        # Mirrors the review path (coord/review.py, coord/gate_b.py):
-        # deliberately `config.models.default`, NOT `config.models.labels`
-        # — the Test stage's job (checkout, run one command, read an exit
-        # code) is a property of the repo's test command, never of the
-        # issue's tier label, so label routing (#1798) must not leak in
-        # here either.
-        smoke_model_alias = config.models.default
-        smoke_model_wire = config.models.resolve(smoke_model_alias)
-
-        payload = {
-            "repo_name": completed.repo_name,
-            "repo_path": repo_path,
-            "issue_number": completed.issue_number,
-            "issue_title": f"[smoke] {completed.issue_title}",
-            "briefing": briefing,
-            "files_allowed": [],
-            "files_forbidden": [],
-            "pull_repos": [],
-            "type": "smoke",
-            "system_prompt": SMOKE_SYSTEM_PROMPT,
-            "review_target": completed.branch,
-            # #255: smoke checks out the worker's PR branch but the agent still
-            # consults `branch` as the integration base.
-            "branch": repo.default_branch or "main",
-            "model": smoke_model_wire,
-        }
-
-        url = f"http://{choice.machine.host}:{AGENT_PORT}/assign"
-        try:
-            resp = client.post(url, json=payload, timeout=15)
-            resp.raise_for_status()
-            agent_response = resp.json()
-        except (httpx.HTTPError, httpx.TimeoutException) as exc:
-            # #1672: TRANSIENT — the machine is capable and its probe agreed,
-            # it just didn't answer. Try the next candidate, but if none is
-            # left the row stays re-dispatchable rather than blocked: a
-            # rebooting machine comes back, and poisoning the row would cost
-            # an operator a manual reset for something the next tick fixes.
-            logger.warning(
-                "dispatch_smoke: POST /assign to %s for %s#%s failed (%s) — "
-                "trying the next capability-matched machine (#1672).",
-                choice.machine.name, completed.repo_name,
-                completed.issue_number, exc,
-            )
-            attempts.append(SmokeAttempt(
-                machine_name=choice.machine.name,
-                reason=f"POST /assign failed — {exc}",
-                transient=True,
-            ))
-            continue
-
-        dispatched = (choice, briefing, agent_response)
-        break
+    dispatched, attempts = _walk_candidates_and_dispatch(
+        candidates,
+        completed=completed, repo=repo, required_caps=required_caps,
+        issue_title=f"[smoke] {completed.issue_title}",
+        build_briefing=_build_briefing,
+        smoke_model_wire=smoke_model_wire,
+        http_client=http_client,
+    )
 
     if dispatched is None:
         # Every capability-matched machine was tried and none could take it
@@ -1376,7 +1996,7 @@ def dispatch_smoke(
         # or in quiet hours right now", #2636). Report it where the board
         # can show it, exactly once — never the silent 30 s spin of #1678.
         _report_unroutable_smoke(
-            completed, required_caps, attempts, paused_capable=paused_capable
+            completed, required_caps, attempts, paused_capable=paused_capable,
         )
         return None
 
@@ -1402,13 +2022,12 @@ def dispatch_smoke(
     )
     board.active.append(smoke_assignment)
 
-    from coord.state import record_dispatched_assignment
-    repo = config.repo(completed.repo_name)
-    if repo is not None:
-        record_dispatched_assignment(
-            assignment=smoke_assignment,
-            repo_github=repo.github,
-        )
+    from coord.state import record_dispatched_assignment  # noqa: PLC0415
+
+    record_dispatched_assignment(
+        assignment=smoke_assignment,
+        repo_github=repo.github,
+    )
 
     # #1395/#1426: mark the PARENT work row's Test verdict "running" the
     # moment the smoke assignment is dispatched — the same marker
@@ -1443,7 +2062,7 @@ def dispatch_smoke(
     if completed.assignment_id is not None and completed.test_state not in (
         "passed", "skipped", "failed",
     ):
-        from coord.state import load_assignment_test_reason, record_test_verdict
+        from coord.state import load_assignment_test_reason, record_test_verdict  # noqa: PLC0415
 
         # Belt and braces: the authoritative single-row read, falling back to
         # the board-carried value when it is unavailable (thin client, remote
@@ -1470,6 +2089,214 @@ def dispatch_smoke(
         completed.test_reason = running_reason
 
     return smoke_assignment
+
+
+def _dispatch_smoke_fanout(
+    completed: Assignment,
+    board: Board,
+    config: Config,
+    *,
+    touched: list[str],
+    partitions: list[SmokePartition],
+    http_client: httpx.Client | None = None,
+    now: float | None = None,
+) -> list[Assignment]:
+    """#3182: one smoke leg per capability partition — the fan-out
+    `partition_capability_requirements` (#3177) routes for but never
+    dispatched. Each leg is otherwise dispatched exactly like the single-leg
+    path (`_walk_candidates_and_dispatch`: same #1672 full-candidate-list
+    walk, same probe/POST handling) — what differs is bookkeeping: every
+    leg's `issue_title` carries its own capability tag
+    (`smoke_leg_issue_title`) so `coord.notify` can tell a fan-out leg's own
+    verdict apart from the parent's, and the parent's `test_reason` carries
+    the manifest `finalize_smoke_fanout` needs to fold them back together —
+    see the module note above `smoke_leg_issue_title` for why.
+
+    A partition with no dispatchable machine right now (every candidate
+    transient, or none reachable) is left for a later tick — via
+    `_find_leg_for_partition`'s per-partition dedupe, that tick fills in only
+    the missing partition, never re-dispatching the ones that already
+    succeeded. A partition every candidate DURABLY refuses (a `/health`
+    probe contradiction, a missing `repo_paths` entry) is reported exactly
+    like the single-leg unroutable case (`_report_unroutable_smoke`), naming
+    that capability set — never a silent retry (#1678).
+    """
+    smoke_cfg = getattr(config, "smoke_tests", SmokeTestsConfig())
+    repo = config.repo(completed.repo_name)
+    if repo is None:
+        return []
+
+    resolved = resolve_smoke_command(repo, smoke_cfg, touched_files=touched)
+    smoke_command = resolved.command
+    if smoke_command is None:
+        logger.warning(
+            "dispatch_smoke: %s#%s needs a %d-way capability fan-out %s but "
+            "no smoke command is configured (repos[].ci_command, "
+            "smoke_tests.default_command, or this repo's test_command) — "
+            "skipping. Configure one so the Test stage stops silently "
+            "no-oping for this repo.",
+            completed.repo_name, completed.issue_number, len(partitions),
+            [list(p.capabilities) for p in partitions],
+        )
+        return []
+    if not resolved.ci_equivalent and repo.github:
+        logger.warning(
+            "dispatch_smoke: %s#%s Test verdict will NOT be CI-equivalent — "
+            "running %s (%s) across a %d-way capability fan-out while CI "
+            "runs whatever %s's workflows say. Set repos[%s].ci_command to "
+            "the command CI runs (#2091).",
+            completed.repo_name, completed.issue_number, smoke_command,
+            resolved.source, len(partitions), repo.github, repo.name,
+        )
+
+    smoke_model_alias = config.models.default
+    smoke_model_wire = config.models.resolve(smoke_model_alias)
+
+    leg_manifest: list[tuple[str, tuple[str, ...]]] = []
+    new_legs: list[Assignment] = []
+    blocking: list[tuple[list[str], list[SmokeAttempt]]] = []
+
+    for partition in partitions:
+        caps = list(partition.capabilities)
+
+        existing = _find_leg_for_partition(
+            board, repo_name=completed.repo_name, branch=completed.branch,
+            capabilities=partition.capabilities,
+        )
+        if existing is not None:
+            # Already dispatched (still running, or already terminal) by an
+            # earlier call for this same row — this tick just fills whatever
+            # OTHER partition is still missing, never re-dispatches this one.
+            leg_manifest.append((existing.assignment_id or "", partition.capabilities))
+            continue
+
+        candidates = rank_smoke_machines(
+            caps, completed.repo_name, completed.machine_name, board, config,
+        )
+
+        def _build_briefing(is_worker: bool, _caps: list[str] = caps) -> str:
+            return build_smoke_briefing(
+                repo_github=repo.github,
+                repo_name=repo.name,
+                branch=completed.branch,
+                issue_number=completed.issue_number,
+                issue_title=completed.issue_title,
+                smoke_command=smoke_command,
+                required_caps=_caps,
+                timeout_seconds=smoke_cfg.timeout_seconds,
+                is_worker=is_worker,
+                command_source=resolved,
+                # #3182: NEVER the parent — a fan-out leg self-recording onto
+                # the shared parent row is exactly the concurrent-write race
+                # this fan-out must not reintroduce (see the module note
+                # above `smoke_leg_issue_title`). The leg's own id doesn't
+                # exist yet at briefing-build time either way, so it is
+                # identified purely from its `SMOKE:` marker/exit code in
+                # `coord.notify`, once its own transition lands.
+                parent_assignment_id=None,
+            )
+
+        result, attempts = _walk_candidates_and_dispatch(
+            candidates,
+            completed=completed, repo=repo, required_caps=caps,
+            issue_title=smoke_leg_issue_title(completed.issue_title, partition.capabilities),
+            build_briefing=_build_briefing,
+            smoke_model_wire=smoke_model_wire,
+            http_client=http_client,
+        )
+
+        if result is None:
+            transient = any(a.transient for a in attempts)
+            if transient or not attempts:
+                logger.warning(
+                    "dispatch_smoke: %s#%s — capability set %s (fan-out leg) "
+                    "found no reachable machine this tick; %d attempt(s): "
+                    "%s. Leaving it for a later tick (#1672).",
+                    completed.repo_name, completed.issue_number, caps,
+                    len(attempts), "; ".join(a.describe() for a in attempts),
+                )
+            else:
+                blocking.append((caps, attempts))
+            continue
+
+        choice, briefing, agent_response = result
+        leg_id = agent_response.get("id") or uuid.uuid4().hex[:12]
+        leg_assignment = Assignment(
+            machine_name=choice.machine.name,
+            repo_name=completed.repo_name,
+            issue_number=completed.issue_number,
+            issue_title=smoke_leg_issue_title(completed.issue_title, partition.capabilities),
+            files_allowed=[],
+            files_forbidden=[],
+            briefing=briefing,
+            assignment_id=leg_id,
+            status="running",
+            branch=completed.branch,
+            pr_url=completed.pr_url,
+            dispatched_at=now if now is not None else time.time(),
+            type="smoke",
+            review_target=completed.branch,
+            review_of_assignment_id=completed.assignment_id,
+            model=smoke_model_alias,
+            test_state="running",
+            test_reason=f"Test stage leg running — capability set {caps} (#3182)",
+        )
+        board.active.append(leg_assignment)
+
+        from coord.state import record_dispatched_assignment  # noqa: PLC0415
+
+        record_dispatched_assignment(assignment=leg_assignment, repo_github=repo.github)
+        leg_manifest.append((leg_id, partition.capabilities))
+        new_legs.append(leg_assignment)
+
+    # A partition every candidate durably refused — report it exactly like
+    # the single-leg unroutable case, naming that capability set. (One report
+    # per blocked partition; each is independently idempotent.)
+    for caps, attempts in blocking:
+        _report_unroutable_smoke(completed, caps, attempts)
+
+    # Stamp the parent's aggregate "running" — carrying the manifest so
+    # `finalize_smoke_fanout` can find every leg again from just this row —
+    # covering EVERY known partition so far, even on a partial round (some
+    # partition still missing a machine). #1819: never over a terminal
+    # verdict already on the row. TEST_STATE_BLOCKED is included alongside
+    # ("passed", "skipped", "failed") — NOT just those three — because a
+    # mixed round (one partition durably unroutable via
+    # `_report_unroutable_smoke` above, a sibling partition dispatched fine)
+    # leaves `completed.test_state` freshly set to TEST_STATE_BLOCKED by that
+    # very call, a few lines up, in this same synchronous invocation. Without
+    # this exclusion the unconditional "running" stamp below would silently
+    # clobber that blocked verdict back to "running" on the very next line,
+    # AND the blocked partition is never added to `leg_manifest` (only
+    # dispatched/already-existing legs are), so the manifest this stamp
+    # writes would name only the routable partitions — `finalize_smoke_fanout`
+    # would later see every *listed* leg terminal and resolve the aggregate
+    # to e.g. "passed" with zero awareness the blocked partition ever
+    # existed (#3182 review). Leaving the row at TEST_STATE_BLOCKED instead
+    # keeps the failure loud and permanent: nothing else in this module
+    # revisits a `blocked` parent row to relax it back to "running" or
+    # "passed" — only an explicit `coord diagnose --stage test --reset`
+    # clears it, same as the single-leg unroutable case.
+    if leg_manifest and completed.assignment_id is not None and completed.test_state not in (
+        "passed", "skipped", "failed", TEST_STATE_BLOCKED,
+    ):
+        from coord.state import record_test_verdict  # noqa: PLC0415
+
+        summary = "; ".join(f"[{'+'.join(sorted(caps))}]" for _, caps in leg_manifest)
+        manifest_line = _encode_fanout_manifest(leg_manifest)
+        running_reason = (
+            f"{manifest_line}\nTest stage running across {len(partitions)} "
+            f"capability-partition leg(s) (#3182): {summary}."
+        )
+        record_test_verdict(
+            assignment_id=completed.assignment_id,
+            test_state="running",
+            test_reason=running_reason,
+        )
+        completed.test_state = "running"
+        completed.test_reason = running_reason
+
+    return new_legs
 
 
 # ── Bulk dispatch (#1426) ────────────────────────────────────────────────────
@@ -1651,8 +2478,14 @@ def dispatch_pending_smoke(
             )
             continue
 
-        smoke = dispatch_smoke(completed, board, config, now=now)
-        if smoke is not None:
-            dispatched.append(smoke)
+        # #3182: the full-list implementation — a capability fan-out
+        # dispatches more than one leg per completion, so this loop cannot
+        # go through the compat-wrapping `dispatch_smoke` (which only ever
+        # returns the FIRST leg, for callers still expecting the pre-#3182
+        # `Assignment | None` shape) without silently under-reporting the
+        # rest in this function's own returned list. `board.active` (every
+        # leg is appended there regardless of which entry point dispatched
+        # it) is unaffected either way.
+        dispatched.extend(_dispatch_smoke_legs(completed, board, config, now=now))
 
     return dispatched

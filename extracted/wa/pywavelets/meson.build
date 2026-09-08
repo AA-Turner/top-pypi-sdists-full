@@ -1,7 +1,7 @@
 project(
   'PyWavelets',
   'c', 'cython',
-  version: '1.9.0',
+  version: '1.10.0',
   license: 'MIT',
   meson_version: '>= 1.1.0',
   default_options: [
@@ -11,7 +11,7 @@ project(
   ],
 )
 
-cython = find_program('cython')
+cython = find_program('cython', version: '>=3.2.5')
 
 py = import('python').find_installation(pure: false)
 py_dep = py.dependency()

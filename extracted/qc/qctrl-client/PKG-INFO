@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qctrl-client
-Version: 17.1.0
+Version: 17.2.0
 Summary: Q-CTRL Client
 License-File: LICENSE
 Keywords: black opal,boulder opal,fire opal,ironstone opal,nisq,open controls,q control,q ctrl,q-control,q-ctrl,qcontrol,qctrl,quantum,quantum algorithms,quantum circuits,quantum coding,quantum coding software,quantum computing,quantum control,quantum control software,quantum control theory,quantum engineering,quantum error correction,quantum firmware,quantum fundamentals,quantum navigation,quantum sensing,qubit,qudit
@@ -30,7 +30,7 @@ Classifier: Topic :: System :: Distributed Computing
 Requires-Dist: PyJWT (>=2.0.0,<3.0.0)
 Requires-Dist: authlib (>=1.6.5,<2.0.0)
 Requires-Dist: gql[httpx] (>=4.0.0,<5.0.0)
-Requires-Dist: graphql-core (>=3.0.0,<4.0.0)
+Requires-Dist: graphql-core (>=3.2.12,<4.0.0)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: oauthlib (>=3.0.0,<4.0.0)
 Requires-Dist: tenacity (>=9.0.0,<10.0.0)

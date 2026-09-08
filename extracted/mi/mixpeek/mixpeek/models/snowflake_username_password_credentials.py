@@ -25,11 +25,11 @@ from typing_extensions import Self
 
 class SnowflakeUsernamePasswordCredentials(BaseModel):
     """
-    Snowflake username/password authentication (FALLBACK option).  Traditional username/password authentication for Snowflake. Less secure than key pair authentication but simpler to set up.  Security:     - Password encrypted at rest via CSFLE     - Consider using key pair auth for production     - Enable MFA on Snowflake user account
+    Snowflake username/password authentication (FALLBACK option).  Traditional username/password authentication for Snowflake. Less secure than key pair authentication but simpler to set up.  Security:     - Password is a secret credential, redacted on read     - Consider using key pair auth for production     - Enable MFA on Snowflake user account
     """ # noqa: E501
     type: Optional[StrictStr] = 'username_password'
     username: StrictStr = Field(description="REQUIRED. Snowflake username (case-insensitive).")
-    password: StrictStr = Field(description="REQUIRED. Snowflake password for authentication. SECURITY: This field is encrypted at rest via CSFLE. Never log or expose.")
+    password: StrictStr = Field(description="REQUIRED. Snowflake password for authentication. SECURITY: This is a secret credential, redacted on read. Never log or expose.")
     __properties: ClassVar[List[str]] = ["type", "username", "password"]
 
     @field_validator('type')

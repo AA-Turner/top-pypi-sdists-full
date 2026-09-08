@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "catalog/catalog.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "common/cast.h"
 #include "common/exception/message.h"
@@ -26,6 +27,17 @@ using namespace lbug::evaluator;
 
 namespace lbug {
 namespace storage {
+namespace {
+// Whether index maintenance for an update must run AFTER the new value has been written to
+// the node table. The HNSW index re-scans the updated node's embedding from the node table
+// during re-insertion (see OnDiskHNSWIndex), so it must observe the NEW value. All other
+// index kinds (e.g. FTS, which re-tokenizes the OLD document from the node table while
+// deleting its entries) must run before the write. We key on the serialized index type
+// name to avoid extending the extension-facing Index API.
+bool updatesAfterTableWrite(const Index& index) {
+    return index.getIndexInfo().indexType == "HNSW";
+}
+} // namespace
 
 NodeTableVersionRecordHandler::NodeTableVersionRecordHandler(NodeTable* table) : table(table) {}
 
@@ -439,6 +451,13 @@ void NodeTable::initInsertState(main::ClientContext* context, TableInsertState& 
     nodeInsertState.indexInsertStates.resize(indexes.size());
     for (auto i = 0u; i < indexes.size(); i++) {
         auto& indexHolder = indexes[i];
+        // Skip unloaded (orphaned) index holders — e.g. after a WAL-replayed DROP INDEX that
+        // could not reach the storage layer, the holder survives without its index object.
+        // Dereferencing it here would segfault on the next insert; see insert().
+        if (!indexHolder.isLoaded()) {
+            nodeInsertState.indexInsertStates[i] = nullptr;
+            continue;
+        }
         const auto index = indexHolder.getIndex();
         nodeInsertState.indexInsertStates[i] =
             index->initInsertState(context, [&](offset_t offset) {
@@ -459,6 +478,12 @@ void NodeTable::insert(Transaction* transaction, TableInsertState& insertState) 
     validatePkNotExists(transaction, const_cast<ValueVector*>(&nodeInsertState.pkVector));
     localTable->insert(transaction, insertState);
     for (auto i = 0u; i < indexes.size(); i++) {
+        // Skip unloaded (orphaned) index holders; getIndex() would return a null pointer
+        // and index->insert() would segfault. Such a holder has no catalog entry, so no
+        // index maintenance is expected.
+        if (!indexes[i].isLoaded()) {
+            continue;
+        }
         auto index = indexes[i].getIndex();
         std::vector<ValueVector*> indexedPropertyVectors;
         for (const auto columnID : index->getIndexInfo().columnIDs) {
@@ -482,6 +507,12 @@ void NodeTable::initUpdateState(main::ClientContext* context, TableUpdateState& 
     nodeUpdateState.indexUpdateState.resize(indexes.size());
     for (auto i = 0u; i < indexes.size(); i++) {
         auto& indexHolder = indexes[i];
+        // Skip unloaded (orphaned) index holders; getIndex() would return a null pointer
+        // and index->isPrimary() would segfault.
+        if (!indexHolder.isLoaded()) {
+            nodeUpdateState.indexUpdateState[i] = nullptr;
+            continue;
+        }
         auto index = indexHolder.getIndex();
         if (index->isPrimary() || !index->isBuiltOnColumn(nodeUpdateState.columnID)) {
             nodeUpdateState.indexUpdateState[i] = nullptr;
@@ -508,14 +539,22 @@ void NodeTable::update(Transaction* transaction, TableUpdateState& updateState) 
         throw RuntimeException("Cannot update pk.");
     }
     const auto nodeOffset = nodeUpdateState.nodeIDVector.readNodeOffset(pos);
+    // Indexes that need to read the OLD value from the node table (e.g. FTS re-tokenizing the
+    // document being deleted) must be updated before the row is written.
     for (auto i = 0u; i < indexes.size(); i++) {
+        // Skip unloaded (orphaned) index holders; see initUpdateState().
+        if (!indexes[i].isLoaded()) {
+            continue;
+        }
         auto index = indexes[i].getIndex();
-        if (!nodeUpdateState.needToUpdateIndex(i)) {
+        if (!nodeUpdateState.needToUpdateIndex(i) || updatesAfterTableWrite(*index)) {
             continue;
         }
         index->update(transaction, nodeUpdateState.nodeIDVector, nodeUpdateState.propertyVector,
             *nodeUpdateState.indexUpdateState[i]);
     }
+    // Indexes that re-scan the node table to observe the NEW value during update (e.g. HNSW)
+    // must be updated after the row is written.
     if (transaction->isUnCommitted(tableID, nodeOffset)) {
         const auto localTable = transaction->getLocalStorage()->getLocalTable(tableID);
         DASSERT(localTable);
@@ -527,6 +566,18 @@ void NodeTable::update(Transaction* transaction, TableUpdateState& updateState) 
         nodeGroups->getNodeGroup(nodeGroupIdx)
             ->update(transaction, rowIdxInGroup, nodeUpdateState.columnID,
                 nodeUpdateState.propertyVector);
+    }
+    for (auto i = 0u; i < indexes.size(); i++) {
+        // Skip unloaded (orphaned) index holders; see initUpdateState().
+        if (!indexes[i].isLoaded()) {
+            continue;
+        }
+        auto index = indexes[i].getIndex();
+        if (!nodeUpdateState.needToUpdateIndex(i) || !updatesAfterTableWrite(*index)) {
+            continue;
+        }
+        index->update(transaction, nodeUpdateState.nodeIDVector, nodeUpdateState.propertyVector,
+            *nodeUpdateState.indexUpdateState[i]);
     }
     if (updateState.logToWAL && transaction->shouldLogToWAL()) {
         DASSERT(transaction->isWriteTransaction());
@@ -547,6 +598,11 @@ bool NodeTable::delete_(Transaction* transaction, TableDeleteState& deleteState)
     bool isDeleted = false;
     const auto nodeOffset = nodeDeleteState.nodeIDVector.readNodeOffset(pos);
     for (auto& index : indexes) {
+        // Skip unloaded (orphaned) index holders; getIndex() would return a null pointer
+        // and delete_() would segfault. See insert().
+        if (!index.isLoaded()) {
+            continue;
+        }
         auto indexDeleteState = index.getIndex()->initDeleteState(transaction, memoryManager,
             getVisibleFunc(transaction));
         index.getIndex()->delete_(transaction, nodeDeleteState.nodeIDVector, *indexDeleteState);
@@ -654,13 +710,31 @@ void NodeTable::commit(main::ClientContext* context, TableCatalogEntry* tableEnt
 
     // 3. Scan index columns for newly inserted tuples.
     for (auto& index : indexes) {
-        if (!index.needCommitInsert()) {
+        // Check isLoaded BEFORE needCommitInsert(): the latter dereferences the index object,
+        // which is null for an unloaded (orphan) holder — e.g. after a WAL-replayed DROP INDEX
+        // that removed only the catalog entry — and would segfault during commit/recovery.
+        if (!index.isLoaded()) {
+            // An unloaded holder is either an orphan (its catalog entry is already gone, so
+            // there is nothing to maintain), or a cataloged index whose extension is not
+            // loaded. For the latter, the binder refuses INSERT/DELETE/COPY and SET of indexed
+            // columns on tables with cataloged-but-unloaded indexes, so user transactions can
+            // only reach commit() with the orphan case, which we skip silently. WAL replay
+            // bypasses the binder, but throwing during recovery would prevent the database
+            // from opening at all, so the index is left stale (rebuildable) there. The check
+            // below is a tripwire for future paths that bypass the binder: rows were appended
+            // in step 1 and would never be indexed — fail loudly instead of silently
+            // committing them.
+            if (!transaction->isRecovery() && numLocalRows > 0 &&
+                Catalog::Get(*context)->containsIndex(transaction, tableEntry->getTableID(),
+                    index.getName())) {
+                throw RuntimeException(
+                    "Cannot commit index insertions for index " + index.getName() +
+                    ", because it is not loaded. Please load the extension for the index first.");
+            }
             continue;
         }
-        if (!index.isLoaded()) {
-            throw RuntimeException(
-                "Cannot commit index insertions for index " + index.getName() +
-                ", because it is not loaded. Please load the extension for the index first.");
+        if (!index.needCommitInsert()) {
+            continue;
         }
         UncommittedIndexInserter indexInserter{startNodeOffset, this, index.getIndex(),
             getVisibleFunc(transaction)};
@@ -803,6 +877,9 @@ bool NodeTable::isVisibleNoLock(const Transaction* transaction, offset_t offset)
         return false;
     }
     const auto* nodeGroup = getNodeGroupNoLock(nodeGroupIdx);
+    if (nodeGroup == nullptr) {
+        return false;
+    }
     return nodeGroup->isVisibleNoLock(transaction, offsetInGroup);
 }
 
@@ -854,7 +931,32 @@ bool NodeTable::lookupPK(const Transaction* transaction, ValueVector* keyVector,
     }
     if (auto* pkIndex = tryGetPrimaryKeyIndex()) {
         return pkIndex->lookupPrimaryKey(transaction, keyVector, vectorPos, result,
-            [&](offset_t offset) { return isVisibleNoLock(transaction, offset); });
+            [&](offset_t offset) {
+                // A stale/corrupt PK index entry must not reach isVisibleNoLock(), where an
+                // invalid node offset could otherwise be dereferenced in a release build. Keep
+                // this validation O(1) on the normal lookup path and fail the transaction instead
+                // of treating a corrupt entry as a missing key.
+                if (offset == INVALID_OFFSET) {
+                    throw RuntimeException(
+                        "Primary-key index contains an invalid node offset. Please drop and "
+                        "rebuild the _PK index.");
+                }
+                const auto nodeGroupIdx = StorageUtils::getNodeGroupIdx(offset);
+                if (nodeGroupIdx >= nodeGroups->getNumNodeGroupsNoLock()) {
+                    throw RuntimeException(
+                        "Primary-key index points to a missing node group. Please drop and "
+                        "rebuild the _PK index.");
+                }
+                const auto* nodeGroup = getNodeGroupNoLock(nodeGroupIdx);
+                const auto offsetInGroup =
+                    offset - StorageUtils::getStartOffsetOfNodeGroup(nodeGroupIdx);
+                if (nodeGroup == nullptr || offsetInGroup >= nodeGroup->getNumRows()) {
+                    throw RuntimeException(
+                        "Primary-key index contains an out-of-range node offset. Please drop "
+                        "and rebuild the _PK index.");
+                }
+                return isVisibleNoLock(transaction, offset);
+            });
     }
     auto keyToLookup = keyVector->getAsValue(vectorPos);
     ColumnPredicateSet predicateSet;
@@ -985,8 +1087,20 @@ void NodeTable::scanIndexColumns(main::ClientContext* context, IndexScanHelper& 
 }
 
 void NodeTable::addIndex(std::unique_ptr<Index> index) {
-    if (getIndex(index->getName()).has_value()) {
-        throw RuntimeException("Index with name " + index->getName() + " already exists.");
+    // If a holder with the same name already exists (including an unloaded orphan left by a
+    // torn DROP INDEX whose catalog entry is gone), remove it before adding the new one so a
+    // rebuild in place succeeds. Previously this called getIndex(), which throws
+    // "Index ... not loaded yet" for an unloaded holder and made CREATE_FTS_INDEX fail on
+    // the cross-set residue state.
+    for (auto it = indexes.begin(); it != indexes.end(); ++it) {
+        if (StringUtils::caseInsensitiveEquals(it->getName(), index->getName())) {
+            if (it->isLoaded()) {
+                throw RuntimeException("Index with name " + index->getName() + " already exists.");
+            }
+            droppedIndexes.push_back(std::move(*it));
+            indexes.erase(it);
+            break;
+        }
     }
     indexes.push_back(IndexHolder{std::move(index)});
     setHasChanges();
@@ -1005,13 +1119,16 @@ void NodeTable::buildIndexAndAdd(main::ClientContext* context, std::unique_ptr<I
 }
 
 void NodeTable::dropIndex(const std::string& name) {
-    DASSERT(getIndex(name) != nullptr);
     for (auto it = indexes.begin(); it != indexes.end(); ++it) {
         if (StringUtils::caseInsensitiveEquals(it->getName(), name)) {
-            DASSERT(it->isLoaded());
+            // Also allow dropping an unloaded (orphan) holder — e.g. after a WAL-replayed
+            // DROP INDEX that removed only the catalog entry. Previously the DASSERTs here
+            // (and getIndex() above) failed on such a holder, blocking DROP INDEX with
+            // "Index ... not loaded yet" and trapping the cross-set residue state.
             // Retain the holder so its page range is known; the pages are reclaimed at the
             // next checkpoint (reclaimDroppedIndexes), not here, since freeing them within the
-            // dropping transaction would be unsafe on rollback.
+            // dropping transaction would be unsafe on rollback. (An unloaded holder owns no
+            // holder-level pages — see IndexHolder::reclaimStorage.)
             droppedIndexes.push_back(std::move(*it));
             indexes.erase(it);
             setHasChanges();

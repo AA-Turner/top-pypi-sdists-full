@@ -135,6 +135,8 @@ __all__ = (
     "RetryPolicyConfigurationTypeDef",
     "RetryPolicyExecutionTypeDef",
     "S3MonitoringConfigurationTypeDef",
+    "SchedulerConfigurationTypeDef",
+    "SchedulerStatusTypeDef",
     "SecureNamespaceInfoTypeDef",
     "SecurityConfigurationDataTypeDef",
     "SecurityConfigurationTypeDef",
@@ -148,6 +150,8 @@ __all__ = (
     "TemplateParameterConfigurationTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateVirtualClusterRequestTypeDef",
+    "UpdateVirtualClusterResponseTypeDef",
     "VirtualClusterTypeDef",
 )
 
@@ -216,6 +220,11 @@ class EksInfoTypeDef(TypedDict):
 class ContainerLogRotationConfigurationTypeDef(TypedDict):
     rotationSize: str
     maxFilesToKeep: int
+
+
+class SchedulerConfigurationTypeDef(TypedDict):
+    maxInQueueJobRuns: NotRequired[int]
+    maxConcurrentJobRuns: NotRequired[int]
 
 
 class CredentialsTypeDef(TypedDict):
@@ -368,6 +377,11 @@ class ParametricS3MonitoringConfigurationTypeDef(TypedDict):
     logUri: NotRequired[str]
 
 
+class SchedulerStatusTypeDef(TypedDict):
+    currentInQueueJobRuns: NotRequired[int]
+    currentConcurrentJobRuns: NotRequired[int]
+
+
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -481,6 +495,14 @@ class ContainerInfoTypeDef(TypedDict):
     eksInfo: NotRequired[EksInfoTypeDef]
 
 
+UpdateVirtualClusterRequestTypeDef = TypedDict(
+    "UpdateVirtualClusterRequestTypeDef",
+    {
+        "id": str,
+        "clientToken": str,
+        "schedulerConfiguration": NotRequired[SchedulerConfigurationTypeDef],
+    },
+)
 GetManagedEndpointSessionCredentialsResponseTypeDef = TypedDict(
     "GetManagedEndpointSessionCredentialsResponseTypeDef",
     {
@@ -674,6 +696,7 @@ class CreateVirtualClusterRequestTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     securityConfigurationId: NotRequired[str]
     sessionEnabled: NotRequired[bool]
+    schedulerConfiguration: NotRequired[SchedulerConfigurationTypeDef]
 
 
 VirtualClusterTypeDef = TypedDict(
@@ -688,6 +711,8 @@ VirtualClusterTypeDef = TypedDict(
         "tags": NotRequired[dict[str, str]],
         "securityConfigurationId": NotRequired[str],
         "sessionEnabled": NotRequired[bool],
+        "schedulerConfiguration": NotRequired[SchedulerConfigurationTypeDef],
+        "schedulerStatus": NotRequired[SchedulerStatusTypeDef],
     },
 )
 
@@ -832,6 +857,11 @@ class ListVirtualClustersResponseTypeDef(TypedDict):
     virtualClusters: list[VirtualClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class UpdateVirtualClusterResponseTypeDef(TypedDict):
+    virtualCluster: VirtualClusterTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SecurityConfigurationDataTypeDef(TypedDict):

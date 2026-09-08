@@ -13,7 +13,7 @@ from reflex_components_core.core.breakpoints import Breakpoints
 from reflex_components_internal.components.component import CoreComponent
 
 PACKAGE_NAME = "@base-ui/react"
-PACKAGE_VERSION = "1.7.0"
+PACKAGE_VERSION = "1.8.0"
 
 class BaseUIComponent(CoreComponent):
     @classmethod

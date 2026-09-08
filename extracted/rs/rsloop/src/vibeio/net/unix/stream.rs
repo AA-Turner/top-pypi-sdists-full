@@ -1,4 +1,5 @@
 //! Unix domain socket stream types for async I/O.
+#![warn(clippy::undocumented_unsafe_blocks)]
 //!
 //! This module provides:
 //! - [`UnixStream`]: An async Unix domain socket stream that can use either completion-based or poll-based I/O.
@@ -8,15 +9,16 @@
 //!
 //! - Unix domain sockets use native async syscalls via the async driver when available.
 //! - When io_uring completion is available, operations complete directly.
-//! - For platforms without native async support, operations fall back to synchronous std::os::unix::net calls.
-//! - The runtime must be active when calling these types' methods; otherwise they will panic.
+//! - Poll mode uses nonblocking socket calls and driver readiness notifications.
+//! - Register sockets and drive async I/O inside a runtime. Registration without
+//!   one returns an error; direct address/option queries need no current runtime.
 
 use std::cell::RefCell;
 use std::future::poll_fn;
 use std::io::{self, IoSlice};
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::mem::MaybeUninit;
 use std::net::Shutdown;
-use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::{SocketAddr, UnixStream as StdUnixStream};
 use std::path::Path;
@@ -53,6 +55,8 @@ fn socket_addr_to_raw(path: &Path) -> Result<(libc::sockaddr_un, libc::socklen_t
         ));
     }
 
+    // SAFETY: sockaddr_un contains only integer/byte fields, all valid when
+    // zeroed. This also initializes the trailing pathname terminator.
     let mut sockaddr = unsafe { MaybeUninit::<libc::sockaddr_un>::zeroed().assume_init() };
     sockaddr.sun_family = libc::AF_UNIX as libc::sa_family_t;
 
@@ -92,12 +96,9 @@ fn new_socket(
     path: &Path,
 ) -> Result<(StdUnixStream, libc::sockaddr_un, libc::socklen_t), io::Error> {
     let (raw_addr, raw_addr_len) = socket_addr_to_raw(path)?;
-    let socket_fd = unsafe { libc::socket(libc::AF_UNIX, libc::SOCK_STREAM, 0) };
-    if socket_fd == -1 {
-        return Err(io::Error::last_os_error());
-    }
-    let stream = unsafe { StdUnixStream::from_raw_fd(socket_fd) };
-    Ok((stream, raw_addr, raw_addr_len))
+    let socket = socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
+    let owned: std::os::fd::OwnedFd = socket.into();
+    Ok((owned.into(), raw_addr, raw_addr_len))
 }
 
 /// An async Unix domain socket stream that can use either completion-based or poll-based I/O.
@@ -108,23 +109,19 @@ fn new_socket(
 ///
 /// - Unix domain sockets use native async syscalls via the async driver when available.
 /// - When io_uring completion is available, operations complete directly.
-/// - For platforms without native async support, operations fall back to synchronous std::os::unix::net calls.
-/// - The runtime must be active when calling these methods; otherwise they will panic.
+/// - Poll mode uses nonblocking socket calls and driver readiness notifications.
+/// - Registration needs an entered runtime and returns an error without one.
+///   Drive async I/O inside a runtime; direct socket queries need no current runtime.
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::net::UnixStream;
-///
-/// let mut stream = UnixStream::connect("/tmp/mysocket").await?;
-/// stream.write(b"hello").await.0?;
-/// let mut buf = [0u8; 1024];
-/// let (read, buf) = stream.read(buf).await;
-/// let read = read?;
-/// ```
+/// See "Unix socket exchange and path cleanup" in
+/// `tools/vibeio-check/EXAMPLES.md` for an executable local connection with
+/// timeout-bounded I/O and explicit socket-path cleanup.
 pub struct UnixStream {
+    // Deregister before closing the socket (field declaration order).
+    handle: InnerRawHandle,
     inner: StdUnixStream,
-    handle: ManuallyDrop<InnerRawHandle>,
 }
 
 /// A poll-only variant that always uses readiness-based operations.
@@ -134,7 +131,7 @@ pub struct UnixStream {
 ///
 /// # Implementation details
 ///
-/// - Always uses readiness-based I/O via `mio`.
+/// - Always uses readiness-based I/O through the owning runtime driver.
 /// - Can be converted to [`UnixStream`] with adaptive or completion mode.
 pub struct PollUnixStream {
     stream: UnixStream,
@@ -159,9 +156,8 @@ impl UnixStream {
         let (inner, raw_addr, raw_addr_len) = new_socket(path.as_ref())?;
         let stream = Self::from_std(inner)?;
 
-        let raw_addr_ptr = (&raw_addr as *const libc::sockaddr_un).cast::<libc::sockaddr>();
         let handle = &stream.handle;
-        let mut op = ConnectOp::new(handle, raw_addr_ptr, raw_addr_len);
+        let mut op = ConnectOp::new_unix(handle, raw_addr, raw_addr_len)?;
         poll_fn(move |cx| handle.poll_op(cx, &mut op)).await?;
 
         Ok(stream)
@@ -213,11 +209,11 @@ impl UnixStream {
         inner: StdUnixStream,
         mode: RegistrationMode,
     ) -> Result<Self, io::Error> {
-        let handle = ManuallyDrop::new(InnerRawHandle::new_with_mode(
+        let handle = InnerRawHandle::new_with_mode(
             inner.as_raw_fd(),
             Interest::READABLE | Interest::WRITABLE,
             mode,
-        )?);
+        )?;
         inner.set_nonblocking(!handle.uses_completion())?;
         Ok(Self { inner, handle })
     }
@@ -247,9 +243,8 @@ impl PollUnixStream {
         let (inner, raw_addr, raw_addr_len) = new_socket(path.as_ref())?;
         let stream = Self::from_std(inner)?;
 
-        let raw_addr_ptr = (&raw_addr as *const libc::sockaddr_un).cast::<libc::sockaddr>();
         let handle = &stream.stream.handle;
-        let mut op = ConnectOp::new(handle, raw_addr_ptr, raw_addr_len);
+        let mut op = ConnectOp::new_unix(handle, raw_addr, raw_addr_len)?;
         poll_fn(move |cx| handle.poll_op(cx, &mut op)).await?;
 
         Ok(stream)
@@ -306,15 +301,7 @@ impl PollUnixStream {
     where
         Io: FnOnce() -> io::Result<IoR>,
     {
-        if *self.read_ready.borrow() {
-            let result = io();
-            if result.is_err() {
-                *self.read_ready.borrow_mut() = false;
-            }
-            result
-        } else {
-            Err(io::Error::new(io::ErrorKind::WouldBlock, "read not ready"))
-        }
+        crate::vibeio::net::try_io_ready(&self.read_ready, "read not ready", io)
     }
 
     /// Tries to perform an I/O operation on the socket, returning an error if it is not ready.
@@ -323,15 +310,7 @@ impl PollUnixStream {
     where
         Io: FnOnce() -> io::Result<IoR>,
     {
-        if *self.write_ready.borrow() {
-            let result = io();
-            if result.is_err() {
-                *self.write_ready.borrow_mut() = false;
-            }
-            result
-        } else {
-            Err(io::Error::new(io::ErrorKind::WouldBlock, "write not ready"))
-        }
+        crate::vibeio::net::try_io_ready(&self.write_ready, "write not ready", io)
     }
 }
 
@@ -361,12 +340,16 @@ impl TokioAsyncRead for PollUnixStream {
         }
 
         let this = self.get_mut();
-        // Equivalent to .assume_init_mut() in Rust 1.93.0+
-        let unfilled = unsafe { &mut *(buf.unfilled_mut() as *mut [MaybeUninit<u8>] as *mut [u8]) };
-        let buf_temp = unsafe { IoBufTemporaryPoll::new(unfilled.as_mut_ptr(), unfilled.len()) };
+        // SAFETY: only a raw pointer is passed to the synchronous read below;
+        // no initialized-byte reference is formed and no pointer is retained.
+        let unfilled = unsafe { buf.unfilled_mut() };
+        // SAFETY: ReadBuf exclusively owns this writable region for this poll.
+        let buf_temp =
+            unsafe { IoBufTemporaryPoll::new_uninit(unfilled.as_mut_ptr().cast(), unfilled.len()) };
         let mut op = ReadOp::new(&this.stream.handle, buf_temp);
         match this.stream.handle.poll_op_poll(cx, &mut op) {
             Poll::Ready(Ok(read)) => {
+                // SAFETY: the successful read initialized exactly this prefix.
                 unsafe {
                     buf.assume_init(read);
                 }
@@ -387,6 +370,9 @@ impl TokioAsyncWrite for PollUnixStream {
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
         let this = self.get_mut();
+        // SAFETY: the initialized bytes remain borrowed throughout this poll.
+        // WriteOp only reads them and poll_op_poll excludes completion I/O;
+        // the local operation is destroyed before returning, including Pending.
         let buf = unsafe { IoBufTemporaryPoll::new(buf.as_ptr() as *mut u8, buf.len()) };
         let mut op = WriteOp::new(&this.stream.handle, buf);
         this.stream.handle.poll_op_poll(cx, &mut op)
@@ -402,6 +388,9 @@ impl TokioAsyncWrite for PollUnixStream {
             return Poll::Ready(Ok(0));
         }
         let this = self.get_mut();
+        // SAFETY: IoSlice regions stay initialized and borrowed for this call.
+        // The local WritevOp copies metadata but uses only synchronous poll I/O,
+        // so no pointer into the caller's buffers survives the return.
         let bufs = unsafe { IoVectoredBufTemporaryPoll::new(bufs) };
         let mut op = WritevOp::new(&this.stream.handle, bufs);
         this.stream.handle.poll_op_poll(cx, &mut op)
@@ -429,13 +418,8 @@ impl UnixStream {
     /// This is useful when you want to create a Unix stream that uses poll-based I/O.
     #[inline]
     pub fn from_std_poll(inner: StdUnixStream) -> Result<PollUnixStream, io::Error> {
-        let handle = ManuallyDrop::new(InnerRawHandle::new(
-            inner.as_raw_fd(),
-            Interest::READABLE | Interest::WRITABLE,
-        )?);
-        inner.set_nonblocking(!handle.uses_completion())?;
         Ok(PollUnixStream {
-            stream: Self { inner, handle },
+            stream: Self::from_std_with_mode(inner, RegistrationMode::Poll)?,
             read_ready: RefCell::new(false),
             write_ready: RefCell::new(false),
         })
@@ -466,14 +450,9 @@ impl<'a> AsInnerRawHandle<'a> for PollUnixStream {
 impl IntoRawFd for UnixStream {
     #[inline]
     fn into_raw_fd(self) -> RawFd {
-        let mut this = ManuallyDrop::new(self);
-
-        // Safety: `this` will not be dropped, so we must drop the registration handle manually.
-        // We then move out the inner std stream and transfer its fd ownership to the caller.
-        unsafe {
-            ManuallyDrop::drop(&mut this.handle);
-            std::ptr::read(&this.inner).into_raw_fd()
-        }
+        let Self { handle, inner } = self;
+        drop(handle);
+        inner.into_raw_fd()
     }
 }
 
@@ -557,12 +536,91 @@ impl AsyncWritePoll for PollUnixStream {
     }
 }
 
-impl Drop for UnixStream {
-    #[inline]
-    fn drop(&mut self) {
-        // Safety: The struct is dropped after the handle is dropped.
-        unsafe {
-            ManuallyDrop::drop(&mut self.handle);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vibeio::{driver::AnyDriver, executor::Runtime};
+
+    #[test]
+    fn unix_address_rejects_empty_nul_and_overlong_paths() {
+        use std::ffi::OsStr;
+        let (short, _) = socket_addr_to_raw(Path::new("x")).unwrap();
+        let capacity = short.sun_path.len();
+        for bytes in [Vec::new(), b"a\0b".to_vec(), vec![b'x'; capacity]] {
+            let path = Path::new(OsStr::from_bytes(&bytes));
+            assert_eq!(
+                socket_addr_to_raw(path).unwrap_err().kind(),
+                io::ErrorKind::InvalidInput
+            );
+            assert_eq!(
+                new_socket(path).unwrap_err().kind(),
+                io::ErrorKind::InvalidInput
+            );
         }
+    }
+
+    #[test]
+    fn unix_address_preserves_maximum_and_non_utf8_pathnames() {
+        use std::ffi::OsStr;
+        let (short, _) = socket_addr_to_raw(Path::new("x")).unwrap();
+        let capacity = short.sun_path.len();
+        for bytes in [vec![b'x'; capacity - 1], vec![b'a', 0xff, b'b']] {
+            let path = Path::new(OsStr::from_bytes(&bytes));
+            let (address, length) = socket_addr_to_raw(path).unwrap();
+            assert_eq!(address.sun_family as i32, libc::AF_UNIX);
+            assert_eq!(
+                length as usize,
+                std::mem::offset_of!(libc::sockaddr_un, sun_path) + bytes.len() + 1
+            );
+            let encoded: Vec<_> = address.sun_path.iter().map(|&byte| byte as u8).collect();
+            assert_eq!(&encoded[..bytes.len()], bytes.as_slice());
+            assert!(encoded[bytes.len()..].iter().all(|&byte| byte == 0));
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "ios",
+                target_os = "freebsd",
+                target_os = "openbsd",
+                target_os = "dragonfly",
+                target_os = "netbsd",
+                target_os = "haiku",
+                target_os = "aix"
+            ))]
+            assert_eq!(address.sun_len as usize, length as usize);
+        }
+    }
+
+    #[test]
+    fn created_unix_socket_is_close_on_exec() {
+        // Construction validates the path but does not bind or create a file.
+        let (socket, _, _) = new_socket(Path::new("vibeio-unbound.sock")).unwrap();
+        // SAFETY: socket owns a live fd; F_GETFD only returns integer flags.
+        let flags = unsafe { libc::fcntl(socket.as_raw_fd(), libc::F_GETFD) };
+        assert_ne!(flags, -1);
+        assert_ne!(flags & libc::FD_CLOEXEC, 0);
+    }
+    #[test]
+    fn from_std_poll_stays_nonblocking_on_a_completion_capable_driver() {
+        let mut driver = AnyDriver::new_mock();
+        let AnyDriver::Mock(mock) = &mut driver else {
+            unreachable!()
+        };
+        mock.registrations = Some(Default::default());
+        mock.registrations
+            .as_ref()
+            .unwrap()
+            .results
+            .borrow_mut()
+            .push_back(Ok(mio::Token(0)));
+        Runtime::new(driver).block_on(async {
+            let (socket, _peer) = StdUnixStream::pair().unwrap();
+            let stream = UnixStream::from_std_poll(socket).unwrap();
+            assert_eq!(stream.stream.handle.mode(), RegistrationMode::Poll);
+            assert!(!stream.stream.handle.uses_completion());
+            // SAFETY: the stream owns this live descriptor; F_GETFL takes no
+            // pointer arguments and does not alter its ownership.
+            let flags = unsafe { libc::fcntl(stream.stream.inner.as_raw_fd(), libc::F_GETFL) };
+            assert_ne!(flags, -1);
+            assert_ne!(flags & libc::O_NONBLOCK, 0);
+        });
     }
 }

@@ -1,6 +1,12 @@
+[tool.mutmut]
+# Mutation-testing configuration (tests/mutation-hardening).
+# Mutate only the library source and run the full test suite for every mutant.
+source_paths = ["category_encoders"]
+pytest_add_cli_args_test_selection = ["tests"]
+
 [tool.poetry]
 name = "category_encoders"
-version = "2.10.0"
+version = "2.11.0"
 description = "A package for encoding categorical variables for machine learning"
 authors = ["PaulWestenthanner <paul@westenthanner.dev>"]
 license = "BSD-3"
@@ -11,9 +17,11 @@ python = ">=3.11"
 numpy = ">=1.14.0"
 scikit-learn = ">=1.6.0"
 scipy = ">=1.0.0"
-statsmodels = ">=0.9.0"
 pandas = ">=1.0.5"
-patsy = ">=0.5.1"
+statsmodels = {version = ">=0.9.0", optional = true}
+
+[tool.poetry.extras]
+glmm = ["statsmodels"]
 
 
 [tool.poetry.dev-dependencies]
@@ -21,7 +29,7 @@ numpydoc = "^1.8.0"
 ruff = "^0.14.3"
 sphinx = "^8.2.3"
 sphinx_rtd_theme = "^3.0.2"
-pytest = "^8.3.3"
+pytest = "^9.0.3"
 pytest-subtests = "^0.15.0"
 
 [tool.ruff]

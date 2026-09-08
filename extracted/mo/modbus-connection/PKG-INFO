@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: modbus-connection
-Version: 4.10.0
+Version: 4.11.1
 Summary: A small, backend-neutral Modbus connection abstraction (pymodbus / tmodbus).
 Project-URL: Homepage, https://github.com/home-assistant-libs/modbus-connection
 Author: home-assistant-libs

@@ -16,6 +16,7 @@ Usage::
         DescribeFolderResolvedPermissionsPaginator,
         ListActionConnectorsPaginator,
         ListAnalysesPaginator,
+        ListApprovalPoliciesPaginator,
         ListAssetBundleExportJobsPaginator,
         ListAssetBundleImportJobsPaginator,
         ListBrandsPaginator,
@@ -24,6 +25,7 @@ Usage::
         ListDashboardsPaginator,
         ListDataSetsPaginator,
         ListDataSourcesPaginator,
+        ListDlpSettingsPaginator,
         ListFlowsPaginator,
         ListFolderMembersPaginator,
         ListFoldersForResourcePaginator,
@@ -34,6 +36,7 @@ Usage::
         ListIAMPolicyAssignmentsPaginator,
         ListIngestionsPaginator,
         ListKnowledgeBasesPaginator,
+        ListLimitsProfilesPaginator,
         ListNamespacesPaginator,
         ListOAuthClientApplicationsPaginator,
         ListRoleMembershipsPaginator,
@@ -42,6 +45,7 @@ Usage::
         ListTemplatesPaginator,
         ListThemeVersionsPaginator,
         ListThemesPaginator,
+        ListTopicsV2Paginator,
         ListUserGroupsPaginator,
         ListUsersPaginator,
         SearchActionConnectorsPaginator,
@@ -54,6 +58,7 @@ Usage::
         SearchGroupsPaginator,
         SearchKnowledgeBasesPaginator,
         SearchTopicsPaginator,
+        SearchTopicsV2Paginator,
     )
 
     session = get_session()
@@ -64,6 +69,7 @@ Usage::
         describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = client.get_paginator("describe_folder_resolved_permissions")
         list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
         list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
+        list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator("list_approval_policies")
         list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator("list_asset_bundle_export_jobs")
         list_asset_bundle_import_jobs_paginator: ListAssetBundleImportJobsPaginator = client.get_paginator("list_asset_bundle_import_jobs")
         list_brands_paginator: ListBrandsPaginator = client.get_paginator("list_brands")
@@ -72,6 +78,7 @@ Usage::
         list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
         list_data_sets_paginator: ListDataSetsPaginator = client.get_paginator("list_data_sets")
         list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+        list_dlp_settings_paginator: ListDlpSettingsPaginator = client.get_paginator("list_dlp_settings")
         list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
         list_folder_members_paginator: ListFolderMembersPaginator = client.get_paginator("list_folder_members")
         list_folders_for_resource_paginator: ListFoldersForResourcePaginator = client.get_paginator("list_folders_for_resource")
@@ -82,6 +89,7 @@ Usage::
         list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
         list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
         list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
+        list_limits_profiles_paginator: ListLimitsProfilesPaginator = client.get_paginator("list_limits_profiles")
         list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
         list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
         list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
@@ -90,6 +98,7 @@ Usage::
         list_templates_paginator: ListTemplatesPaginator = client.get_paginator("list_templates")
         list_theme_versions_paginator: ListThemeVersionsPaginator = client.get_paginator("list_theme_versions")
         list_themes_paginator: ListThemesPaginator = client.get_paginator("list_themes")
+        list_topics_v2_paginator: ListTopicsV2Paginator = client.get_paginator("list_topics_v2")
         list_user_groups_paginator: ListUserGroupsPaginator = client.get_paginator("list_user_groups")
         list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
         search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
@@ -102,6 +111,7 @@ Usage::
         search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
         search_knowledge_bases_paginator: SearchKnowledgeBasesPaginator = client.get_paginator("search_knowledge_bases")
         search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
+        search_topics_v2_paginator: SearchTopicsV2Paginator = client.get_paginator("search_topics_v2")
     ```
 """
 
@@ -121,6 +131,8 @@ from .type_defs import (
     ListActionConnectorsResponseTypeDef,
     ListAnalysesRequestPaginateTypeDef,
     ListAnalysesResponseTypeDef,
+    ListApprovalPoliciesRequestPaginateTypeDef,
+    ListApprovalPoliciesResponseTypeDef,
     ListAssetBundleExportJobsRequestPaginateTypeDef,
     ListAssetBundleExportJobsResponseTypeDef,
     ListAssetBundleImportJobsRequestPaginateTypeDef,
@@ -137,6 +149,8 @@ from .type_defs import (
     ListDataSetsResponseTypeDef,
     ListDataSourcesRequestPaginateTypeDef,
     ListDataSourcesResponseTypeDef,
+    ListDlpSettingsRequestPaginateTypeDef,
+    ListDlpSettingsResponseTypeDef,
     ListFlowsInputPaginateTypeDef,
     ListFlowsOutputTypeDef,
     ListFolderMembersRequestPaginateTypeDef,
@@ -157,6 +171,8 @@ from .type_defs import (
     ListIngestionsResponseTypeDef,
     ListKnowledgeBasesRequestPaginateTypeDef,
     ListKnowledgeBasesResponseTypeDef,
+    ListLimitsProfilesRequestPaginateTypeDef,
+    ListLimitsProfilesResponseTypeDef,
     ListNamespacesRequestPaginateTypeDef,
     ListNamespacesResponseTypeDef,
     ListOAuthClientApplicationsRequestPaginateTypeDef,
@@ -173,6 +189,8 @@ from .type_defs import (
     ListThemesResponseTypeDef,
     ListThemeVersionsRequestPaginateTypeDef,
     ListThemeVersionsResponseTypeDef,
+    ListTopicsV2RequestPaginateTypeDef,
+    ListTopicsV2ResponseTypeDef,
     ListUserGroupsRequestPaginateTypeDef,
     ListUserGroupsResponseTypeDef,
     ListUsersRequestPaginateTypeDef,
@@ -197,6 +215,8 @@ from .type_defs import (
     SearchKnowledgeBasesResponseTypeDef,
     SearchTopicsRequestPaginateTypeDef,
     SearchTopicsResponseTypeDef,
+    SearchTopicsV2RequestPaginateTypeDef,
+    SearchTopicsV2ResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -210,6 +230,7 @@ __all__ = (
     "DescribeFolderResolvedPermissionsPaginator",
     "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
+    "ListApprovalPoliciesPaginator",
     "ListAssetBundleExportJobsPaginator",
     "ListAssetBundleImportJobsPaginator",
     "ListBrandsPaginator",
@@ -218,6 +239,7 @@ __all__ = (
     "ListDashboardsPaginator",
     "ListDataSetsPaginator",
     "ListDataSourcesPaginator",
+    "ListDlpSettingsPaginator",
     "ListFlowsPaginator",
     "ListFolderMembersPaginator",
     "ListFoldersForResourcePaginator",
@@ -228,6 +250,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsPaginator",
     "ListIngestionsPaginator",
     "ListKnowledgeBasesPaginator",
+    "ListLimitsProfilesPaginator",
     "ListNamespacesPaginator",
     "ListOAuthClientApplicationsPaginator",
     "ListRoleMembershipsPaginator",
@@ -236,6 +259,7 @@ __all__ = (
     "ListTemplatesPaginator",
     "ListThemeVersionsPaginator",
     "ListThemesPaginator",
+    "ListTopicsV2Paginator",
     "ListUserGroupsPaginator",
     "ListUsersPaginator",
     "SearchActionConnectorsPaginator",
@@ -248,6 +272,7 @@ __all__ = (
     "SearchGroupsPaginator",
     "SearchKnowledgeBasesPaginator",
     "SearchTopicsPaginator",
+    "SearchTopicsV2Paginator",
 )
 
 
@@ -334,6 +359,27 @@ class ListAnalysesPaginator(_ListAnalysesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListAnalyses.html#QuickSight.Paginator.ListAnalyses.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listanalysespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListApprovalPoliciesPaginatorBase = AioPaginator[ListApprovalPoliciesResponseTypeDef]
+else:
+    _ListApprovalPoliciesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListApprovalPoliciesPaginator(_ListApprovalPoliciesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListApprovalPolicies.html#QuickSight.Paginator.ListApprovalPolicies)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listapprovalpoliciespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListApprovalPoliciesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListApprovalPoliciesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListApprovalPolicies.html#QuickSight.Paginator.ListApprovalPolicies.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listapprovalpoliciespaginator)
         """
 
 
@@ -502,6 +548,27 @@ class ListDataSourcesPaginator(_ListDataSourcesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListDataSources.html#QuickSight.Paginator.ListDataSources.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listdatasourcespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListDlpSettingsPaginatorBase = AioPaginator[ListDlpSettingsResponseTypeDef]
+else:
+    _ListDlpSettingsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListDlpSettingsPaginator(_ListDlpSettingsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListDlpSettings.html#QuickSight.Paginator.ListDlpSettings)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listdlpsettingspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDlpSettingsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListDlpSettingsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListDlpSettings.html#QuickSight.Paginator.ListDlpSettings.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listdlpsettingspaginator)
         """
 
 
@@ -718,6 +785,27 @@ class ListKnowledgeBasesPaginator(_ListKnowledgeBasesPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListLimitsProfilesPaginatorBase = AioPaginator[ListLimitsProfilesResponseTypeDef]
+else:
+    _ListLimitsProfilesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListLimitsProfilesPaginator(_ListLimitsProfilesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListLimitsProfiles.html#QuickSight.Paginator.ListLimitsProfiles)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listlimitsprofilespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListLimitsProfilesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListLimitsProfilesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListLimitsProfiles.html#QuickSight.Paginator.ListLimitsProfiles.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listlimitsprofilespaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListNamespacesPaginatorBase = AioPaginator[ListNamespacesResponseTypeDef]
 else:
     _ListNamespacesPaginatorBase = AioPaginator  # type: ignore[assignment]
@@ -884,6 +972,27 @@ class ListThemesPaginator(_ListThemesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListThemes.html#QuickSight.Paginator.ListThemes.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listthemespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListTopicsV2PaginatorBase = AioPaginator[ListTopicsV2ResponseTypeDef]
+else:
+    _ListTopicsV2PaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListTopicsV2Paginator(_ListTopicsV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListTopicsV2.html#QuickSight.Paginator.ListTopicsV2)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listtopicsv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTopicsV2RequestPaginateTypeDef]
+    ) -> AioPageIterator[ListTopicsV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListTopicsV2.html#QuickSight.Paginator.ListTopicsV2.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#listtopicsv2paginator)
         """
 
 
@@ -1136,4 +1245,25 @@ class SearchTopicsPaginator(_SearchTopicsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchTopics.html#QuickSight.Paginator.SearchTopics.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#searchtopicspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _SearchTopicsV2PaginatorBase = AioPaginator[SearchTopicsV2ResponseTypeDef]
+else:
+    _SearchTopicsV2PaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class SearchTopicsV2Paginator(_SearchTopicsV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchTopicsV2.html#QuickSight.Paginator.SearchTopicsV2)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#searchtopicsv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchTopicsV2RequestPaginateTypeDef]
+    ) -> AioPageIterator[SearchTopicsV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchTopicsV2.html#QuickSight.Paginator.SearchTopicsV2.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/paginators/#searchtopicsv2paginator)
         """

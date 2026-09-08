@@ -147,51 +147,61 @@ class SMatrix_CSR(SMatrix):
             self.h_values = None
 
     def _allocate_cpu(self):
-        """Allocate and fill the CSR matrix on CPU."""
+        """Allocate and fill the CSR matrix on CPU with vectorized block processing."""
         num_rows = self.N * self.T
         num_cols = self.Z * self.X
         dtype = self._get_dtype()
+        br = self.block_rows
 
         self.row_ptr = np.zeros(num_rows + 1, dtype=np.int64)
+    
+        col_ind_list = []
+        values_list = []
 
-        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Counting NNZ ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
-            if self.isComplexSMatrix:
-                n_idx = global_row // self.T
-                key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
-                row = self.experiment.AcousticFields_demodulated[key][global_row % self.T].flatten()
-            else:
+        sorted_keys = sorted(list(self.experiment.AcousticFields_demodulated.keys())) if self.isComplexSMatrix else None
+
+        for b in trange(0, num_rows, br, desc=f'[AOT-biomaps] Building CSR ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
+            current_rows = min(br, num_rows - b)
+            dense_block_host = np.empty((current_rows, num_cols), dtype=dtype)
+
+            for r in range(current_rows):
+                global_row = b + r
                 n_idx = global_row // self.T
                 t_idx = global_row % self.T
-                row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+                if self.isComplexSMatrix:
+                    key = sorted_keys[n_idx]
+                    dense_block_host[r] = self.experiment.AcousticFields_demodulated[key][t_idx].flatten()
+                else:
+                    dense_block_host[r] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
 
-            row_max = np.max(np.abs(row))
+            abs_block = np.abs(dense_block_host)
+            row_max = np.max(abs_block, axis=1, keepdims=True)
             thr = row_max * self.relative_threshold
-            nnz = np.count_nonzero(np.abs(row) > thr)
-            self.row_ptr[global_row + 1] = self.row_ptr[global_row] + nnz
+            mask = abs_block > thr
+
+            row_nnz = np.count_nonzero(mask, axis=1)
+            local_row_ptr = np.zeros(current_rows + 1, dtype=np.int64)
+            local_row_ptr[1:] = np.cumsum(row_nnz)
+            local_nnz = int(local_row_ptr[-1])
+
+            self.row_ptr[b + 1 : b + current_rows + 1] = self.row_ptr[b] + local_row_ptr[1:]
+
+            if local_nnz > 0:
+                rows_idx, cols_idx = np.nonzero(mask)
+                col_ind_list.append(cols_idx.astype(np.uint32))
+                values_list.append(dense_block_host[rows_idx, cols_idx])
 
         self.total_nnz = int(self.row_ptr[-1])
-        self.h_col_ind = np.zeros(self.total_nnz, dtype=np.uint32)
-        self.h_values = np.zeros(self.total_nnz, dtype=dtype)
 
-        ptr = 0
-        for global_row in trange(num_rows, desc=f'[AOT-biomaps] Filling CSR ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
-            if self.isComplexSMatrix:
-                n_idx = global_row // self.T
-                key = list(self.experiment.AcousticFields_demodulated.keys())[n_idx]
-                row = self.experiment.AcousticFields_demodulated[key][global_row % self.T].flatten()
-            else:
-                n_idx = global_row // self.T
-                t_idx = global_row % self.T
-                row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
-
-            row_max = np.max(np.abs(row))
-            thr = row_max * self.relative_threshold
-
-            for col in range(num_cols):
-                if np.abs(row[col]) > thr:
-                    self.h_col_ind[ptr] = col
-                    self.h_values[ptr] = row[col]
-                    ptr += 1
+        if self.total_nnz > 0:
+            self.h_col_ind = np.concatenate(col_ind_list)
+            self.h_values = np.concatenate(values_list)
+        else:
+            self.h_col_ind = np.array([], dtype=np.uint32)
+            self.h_values = np.array([], dtype=dtype)
+        
+        from scipy.sparse import csr_matrix
+        self.scipy_csr = csr_matrix((self.h_values, self.h_col_ind, self.row_ptr), shape=(num_rows, num_cols))
 
     def compute_norm_factor(self):
         """Compute normalization factor from CSR matrix by summing absolute values."""
@@ -250,17 +260,7 @@ class SMatrix_CSR(SMatrix):
                 return q_gpu
         else:
             theta_cpu = np.asarray(theta, dtype=dtype) if not isinstance(theta, np.ndarray) else theta
-            if isinstance(theta_cpu, cp.ndarray):
-                theta_cpu = cp.asnumpy(theta_cpu)
-            if theta_cpu.dtype != dtype:
-                theta_cpu = theta_cpu.astype(dtype)
-
-            q = np.zeros(self.N * self.T, dtype=dtype)
-            for i in range(self.N * self.T):
-                start = int(self.row_ptr[i])
-                end = int(self.row_ptr[i + 1])
-                q[i] = np.sum(self.h_values[start:end] * theta_cpu[self.h_col_ind[start:end]])
-            return q
+            return self.scipy_csr.dot(theta_cpu)
 
     def backward_projection(self, e: Union[np.ndarray, "cp.ndarray"]) -> Union[np.ndarray, "cp.ndarray"]:
         """Perform backward projection: c = A^T * e."""
@@ -288,20 +288,8 @@ class SMatrix_CSR(SMatrix):
                 return c_gpu
         else:
             e_cpu = np.asarray(e, dtype=dtype) if not isinstance(e, np.ndarray) else e
-            if isinstance(e_cpu, cp.ndarray):
-                e_cpu = cp.asnumpy(e_cpu)
-            if e_cpu.dtype != dtype:
-                e_cpu = e_cpu.astype(dtype)
-
-            c = np.zeros(self.Z * self.X, dtype=dtype)
-            for i in range(self.N * self.T):
-                start = int(self.row_ptr[i])
-                end = int(self.row_ptr[i + 1])
-                for j in range(start, end):
-                    col = int(self.h_col_ind[j])
-                    c[col] += self.h_values[j] * e_cpu[i]
-            return c
-
+            return self.scipy_csr.T.dot(e_cpu)
+        
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
         """Apply apodization window to the matrix values."""
         raise NotImplementedError("[AOT-biomaps] Apodization not implemented for CSR matrix.")

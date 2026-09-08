@@ -64,6 +64,9 @@ __all__ = (
     "ListRecommendationResourcesRequestPaginateTypeDef",
     "ListRecommendationResourcesRequestTypeDef",
     "ListRecommendationResourcesResponseTypeDef",
+    "ListRecommendationsForResourceRequestPaginateTypeDef",
+    "ListRecommendationsForResourceRequestTypeDef",
+    "ListRecommendationsForResourceResponseTypeDef",
     "ListRecommendationsRequestPaginateTypeDef",
     "ListRecommendationsRequestTypeDef",
     "ListRecommendationsResponseTypeDef",
@@ -72,6 +75,7 @@ __all__ = (
     "OrganizationRecommendationTypeDef",
     "PaginatorConfigTypeDef",
     "RecommendationCostOptimizingAggregatesTypeDef",
+    "RecommendationForResourceSummaryTypeDef",
     "RecommendationPillarSpecificAggregatesTypeDef",
     "RecommendationResourceExclusionTypeDef",
     "RecommendationResourceSummaryTypeDef",
@@ -122,6 +126,10 @@ CheckSummaryTypeDef = TypedDict(
         "awsServices": list[str],
         "source": RecommendationSourceType,
         "metadata": dict[str, str],
+        "resourceArnQueryable": NotRequired[bool],
+        "awsResourceTypes": NotRequired[list[str]],
+        "checkGranularity": NotRequired[str],
+        "recommendationId": NotRequired[str],
     },
 )
 
@@ -201,6 +209,25 @@ RecommendationResourceSummaryTypeDef = TypedDict(
     },
 )
 
+class ListRecommendationsForResourceRequestTypeDef(TypedDict):
+    awsResourceArn: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    pillar: NotRequired[RecommendationPillarType]
+    status: NotRequired[ResourceStatusType]
+    checkArn: NotRequired[str]
+    language: NotRequired[RecommendationLanguageType]
+
+class RecommendationForResourceSummaryTypeDef(TypedDict):
+    checkArn: str
+    recommendationArn: str
+    awsResourceArn: str
+    status: ResourceStatusType
+    lastUpdatedAt: datetime
+    exclusionStatus: ExclusionStatusType
+    metadata: dict[str, str]
+    pillars: list[RecommendationPillarType]
+
 class RecommendationResourcesAggregatesTypeDef(TypedDict):
     okCount: int
     warningCount: int
@@ -270,6 +297,14 @@ class ListRecommendationResourcesRequestPaginateTypeDef(TypedDict):
     status: NotRequired[ResourceStatusType]
     exclusionStatus: NotRequired[ExclusionStatusType]
     regionCode: NotRequired[str]
+    language: NotRequired[RecommendationLanguageType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListRecommendationsForResourceRequestPaginateTypeDef(TypedDict):
+    awsResourceArn: str
+    pillar: NotRequired[RecommendationPillarType]
+    status: NotRequired[ResourceStatusType]
+    checkArn: NotRequired[str]
     language: NotRequired[RecommendationLanguageType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -343,6 +378,11 @@ ListRecommendationsRequestTypeDef = TypedDict(
 
 class ListRecommendationResourcesResponseTypeDef(TypedDict):
     recommendationResourceSummaries: list[RecommendationResourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListRecommendationsForResourceResponseTypeDef(TypedDict):
+    recommendationForResourceSummaries: list[RecommendationForResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

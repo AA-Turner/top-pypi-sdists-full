@@ -11,7 +11,7 @@ from schemathesis.config._generation import GenerationConfig
 from schemathesis.core.error_feedback.collector import parse_observations
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
 from schemathesis.core.failures import Failure
-from schemathesis.engine import events
+from schemathesis.engine import StopReason, events
 from schemathesis.engine._rate_limit_retry import call_with_retry
 from schemathesis.engine._validate import validate_response
 from schemathesis.engine.errors import (
@@ -24,6 +24,7 @@ from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.engine.supervisor import SchedulingDirective
 from schemathesis.generation import metrics
 from schemathesis.generation.case import Case
+from schemathesis.wfc.escalation import record_auth_outcome
 
 if TYPE_CHECKING:
     from schemathesis.core.transport import Response
@@ -42,6 +43,10 @@ def _targets_declared_method(case: Case) -> bool:
     return case.method.lower() == case.operation.method.lower()
 
 
+class BudgetExpired(KeyboardInterrupt):
+    """Raised when the run's time budget is out, either for this operation's share or overall."""
+
+
 def run_one_case(
     *,
     case: Case,
@@ -57,7 +62,14 @@ def run_one_case(
 ) -> None:
     """Run one case end-to-end: call, record, validate, classify."""
     try:
-        if ctx.has_to_stop:
+        # One snapshot: reading the clock twice lets the deadline pass in between and turn a spent
+        # budget into a phantom interrupt.
+        stop_reason = ctx.stop_reason
+        # A slice may be shorter than a single case takes. Let the first one through anyway, so an
+        # operation is never selected and then left with nothing to show for it.
+        if stop_reason is StopReason.MAX_TIME or (ctx.is_operation_slice_expired and recorder.interactions):
+            raise BudgetExpired
+        if stop_reason in (StopReason.INTERRUPTED, StopReason.FAILURE_LIMIT):
             raise KeyboardInterrupt
         # Honor a supervisor SKIP verdict that flipped mid-scenario; without this,
         # cases already drawn or queued would still hit the server.
@@ -169,6 +181,7 @@ def _do_call_and_validate(
             transport_kwargs=transport_kwargs,
         )
     if _targets_declared_method(case):
+        record_auth_outcome(case, response.status_code)
         is_documented_status = case.operation.responses.find_by_status_code(response.status_code) is not None
         ctx.supervisor.record_response(
             operation_label=case.operation.label,

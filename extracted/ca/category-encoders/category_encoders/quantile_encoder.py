@@ -42,12 +42,24 @@ class QuantileEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
     return_df: bool
         boolean for whether to return a pandas DataFrame from transform
         (otherwise it will be a numpy array).
-    handle_missing: str
+    handle_missing: str, int, float or callable
         options are 'error', 'return_nan'  and 'value', defaults to 'value',
-        which returns the target quantile.
-    handle_unknown: str
+        which returns the target quantile. A number is used as the encoded value
+        for missing values that were not seen at fit time, and a callable
+        fn(value, mapping) is evaluated once per column when the mapping is
+        finalized during fit.
+    handle_unknown: str, int, float or callable
         options are 'error', 'return_nan' and 'value', defaults to 'value',
-        which returns the target quantile.
+        which returns the target quantile. A number is used as the encoded value
+        for unseen categories, and a callable fn(value, mapping) is evaluated
+        once per column when the mapping is finalized during fit.
+
+    Notes
+    -----
+    Columns in which every category is unique (id-like columns) are not
+    encoded with their own category statistics: all their categories are
+    encoded with the prior quantile instead, which prevents overfitting on
+    identifier-like columns.
 
     Example
     -------
@@ -111,6 +123,11 @@ class QuantileEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
         handle_unknown: str = 'value',
         quantile: float = 0.5,
         m: float = 1.0,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
+        composite_cols: list[tuple[str, ...]] | None = None,
+        keep_components: bool = False,
     ):
         super().__init__(
             verbose=verbose,
@@ -119,6 +136,11 @@ class QuantileEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
+            composite_cols=composite_cols,
+            keep_components=keep_components,
         )
         self.ordinal_encoder = None
         self.mapping = None
@@ -169,15 +191,13 @@ class QuantileEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
                 stats['count'] + self.m
             )
 
-            if self.handle_unknown == 'return_nan':
-                estimate.loc[-1] = np.nan
-            elif self.handle_unknown == 'value':
-                estimate.loc[-1] = prior
+            # Ignore unique columns. This helps to prevent overfitting on id-like columns
+            if len(stats) == len(y):
+                estimate[:] = prior
 
-            if self.handle_missing == 'return_nan':
-                estimate.loc[values.loc[np.nan]] = np.nan
-            elif self.handle_missing == 'value':
-                estimate.loc[-2] = prior
+            estimate = util.finalize_encoding_mapping(
+                estimate, values, self.handle_unknown, self.handle_missing, prior
+            )
 
             mapping[col] = estimate
 
@@ -187,7 +207,7 @@ class QuantileEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
         X = self.ordinal_encoder.transform(X)
 
         if self.handle_unknown == 'error':
-            if X[self.cols].isin([-1]).any().any():
+            if X[self.cols].isin([util.UNKNOWN_SENTINEL]).any().any():
                 raise ValueError('Unexpected categories found in dataframe')
 
         X = self.quantile_encode(X)
@@ -226,12 +246,24 @@ class SummaryEncoder(BaseEstimator):
     return_df: bool
         boolean for whether to return a pandas DataFrame from transform
         (otherwise it will be a numpy array).
-    handle_missing: str
+    handle_missing: str, int, float or callable
         options are 'error', 'return_nan'  and 'value', defaults to 'value',
-        which returns the target quantile.
-    handle_unknown: str
+        which returns the target quantile. A number is used as the encoded value
+        for missing values that were not seen at fit time, and a callable
+        fn(value, mapping) is evaluated once per column when the mapping is
+        finalized during fit.
+    handle_unknown: str, int, float or callable
         options are 'error', 'return_nan' and 'value', defaults to 'value',
-        which returns the target quantile.
+        which returns the target quantile. A number is used as the encoded value
+        for unseen categories, and a callable fn(value, mapping) is evaluated
+        once per column when the mapping is finalized during fit.
+
+    Notes
+    -----
+    Each quantile is encoded by an underlying QuantileEncoder, so columns in
+    which every category is unique (id-like columns) are encoded with the
+    prior quantile at every quantile, which prevents overfitting on
+    identifier-like columns.
 
     Example
     -------

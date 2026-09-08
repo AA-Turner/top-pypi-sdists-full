@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urwid
-Version: 4.1.1
+Version: 4.1.2
 Summary: A full-featured console (xterm et al.) user interface library
 Author-email: Ian Ward <ian@excess.org>
 License-Expression: LGPL-2.1-only
@@ -40,14 +40,15 @@ Requires-Dist: windows-curses; sys_platform == "win32" and extra == "curses"
 Provides-Extra: glib
 Requires-Dist: pygobject; extra == "glib"
 Provides-Extra: tornado
-Requires-Dist: tornado>=5.0; extra == "tornado"
+Requires-Dist: tornado>=6.5.8; extra == "tornado"
 Provides-Extra: trio
 Requires-Dist: exceptiongroup; python_version < "3.11" and extra == "trio"
 Requires-Dist: trio>=0.24.0; extra == "trio"
 Provides-Extra: twisted
-Requires-Dist: twisted; extra == "twisted"
+Requires-Dist: twisted>=24.7.0; extra == "twisted"
+Requires-Dist: twisted>=26.4.0; python_full_version >= "3.9.12" and extra == "twisted"
 Provides-Extra: zmq
-Requires-Dist: zmq; extra == "zmq"
+Requires-Dist: pyzmq>=26.0.0; extra == "zmq"
 Provides-Extra: serial
 Requires-Dist: pyserial; extra == "serial"
 Provides-Extra: lcd

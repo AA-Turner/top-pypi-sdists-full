@@ -1924,15 +1924,19 @@ class TestDispatchBoardPendingSmoke:
 
         def _fake_dispatch(completed, board, config, **kwargs):
             dispatch_calls.append(completed.assignment_id)
-            return None
+            return []
 
-        with patch("coord.smoke.dispatch_smoke", _fake_dispatch), \
+        # #3182: `dispatch_pending_smoke` (called by `_dispatch_board_pending_
+        # smoke`) now calls the full-list `_dispatch_smoke_legs` rather than
+        # the compat-wrapping `dispatch_smoke` — patch the seam it actually
+        # calls.
+        with patch("coord.smoke._dispatch_smoke_legs", _fake_dispatch), \
              patch("coord.state.get_issue_test_mode", return_value=None):
             notify_mod._dispatch_board_pending_smoke(self._config())
 
         assert "untested-work" in dispatch_calls, (
-            "_dispatch_board_pending_smoke must call dispatch_smoke for a "
-            "completed work row with no test verdict (#1426)"
+            "_dispatch_board_pending_smoke must call the smoke dispatcher "
+            "for a completed work row with no test verdict (#1426)"
         )
 
     def test_skips_when_auto_queue_off(self, coord_dir: Path) -> None:
@@ -2395,6 +2399,222 @@ class TestSmokeCompletionVerdict:
         # is a dead end.  The writer derives it from test_state.
         assert row["smoke_test"] == "fail", (
             f"expected smoke_test='fail' mirror, got {row['smoke_test']!r}"
+        )
+
+    def _record_fanout_leg(
+        self, leg_id: str, *, parent_id: str, capabilities: tuple[str, ...],
+    ) -> None:
+        """Insert a #3182 capability-partition leg — tagged `issue_title`,
+        same as `_dispatch_smoke_fanout` stamps it."""
+        from coord.models import Assignment  # noqa: PLC0415
+        from coord.smoke import smoke_leg_issue_title  # noqa: PLC0415
+        from coord.state import _record_dispatched_assignment_local  # noqa: PLC0415
+
+        leg = Assignment(
+            assignment_id=leg_id, machine_name="dell64", repo_name="api",
+            issue_number=42,
+            issue_title=smoke_leg_issue_title("Fix thing", capabilities),
+            type="smoke", status="running",
+            review_of_assignment_id=parent_id, branch="issue-42-fix-thing",
+        )
+        _record_dispatched_assignment_local(assignment=leg, repo_github="acme/api")
+
+    def test_fanout_leg_verdicts_fold_into_the_parent_and_a_red_leg_wins(
+        self, coord_db, tmp_path,
+    ) -> None:
+        """#3182 end-to-end: two capability-partition legs of the SAME work
+        row go through `post_transition` exactly as two real smoke workers
+        would — each records onto ITS OWN row (never racing the other for
+        the shared parent, #1797's shape), and the parent's aggregate only
+        resolves once both are in, going `failed` and naming the failing
+        capability set the moment the second (red) leg reports."""
+        from coord.notify import EVENT_COMPLETION, Transition, post_transition  # noqa: PLC0415
+        from coord.state import (  # noqa: PLC0415
+            get_connection,
+            load_assignment_test_state,
+            record_test_verdict,
+        )
+
+        self._record_work("work-fanout")
+        self._record_fanout_leg("leg-gtk", parent_id="work-fanout", capabilities=("gtk",))
+        self._record_fanout_leg(
+            "leg-win", parent_id="work-fanout", capabilities=("windows",),
+        )
+        record_test_verdict(
+            assignment_id="work-fanout", test_state="running",
+            test_reason=(
+                "[[smoke-fanout:leg-gtk=gtk,leg-win=windows]]\n"
+                "Test stage running across 2 capability-partition leg(s) "
+                "(#3182): [gtk]; [windows]."
+            ),
+        )
+
+        def _transition(smoke_id: str, exit_code: int, issue_title: str) -> tuple:
+            transition = Transition(
+                assignment_id=smoke_id, machine_name="dell64", repo_name="api",
+                issue_number=42, event=EVENT_COMPLETION, exit_code=exit_code,
+            )
+            record = {
+                "repo_github": "acme/api", "type": "smoke",
+                "review_of_assignment_id": "work-fanout",
+                "issue_title": issue_title,
+            }
+            entry = {
+                "started_at": 1000.0, "finished_at": 1010.0,
+                "branch": "issue-42-fix-thing", "log_path": None,
+            }
+            return transition, record, entry
+
+        patches = (
+            patch("coord.notify.post_completion"),
+            patch("coord.notify.mark_notified"),
+            patch("coord.notify._capture_cost"),
+            patch("coord.notify._capture_smoke_tests"),
+            patch("coord.notify._capture_completion_summary"),
+            patch("coord.notify._capture_claude_session_id"),
+        )
+
+        # The gtk leg passes (a `SMOKE: pass` marker in its own log).
+        log_path = tmp_path / "leg-gtk.log"
+        log_path.write_text("SMOKE: pass\n", encoding="utf-8")
+        t, record, entry = _transition("leg-gtk", 0, "[smoke:gtk] Fix thing")
+        entry["log_path"] = str(log_path)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            post_transition(t, record, entry)
+
+        # Only one of two legs has reported — the parent must stay `running`,
+        # never resolve early on the leg that happened to finish first.
+        assert load_assignment_test_state("work-fanout") == "running"
+        assert load_assignment_test_state("leg-gtk") == "passed"
+
+        # The windows leg fails (no marker — falls back to the exit code).
+        t, record, entry = _transition("leg-win", 1, "[smoke:windows] Fix thing")
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            post_transition(t, record, entry)
+
+        assert load_assignment_test_state("leg-win") == "failed"
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT test_state, test_reason FROM assignments WHERE assignment_id=?",
+            ("work-fanout",),
+        ).fetchone()
+        assert row["test_state"] == "failed", (
+            "AND across legs: one red leg must fail the aggregate even "
+            "though the other passed"
+        )
+        assert "[windows] failed" in (row["test_reason"] or ""), (
+            "the reason must name the FAILING capability set, not a bare "
+            f"failure — got {row['test_reason']!r}"
+        )
+
+    def test_fanout_leg_crash_folds_into_the_parent_via_event_failure(
+        self, coord_db, tmp_path,
+    ) -> None:
+        """#3182 review (non-blocking): the `EVENT_FAILURE` branch in
+        `post_transition` mirrors the `EVENT_COMPLETION` one above — a
+        capability-partition leg whose WORKER died (#1605: killed process,
+        terminal API error, anything short of the worker printing its own
+        `SMOKE:` verdict) resolves onto its OWN row via
+        `propagate_smoke_terminal_failure`, never straight onto the shared
+        parent, then folds through `finalize_smoke_fanout` exactly like a
+        leg that reports a real `SMOKE: fail`. Before this test, only the
+        EVENT_COMPLETION half of that symmetry had coverage."""
+        from coord.notify import (  # noqa: PLC0415
+            EVENT_COMPLETION,
+            EVENT_FAILURE,
+            Transition,
+            post_transition,
+        )
+        from coord.state import (  # noqa: PLC0415
+            get_connection,
+            load_assignment_test_state,
+            record_test_verdict,
+        )
+
+        self._record_work("work-fanout2")
+        self._record_fanout_leg(
+            "leg-gtk2", parent_id="work-fanout2", capabilities=("gtk",),
+        )
+        self._record_fanout_leg(
+            "leg-win2", parent_id="work-fanout2", capabilities=("windows",),
+        )
+        record_test_verdict(
+            assignment_id="work-fanout2", test_state="running",
+            test_reason=(
+                "[[smoke-fanout:leg-gtk2=gtk,leg-win2=windows]]\n"
+                "Test stage running across 2 capability-partition leg(s) "
+                "(#3182): [gtk]; [windows]."
+            ),
+        )
+
+        patches = (
+            patch("coord.notify.post_completion"),
+            patch("coord.notify.post_failure"),
+            patch("coord.notify.mark_notified"),
+            patch("coord.notify._capture_cost"),
+            patch("coord.notify._capture_smoke_tests"),
+            patch("coord.notify._capture_completion_summary"),
+            patch("coord.notify._capture_claude_session_id"),
+        )
+
+        # The gtk leg passes normally (EVENT_COMPLETION, same as the sibling
+        # test above).
+        completion = Transition(
+            assignment_id="leg-gtk2", machine_name="dell64", repo_name="api",
+            issue_number=42, event=EVENT_COMPLETION, exit_code=0,
+        )
+        completion_record = {
+            "repo_github": "acme/api", "type": "smoke",
+            "review_of_assignment_id": "work-fanout2",
+            "issue_title": "[smoke:gtk] Fix thing",
+        }
+        log_path = tmp_path / "leg-gtk2.log"
+        log_path.write_text("SMOKE: pass\n", encoding="utf-8")
+        completion_entry = {
+            "started_at": 1000.0, "finished_at": 1010.0,
+            "branch": "issue-42-fix-thing", "log_path": str(log_path),
+        }
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+            post_transition(completion, completion_record, completion_entry)
+
+        assert load_assignment_test_state("leg-gtk2") == "passed"
+        assert load_assignment_test_state("work-fanout2") == "running"
+
+        # The windows leg's WORKER dies mid-task — EVENT_FAILURE, no
+        # `SMOKE:` verdict was ever printed.
+        failure = Transition(
+            assignment_id="leg-win2", machine_name="dell64", repo_name="api",
+            issue_number=42, event=EVENT_FAILURE, exit_code=1,
+        )
+        failure_record = {
+            "repo_github": "acme/api", "type": "smoke",
+            "review_of_assignment_id": "work-fanout2",
+            "issue_title": "[smoke:windows] Fix thing",
+        }
+        failure_entry = {
+            "started_at": 1000.0, "finished_at": 1010.0,
+            "branch": "issue-42-fix-thing", "log_path": None,
+            "error": "worker crashed unexpectedly (no classifiable reason)",
+        }
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+            post_transition(failure, failure_record, failure_entry)
+
+        # The leg's OWN row carries the terminal verdict — never a straight
+        # write onto the shared parent (#1797's shape).
+        assert load_assignment_test_state("leg-win2") == "failed"
+
+        conn = get_connection()
+        row = conn.execute(
+            "SELECT test_state, test_reason FROM assignments WHERE assignment_id=?",
+            ("work-fanout2",),
+        ).fetchone()
+        assert row["test_state"] == "failed", (
+            "a crashed leg must fail the aggregate exactly like a real "
+            f"SMOKE: fail verdict would — got {row['test_state']!r}"
+        )
+        assert "[windows] failed" in (row["test_reason"] or ""), (
+            "the reason must name the FAILING capability set — got "
+            f"{row['test_reason']!r}"
         )
 
     def test_interactive_smoke_mode_not_auto_certified(

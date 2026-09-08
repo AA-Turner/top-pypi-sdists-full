@@ -5,6 +5,8 @@ import inspect
 import json
 import logging
 import os
+import re
+import uuid
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Tuple
 
@@ -93,6 +95,25 @@ def _record_get(record: Mapping[str, Any], *keys: str) -> Any:
         if key in record and record[key] not in (None, ""):
             return record[key]
     return None
+
+
+def _fill_proxy_session_placeholder(proxy: Any, account: Mapping[str, Any]) -> Any:
+    """Replace `{session}` with a token unique to this account and this build.
+
+    The random part makes a rebuilt session reach a new exit IP, so a retry does not repeat a dead exit.
+    """
+    def _token() -> str:
+        # Letters and digits only: the strictest session-name charset any provider enforces.
+        name = re.sub(r"[^A-Za-z0-9]", "", str(account.get("username") or "")) or "acct"
+        return f"{name}{uuid.uuid4().hex[:8]}"
+
+    if isinstance(proxy, str) and "{session}" in proxy:
+        return proxy.replace("{session}", _token())
+    if isinstance(proxy, dict):
+        if any(isinstance(v, str) and "{session}" in v for v in proxy.values()):
+            token = _token()
+            return {k: (v.replace("{session}", token) if isinstance(v, str) else v) for k, v in proxy.items()}
+    return proxy
 
 
 @dataclass(frozen=True)
@@ -253,8 +274,11 @@ class AccountSessionBuilder:
 
         try:
             account_proxy = _normalize_proxy_payload(_record_get(account, "proxy_json", "proxy"))
-            account_proxies = normalize_http_proxies(account_proxy)
-            effective_proxies = account_proxies if account_proxies is not None else self._http_proxies
+            proxy_source = account_proxy if account_proxy is not None else self.proxy
+            proxy_source = _fill_proxy_session_placeholder(proxy_source, account)
+            effective_proxies = normalize_http_proxies(proxy_source)
+            if effective_proxies is None:
+                effective_proxies = self._http_proxies
             apply_proxies_to_session(session, effective_proxies)
             self._apply_cookies(session, material.cookies)
             self._apply_headers(session, material)

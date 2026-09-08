@@ -71,6 +71,16 @@ def test_fuzz_final_line_with_error(cli, app_runner, ctx, snapshot_cli):
     )
 
 
+def test_fuzz_budget_too_small_for_startup_still_runs_a_scenario(cli, app_runner, ctx):
+    # A budget already spent by the time fuzzing starts should still buy one scenario, not an empty run.
+    url = _make_fuzz_app(ctx, app_runner)
+
+    result = cli.main("fuzz", url, "--max-time=0")
+
+    assert "No scenarios were run" not in result.stdout, result.stdout
+    assert "Tested: 1" in result.stdout, result.stdout
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_fuzz_final_line_empty_test_suite(cli, app_runner, ctx, snapshot_cli):
     url = _make_fuzz_app(ctx, app_runner)
@@ -338,7 +348,16 @@ def test_fuzz_non_fatal_errors_fail_exit_code(cli, ctx, app_runner):
     assert result.exit_code == 1, result.output
 
 
-def test_fuzz_max_time_from_config(cli, ctx, app_runner, monkeypatch):
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        ({"fuzz": {"max-time": 2}}, 2),
+        ({"max-time": 5}, 5),
+        ({"max-time": 5, "fuzz": {"max-time": 2}}, 2),
+    ],
+    ids=["fuzz-section", "root", "fuzz-section-over-root"],
+)
+def test_fuzz_max_time_from_config(cli, ctx, app_runner, monkeypatch, config, expected):
     url = _make_fuzz_app(ctx, app_runner)
     captured = {}
 
@@ -346,9 +365,9 @@ def test_fuzz_max_time_from_config(cli, ctx, app_runner, monkeypatch):
         captured["fuzz_config"] = kwargs["fuzz_config"]
 
     monkeypatch.setattr(fuzz_executor, "execute", fake_execute)
-    result = cli.main("fuzz", url, "--mode=positive", config={"fuzz": {"max-time": 2}})
+    result = cli.main("fuzz", url, "--mode=positive", config=config)
     assert result.exit_code == 0, result.output
-    assert captured["fuzz_config"].max_time == 2
+    assert captured["fuzz_config"].max_time == expected
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -635,3 +654,53 @@ def test_fuzz_deadline_does_not_flake_strategy(cli, app_runner, ctx):
     assert "FlakyStrategyDefinition" not in result.stdout, result.stdout
     assert "Runtime Error" not in result.stdout, result.stdout
     assert result.exit_code == 0
+
+
+LINKED_USERS_PATHS = {
+    "/users": {
+        "post": {
+            "responses": {
+                "201": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}
+                    },
+                    "links": {"GetUser": {"operationId": "getUser", "parameters": {"userId": "$response.body#/id"}}},
+                }
+            }
+        }
+    },
+    "/users/{userId}": {
+        "get": {
+            "operationId": "getUser",
+            "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+            "responses": {"200": {"description": "OK"}},
+        }
+    },
+}
+
+
+def test_fuzz_inherits_the_root_time_limit(cli, app_runner, ctx, tmp_path):
+    # The root budget covers both commands, so fuzzing stops before the failure this app starts serving.
+    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    started = time.monotonic()
+
+    @app.route("/users", methods=["POST"])
+    def create_user():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/users/<int:user_id>")
+    def get_user(user_id):
+        return ("", 500) if time.monotonic() - started > 1.5 else jsonify({"id": user_id})
+
+    config_file = tmp_path / "schemathesis.toml"
+    config_file.write_text("max-time = 1")
+    result = cli.main(
+        f"--config-file={config_file}",
+        "fuzz",
+        app_runner.openapi_url(app),
+        "--max-failures=1",
+        "--checks=not_a_server_error",
+    )
+
+    assert "Server error" not in result.stdout, result.stdout

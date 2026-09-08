@@ -34,6 +34,7 @@ from .paginator import (
     ListStreamGroupsPaginator,
     ListStreamSessionsByAccountPaginator,
     ListStreamSessionsPaginator,
+    ListStreamUrlsPaginator,
 )
 from .type_defs import (
     AddStreamGroupLocationsInputTypeDef,
@@ -48,6 +49,8 @@ from .type_defs import (
     CreateStreamSessionAdminShellOutputTypeDef,
     CreateStreamSessionConnectionInputTypeDef,
     CreateStreamSessionConnectionOutputTypeDef,
+    CreateStreamUrlInputTypeDef,
+    CreateStreamUrlOutputTypeDef,
     DeleteApplicationInputTypeDef,
     DeleteStreamGroupInputTypeDef,
     DisassociateApplicationsInputTypeDef,
@@ -60,6 +63,10 @@ from .type_defs import (
     GetStreamGroupOutputTypeDef,
     GetStreamSessionInputTypeDef,
     GetStreamSessionOutputTypeDef,
+    GetStreamUrlInputTypeDef,
+    GetStreamUrlOutputTypeDef,
+    ListApplicationShaderCachesInputTypeDef,
+    ListApplicationShaderCachesOutputTypeDef,
     ListApplicationsInputTypeDef,
     ListApplicationsOutputTypeDef,
     ListStreamGroupsInputTypeDef,
@@ -68,9 +75,12 @@ from .type_defs import (
     ListStreamSessionsByAccountOutputTypeDef,
     ListStreamSessionsInputTypeDef,
     ListStreamSessionsOutputTypeDef,
+    ListStreamUrlsInputTypeDef,
+    ListStreamUrlsOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     RemoveStreamGroupLocationsInputTypeDef,
+    RevokeStreamUrlInputTypeDef,
     StartStreamSessionInputTypeDef,
     StartStreamSessionOutputTypeDef,
     TagResourceRequestTypeDef,
@@ -213,6 +223,17 @@ class GameLiftStreamsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#create_stream_session_connection)
         """
 
+    async def create_stream_url(
+        self, **kwargs: Unpack[CreateStreamUrlInputTypeDef]
+    ) -> CreateStreamUrlOutputTypeDef:
+        """
+        Creates a stream URL that grants temporary access to a stream session in a web
+        browser without requiring an Amazon Web Services account or client integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/create_stream_url.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#create_stream_url)
+        """
+
     async def delete_application(
         self, **kwargs: Unpack[DeleteApplicationInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -287,6 +308,27 @@ class GameLiftStreamsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#get_stream_session)
         """
 
+    async def get_stream_url(
+        self, **kwargs: Unpack[GetStreamUrlInputTypeDef]
+    ) -> GetStreamUrlOutputTypeDef:
+        """
+        Retrieves properties for a stream URL, including its current status, usage, and
+        the stream sessions started through it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/get_stream_url.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#get_stream_url)
+        """
+
+    async def list_application_shader_caches(
+        self, **kwargs: Unpack[ListApplicationShaderCachesInputTypeDef]
+    ) -> ListApplicationShaderCachesOutputTypeDef:
+        """
+        Lists the shader caches associated with an Amazon GameLift Streams application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/list_application_shader_caches.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#list_application_shader_caches)
+        """
+
     async def list_applications(
         self, **kwargs: Unpack[ListApplicationsInputTypeDef]
     ) -> ListApplicationsOutputTypeDef:
@@ -331,6 +373,17 @@ class GameLiftStreamsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#list_stream_sessions_by_account)
         """
 
+    async def list_stream_urls(
+        self, **kwargs: Unpack[ListStreamUrlsInputTypeDef]
+    ) -> ListStreamUrlsOutputTypeDef:
+        """
+        Retrieves a list of the stream URLs in the current Amazon Web Services Region
+        for your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/list_stream_urls.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#list_stream_urls)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -349,6 +402,16 @@ class GameLiftStreamsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/remove_stream_group_locations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#remove_stream_group_locations)
+        """
+
+    async def revoke_stream_url(
+        self, **kwargs: Unpack[RevokeStreamUrlInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Revokes a stream URL so that it can no longer start new stream sessions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/revoke_stream_url.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#revoke_stream_url)
         """
 
     async def start_stream_session(
@@ -447,6 +510,17 @@ class GameLiftStreamsClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_stream_sessions"]
     ) -> ListStreamSessionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gameliftstreams/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_stream_urls"]
+    ) -> ListStreamUrlsPaginator:
         """
         Create a paginator for an operation.
 

@@ -24,6 +24,8 @@ from typing import IO, Any, Union
 from aiobotocore.response import StreamingBody
 
 from .literals import (
+    ChannelDestinationTypeType,
+    ChannelStatusType,
     ClientBrokerType,
     ClusterStateType,
     ClusterTypeType,
@@ -31,6 +33,7 @@ from .literals import (
     ConsumerGroupOffsetSyncModeType,
     CustomerActionStatusType,
     EnhancedMonitoringType,
+    IcebergCompressionTypeType,
     KafkaClusterSaslScramMechanismType,
     KafkaVersionStatusType,
     NetworkTypeType,
@@ -38,10 +41,13 @@ from .literals import (
     ReplicationStartingPositionTypeType,
     ReplicationTopicNameConfigurationTypeType,
     ReplicatorStateType,
+    S3CompressionTypeType,
+    S3StorageClassType,
     StorageModeType,
     TargetCompressionTypeType,
     TopicStateType,
     UserIdentityTypeType,
+    ValueConverterType,
     VpcConnectionStateType,
 )
 
@@ -53,6 +59,7 @@ else:
 __all__ = (
     "AmazonMskClusterTypeDef",
     "ApacheKafkaClusterTypeDef",
+    "AuthorizerLogsTypeDef",
     "BatchAssociateScramSecretRequestTypeDef",
     "BatchAssociateScramSecretResponseTypeDef",
     "BatchDisassociateScramSecretRequestTypeDef",
@@ -66,6 +73,10 @@ __all__ = (
     "BrokerNodeGroupInfoUnionTypeDef",
     "BrokerNodeInfoTypeDef",
     "BrokerSoftwareInfoTypeDef",
+    "CatalogTypeDef",
+    "ChannelInfoTypeDef",
+    "ChannelLoggingInfoTypeDef",
+    "ChannelStateInfoTypeDef",
     "ClientAuthenticationOutputTypeDef",
     "ClientAuthenticationTypeDef",
     "ClientAuthenticationUnionTypeDef",
@@ -90,6 +101,8 @@ __all__ = (
     "ConsumerGroupReplicationUnionTypeDef",
     "ConsumerGroupReplicationUpdateTypeDef",
     "ControllerNodeInfoTypeDef",
+    "CreateChannelRequestTypeDef",
+    "CreateChannelResponseTypeDef",
     "CreateClusterRequestTypeDef",
     "CreateClusterResponseTypeDef",
     "CreateClusterV2RequestTypeDef",
@@ -102,6 +115,9 @@ __all__ = (
     "CreateTopicResponseTypeDef",
     "CreateVpcConnectionRequestTypeDef",
     "CreateVpcConnectionResponseTypeDef",
+    "DeadLetterQueueS3TypeDef",
+    "DeleteChannelRequestTypeDef",
+    "DeleteChannelResponseTypeDef",
     "DeleteClusterPolicyRequestTypeDef",
     "DeleteClusterRequestTypeDef",
     "DeleteClusterResponseTypeDef",
@@ -113,6 +129,8 @@ __all__ = (
     "DeleteTopicResponseTypeDef",
     "DeleteVpcConnectionRequestTypeDef",
     "DeleteVpcConnectionResponseTypeDef",
+    "DescribeChannelRequestTypeDef",
+    "DescribeChannelResponseTypeDef",
     "DescribeClusterOperationRequestTypeDef",
     "DescribeClusterOperationResponseTypeDef",
     "DescribeClusterOperationV2RequestTypeDef",
@@ -134,9 +152,12 @@ __all__ = (
     "DescribeTopicResponseTypeDef",
     "DescribeVpcConnectionRequestTypeDef",
     "DescribeVpcConnectionResponseTypeDef",
+    "DestinationTableOutputTypeDef",
+    "DestinationTableTypeDef",
     "EBSStorageInfoTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionAtRestTypeDef",
+    "EncryptionConfigurationTypeDef",
     "EncryptionInTransitTypeDef",
     "EncryptionInfoTypeDef",
     "ErrorInfoTypeDef",
@@ -148,6 +169,10 @@ __all__ = (
     "GetCompatibleKafkaVersionsRequestTypeDef",
     "GetCompatibleKafkaVersionsResponseTypeDef",
     "IamTypeDef",
+    "IcebergDestinationConfigurationOutputTypeDef",
+    "IcebergDestinationConfigurationTypeDef",
+    "IcebergDestinationConfigurationUnionTypeDef",
+    "IcebergDestinationUpdateTypeDef",
     "JmxExporterInfoTypeDef",
     "JmxExporterTypeDef",
     "KafkaClusterClientAuthenticationTypeDef",
@@ -161,6 +186,8 @@ __all__ = (
     "KafkaClusterSummaryTypeDef",
     "KafkaClusterTypeDef",
     "KafkaVersionTypeDef",
+    "ListChannelsRequestTypeDef",
+    "ListChannelsResponseTypeDef",
     "ListClientVpcConnectionsRequestPaginateTypeDef",
     "ListClientVpcConnectionsRequestTypeDef",
     "ListClientVpcConnectionsResponseTypeDef",
@@ -211,6 +238,9 @@ __all__ = (
     "OpenMonitoringInfoTypeDef",
     "OpenMonitoringTypeDef",
     "PaginatorConfigTypeDef",
+    "PartitionSourceTypeDef",
+    "PartitionSpecOutputTypeDef",
+    "PartitionSpecTypeDef",
     "PrometheusInfoTypeDef",
     "PrometheusTypeDef",
     "ProvisionedRequestTypeDef",
@@ -222,6 +252,8 @@ __all__ = (
     "RebalancingTypeDef",
     "RebootBrokerRequestTypeDef",
     "RebootBrokerResponseTypeDef",
+    "RecordConverterTypeDef",
+    "RecordSchemaTypeDef",
     "RejectClientVpcConnectionRequestTypeDef",
     "ReplicationInfoDescriptionTypeDef",
     "ReplicationInfoSummaryTypeDef",
@@ -235,8 +267,12 @@ __all__ = (
     "ReplicatorS3TypeDef",
     "ReplicatorSummaryTypeDef",
     "ResponseMetadataTypeDef",
+    "S3DestinationConfigurationTypeDef",
+    "S3DestinationUpdateTypeDef",
+    "S3StorageTypeDef",
     "S3TypeDef",
     "SaslTypeDef",
+    "SchemaEvolutionTypeDef",
     "ScramTypeDef",
     "ServerlessClientAuthenticationTypeDef",
     "ServerlessConnectivityInfoTypeDef",
@@ -245,10 +281,12 @@ __all__ = (
     "ServerlessTypeDef",
     "StateInfoTypeDef",
     "StorageInfoTypeDef",
+    "TableCreationTypeDef",
     "TagResourceRequestTypeDef",
     "TlsOutputTypeDef",
     "TlsTypeDef",
     "TlsUnionTypeDef",
+    "TopicConfigurationTypeDef",
     "TopicInfoTypeDef",
     "TopicPartitionInfoTypeDef",
     "TopicReplicationOutputTypeDef",
@@ -264,6 +302,8 @@ __all__ = (
     "UpdateBrokerStorageResponseTypeDef",
     "UpdateBrokerTypeRequestTypeDef",
     "UpdateBrokerTypeResponseTypeDef",
+    "UpdateChannelRequestTypeDef",
+    "UpdateChannelResponseTypeDef",
     "UpdateClusterConfigurationRequestTypeDef",
     "UpdateClusterConfigurationResponseTypeDef",
     "UpdateClusterKafkaVersionRequestTypeDef",
@@ -308,6 +348,19 @@ class ApacheKafkaClusterTypeDef(TypedDict):
     ApacheKafkaClusterId: str
     BootstrapBrokerString: str
 
+class CloudWatchLogsTypeDef(TypedDict):
+    Enabled: bool
+    LogGroup: NotRequired[str]
+
+class FirehoseTypeDef(TypedDict):
+    Enabled: bool
+    DeliveryStream: NotRequired[str]
+
+class S3TypeDef(TypedDict):
+    Enabled: bool
+    Bucket: NotRequired[str]
+    Prefix: NotRequired[str]
+
 class BatchAssociateScramSecretRequestTypeDef(TypedDict):
     ClusterArn: str
     SecretArnList: Sequence[str]
@@ -338,23 +391,26 @@ class ProvisionedThroughputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     VolumeThroughput: NotRequired[int]
 
-class CloudWatchLogsTypeDef(TypedDict):
-    Enabled: bool
-    LogGroup: NotRequired[str]
-
-class FirehoseTypeDef(TypedDict):
-    Enabled: bool
-    DeliveryStream: NotRequired[str]
-
-class S3TypeDef(TypedDict):
-    Enabled: bool
-    Bucket: NotRequired[str]
-    Prefix: NotRequired[str]
-
 class BrokerSoftwareInfoTypeDef(TypedDict):
     ConfigurationArn: NotRequired[str]
     ConfigurationRevision: NotRequired[int]
     KafkaVersion: NotRequired[str]
+
+class CatalogTypeDef(TypedDict):
+    CatalogArn: NotRequired[str]
+    WarehouseLocation: NotRequired[str]
+
+class ChannelInfoTypeDef(TypedDict):
+    ChannelArn: str
+    ChannelName: str
+    Status: ChannelStatusType
+    CreationTime: datetime
+    DestinationType: ChannelDestinationTypeType
+    ClusterOperationArn: NotRequired[str]
+
+class ChannelStateInfoTypeDef(TypedDict):
+    Code: NotRequired[str]
+    Message: NotRequired[str]
 
 class TlsOutputTypeDef(TypedDict):
     CertificateAuthorityArnList: NotRequired[list[str]]
@@ -439,6 +495,9 @@ class ConsumerGroupReplicationUpdateTypeDef(TypedDict):
 class ControllerNodeInfoTypeDef(TypedDict):
     Endpoints: NotRequired[list[str]]
 
+class EncryptionConfigurationTypeDef(TypedDict):
+    KmsKeyArn: str
+
 class CreateTopicRequestTypeDef(TypedDict):
     ClusterArn: str
     TopicName: str
@@ -453,6 +512,15 @@ class CreateVpcConnectionRequestTypeDef(TypedDict):
     ClientSubnets: Sequence[str]
     SecurityGroups: Sequence[str]
     Tags: NotRequired[Mapping[str, str]]
+
+class DeadLetterQueueS3TypeDef(TypedDict):
+    BucketArn: str
+    ErrorOutputPrefix: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
+
+class DeleteChannelRequestTypeDef(TypedDict):
+    ChannelArn: str
+    ClusterArn: str
 
 class DeleteClusterPolicyRequestTypeDef(TypedDict):
     ClusterArn: str
@@ -474,6 +542,10 @@ class DeleteTopicRequestTypeDef(TypedDict):
 
 class DeleteVpcConnectionRequestTypeDef(TypedDict):
     Arn: str
+
+class DescribeChannelRequestTypeDef(TypedDict):
+    ChannelArn: str
+    ClusterArn: str
 
 class DescribeClusterOperationRequestTypeDef(TypedDict):
     ClusterOperationArn: str
@@ -544,6 +616,15 @@ class GetCompatibleKafkaVersionsRequestTypeDef(TypedDict):
 class IamTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
+class SchemaEvolutionTypeDef(TypedDict):
+    EnableSchemaEvolution: NotRequired[bool]
+
+class TableCreationTypeDef(TypedDict):
+    EnableTableCreation: NotRequired[bool]
+
+class IcebergDestinationUpdateTypeDef(TypedDict):
+    DataFreshnessInSeconds: int
+
 class JmxExporterInfoTypeDef(TypedDict):
     EnabledInBroker: bool
 
@@ -572,6 +653,12 @@ class KafkaClusterEncryptionInTransitTypeDef(TypedDict):
 class KafkaVersionTypeDef(TypedDict):
     Version: NotRequired[str]
     Status: NotRequired[KafkaVersionStatusType]
+
+class ListChannelsRequestTypeDef(TypedDict):
+    ClusterArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    TopicNameFilter: NotRequired[str]
 
 class ListClientVpcConnectionsRequestTypeDef(TypedDict):
     ClusterArn: str
@@ -671,6 +758,9 @@ class ZookeeperNodeInfoTypeDef(TypedDict):
     ZookeeperId: NotRequired[float]
     ZookeeperVersion: NotRequired[str]
 
+class PartitionSourceTypeDef(TypedDict):
+    SourceName: NotRequired[str]
+
 class PutClusterPolicyRequestTypeDef(TypedDict):
     ClusterArn: str
     Policy: str
@@ -679,6 +769,12 @@ class PutClusterPolicyRequestTypeDef(TypedDict):
 class RebootBrokerRequestTypeDef(TypedDict):
     BrokerIds: Sequence[str]
     ClusterArn: str
+
+class RecordConverterTypeDef(TypedDict):
+    ValueConverter: ValueConverterType
+
+class RecordSchemaTypeDef(TypedDict):
+    GsrArn: str
 
 class RejectClientVpcConnectionRequestTypeDef(TypedDict):
     ClusterArn: str
@@ -713,6 +809,17 @@ class ReplicatorS3TypeDef(TypedDict):
     Enabled: bool
     Bucket: NotRequired[str]
     Prefix: NotRequired[str]
+
+class S3StorageTypeDef(TypedDict):
+    BucketArn: str
+    CompressionType: S3CompressionTypeType
+    StorageClass: S3StorageClassType
+    OutputPrefix: NotRequired[str]
+    OutputKeyTemplate: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
+
+class S3DestinationUpdateTypeDef(TypedDict):
+    DataFreshnessInSeconds: int
 
 class ScramTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -782,6 +889,26 @@ class KafkaClusterSummaryTypeDef(TypedDict):
     ApacheKafkaCluster: NotRequired[ApacheKafkaClusterTypeDef]
     KafkaClusterAlias: NotRequired[str]
 
+class AuthorizerLogsTypeDef(TypedDict):
+    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
+    Firehose: NotRequired[FirehoseTypeDef]
+    S3: NotRequired[S3TypeDef]
+
+class BrokerLogsTypeDef(TypedDict):
+    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
+    Firehose: NotRequired[FirehoseTypeDef]
+    S3: NotRequired[S3TypeDef]
+
+class ChannelLoggingInfoTypeDef(TypedDict):
+    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
+    Firehose: NotRequired[FirehoseTypeDef]
+    S3: NotRequired[S3TypeDef]
+
+class CreateChannelResponseTypeDef(TypedDict):
+    ChannelArn: str
+    ClusterOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateClusterResponseTypeDef(TypedDict):
     ClusterArn: str
     ClusterName: str
@@ -816,6 +943,11 @@ class CreateVpcConnectionResponseTypeDef(TypedDict):
     SecurityGroups: list[str]
     CreationTime: datetime
     Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteChannelResponseTypeDef(TypedDict):
+    ChannelArn: str
+    ClusterOperationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteClusterResponseTypeDef(TypedDict):
@@ -931,6 +1063,11 @@ class UpdateBrokerTypeResponseTypeDef(TypedDict):
     ClusterOperationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateChannelResponseTypeDef(TypedDict):
+    ChannelArn: str
+    ClusterOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateClusterConfigurationResponseTypeDef(TypedDict):
     ClusterArn: str
     ClusterOperationArn: str
@@ -1014,11 +1151,6 @@ class UpdateStorageRequestTypeDef(TypedDict):
     StorageMode: NotRequired[StorageModeType]
     VolumeSizeGB: NotRequired[int]
 
-class BrokerLogsTypeDef(TypedDict):
-    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
-    Firehose: NotRequired[FirehoseTypeDef]
-    S3: NotRequired[S3TypeDef]
-
 class BrokerNodeInfoTypeDef(TypedDict):
     AttachedENIId: NotRequired[str]
     BrokerId: NotRequired[float]
@@ -1026,6 +1158,11 @@ class BrokerNodeInfoTypeDef(TypedDict):
     ClientVpcIpAddress: NotRequired[str]
     CurrentBrokerSoftwareInfo: NotRequired[BrokerSoftwareInfoTypeDef]
     Endpoints: NotRequired[list[str]]
+
+class ListChannelsResponseTypeDef(TypedDict):
+    Channels: list[ChannelInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ListClientVpcConnectionsResponseTypeDef(TypedDict):
     ClientVpcConnections: list[ClientVpcConnectionTypeDef]
@@ -1201,6 +1338,19 @@ class PrometheusTypeDef(TypedDict):
     JmxExporter: NotRequired[JmxExporterTypeDef]
     NodeExporter: NotRequired[NodeExporterTypeDef]
 
+class PartitionSpecOutputTypeDef(TypedDict):
+    PartitionStrategy: Literal["TIME_HOUR"]
+    SourceList: NotRequired[list[PartitionSourceTypeDef]]
+
+class PartitionSpecTypeDef(TypedDict):
+    PartitionStrategy: Literal["TIME_HOUR"]
+    SourceList: NotRequired[Sequence[PartitionSourceTypeDef]]
+
+class TopicConfigurationTypeDef(TypedDict):
+    RecordConverter: RecordConverterTypeDef
+    TopicArn: str
+    RecordSchema: NotRequired[RecordSchemaTypeDef]
+
 class TopicReplicationOutputTypeDef(TypedDict):
     TopicsToReplicate: list[str]
     CopyAccessControlListsForTopics: NotRequired[bool]
@@ -1223,6 +1373,18 @@ class ReplicatorLogDeliveryTypeDef(TypedDict):
     CloudWatchLogs: NotRequired[ReplicatorCloudWatchLogsTypeDef]
     Firehose: NotRequired[ReplicatorFirehoseTypeDef]
     S3: NotRequired[ReplicatorS3TypeDef]
+
+class S3DestinationConfigurationTypeDef(TypedDict):
+    DeadLetterQueueS3: DeadLetterQueueS3TypeDef
+    ServiceExecutionRoleArn: str
+    Storage: S3StorageTypeDef
+    DataFreshnessInSeconds: NotRequired[int]
+
+class UpdateChannelRequestTypeDef(TypedDict):
+    ChannelArn: str
+    ClusterArn: str
+    IcebergDestinationUpdate: NotRequired[IcebergDestinationUpdateTypeDef]
+    S3DestinationUpdate: NotRequired[S3DestinationUpdateTypeDef]
 
 class SaslTypeDef(TypedDict):
     Scram: NotRequired[ScramTypeDef]
@@ -1259,6 +1421,10 @@ class ReplicatorSummaryTypeDef(TypedDict):
     ReplicatorResourceArn: NotRequired[str]
     ReplicatorState: NotRequired[ReplicatorStateType]
 
+class LoggingInfoTypeDef(TypedDict):
+    BrokerLogs: BrokerLogsTypeDef
+    AuthorizerLogs: NotRequired[AuthorizerLogsTypeDef]
+
 class UpdateBrokerStorageRequestTypeDef(TypedDict):
     ClusterArn: str
     CurrentVersion: str
@@ -1266,9 +1432,6 @@ class UpdateBrokerStorageRequestTypeDef(TypedDict):
 
 class StorageInfoTypeDef(TypedDict):
     EbsStorageInfo: NotRequired[EBSStorageInfoTypeDef]
-
-class LoggingInfoTypeDef(TypedDict):
-    BrokerLogs: BrokerLogsTypeDef
 
 class NodeInfoTypeDef(TypedDict):
     AddedToClusterTime: NotRequired[str]
@@ -1307,6 +1470,16 @@ class OpenMonitoringInfoTypeDef(TypedDict):
 
 class OpenMonitoringTypeDef(TypedDict):
     Prometheus: PrometheusTypeDef
+
+class DestinationTableOutputTypeDef(TypedDict):
+    DestinationDatabaseName: NotRequired[str]
+    DestinationTableName: NotRequired[str]
+    PartitionSpec: NotRequired[PartitionSpecOutputTypeDef]
+
+class DestinationTableTypeDef(TypedDict):
+    DestinationDatabaseName: NotRequired[str]
+    DestinationTableName: NotRequired[str]
+    PartitionSpec: NotRequired[PartitionSpecTypeDef]
 
 class ReplicationInfoDescriptionTypeDef(TypedDict):
     ConsumerGroupReplication: NotRequired[ConsumerGroupReplicationOutputTypeDef]
@@ -1365,6 +1538,28 @@ class UpdateMonitoringRequestTypeDef(TypedDict):
     OpenMonitoring: NotRequired[OpenMonitoringInfoTypeDef]
     LoggingInfo: NotRequired[LoggingInfoTypeDef]
 
+class IcebergDestinationConfigurationOutputTypeDef(TypedDict):
+    AppendOnly: bool
+    DeadLetterQueueS3: DeadLetterQueueS3TypeDef
+    DestinationTableList: list[DestinationTableOutputTypeDef]
+    SchemaEvolution: SchemaEvolutionTypeDef
+    ServiceExecutionRoleArn: str
+    TableCreation: TableCreationTypeDef
+    Catalog: NotRequired[CatalogTypeDef]
+    DataFreshnessInSeconds: NotRequired[int]
+    CompressionType: NotRequired[IcebergCompressionTypeType]
+
+class IcebergDestinationConfigurationTypeDef(TypedDict):
+    AppendOnly: bool
+    DeadLetterQueueS3: DeadLetterQueueS3TypeDef
+    DestinationTableList: Sequence[DestinationTableTypeDef]
+    SchemaEvolution: SchemaEvolutionTypeDef
+    ServiceExecutionRoleArn: str
+    TableCreation: TableCreationTypeDef
+    Catalog: NotRequired[CatalogTypeDef]
+    DataFreshnessInSeconds: NotRequired[int]
+    CompressionType: NotRequired[IcebergCompressionTypeType]
+
 class ReplicationInfoTypeDef(TypedDict):
     ConsumerGroupReplication: ConsumerGroupReplicationUnionTypeDef
     TargetCompressionType: TargetCompressionTypeType
@@ -1409,6 +1604,26 @@ ClientAuthenticationUnionTypeDef = Union[
 class VpcConnectivityTypeDef(TypedDict):
     ClientAuthentication: NotRequired[VpcConnectivityClientAuthenticationTypeDef]
 
+class DescribeChannelResponseTypeDef(TypedDict):
+    ChannelArn: str
+    ChannelName: str
+    EncryptionConfiguration: EncryptionConfigurationTypeDef
+    IcebergDestinationConfiguration: IcebergDestinationConfigurationOutputTypeDef
+    S3DestinationConfiguration: S3DestinationConfigurationTypeDef
+    Status: ChannelStatusType
+    DestinationType: ChannelDestinationTypeType
+    CreationTime: datetime
+    TopicConfigurationList: list[TopicConfigurationTypeDef]
+    LoggingInfo: ChannelLoggingInfoTypeDef
+    StateInfo: ChannelStateInfoTypeDef
+    ClusterOperationArn: str
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+IcebergDestinationConfigurationUnionTypeDef = Union[
+    IcebergDestinationConfigurationTypeDef, IcebergDestinationConfigurationOutputTypeDef
+]
+
 class CreateReplicatorRequestTypeDef(TypedDict):
     KafkaClusters: Sequence[KafkaClusterTypeDef]
     ReplicationInfoList: Sequence[ReplicationInfoTypeDef]
@@ -1428,6 +1643,16 @@ class ConnectivityInfoTypeDef(TypedDict):
     PublicAccess: NotRequired[PublicAccessTypeDef]
     VpcConnectivity: NotRequired[VpcConnectivityTypeDef]
     NetworkType: NotRequired[NetworkTypeType]
+
+class CreateChannelRequestTypeDef(TypedDict):
+    ChannelName: str
+    ClusterArn: str
+    TopicConfigurationList: Sequence[TopicConfigurationTypeDef]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    IcebergDestinationConfiguration: NotRequired[IcebergDestinationConfigurationUnionTypeDef]
+    S3DestinationConfiguration: NotRequired[S3DestinationConfigurationTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+    LoggingInfo: NotRequired[ChannelLoggingInfoTypeDef]
 
 class BrokerNodeGroupInfoOutputTypeDef(TypedDict):
     ClientSubnets: list[str]

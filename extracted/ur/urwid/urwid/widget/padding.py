@@ -251,6 +251,12 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         size: tuple[()] | tuple[int] | tuple[int, int] = (),
         focus: bool = False,
     ) -> tuple[int, int]:
+        """
+        Return the size the widget would render as, for FIXED sizing.
+
+        :raises PaddingError: this Padding uses ``CLIP``, which makes it FLOW-only, or its width type does not resolve
+            to a fixed size.
+        """
         if size:
             return super().pack(size, focus)
         if self._width_type == WHSettings.CLIP:
@@ -297,6 +303,11 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
         size: tuple[()] | tuple[int] | tuple[int, int],
         focus: bool = False,
     ) -> CompositeCanvas:
+        """
+        Render the Padding and return the resulting canvas.
+
+        :raises ValueError: the Padding is empty and no *size* was given.
+        """
         left, right = self.padding_values(size, focus)
 
         if self._width_type == WHSettings.CLIP:
@@ -338,7 +349,10 @@ class Padding(WidgetDecoration[WrappedWidget], typing.Generic[WrappedWidget]):
     ) -> tuple[int, int]:
         """Return the number of columns to pad on the left and right.
 
-        Override this method to define custom padding behaviour."""
+        Override this method to define custom padding behaviour.
+
+        :raises PaddingError: this Padding uses ``CLIP`` and no *size* was given.
+        """
         if self._width_type == WHSettings.CLIP:
             if not size:
                 raise PaddingError("WHSettings.CLIP makes Padding FLOW-only widget")
@@ -566,13 +580,14 @@ def calculate_left_right_padding(
     Return the amount of padding (or clipping) on the left and
     right part of maxcol columns to satisfy the following:
 
-    align_type -- 'left', 'center', 'right', 'relative'
-    align_amount -- a percentage when align_type=='relative'
-    width_type -- 'fixed', 'relative', 'clip'
-    width_amount -- a percentage when width_type=='relative' otherwise equal to the width of the widget
-    min_width -- a desired minimum width for the widget or None
-    left -- a fixed number of columns to pad on the left
-    right -- a fixed number of columns to pad on the right
+    :param align_type: 'left', 'center', 'right', 'relative'
+    :param align_amount: a percentage when align_type=='relative'
+    :param width_type: 'fixed', 'relative', 'clip'
+    :param width_amount: a percentage when width_type=='relative' otherwise equal to the width of the widget
+    :param min_width: a desired minimum width for the widget or None
+    :param left: a fixed number of columns to pad on the left
+    :param right: a fixed number of columns to pad on the right
+    :raises TypeError: *align_type* is relative but no *align_amount* was given.
 
     >>> clrp = calculate_left_right_padding
     >>> clrp(15, "left", 0, "given", 10, None, 2, 0)

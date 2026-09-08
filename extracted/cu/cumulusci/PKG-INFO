@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cumulusci
-Version: 4.10.0
+Version: 4.10.1
 Summary: Build and release tools for Salesforce developers
 Project-URL: Homepage, https://github.com/SFDO-Tooling/CumulusCI
 Project-URL: Changelog, https://cumulusci.readthedocs.io/en/stable/history.html
@@ -126,7 +126,7 @@ license](https://github.com/SFDO-Tooling/CumulusCI/blob/main/LICENSE)
 and is not covered by the Salesforce Master Subscription Agreement.
 
 <!-- Changelog -->
-## v4.10.0 (2026-04-10)
+## v4.10.1 (2026-09-07)
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
@@ -134,10 +134,16 @@ and is not covered by the Salesforce Master Subscription Agreement.
 
 ### Changes
 
--   @W-21875476: Phase 0 CI workflow updates by [@jstvz](https://github.com/jstvz) in [#3964](https://github.com/SFDO-Tooling/CumulusCI/pull/3964)
+- fix(schema): correct namespaced field type from string to boolean by [@dipakparmar](https://github.com/dipakparmar) in [#3911](https://github.com/SFDO-Tooling/CumulusCI/pull/3911)
+- Issue-3938 rest_deploy should throw errors just like SOAP deploy does by [@yippie](https://github.com/yippie) in [#3940](https://github.com/SFDO-Tooling/CumulusCI/pull/3940)
+- Fix empty `layoutAssignments` by [@naicigam](https://github.com/naicigam) in [#3925](https://github.com/SFDO-Tooling/CumulusCI/pull/3925)
+- docs: fix subject-verb agreement in deploy.md by [@sf-sesh-mannepalli](https://github.com/sf-sesh-mannepalli) in [#3999](https://github.com/SFDO-Tooling/CumulusCI/pull/3999)
+- Fix Handle SF CLI 2.136+ credential redaction in SFDX org config by [@sf-brahm-gaur](https://github.com/sf-brahm-gaur) in [#4009](https://github.com/SFDO-Tooling/CumulusCI/pull/4009)
 
 ## New Contributors
 
--   @dependabot[bot] made their first contribution in [#3965](https://github.com/SFDO-Tooling/CumulusCI/pull/3965)
+- @dipakparmar made their first contribution in [#3911](https://github.com/SFDO-Tooling/CumulusCI/pull/3911)
+- @sf-sesh-mannepalli made their first contribution in [#3999](https://github.com/SFDO-Tooling/CumulusCI/pull/3999)
+- @sf-brahm-gaur made their first contribution in [#4009](https://github.com/SFDO-Tooling/CumulusCI/pull/4009)
 
-**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.9.0...v4.10.0
+**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.10.0...v4.10.1

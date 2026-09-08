@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymssql
-Version: 2.4.0
+Version: 2.4.1
 Summary: DB-API interface to Microsoft SQL Server for Python. (new Cython-based version)
 Author-email: Damien Churchill <damoxc@gmail.com>
 Maintainer-email: Mikhail Terekhov <termim@gmail.com>
@@ -525,6 +525,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
 Classifier: Topic :: Database :: Database Engines/Servers
@@ -614,6 +615,16 @@ Recent Changes
 ==============
 
 
+Version 2.4.1 - 2026-09-07 - Mikhail Terekhov
+=============================================
+
+General
+-------
+
+- Fix socket resource leak on failed connections (#1002), thanks to gintsmurans.
+- Enable free-threaded Python 3.14 wheel builds (#1004).
+- Add wheels for Python 3.15 (PR #1016), thanks to edgarrmondragon.
+
 Version 2.4.0 - 2026-08-31 - Mikhail Terekhov
 =============================================
 
@@ -625,11 +636,3 @@ General
 - Fix datetime conversion for BCP operations and build on Windows (PR #1015).
 - Update to latest OpenSSL version on Windows (currently 4.0.2).
 - Update FreeTDS to 1.5.19 for wheels.
-
-Version 2.3.13 - 2026-02-13 - Mikhail Terekhov
-==============================================
-
-General
--------
-
-- Fix type stubs with generics, overloads, and corrected types, thanks to jacks0n.

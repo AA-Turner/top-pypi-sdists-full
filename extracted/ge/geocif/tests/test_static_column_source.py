@@ -26,7 +26,7 @@ def test_every_static_column_maps_to_an_eo_model_dataset():
 
 def test_sources_are_the_literal_eo_model_names():
     """geoprepare dispatches on these exact strings (extract_EO.py)."""
-    assert set(di.STATIC_COLUMN_SOURCE.values()) == {"aridity", "soilgrids"}
+    assert set(di.STATIC_COLUMN_SOURCE.values()) == {"aridity", "soilgrids", "pi"}
 
 
 def test_soil_columns_map_to_soilgrids():
@@ -36,6 +36,10 @@ def test_soil_columns_map_to_soilgrids():
 
 def test_aridity_column_maps_to_aridity():
     assert di.STATIC_COLUMN_SOURCE["aridity"] == "aridity"
+
+
+def test_pi_column_maps_to_pi():
+    assert di.STATIC_COLUMN_SOURCE["pi"] == "pi"
 
 
 def test_source_map_is_derived_not_hardcoded():

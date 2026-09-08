@@ -40,9 +40,7 @@ def packages_distributions() -> Mapping[str, list[str]]: ...
 
 class PackageNotFoundError(ModuleNotFoundError):
     @property
-    def name(self) -> str:
-        """module name"""
-        ...
+    def name(self) -> str: ...  # type: ignore[override]
 
 if sys.version_info >= (3, 15):
     class MetadataNotFound(FileNotFoundError): ...

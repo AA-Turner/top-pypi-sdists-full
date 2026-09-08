@@ -116,6 +116,68 @@ class AdCampaignsResource:
         )
         return self._client._get("/v1/ads", params=params)
 
+    def list_bid_strategies(
+        self,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> dict[str, Any]:
+        """List Google Ads portfolio bid strategies"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+        return self._client._get("/v1/ads/bid-strategies", params=params)
+
+    def create_bid_strategy(
+        self,
+        account_id: str,
+        name: str,
+        type: str,
+        *,
+        customer_id: str | None = None,
+        target_cpa: float | None = None,
+        target_roas: float | None = None,
+    ) -> dict[str, Any]:
+        """Create a Google Ads portfolio bid strategy"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            name=name,
+            type=type,
+            target_cpa=target_cpa,
+            target_roas=target_roas,
+        )
+        return self._client._post("/v1/ads/bid-strategies", data=payload)
+
+    def update_bid_strategy(
+        self,
+        strategy_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        target_cpa: float | None = None,
+        target_roas: float | None = None,
+    ) -> dict[str, Any]:
+        """Update a Google Ads portfolio bid strategy"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            name=name,
+            type=type,
+            target_cpa=target_cpa,
+            target_roas=target_roas,
+        )
+        return self._client._patch(
+            f"/v1/ads/bid-strategies/{strategy_id}", data=payload
+        )
+
     def list_ad_keywords(
         self,
         *,
@@ -146,6 +208,34 @@ class AdCampaignsResource:
             search=search,
         )
         return self._client._get("/v1/ads/keywords", params=params)
+
+    def add_ad_keywords(
+        self,
+        account_id: str,
+        ad_set_id: str,
+        keywords: list[Any],
+        *,
+        negative: bool | None = False,
+    ) -> dict[str, Any]:
+        """Add Search keywords to an ad group"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_set_id=ad_set_id,
+            keywords=keywords,
+            negative=negative,
+        )
+        return self._client._post("/v1/ads/keywords", data=payload)
+
+    def update_ad_keyword(self, keyword_id: str, status: str) -> dict[str, Any]:
+        """Pause or enable a Search keyword"""
+        payload = self._build_payload(
+            status=status,
+        )
+        return self._client._patch(f"/v1/ads/keywords/{keyword_id}", data=payload)
+
+    def remove_ad_keyword(self, keyword_id: str) -> dict[str, Any]:
+        """Remove a Search keyword"""
+        return self._client._delete(f"/v1/ads/keywords/{keyword_id}")
 
     def list_ad_campaigns(
         self,
@@ -199,6 +289,7 @@ class AdCampaignsResource:
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        portfolio_bid_strategy_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a standalone campaign"""
         payload = self._build_payload(
@@ -213,6 +304,7 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            portfolio_bid_strategy_id=portfolio_bid_strategy_id,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -231,6 +323,24 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/status", data=payload
         )
 
+    def get_campaign_bidding(
+        self,
+        campaign_id: str,
+        account_id: str,
+        platform: str,
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Read a campaign's current bidding"""
+        params = self._build_params(
+            account_id=account_id,
+            platform=platform,
+            customer_id=customer_id,
+        )
+        return self._client._get(
+            f"/v1/ads/campaigns/{campaign_id}/bidding", params=params
+        )
+
     def update_ad_campaign(
         self,
         campaign_id: str,
@@ -240,6 +350,7 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        portfolio_bid_strategy_id: str | None = None,
         budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -251,6 +362,7 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            portfolio_bid_strategy_id=portfolio_bid_strategy_id,
             budget=budget,
             name=name,
             platform_specific_data=platform_specific_data,
@@ -262,6 +374,29 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Delete a campaign"""
         return self._client._delete(f"/v1/ads/campaigns/{campaign_id}")
+
+    def list_campaign_negative_keywords(
+        self, campaign_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """List campaign-level negative keywords"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return self._client._get(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keywords", params=params
+        )
+
+    def replace_campaign_negative_keywords(
+        self, campaign_id: str, keywords: list[Any], *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Replace campaign-level negative keywords"""
+        payload = self._build_payload(
+            platform=platform,
+            keywords=keywords,
+        )
+        return self._client._put(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keywords", data=payload
+        )
 
     def bulk_update_ad_campaign_status(
         self, status: str, campaigns: list[dict[str, Any]]
@@ -306,6 +441,69 @@ class AdCampaignsResource:
         return self._client._post(
             f"/v1/ads/campaigns/{campaign_id}/duplicate", data=payload, headers=headers
         )
+
+    def get_campaign_targeting(
+        self, campaign_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Read a Google campaign's device, location, and language targeting"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return self._client._get(
+            f"/v1/ads/campaigns/{campaign_id}/targeting", params=params
+        )
+
+    def update_campaign_targeting(
+        self, campaign_id: str, platform: str, targeting: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Edit a Google campaign's device, location, or language targeting"""
+        payload = self._build_payload(
+            platform=platform,
+            targeting=targeting,
+        )
+        return self._client._put(
+            f"/v1/ads/campaigns/{campaign_id}/targeting", data=payload
+        )
+
+    def list_ad_sets(
+        self,
+        *,
+        account_id: str | None = None,
+        campaign_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """List ad sets"""
+        params = self._build_params(
+            account_id=account_id,
+            campaign_id=campaign_id,
+            platform=platform,
+        )
+        return self._client._get("/v1/ads/ad-sets", params=params)
+
+    def create_ad_set(
+        self,
+        account_id: str,
+        platform: str,
+        campaign_id: str,
+        name: str,
+        *,
+        idempotency_key: str | None = None,
+        status: str | None = "PAUSED",
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a standalone ad group"""
+        payload = self._build_payload(
+            account_id=account_id,
+            platform=platform,
+            campaign_id=campaign_id,
+            name=name,
+            status=status,
+            customer_id=customer_id,
+        )
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return self._client._post("/v1/ads/ad-sets", data=payload, headers=headers)
 
     def duplicate_ad_set(
         self,
@@ -692,8 +890,9 @@ class AdCampaignsResource:
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
-        keywords: list[str] | None = None,
-        negative_keywords: list[str] | None = None,
+        keywords: list[Any] | None = None,
+        negative_keywords: list[Any] | None = None,
+        campaign_negative_keywords: list[Any] | None = None,
         additional_headlines: list[str] | None = None,
         additional_descriptions: list[str] | None = None,
         sitelinks: list[dict[str, Any]] | None = None,
@@ -705,6 +904,7 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        portfolio_bid_strategy_id: str | None = None,
         value_rule_set_id: str | None = None,
         value_rules_applied: bool | None = None,
         platform_specific_data: Any | None = None,
@@ -793,6 +993,7 @@ class AdCampaignsResource:
             campaign_type=campaign_type,
             keywords=keywords,
             negative_keywords=negative_keywords,
+            campaign_negative_keywords=campaign_negative_keywords,
             additional_headlines=additional_headlines,
             additional_descriptions=additional_descriptions,
             sitelinks=sitelinks,
@@ -804,6 +1005,7 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            portfolio_bid_strategy_id=portfolio_bid_strategy_id,
             value_rule_set_id=value_rule_set_id,
             value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,
@@ -857,6 +1059,68 @@ class AdCampaignsResource:
         )
         return await self._client._aget("/v1/ads", params=params)
 
+    async def alist_bid_strategies(
+        self,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> dict[str, Any]:
+        """List Google Ads portfolio bid strategies (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            customer_id=customer_id,
+            from_date=from_date,
+            to_date=to_date,
+        )
+        return await self._client._aget("/v1/ads/bid-strategies", params=params)
+
+    async def acreate_bid_strategy(
+        self,
+        account_id: str,
+        name: str,
+        type: str,
+        *,
+        customer_id: str | None = None,
+        target_cpa: float | None = None,
+        target_roas: float | None = None,
+    ) -> dict[str, Any]:
+        """Create a Google Ads portfolio bid strategy (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            name=name,
+            type=type,
+            target_cpa=target_cpa,
+            target_roas=target_roas,
+        )
+        return await self._client._apost("/v1/ads/bid-strategies", data=payload)
+
+    async def aupdate_bid_strategy(
+        self,
+        strategy_id: str,
+        account_id: str,
+        *,
+        customer_id: str | None = None,
+        name: str | None = None,
+        type: str | None = None,
+        target_cpa: float | None = None,
+        target_roas: float | None = None,
+    ) -> dict[str, Any]:
+        """Update a Google Ads portfolio bid strategy (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            customer_id=customer_id,
+            name=name,
+            type=type,
+            target_cpa=target_cpa,
+            target_roas=target_roas,
+        )
+        return await self._client._apatch(
+            f"/v1/ads/bid-strategies/{strategy_id}", data=payload
+        )
+
     async def alist_ad_keywords(
         self,
         *,
@@ -887,6 +1151,36 @@ class AdCampaignsResource:
             search=search,
         )
         return await self._client._aget("/v1/ads/keywords", params=params)
+
+    async def aadd_ad_keywords(
+        self,
+        account_id: str,
+        ad_set_id: str,
+        keywords: list[Any],
+        *,
+        negative: bool | None = False,
+    ) -> dict[str, Any]:
+        """Add Search keywords to an ad group (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_set_id=ad_set_id,
+            keywords=keywords,
+            negative=negative,
+        )
+        return await self._client._apost("/v1/ads/keywords", data=payload)
+
+    async def aupdate_ad_keyword(self, keyword_id: str, status: str) -> dict[str, Any]:
+        """Pause or enable a Search keyword (async)"""
+        payload = self._build_payload(
+            status=status,
+        )
+        return await self._client._apatch(
+            f"/v1/ads/keywords/{keyword_id}", data=payload
+        )
+
+    async def aremove_ad_keyword(self, keyword_id: str) -> dict[str, Any]:
+        """Remove a Search keyword (async)"""
+        return await self._client._adelete(f"/v1/ads/keywords/{keyword_id}")
 
     async def alist_ad_campaigns(
         self,
@@ -940,6 +1234,7 @@ class AdCampaignsResource:
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        portfolio_bid_strategy_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a standalone campaign (async)"""
         payload = self._build_payload(
@@ -954,6 +1249,7 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            portfolio_bid_strategy_id=portfolio_bid_strategy_id,
         )
         headers: dict[str, str] = {}
         if idempotency_key is not None:
@@ -974,6 +1270,24 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/status", data=payload
         )
 
+    async def aget_campaign_bidding(
+        self,
+        campaign_id: str,
+        account_id: str,
+        platform: str,
+        *,
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Read a campaign's current bidding (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            platform=platform,
+            customer_id=customer_id,
+        )
+        return await self._client._aget(
+            f"/v1/ads/campaigns/{campaign_id}/bidding", params=params
+        )
+
     async def aupdate_ad_campaign(
         self,
         campaign_id: str,
@@ -983,6 +1297,7 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        portfolio_bid_strategy_id: str | None = None,
         budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
@@ -994,6 +1309,7 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            portfolio_bid_strategy_id=portfolio_bid_strategy_id,
             budget=budget,
             name=name,
             platform_specific_data=platform_specific_data,
@@ -1007,6 +1323,29 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Delete a campaign (async)"""
         return await self._client._adelete(f"/v1/ads/campaigns/{campaign_id}")
+
+    async def alist_campaign_negative_keywords(
+        self, campaign_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """List campaign-level negative keywords (async)"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return await self._client._aget(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keywords", params=params
+        )
+
+    async def areplace_campaign_negative_keywords(
+        self, campaign_id: str, keywords: list[Any], *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Replace campaign-level negative keywords (async)"""
+        payload = self._build_payload(
+            platform=platform,
+            keywords=keywords,
+        )
+        return await self._client._aput(
+            f"/v1/ads/campaigns/{campaign_id}/negative-keywords", data=payload
+        )
 
     async def abulk_update_ad_campaign_status(
         self, status: str, campaigns: list[dict[str, Any]]
@@ -1050,6 +1389,71 @@ class AdCampaignsResource:
             headers["Idempotency-Key"] = idempotency_key
         return await self._client._apost(
             f"/v1/ads/campaigns/{campaign_id}/duplicate", data=payload, headers=headers
+        )
+
+    async def aget_campaign_targeting(
+        self, campaign_id: str, *, platform: str | None = None
+    ) -> dict[str, Any]:
+        """Read a Google campaign's device, location, and language targeting (async)"""
+        params = self._build_params(
+            platform=platform,
+        )
+        return await self._client._aget(
+            f"/v1/ads/campaigns/{campaign_id}/targeting", params=params
+        )
+
+    async def aupdate_campaign_targeting(
+        self, campaign_id: str, platform: str, targeting: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Edit a Google campaign's device, location, or language targeting (async)"""
+        payload = self._build_payload(
+            platform=platform,
+            targeting=targeting,
+        )
+        return await self._client._aput(
+            f"/v1/ads/campaigns/{campaign_id}/targeting", data=payload
+        )
+
+    async def alist_ad_sets(
+        self,
+        *,
+        account_id: str | None = None,
+        campaign_id: str | None = None,
+        platform: str | None = None,
+    ) -> dict[str, Any]:
+        """List ad sets (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            campaign_id=campaign_id,
+            platform=platform,
+        )
+        return await self._client._aget("/v1/ads/ad-sets", params=params)
+
+    async def acreate_ad_set(
+        self,
+        account_id: str,
+        platform: str,
+        campaign_id: str,
+        name: str,
+        *,
+        idempotency_key: str | None = None,
+        status: str | None = "PAUSED",
+        customer_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a standalone ad group (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            platform=platform,
+            campaign_id=campaign_id,
+            name=name,
+            status=status,
+            customer_id=customer_id,
+        )
+        headers: dict[str, str] = {}
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
+        return await self._client._apost(
+            "/v1/ads/ad-sets", data=payload, headers=headers
         )
 
     async def aduplicate_ad_set(
@@ -1439,8 +1843,9 @@ class AdCampaignsResource:
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
-        keywords: list[str] | None = None,
-        negative_keywords: list[str] | None = None,
+        keywords: list[Any] | None = None,
+        negative_keywords: list[Any] | None = None,
+        campaign_negative_keywords: list[Any] | None = None,
         additional_headlines: list[str] | None = None,
         additional_descriptions: list[str] | None = None,
         sitelinks: list[dict[str, Any]] | None = None,
@@ -1452,6 +1857,7 @@ class AdCampaignsResource:
         bid_strategy: Any | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
+        portfolio_bid_strategy_id: str | None = None,
         value_rule_set_id: str | None = None,
         value_rules_applied: bool | None = None,
         platform_specific_data: Any | None = None,
@@ -1540,6 +1946,7 @@ class AdCampaignsResource:
             campaign_type=campaign_type,
             keywords=keywords,
             negative_keywords=negative_keywords,
+            campaign_negative_keywords=campaign_negative_keywords,
             additional_headlines=additional_headlines,
             additional_descriptions=additional_descriptions,
             sitelinks=sitelinks,
@@ -1551,6 +1958,7 @@ class AdCampaignsResource:
             bid_strategy=bid_strategy,
             bid_amount=bid_amount,
             roas_average_floor=roas_average_floor,
+            portfolio_bid_strategy_id=portfolio_bid_strategy_id,
             value_rule_set_id=value_rule_set_id,
             value_rules_applied=value_rules_applied,
             platform_specific_data=platform_specific_data,

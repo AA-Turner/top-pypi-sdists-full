@@ -62,6 +62,8 @@ from .type_defs import (
     DeleteABTestResponseTypeDef,
     DeleteBatchEvaluationRequestTypeDef,
     DeleteBatchEvaluationResponseTypeDef,
+    DeleteCapacityProviderSessionRequestTypeDef,
+    DeleteCapacityProviderSessionResponseTypeDef,
     DeleteEventInputTypeDef,
     DeleteEventOutputTypeDef,
     DeleteMemoryRecordInputTypeDef,
@@ -193,6 +195,7 @@ class Exceptions(BaseClientExceptions):
     RuntimeClientError: type[BotocoreClientError]
     ServiceException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
+    SubscriptionRequiredException: type[BotocoreClientError]
     ThrottledException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     UnauthorizedException: type[BotocoreClientError]
@@ -335,6 +338,17 @@ class BedrockAgentCoreClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_batch_evaluation.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#delete_batch_evaluation)
+        """
+
+    async def delete_capacity_provider_session(
+        self, **kwargs: Unpack[DeleteCapacityProviderSessionRequestTypeDef]
+    ) -> DeleteCapacityProviderSessionResponseTypeDef:
+        """
+        Deletes a session associated with a capacity provider in Amazon Bedrock
+        AgentCore and makes the session unavailable for further use.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_capacity_provider_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/client/#delete_capacity_provider_session)
         """
 
     async def delete_event(

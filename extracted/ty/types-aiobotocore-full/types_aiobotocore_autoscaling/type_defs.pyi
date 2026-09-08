@@ -218,6 +218,7 @@ __all__ = (
     "NetworkBandwidthGbpsRequestTypeDef",
     "NetworkInterfaceCountRequestTypeDef",
     "NotificationConfigurationTypeDef",
+    "OperatorTypeDef",
     "PaginatorConfigTypeDef",
     "PerformanceFactorReferenceRequestTypeDef",
     "PoliciesTypeTypeDef",
@@ -376,6 +377,9 @@ class LaunchTemplateSpecificationTypeDef(TypedDict):
     LaunchTemplateId: NotRequired[str]
     LaunchTemplateName: NotRequired[str]
     Version: NotRequired[str]
+
+class OperatorTypeDef(TypedDict):
+    Principal: str
 
 class SuspendedProcessTypeDef(TypedDict):
     ProcessName: NotRequired[str]
@@ -781,8 +785,10 @@ class SetInstanceProtectionQueryTypeDef(TypedDict):
     ProtectedFromScaleIn: bool
 
 class TerminateInstanceInAutoScalingGroupTypeTypeDef(TypedDict):
-    InstanceId: str
     ShouldDecrementDesiredCapacity: bool
+    InstanceId: NotRequired[str]
+    InstanceIds: NotRequired[Sequence[str]]
+    AutoScalingGroupName: NotRequired[str]
 
 class ActivitiesTypeTypeDef(TypedDict):
     Activities: list[ActivityTypeDef]
@@ -791,6 +797,7 @@ class ActivitiesTypeTypeDef(TypedDict):
 
 class ActivityTypeTypeDef(TypedDict):
     Activity: ActivityTypeDef
+    Activities: list[ActivityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CancelInstanceRefreshAnswerTypeDef(TypedDict):
@@ -1498,6 +1505,7 @@ class AutoScalingGroupTypeDef(TypedDict):
     AvailabilityZoneImpairmentPolicy: NotRequired[AvailabilityZoneImpairmentPolicyTypeDef]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationOutputTypeDef]
     InstanceLifecyclePolicy: NotRequired[InstanceLifecyclePolicyTypeDef]
+    Operator: NotRequired[OperatorTypeDef]
 
 class DesiredConfigurationOutputTypeDef(TypedDict):
     LaunchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
@@ -1599,6 +1607,7 @@ class CreateAutoScalingGroupTypeTypeDef(TypedDict):
     SkipZonalShiftValidation: NotRequired[bool]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationUnionTypeDef]
     InstanceLifecyclePolicy: NotRequired[InstanceLifecyclePolicyTypeDef]
+    Operator: NotRequired[OperatorTypeDef]
 
 class UpdateAutoScalingGroupTypeTypeDef(TypedDict):
     AutoScalingGroupName: str

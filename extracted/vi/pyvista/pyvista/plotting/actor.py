@@ -12,6 +12,7 @@ from pyvista import _vtk
 from pyvista._deprecate_positional_args import _deprecate_positional_args
 from pyvista._warn_external import warn_external
 
+from ._property import _HAS_NATIVE_POINT_SHAPES
 from ._property import Property
 from .opts import PointSpriteShape
 from .opts import ShaderType
@@ -174,6 +175,7 @@ class Actor(Prop3D, _vtk.vtkActor):
         self._point_sprite_shape: str | None = None
         self._point_sprite_applied: str | None = None
         self._point_sprite_observer: int | None = None
+        self._camera_distortion_state: tuple[tuple[float, ...], tuple[float, float]] | None = None
 
     @property
     def mapper(self) -> _BaseMapper:  # numpydoc ignore=RT01
@@ -528,10 +530,6 @@ class Actor(Prop3D, _vtk.vtkActor):
         pyvista.Property
             The object describing backfaces.
 
-        See Also
-        --------
-        :ref:`backface_prop_example`
-
         Examples
         --------
         Clip a sphere by a plane and color the inside of the clipped sphere
@@ -588,7 +586,7 @@ class Actor(Prop3D, _vtk.vtkActor):
             or ``'geometry'``.
 
         original : str
-            The VTK shader tag to replace (e.g., ``'//VTK::Color::Impl'``).
+            The VTK shader tag to replace (for example, ``'//VTK::Color::Impl'``).
 
         replacement : str
             The GLSL replacement code.
@@ -754,10 +752,6 @@ class Actor(Prop3D, _vtk.vtkActor):
         ``opacity < 1`` unless depth peeling is enabled. See
         :func:`pyvista.Plotter.enable_depth_peeling`.
 
-        See Also
-        --------
-        :ref:`maximum_intensity_projection_example`
-
         References
         ----------
         Cowan, E.J., 2014. 'X-ray Plunge Projection' - Understanding
@@ -779,10 +773,6 @@ class Actor(Prop3D, _vtk.vtkActor):
         >>> actor.enable_maximum_intensity_projection()
 
         """
-        if pv.vtk_version_info < (9, 3):
-            msg = 'Maximum intensity projection requires VTK >= 9.3.'
-            raise RuntimeError(msg)
-
         if clim is not None:
             min_val, max_val = float(clim[0]), float(clim[1])
         else:
@@ -855,6 +845,28 @@ class Actor(Prop3D, _vtk.vtkActor):
         """
         self.clear_shader_replacements(_feature_name='mip')
 
+    @property
+    def point_sprite_shape(self) -> str:  # numpydoc ignore=RT01
+        """Return the requested point shape, including ``'square'``.
+
+        The shape is retained when another representation or sphere rendering
+        makes it inactive.
+
+        .. versionadded:: 0.49
+
+        Examples
+        --------
+        >>> import pyvista as pv
+        >>> actor = pv.Actor()
+        >>> actor.set_point_sprite_shape('circle')
+        >>> actor.point_sprite_shape
+        'circle'
+
+        """
+        if _HAS_NATIVE_POINT_SHAPES:
+            return self.prop.point_shape
+        return self._point_sprite_shape or 'square'
+
     def set_point_sprite_shape(self, shape: PointSpriteShape | str) -> None:
         """Set a custom point sprite shape via fragment shader.
 
@@ -864,15 +876,12 @@ class Actor(Prop3D, _vtk.vtkActor):
         defined by a GLSL fragment shader. This uses the ``discard``
         instruction to clip fragments outside the desired shape boundary.
 
-        The chosen shape is **persisted on the actor** and is only
-        injected into the fragment shader while the actor's
-        :attr:`~pyvista.Property.style` is ``'points'``. When the style
-        is ``'surface'`` or ``'wireframe'`` the shader replacement is
-        transparently removed, because the underlying GLSL relies on
-        ``gl_PointCoord`` which is undefined for non-point primitives
-        and would otherwise corrupt the rendering. Switching
-        ``prop.style`` back to ``'points'`` later will re-install the
-        shader automatically.
+        With native point-shape support, the shape is stored on
+        :attr:`pyvista.Property.point_shape` and applies to point primitives
+        in every representation, including vertex cells in surfaces.
+        Sphere rendering takes precedence while enabled. Older backends use
+        a shader replacement active only in ``'points'`` representation.
+        The requested shape can be read from :attr:`point_sprite_shape`.
 
         Parameters
         ----------
@@ -925,6 +934,9 @@ class Actor(Prop3D, _vtk.vtkActor):
             msg = f'Invalid point sprite shape {shape!r}. Must be one of: {valid}'
             raise ValueError(msg)
 
+        if _HAS_NATIVE_POINT_SHAPES:
+            self.prop.point_shape = shape
+            return
         self._point_sprite_shape = shape.value if isinstance(shape, PointSpriteShape) else shape
         self._install_point_sprite_observer()
         self._sync_point_sprite_shader()
@@ -949,6 +961,9 @@ class Actor(Prop3D, _vtk.vtkActor):
         >>> actor.clear_point_sprite_shape()
 
         """
+        if _HAS_NATIVE_POINT_SHAPES:
+            self.prop.point_shape = 'square'
+            return
         self._point_sprite_shape = None
         if self._point_sprite_observer is not None:
             self.prop.RemoveObserver(self._point_sprite_observer)
@@ -990,10 +1005,10 @@ class Actor(Prop3D, _vtk.vtkActor):
         """Install, update, or remove the point sprite shader replacement.
 
         The replacement is only active while the representation is
-        ``'Points'`` — for any other representation the ``gl_PointCoord``
+        ``'Points'``—for any other representation the ``gl_PointCoord``
         built-in is undefined and would otherwise corrupt fragment output.
-        Tracks the currently-applied shape (rather than a boolean) so
-        that unrelated property modifications (color, opacity, ...) do
+        Tracks the currently applied shape (rather than a boolean) so
+        that unrelated property modifications (color, opacity, and so on) do
         not repeatedly rebuild the shader, while still honoring real
         shape changes and representation transitions.
         """

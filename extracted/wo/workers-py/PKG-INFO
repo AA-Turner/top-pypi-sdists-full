@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: workers-py
-Version: 1.17.1
+Version: 1.17.2
 Summary: A set of libraries and tools for Python Workers
 Project-URL: Homepage, https://github.com/cloudflare/workers-py
 Project-URL: Bug Tracker, https://github.com/cloudflare/workers-py/issues

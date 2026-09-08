@@ -6,13 +6,16 @@ import uuid
 
 
 class InMemoryTaskQueue:
-    """Actor-style in-memory queue with delayed retry support."""
+    """In-memory task queue with delayed retry support."""
 
     def __init__(self, *, stop_event: Optional[asyncio.Event] = None):
         self._queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._pending_delays = 0
         self._pending_tasks: set[asyncio.Task] = set()
         self._stop_event = stop_event
+        # Workers that hold a task now. An idle worker must not exit while one of these can still enqueue a
+        # continuation; the run ends only when the queue is empty, no delay waits, and this set is empty.
+        self._active_workers: set[str] = set()
 
     async def enqueue(self, tasks: list[dict]) -> None:
         for task in tasks:
@@ -22,19 +25,26 @@ class InMemoryTaskQueue:
             await self._queue.put(task)
 
     async def lease(self, worker_id: str) -> Optional[dict]:
+        # The worker asks for the next task, so it no longer holds its previous one.
+        self._active_workers.discard(worker_id)
         while True:
             if self._stop_event and self._stop_event.is_set():
                 return None
             try:
                 task = self._queue.get_nowait()
             except asyncio.QueueEmpty:
-                if self._queue.empty() and self._pending_delays == 0:
+                if self._queue.empty() and self._pending_delays == 0 and not self._active_workers:
                     return None
                 await asyncio.sleep(0.05)
                 continue
+            self._active_workers.add(worker_id)
             task["lease_id"] = task.get("lease_id") or str(uuid.uuid4())
             task["lease_worker_id"] = worker_id
             return task
+
+    def release_worker(self, worker_id: str) -> None:
+        """Drop an exiting worker from the active set, or the other workers wait for ever for it."""
+        self._active_workers.discard(worker_id)
 
     async def ack(self, task: dict, stats: Optional[dict] = None) -> bool:
         if stats:

@@ -15,6 +15,7 @@ Usage::
         FeedDeletedWaiter,
         ListDictionariesPaginator,
         ListFeedsPaginator,
+        SearchFixturesPaginator,
     )
 
     session = get_session()
@@ -27,11 +28,12 @@ Usage::
 
     list_dictionaries_paginator: ListDictionariesPaginator = client.get_paginator("list_dictionaries")
     list_feeds_paginator: ListFeedsPaginator = client.get_paginator("list_feeds")
+    search_fixtures_paginator: SearchFixturesPaginator = client.get_paginator("search_fixtures")
     ```
 """
 
 from .client import ElementalInferenceClient
-from .paginator import ListDictionariesPaginator, ListFeedsPaginator
+from .paginator import ListDictionariesPaginator, ListFeedsPaginator, SearchFixturesPaginator
 from .waiter import FeedDeletedWaiter
 
 Client = ElementalInferenceClient
@@ -43,4 +45,5 @@ __all__ = (
     "FeedDeletedWaiter",
     "ListDictionariesPaginator",
     "ListFeedsPaginator",
+    "SearchFixturesPaginator",
 )

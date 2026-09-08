@@ -20,6 +20,7 @@ import difflib
 import fnmatch
 import functools
 import importlib.machinery
+import importlib.resources
 import io
 import itertools
 import json
@@ -55,8 +56,6 @@ import mesonpy._tags
 import mesonpy._util
 import mesonpy._wheelfile
 
-from mesonpy._compat import read_binary
-
 
 try:
     from packaging.licenses import InvalidLicenseExpression, canonicalize_license_expression
@@ -73,30 +72,34 @@ except ImportError:
 
 
 if typing.TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Collection, Iterator, Mapping
     from typing import Any, Callable, DefaultDict, Dict, List, Literal, Optional, Sequence, TextIO, Tuple, Type, TypeVar, Union
 
-    from mesonpy._compat import Collection, Iterator, Mapping, ParamSpec, Path, Self
+    from typing_extensions import ParamSpec, Self
 
     P = ParamSpec('P')
     T = TypeVar('T')
 
     MesonArgsKeys = Literal['dist', 'setup', 'compile', 'install']
     MesonArgs = Mapping[MesonArgsKeys, List[str]]
+    Path = Union[str, os.PathLike[str]]
 
 
-__version__ = '0.20.0'
+__version__ = '0.21.0'
 
 
 _PYPROJECT_METADATA_VERSION = tuple(map(int, pyproject_metadata.__version__.split('.')[:2]))
 _SUPPORTED_DYNAMIC_FIELDS = {'version', } if _PYPROJECT_METADATA_VERSION < (0, 9) else {'version', 'license', 'license-files'}
 
 _NINJA_REQUIRED_VERSION = '1.8.2'
-_MESON_REQUIRED_VERSION = '0.63.3' # keep in sync with the version requirement in pyproject.toml
+
+# Keep in sync with the version requirement in pyproject.toml
+_MESON_REQUIRED_VERSION = '0.64.0' if sys.version_info < (3, 12) else '1.2.3'
 
 _MESON_ARGS_KEYS = ['dist', 'setup', 'compile', 'install']
 
 _SUFFIXES = importlib.machinery.all_suffixes()
-_EXTENSION_SUFFIX_REGEX = re.compile(r'^[^.]+\.(?:(?P<abi>[^.]+)\.)?(?:so|pyd|dll)$')
+_EXTENSION_SUFFIX_REGEX = re.compile(r'^[^.]+\.(?:(?P<abi>[^.-]+)(?:-[^.]+)?\.)?(?:so|pyd|dll)$')
 assert all(re.match(_EXTENSION_SUFFIX_REGEX, f'foo{x}') for x in importlib.machinery.EXTENSION_SUFFIXES)
 
 # Map Meson installation path placeholders to wheel installation paths.
@@ -172,7 +175,7 @@ def _map_to_wheel(
                         relpath = os.path.relpath(dirsrc, src)
                         if relpath in exclude_dirs:
                             dirnames.remove(name)
-                    # sort to process directories determninistically
+                    # sort to process directories deterministically
                     dirnames.sort()
                     for name in sorted(filenames):
                         filesrc = os.path.join(root, name)
@@ -199,7 +202,7 @@ class style:
         return re.sub(r'\033\[[;?0-9]*[a-zA-Z]', '', string)
 
 
-@functools.lru_cache()
+@functools.cache
 def _use_ansi_escapes() -> bool:
     """Determine whether logging should use ANSI escapes."""
 
@@ -207,7 +210,7 @@ def _use_ansi_escapes() -> bool:
     # names containing characters that cannot be represented in the
     # stdout encoding. Use replacement markers for those instead than
     # raising UnicodeEncodeError.
-    sys.stdout.reconfigure(errors='replace')  # type: ignore[attr-defined]
+    sys.stdout.reconfigure(errors='replace')  # type: ignore[union-attr]
 
     if 'NO_COLOR' in os.environ:
         return False
@@ -220,7 +223,7 @@ def _use_ansi_escapes() -> bool:
     return False
 
 
-def _log(string: str , **kwargs: Any) -> None:
+def _log(string: str, **kwargs: Any) -> None:
     if not _use_ansi_escapes():
         string = style.strip(string)
     print(string, **kwargs)
@@ -426,6 +429,13 @@ class _WheelBuilder():
         # not use the stable ABI filename suffix and wheels should not
         # be tagged with the abi3 tag.
         if self._limited_api and '__pypy__' not in sys.builtin_module_names:
+            # On free-threaded Python 3.15 or later, we expect to be
+            # building 'abi3t' wheels for the time being. In the future
+            # we will want an option to target 'abi3t' from GIL-enabled
+            # Python too.
+            abi3t = bool(sysconfig.get_config_var('Py_GIL_DISABLED')) and sys.version_info >= (3, 15)
+            expected_abi = 'abi3t' if abi3t else 'abi3'
+
             # Verify stable ABI compatibility: examine files installed
             # in {platlib} that look like extension modules, and raise
             # an exception if any of them has a Python version
@@ -434,11 +444,11 @@ class _WheelBuilder():
                 match = _EXTENSION_SUFFIX_REGEX.match(entry.dst.name)
                 if match:
                     abi = match.group('abi')
-                    if abi is not None and abi != 'abi3':
+                    if abi is not None and abi != expected_abi:
                         raise BuildError(
                             f'The package declares compatibility with Python limited API but extension '
                             f'module {os.fspath(entry.dst)!r} is tagged for a specific Python version.')
-            return 'abi3'
+            return 'abi3.abi3t' if abi3t else 'abi3'
         return None
 
     def _install_path(self, wheel_file: mesonpy._wheelfile.WheelFile, origin: Path, destination: pathlib.Path) -> None:
@@ -452,7 +462,7 @@ class _WheelBuilder():
                         'setting the DLL load path or preloading. See the documentation for '
                         'the "tool.meson-python.allow-windows-internal-shared-libs" option.')
 
-                # When an executable, libray, or Python extension module is
+                # When an executable, library, or Python extension module is
                 # dynamically linked to a library built as part of the project,
                 # Meson adds a library load path to it pointing to the build
                 # directory, in the form of a relative RPATH entry. meson-python
@@ -537,27 +547,34 @@ class _EditableWheelBuilder(_WheelBuilder):
         wheel_file = pathlib.Path(directory, f'{self.name}.whl')
         with mesonpy._wheelfile.WheelFile(wheel_file, 'w') as whl:
             self._wheel_write_metadata(whl)
-            whl.writestr(
-                f'{self._distinfo_dir}/direct_url.json',
-                source_dir.as_uri().encode('utf-8'))
 
             # install loader module
             loader_module_name = f'_{self._metadata.distribution_name}_editable_loader'
             whl.writestr(
                 f'{loader_module_name}.py',
-                read_binary('mesonpy', '_editable.py') + textwrap.dedent(f'''
-                   install(
-                       {self._metadata.name!r},
-                       {self._top_level_modules!r},
-                       {os.fspath(build_dir)!r},
-                       {build_command!r},
-                       {verbose!r},
-                   )''').encode('utf-8'))
+                importlib.resources.files('mesonpy').joinpath('_editable.py').read_bytes() + textwrap.dedent(f'''
+                   def init():
+                       finder = MesonpyMetaFinder(
+                           {self._metadata.name!r},
+                           {self._top_level_modules!r},
+                           {os.fspath(build_dir)!r},
+                           {build_command!r},
+                           {verbose!r},
+                       )
+                       sys.meta_path.insert(0, finder)
+                       sys.path_hooks.insert(0, finder._path_hook)
+                   ''').encode('utf-8'))
 
-            # install .pth file
-            whl.writestr(
-                f'{self._metadata.canonical_name}-editable.pth',
-                f'import {loader_module_name}'.encode('utf-8'))
+            if sys.version_info >= (3, 15):
+                # install .start file
+                whl.writestr(
+                    f'{self._metadata.canonical_name}-editable.start',
+                    f'{loader_module_name}:init'.encode('utf-8'))
+            else:
+                # install .pth file
+                whl.writestr(
+                    f'{self._metadata.canonical_name}-editable.pth',
+                    f'import {loader_module_name}; {loader_module_name}.init()'.encode('utf-8'))
 
         return wheel_file
 
@@ -591,7 +608,7 @@ def _validate_pyproject_config(pyproject: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(value, str):
             raise ConfigError(f'Configuration entry "{name}" must be a string')
         if os.path.isfile(value):
-            value = os.path.abspath(value)
+            return os.path.abspath(value)
         return value
 
     scheme = _table({
@@ -603,6 +620,7 @@ def _validate_pyproject_config(pyproject: Dict[str, Any]) -> Dict[str, Any]:
             'exclude': _strings,
             'include': _strings,
         }),
+        'editable-verbose': _bool,
     })
 
     table = pyproject.get('tool', {}).get('meson-python', {})
@@ -617,16 +635,26 @@ def _validate_config_settings(config_settings: Dict[str, Any]) -> Dict[str, Any]
             raise ConfigError(f'Only one value for "{name}" can be specified')
         return value
 
-    def _bool(value: Any, name: str) -> bool:
-        return True
+    def _empty_or_bool(value: Any, name: str) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            if value == 'false':
+                return False
+            if value == 'true':
+                return True
+            # For backward compatibility, treat a missing value as True.
+            if value == '':
+                return True
+        raise ConfigError(f'Invalid value for "{name}": {value!r}')
 
     def _string_or_strings(value: Any, name: str) -> List[str]:
-        return list([value,] if isinstance(value, str) else value)
+        return [value] if isinstance(value, str) else list(value)
 
     options = {
         'builddir': _string,
         'build-dir': _string,
-        'editable-verbose': _bool,
+        'editable-verbose': _empty_or_bool,
         'dist-args': _string_or_strings,
         'setup-args': _string_or_strings,
         'compile-args': _string_or_strings,
@@ -667,11 +695,10 @@ class Project():
         source_dir: Path,
         build_dir: Path,
         meson_args: Optional[MesonArgs] = None,
-        editable_verbose: bool = False,
+        editable_verbose: Optional[bool] = None,
     ) -> None:
         self._source_dir = pathlib.Path(source_dir).absolute()
         self._build_dir = pathlib.Path(build_dir).absolute()
-        self._editable_verbose = editable_verbose
         self._meson_native_file = self._build_dir / 'meson-python-native-file.ini'
         self._meson_cross_file = self._build_dir / 'meson-python-cross-file.ini'
         self._meson_args: MesonArgs = collections.defaultdict(list)
@@ -684,6 +711,12 @@ class Project():
         pyproject_config = _validate_pyproject_config(pyproject)
         for key, value in pyproject_config.get('args', {}).items():
             self._meson_args[key].extend(value)
+
+        # editable-verbose setting from build options takes precedence over
+        # setting in pyproject.toml
+        if editable_verbose is None:
+            editable_verbose = bool(pyproject_config.get('editable-verbose'))
+        self._editable_verbose = editable_verbose
 
         # meson arguments from the command line take precedence over
         # arguments from the configuration file thus are added later
@@ -874,10 +907,10 @@ class Project():
             if not allow_limited_api:
                 self._limited_api = False
 
-        if self._limited_api and bool(sysconfig.get_config_var('Py_GIL_DISABLED')):
+        if self._limited_api and bool(sysconfig.get_config_var('Py_GIL_DISABLED')) and sys.version_info < (3, 15):
             raise BuildError(
-                'The package targets Python\'s Limited API, which is not supported by free-threaded CPython. '
-                'The "python.allow_limited_api" Meson build option may be used to override the package default.')
+                'The package targets Python\'s Limited API, which is not supported by free-threaded CPython before version '
+                '3.15. The "python.allow_limited_api" Meson build option may be used to override the package default.')
 
         # Shared library support on Windows requires collaboration
         # from the package, make sure the developers acknowledge this.
@@ -932,12 +965,12 @@ class Project():
             return cmd
         return [self._ninja, *self._meson_args['compile']]
 
-    @functools.lru_cache(maxsize=None)
+    @functools.cache
     def build(self) -> None:
         """Build the Meson project."""
         self._run(self._build_command)
 
-    @functools.lru_cache()
+    @functools.cache
     def _info(self, name: str) -> Any:
         """Read info from meson-info directory."""
         info = self._build_dir.joinpath('meson-info', f'{name}.json')
@@ -1026,7 +1059,7 @@ class Project():
         meson_dist_name = f'{self._meson_name}-{meson_version}'
         meson_dist_path = pathlib.Path(self._build_dir, 'meson-dist', f'{meson_dist_name}.tar.gz')
         sdist_path = pathlib.Path(directory, f'{dist_name}.tar.gz')
-        pyproject_toml_mtime = 0
+        pyproject_toml_mtime: Union[int, float] = 0
 
         with tarfile.open(meson_dist_path, 'r:gz') as meson_dist, mesonpy._util.create_targz(sdist_path) as sdist:
             for member in meson_dist.getmembers():
@@ -1146,7 +1179,7 @@ def _project(config_settings: Optional[Dict[Any, Any]] = None) -> Iterator[Proje
     meson_args = typing.cast('MesonArgs', {name: settings.get(f'{name}-args', []) for name in _MESON_ARGS_KEYS})
     source_dir = os.path.curdir
     build_dir = settings.get('build-dir')
-    editable_verbose = bool(settings.get('editable-verbose'))
+    editable_verbose = settings.get('editable-verbose')
 
     with contextlib.ExitStack() as ctx:
         if build_dir is None:
@@ -1186,7 +1219,7 @@ def _get_meson_command(
     # The meson Python package is a dependency of the meson-python Python
     # package, however, it may occur that the meson Python package is installed
     # but the corresponding meson command is not available in $PATH. Implement
-    # a runtime check to verify that the build environment is setup correcly.
+    # a runtime check to verify that the build environment is setup correctly.
     try:
         r = subprocess.run(cmd + ['--version'], text=True, capture_output=True)
     except FileNotFoundError as err:

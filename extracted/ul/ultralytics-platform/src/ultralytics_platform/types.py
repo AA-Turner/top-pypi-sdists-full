@@ -496,6 +496,25 @@ DatasetsRetrieveResponseDatasetSourceVariant3 = TypedDict(
 )
 
 
+DatasetsRetrieveResponseDatasetKptSkeletonKeypointsItem = TypedDict(
+    "DatasetsRetrieveResponseDatasetKptSkeletonKeypointsItem",
+    {"name": str, "x": float, "y": float, "color": NotRequired[str]},
+)
+
+
+DatasetsRetrieveResponseDatasetKptSkeleton = TypedDict(
+    "DatasetsRetrieveResponseDatasetKptSkeleton",
+    {
+        "id": str,
+        "name": str,
+        "description": NotRequired[str],
+        "keypoints": list[DatasetsRetrieveResponseDatasetKptSkeletonKeypointsItem],
+        "connections": list[list[Any]],
+        "url": NotRequired[str],
+    },
+)
+
+
 DatasetsRetrieveResponseDatasetProcessingError = TypedDict(
     "DatasetsRetrieveResponseDatasetProcessingError", {"message": str, "timestamp": str}
 )
@@ -593,6 +612,7 @@ DatasetsRetrieveResponseDataset = TypedDict(
         ],
         "classColors": NotRequired[dict[str, str]],
         "kptShape": NotRequired[list[Any]],
+        "kptSkeleton": NotRequired[DatasetsRetrieveResponseDatasetKptSkeleton],
         "flipIdx": NotRequired[list[int]],
         "processingTimeMs": NotRequired[float],
         "lastIngestJobId": NotRequired[str],
@@ -678,6 +698,9 @@ DatasetsCreateExportResponse = TypedDict(
 
 
 DatasetsUpdateExportResponse = TypedDict("DatasetsUpdateExportResponse", {"ok": Literal[True]})
+
+
+DatasetsAdoptImagesResponse = TypedDict("DatasetsAdoptImagesResponse", {"adopted": int})
 
 
 DatasetsClusteringResponseImagesItem = TypedDict(
@@ -970,6 +993,25 @@ DatasetsListResponseDatasetsItemSourceVariant3 = TypedDict(
 )
 
 
+DatasetsListResponseDatasetsItemKptSkeletonKeypointsItem = TypedDict(
+    "DatasetsListResponseDatasetsItemKptSkeletonKeypointsItem",
+    {"name": str, "x": float, "y": float, "color": NotRequired[str]},
+)
+
+
+DatasetsListResponseDatasetsItemKptSkeleton = TypedDict(
+    "DatasetsListResponseDatasetsItemKptSkeleton",
+    {
+        "id": str,
+        "name": str,
+        "description": NotRequired[str],
+        "keypoints": list[DatasetsListResponseDatasetsItemKptSkeletonKeypointsItem],
+        "connections": list[list[Any]],
+        "url": NotRequired[str],
+    },
+)
+
+
 DatasetsListResponseDatasetsItemProcessingError = TypedDict(
     "DatasetsListResponseDatasetsItemProcessingError", {"message": str, "timestamp": str}
 )
@@ -1067,6 +1109,7 @@ DatasetsListResponseDatasetsItem = TypedDict(
         ],
         "classColors": NotRequired[dict[str, str]],
         "kptShape": NotRequired[list[Any]],
+        "kptSkeleton": NotRequired[DatasetsListResponseDatasetsItemKptSkeleton],
         "flipIdx": NotRequired[list[int]],
         "processingTimeMs": NotRequired[float],
         "lastIngestJobId": NotRequired[str],
@@ -1410,6 +1453,7 @@ DeploymentsPredictResponseMetadata = TypedDict(
     "DeploymentsPredictResponseMetadata",
     {
         "imageCount": int,
+        "classNames": NotRequired[list[str]],
         "functionTimeAlive": float,
         "functionTimeCall": float,
         "model": NotRequired[str],
@@ -1643,6 +1687,61 @@ ImagesPredictResponse = TypedDict(
         "modelUsed": str,
         "inferenceTime": NotRequired[float],
     },
+)
+
+
+ImagesFindSimilarImagesResponseImagesItemDataset = TypedDict(
+    "ImagesFindSimilarImagesResponseImagesItemDataset",
+    {
+        "owner": str,
+        "dataset": str,
+        "license": Literal[
+            "None",
+            "CC0-1.0",
+            "PDM-1.0",
+            "CC-BY-2.5",
+            "CC-BY-3.0",
+            "CC-BY-4.0",
+            "CC-BY-NC-2.0",
+            "CC-BY-NC-3.0",
+            "CC-BY-NC-4.0",
+            "CC-BY-SA-3.0",
+            "CC-BY-SA-4.0",
+            "CC-BY-NC-SA-3.0",
+            "CC-BY-NC-SA-4.0",
+            "CC-BY-ND-4.0",
+            "CC-BY-NC-ND-2.0",
+            "CC-BY-NC-ND-4.0",
+            "Apache-2.0",
+            "MIT",
+            "BSD-3-Clause",
+            "AGPL-3.0",
+            "GPL-2.0",
+            "GPL-3.0",
+            "LGPL-3.0",
+            "ODbL-1.0",
+            "DbCL-1.0",
+            "Research-Only",
+            "Other",
+        ],
+    },
+)
+
+
+ImagesFindSimilarImagesResponseImagesItem = TypedDict(
+    "ImagesFindSimilarImagesResponseImagesItem",
+    {
+        "id": str,
+        "thumbnailUrl": str,
+        "imageUrl": NotRequired[str],
+        "dataset": ImagesFindSimilarImagesResponseImagesItemDataset,
+        "score": float,
+    },
+)
+
+
+ImagesFindSimilarImagesResponse = TypedDict(
+    "ImagesFindSimilarImagesResponse", {"images": list[ImagesFindSimilarImagesResponseImagesItem]}
 )
 
 
@@ -1930,6 +2029,7 @@ ModelsRetrieveResponseVariant2AnalysisCohortsWorstExamplesItem = TypedDict(
         "pixels": NotRequired[float],
         "aspectRatio": NotRequired[float],
         "instanceCount": NotRequired[int],
+        "classIds": NotRequired[list[int]],
         "labels": NotRequired[list[ModelsRetrieveResponseVariant2AnalysisCohortsWorstExamplesItemLabelsItem]],
     },
 )
@@ -1986,6 +2086,7 @@ ModelsRetrieveResponseVariant2AnalysisCohortsBestExamplesItem = TypedDict(
         "pixels": NotRequired[float],
         "aspectRatio": NotRequired[float],
         "instanceCount": NotRequired[int],
+        "classIds": NotRequired[list[int]],
         "labels": NotRequired[list[ModelsRetrieveResponseVariant2AnalysisCohortsBestExamplesItemLabelsItem]],
     },
 )
@@ -2297,10 +2398,22 @@ ModelsUpdateResponseVariant1 = TypedDict(
 )
 
 
-ModelsUpdateResponseVariant2 = TypedDict("ModelsUpdateResponseVariant2", {"starred": bool, "starCount": int})
+ModelsUpdateResponseVariant2 = TypedDict(
+    "ModelsUpdateResponseVariant2",
+    {
+        "success": Literal[True],
+        "slug": str,
+        "name": NotRequired[str],
+        "renamed": NotRequired[bool],
+        "projectSlug": NotRequired[str],
+    },
+)
 
 
-ModelsUpdateResponse = ModelsUpdateResponseVariant1 | ModelsUpdateResponseVariant2
+ModelsUpdateResponseVariant3 = TypedDict("ModelsUpdateResponseVariant3", {"starred": bool, "starCount": int})
+
+
+ModelsUpdateResponse = ModelsUpdateResponseVariant1 | ModelsUpdateResponseVariant2 | ModelsUpdateResponseVariant3
 
 
 ModelsDeleteResponse = TypedDict("ModelsDeleteResponse", {"success": Literal[True]})
@@ -2393,6 +2506,7 @@ ModelsPredictResponseMetadata = TypedDict(
     "ModelsPredictResponseMetadata",
     {
         "imageCount": int,
+        "classNames": NotRequired[list[str]],
         "functionTimeAlive": float,
         "functionTimeCall": float,
         "model": NotRequired[str],
@@ -2405,6 +2519,61 @@ ModelsPredictResponseMetadata = TypedDict(
 ModelsPredictResponse = TypedDict(
     "ModelsPredictResponse",
     {"images": list[ModelsPredictResponseImagesItem], "metadata": ModelsPredictResponseMetadata},
+)
+
+
+ModelsFindSimilarTrainingImagesResponseImagesItemDataset = TypedDict(
+    "ModelsFindSimilarTrainingImagesResponseImagesItemDataset",
+    {
+        "owner": str,
+        "dataset": str,
+        "license": Literal[
+            "None",
+            "CC0-1.0",
+            "PDM-1.0",
+            "CC-BY-2.5",
+            "CC-BY-3.0",
+            "CC-BY-4.0",
+            "CC-BY-NC-2.0",
+            "CC-BY-NC-3.0",
+            "CC-BY-NC-4.0",
+            "CC-BY-SA-3.0",
+            "CC-BY-SA-4.0",
+            "CC-BY-NC-SA-3.0",
+            "CC-BY-NC-SA-4.0",
+            "CC-BY-ND-4.0",
+            "CC-BY-NC-ND-2.0",
+            "CC-BY-NC-ND-4.0",
+            "Apache-2.0",
+            "MIT",
+            "BSD-3-Clause",
+            "AGPL-3.0",
+            "GPL-2.0",
+            "GPL-3.0",
+            "LGPL-3.0",
+            "ODbL-1.0",
+            "DbCL-1.0",
+            "Research-Only",
+            "Other",
+        ],
+    },
+)
+
+
+ModelsFindSimilarTrainingImagesResponseImagesItem = TypedDict(
+    "ModelsFindSimilarTrainingImagesResponseImagesItem",
+    {
+        "id": str,
+        "thumbnailUrl": str,
+        "imageUrl": NotRequired[str],
+        "dataset": ModelsFindSimilarTrainingImagesResponseImagesItemDataset,
+        "score": float,
+    },
+)
+
+
+ModelsFindSimilarTrainingImagesResponse = TypedDict(
+    "ModelsFindSimilarTrainingImagesResponse", {"images": list[ModelsFindSimilarTrainingImagesResponseImagesItem]}
 )
 
 
@@ -2628,6 +2797,7 @@ ExportsRetrieveResponseExport = TypedDict(
             "openvino",
             "engine",
             "coreml",
+            "coreai",
             "litert",
             "pb",
             "saved_model",
@@ -2679,6 +2849,7 @@ ExportsCreateResponse = TypedDict(
             "openvino",
             "engine",
             "coreml",
+            "coreai",
             "litert",
             "pb",
             "saved_model",

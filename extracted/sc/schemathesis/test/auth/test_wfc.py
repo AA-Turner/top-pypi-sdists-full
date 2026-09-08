@@ -5,10 +5,13 @@ import os
 
 import pytest
 from fastapi import FastAPI
-from flask import Flask
+from fastapi.responses import RedirectResponse
+from flask import Flask, jsonify, redirect
 
 import schemathesis
 from schemathesis.auths import AuthContext
+from schemathesis.core.cache import Manifest, write
+from schemathesis.core.cache.models import FORMAT_VERSION
 from schemathesis.wfc.converter import wfc_to_auth_provider
 from schemathesis.wfc.errors import WFCLoginError
 from schemathesis.wfc.loader import load_from_dict
@@ -67,6 +70,48 @@ def _run_wfc(cli, api, path, *args, max_examples=5, **wfc):
     )
 
 
+def test_wfc_path_from_cli_flag(cli, ctx, tmp_path):
+    api = ctx.openapi.apps.wfc_login()
+    auth = _write(tmp_path, {"auth": [{"name": "u", "fixedHeaders": [{"name": "X-Api-Key", "value": "static"}]}]})
+
+    assert cli.run(api.schema_url, "--max-examples=5", f"--auth-wfc={auth}").exit_code == 0
+    assert all(_header(c, "X-Api-Key") == "static" for c in _protected_calls(api))
+
+
+def test_wfc_user_from_cli_flag(cli, ctx, tmp_path):
+    api = ctx.openapi.apps.wfc_login()
+    auth = _write(
+        tmp_path,
+        {
+            "auth": [
+                {"name": "alice", "fixedHeaders": [{"name": "X-Api-Key", "value": "alice-key"}]},
+                {"name": "bob", "fixedHeaders": [{"name": "X-Api-Key", "value": "bob-key"}]},
+            ]
+        },
+    )
+
+    result = cli.run(api.schema_url, "--max-examples=5", f"--auth-wfc={auth}", "--auth-wfc-user=bob")
+    assert result.exit_code == 0
+    assert all(_header(c, "X-Api-Key") == "bob-key" for c in _protected_calls(api))
+
+
+def test_wfc_user_flag_selects_within_a_configured_file(cli, ctx, tmp_path):
+    # The file comes from the config, the user from the CLI.
+    api = ctx.openapi.apps.wfc_login()
+    auth = _write(
+        tmp_path,
+        {
+            "auth": [
+                {"name": "alice", "fixedHeaders": [{"name": "X-Api-Key", "value": "alice-key"}]},
+                {"name": "bob", "fixedHeaders": [{"name": "X-Api-Key", "value": "bob-key"}]},
+            ]
+        },
+    )
+
+    assert _run_wfc(cli, api, auth, "--auth-wfc-user=bob").exit_code == 0
+    assert all(_header(c, "X-Api-Key") == "bob-key" for c in _protected_calls(api))
+
+
 def test_wfc_fixed_headers_reach_requests(cli, ctx, tmp_path):
     api = ctx.openapi.apps.wfc_login()
     auth = _write(tmp_path, {"auth": [{"name": "u", "fixedHeaders": [{"name": "X-Api-Key", "value": "static"}]}]})
@@ -108,6 +153,15 @@ def test_wfc_number_token_coerced(cli, ctx, tmp_path):
 
     assert _run_wfc(cli, api, auth).exit_code == 0
     assert all(_header(c, "X-Token") == "42" for c in _protected_calls(api))
+
+
+def test_wfc_login_without_token_falls_back_to_cookies(cli, ctx, tmp_path):
+    # WFC requires neither `token` nor `expectCookies`; a header-based login returning a session is valid.
+    api = ctx.openapi.apps.wfc_login()
+    auth = _write(tmp_path, {"auth": [{"name": "u", "loginEndpointAuth": _login()}]})
+
+    assert _run_wfc(cli, api, auth).exit_code == 0
+    assert all(f"session={WFC_SESSION}" in (_header(c, "Cookie") or "") for c in _protected_calls(api))
 
 
 def test_wfc_cookie_auth_reaches_requests(cli, ctx, tmp_path):
@@ -301,6 +355,115 @@ def test_wfc_asgi_login_applies_token():
     assert case.headers["Authorization"] == f"Bearer {WFC_TOKEN}"
 
 
+def _redirect_login_app(ctx) -> Flask:
+    app, _ = ctx.openapi.make_flask_app({"/api/protected": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/api/login", methods=["POST"])
+    def login() -> object:
+        response = redirect("/api/protected", code=302)
+        response.set_cookie("JSESSIONID", WFC_SESSION)
+        return response
+
+    @app.route("/api/protected", methods=["GET"])
+    def protected() -> object:
+        return jsonify({"ok": True})
+
+    return app
+
+
+def test_wfc_http_login_redirect_yields_cookies(ctx, app_runner):
+    # Form-login servers answer a successful sign-in with a redirect carrying the session cookie.
+    operation = schemathesis.openapi.from_url(app_runner.openapi_url(_redirect_login_app(ctx)))["/api/protected"]["GET"]
+    provider = _provider_for(_login(expectCookies=True))
+    context = AuthContext(operation=operation, app=None)
+    case = operation.Case()
+    provider.set(case, provider.get(case, context), context)
+    assert case.cookies == {"JSESSIONID": WFC_SESSION}
+
+
+def test_wfc_wsgi_login_redirect_yields_cookies(ctx):
+    app = _redirect_login_app(ctx)
+    operation = schemathesis.openapi.from_wsgi("/openapi.json", app)["/api/protected"]["GET"]
+    provider = _provider_for(_login(expectCookies=True))
+    context = AuthContext(operation=operation, app=app)
+    case = operation.Case()
+    provider.set(case, provider.get(case, context), context)
+    assert case.cookies == {"JSESSIONID": WFC_SESSION}
+
+
+def test_wfc_asgi_login_redirect_yields_cookies():
+    app = FastAPI()
+
+    @app.post("/api/login")
+    def login() -> RedirectResponse:
+        response = RedirectResponse("/api/protected", status_code=302)
+        response.set_cookie("JSESSIONID", WFC_SESSION)
+        return response
+
+    @app.get("/api/protected")
+    def protected() -> dict:
+        return {"ok": True}
+
+    operation = schemathesis.openapi.from_asgi("/openapi.json", app)["/api/protected"]["GET"]
+    provider = _provider_for(_login(expectCookies=True))
+    context = AuthContext(operation=operation, app=app)
+    case = operation.Case()
+    provider.set(case, provider.get(case, context), context)
+    assert case.cookies == {"JSESSIONID": WFC_SESSION}
+
+
+def test_wfc_login_endpoint_is_resolved_against_the_server_root(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {"/protected": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        servers=[{"url": "/app"}],
+    )
+
+    @app.route("/app/login", methods=["POST"])
+    def login() -> object:
+        return jsonify({"access_token": WFC_TOKEN})
+
+    @app.route("/app/protected", methods=["GET"])
+    def protected() -> object:
+        return jsonify({"ok": True})
+
+    operation = schemathesis.openapi.from_url(app_runner.openapi_url(app))["/protected"]["GET"]
+    provider = _provider_for(_login(token=_token(), endpoint="/app/login"))
+    context = AuthContext(operation=operation, app=None)
+    case = operation.Case()
+    provider.set(case, provider.get(case, context), context)
+    assert case.headers["Authorization"] == f"Bearer {WFC_TOKEN}"
+
+
+def _bouncing_login_app(ctx) -> Flask:
+    # Form-login servers hand out a session cookie on rejected credentials too, so only the target tells them apart.
+    app, _ = ctx.openapi.make_flask_app({"/api/protected": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/api/login", methods=["POST"])
+    def login() -> object:
+        response = redirect("/api/login?error", code=302)
+        response.set_cookie("JSESSIONID", WFC_SESSION)
+        return response
+
+    return app
+
+
+def test_wfc_http_login_redirect_back_to_login_is_rejected(ctx, app_runner):
+    operation = schemathesis.openapi.from_url(app_runner.openapi_url(_bouncing_login_app(ctx)))["/api/protected"]["GET"]
+    provider = _provider_for(_login(expectCookies=True))
+    context = AuthContext(operation=operation, app=None)
+    with pytest.raises(WFCLoginError, match="redirected back to the login endpoint"):
+        provider.get(operation.Case(), context)
+
+
+def test_wfc_wsgi_login_redirect_back_to_login_is_rejected(ctx):
+    app = _bouncing_login_app(ctx)
+    operation = schemathesis.openapi.from_wsgi("/openapi.json", app)["/api/protected"]["GET"]
+    provider = _provider_for(_login(expectCookies=True))
+    context = AuthContext(operation=operation, app=app)
+    with pytest.raises(WFCLoginError, match="redirected back to the login endpoint"):
+        provider.get(operation.Case(), context)
+
+
 @pytest.mark.parametrize("charset", ["bogus-xyz", "undefined"], ids=["unknown-charset", "undefined-codec"])
 def test_wfc_http_login_bad_charset(ctx, app_runner, charset):
     # A login endpoint declaring an unknown or broken charset must not crash the login request.
@@ -409,6 +572,7 @@ def test_wfc_login_connection_error(cli, ctx, tmp_path):
 
 
 def test_wfc_multiple_users_without_selection(cli, ctx, tmp_path):
+    # Most Web Fuzzing Dataset files list several users without naming a default.
     api = ctx.openapi.apps.wfc_login()
     auth = _write(
         tmp_path,
@@ -420,9 +584,8 @@ def test_wfc_multiple_users_without_selection(cli, ctx, tmp_path):
         },
     )
 
-    result = _run_wfc(cli, api, auth, max_examples=1)
-    assert result.exit_code != 0
-    assert "specify which user" in result.stdout.lower()
+    assert _run_wfc(cli, api, auth).exit_code == 0
+    assert all(_header(c, "X") == "1" for c in _protected_calls(api))
 
 
 def test_wfc_unknown_user(cli, ctx, tmp_path):
@@ -508,7 +671,6 @@ def test_wfc_path_is_directory(cli, ctx, tmp_path):
             [{"name": "u", "loginEndpointAuth": {"verb": "POST", "expectCookies": True}}],
             "either 'endpoint' or 'externalendpointurl'",
         ),
-        ([{"name": "u", "loginEndpointAuth": {"verb": "POST", "endpoint": "/l"}}], "either 'token' or 'expectcookies"),
         (
             [{"name": "u", "loginEndpointAuth": _login(token=_token(), expectCookies=True)}],
             "both 'token' and 'expectcookies",
@@ -551,7 +713,6 @@ def test_wfc_path_is_directory(cli, ctx, tmp_path):
         "both-methods",
         "endpoint-and-external",
         "neither-endpoint-external",
-        "no-token-no-cookies",
         "token-and-cookies",
         "selector-not-pointer",
         "template-no-placeholder",
@@ -769,3 +930,200 @@ def test_api(case):
 """
     )
     testdir.runpytest("-s").assert_outcomes(passed=1)
+
+
+# Shape used by most authenticated APIs in the Web Fuzzing Dataset.
+WFD_TEMPLATE_DOC = {
+    "auth": [
+        {"name": "admin", "loginEndpointAuth": {"payloadRaw": '{"user": "admin", "password": "bar"}'}},
+        {"name": "user", "loginEndpointAuth": {"payloadRaw": '{"user": "user", "password": "bar"}'}},
+    ],
+    "authTemplate": {
+        "loginEndpointAuth": {
+            "endpoint": "/api/auth/signin",
+            "verb": "POST",
+            "contentType": "application/json",
+            "token": {
+                "extractFrom": "body",
+                "extractSelector": "/accessToken",
+                "sendName": "Authorization",
+                "sendIn": "header",
+                "sendTemplate": "Bearer {token}",
+            },
+        }
+    },
+}
+
+
+def test_auth_template_fills_fields_entries_omit():
+    entries = load_from_dict(WFD_TEMPLATE_DOC)
+
+    assert [entry.name for entry in entries] == ["admin", "user"]
+    for entry in entries:
+        login = entry.login_endpoint_auth
+        assert login is not None
+        assert login.endpoint == "/api/auth/signin"
+        assert login.verb == "POST"
+        assert login.content_type == "application/json"
+        assert login.token is not None
+        assert login.token.send_template == "Bearer {token}"
+    assert entries[0].login_endpoint_auth.payload_raw == '{"user": "admin", "password": "bar"}'
+
+
+def test_auth_entry_wins_over_the_template():
+    doc = {
+        "auth": [{"name": "admin", "loginEndpointAuth": {"endpoint": "/own", "payloadRaw": "{}"}}],
+        "authTemplate": {"loginEndpointAuth": {"endpoint": "/shared", "verb": "POST", "expectCookies": True}},
+    }
+
+    [entry] = load_from_dict(doc)
+
+    assert entry.login_endpoint_auth.endpoint == "/own"
+    assert entry.login_endpoint_auth.verb == "POST"
+
+
+ROLE_AUTH = {
+    "auth": [
+        {"name": "viewer", "fixedHeaders": [{"name": "Authorization", "value": "ApiKey viewer"}]},
+        {"name": "editor", "fixedHeaders": [{"name": "Authorization", "value": "ApiKey editor"}]},
+        {"name": "admin", "fixedHeaders": [{"name": "Authorization", "value": "ApiKey admin"}]},
+    ]
+}
+
+
+def _identities(api, method, prefix):
+    return {
+        (r.headers.get("Authorization") or "").removeprefix("ApiKey ")
+        for r in api.requests
+        if r.method == method and r.path.startswith(prefix)
+    }
+
+
+def test_escalation_walks_the_chain_until_admitted(cli, ctx, tmp_path):
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+
+    cli.run(api.schema_url, "--max-examples=8", f"--auth-wfc={auth}", "--phases=fuzzing")
+
+    assert _identities(api, "GET", "/api/open") == {"viewer"}
+    assert "admin" not in _identities(api, "DELETE", "/api/editor-only")
+    assert _identities(api, "DELETE", "/api/admin-only") == {"viewer", "editor", "admin"}
+
+
+def test_rejected_payloads_do_not_block_escalation(cli, ctx, tmp_path):
+    # `/api/validated` answers 400 before checking the role, so 403s arrive interleaved with 400s.
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+
+    cli.run(api.schema_url, "--max-examples=15", f"--auth-wfc={auth}", "--phases=fuzzing")
+    assert "admin" in _identities(api, "POST", "/api/validated")
+
+
+def test_pinned_user_never_escalates(cli, ctx, tmp_path):
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+
+    cli.run(api.schema_url, "--max-examples=8", f"--auth-wfc={auth}", "--phases=fuzzing", "--auth-wfc-user=viewer")
+    assert _identities(api, "DELETE", "/api/admin-only") == {"viewer"}
+
+
+def test_assignment_is_restored_from_cache(cli, ctx, tmp_path):
+    # A second run starts where the first settled instead of walking the chain again.
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+    cache_dir = tmp_path / "cache"
+    config = {"cache": {"directory": str(cache_dir)}, "auth": {"wfc": {"path": auth}}}
+
+    cli.run(api.schema_url, "--max-examples=8", "--phases=fuzzing", config=config)
+    first = len(api.requests)
+    cli.run(api.schema_url, "--max-examples=8", "--phases=fuzzing", config=config)
+
+    second = [r for r in api.requests[first:] if r.method == "DELETE" and "admin-only" in r.path]
+    assert second, "second run never reached the gated operation"
+    assert {(r.headers.get("Authorization") or "").removeprefix("ApiKey ") for r in second} == {"admin"}
+
+
+def test_failure_names_the_identity(cli, ctx, tmp_path):
+    # With several identities in play, a report that does not say which one ran is ambiguous.
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+
+    result = cli.run(
+        api.schema_url, "--max-examples=8", "--phases=fuzzing", f"--auth-wfc={auth}", "-c", "not_a_server_error"
+    )
+
+    assert "Server error" in result.stdout
+    # The name alone is not actionable; the flag that reproduces it is.
+    assert "Identity: admin (reproduce with --auth-wfc-user admin)" in result.stdout
+
+
+def test_ndjson_records_the_identity(cli, ctx, tmp_path):
+    # Sanitization filters the header, so without the name the report cannot tell identities apart.
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+    report = tmp_path / "events.ndjson"
+
+    cli.run(
+        api.schema_url,
+        "--max-examples=8",
+        "--phases=fuzzing",
+        f"--auth-wfc={auth}",
+        "-c",
+        "not_a_server_error",
+        "--report",
+        "ndjson",
+        "--report-ndjson-path",
+        str(report),
+    )
+
+    identities = {
+        node.get("value", {}).get("auth_identity")
+        for line in report.read_text().splitlines()
+        if line
+        for node in json.loads(line).get("ScenarioFinished", {}).get("recorder", {}).get("cases", {}).values()
+    }
+    assert "admin" in identities
+
+
+def test_exhausted_chain_stays_on_the_last_identity(cli, ctx, tmp_path):
+    # No identity can reach this operation; escalation must stop at the end rather than wrap.
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+
+    cli.run(api.schema_url, "--max-examples=8", "--phases=fuzzing", f"--auth-wfc={auth}", "-c", "not_a_server_error")
+
+    seen = [
+        (r.headers.get("Authorization") or "").removeprefix("ApiKey ")
+        for r in api.requests
+        if r.method == "DELETE" and r.path.startswith("/api/nobody")
+    ]
+    assert seen, "operation was never dispatched"
+    assert seen[-1] == "admin"
+
+
+def test_unknown_cached_identity_is_ignored(cli, ctx, tmp_path):
+    # The auth file may have been edited since the cache was written.
+    api = ctx.openapi.apps.wfc_role_gated()
+    auth = _write(tmp_path, ROLE_AUTH)
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    manifest = Manifest(
+        format_version=FORMAT_VERSION,
+        schemathesis_version="0.0.0",
+        schema_location=api.schema_url,
+        base_url=api.base_url,
+        created_at="2026-01-01T00:00:00Z",
+        auth_identities={"GET /api/open": "ghost"},
+    )
+    write(cache_dir, manifest, [])
+
+    cli.run(
+        api.schema_url,
+        "--max-examples=8",
+        "--phases=fuzzing",
+        "-c",
+        "not_a_server_error",
+        config={"cache": {"directory": str(cache_dir)}, "auth": {"wfc": {"path": auth}}},
+    )
+
+    assert _identities(api, "GET", "/api/open") == {"viewer"}

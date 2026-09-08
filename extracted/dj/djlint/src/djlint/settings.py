@@ -14,7 +14,7 @@ import yaml
 from click import BadParameter, UsageError, echo, style
 from pathspec import PathSpec
 
-from djlint.const import HTML_TAG_NAMES, HTML_VOID_ELEMENTS
+from djlint.const import HTML_TAG_NAMES, HTML_VOID_ELEMENTS, TEMPLATE_TAG_NAME
 from djlint.helpers import (
     RE_FLAGS_IMSX,
     RE_FLAGS_IMX,
@@ -823,6 +823,7 @@ _IGNORED_INLINE_BLOCKS_TAIL: Final = r"""
     | {\*.*?\*}
     | (?<!\{){\#(?!.*djlint:[ ]*(?:off|on)\b).*\#}
     | <\?php.*?\?>
+    | <%(?!\w).*?%>
     | {%[ ]*comment\b(?:(?!%}).)*?%}(?:(?!djlint:(?:off|on)).)*?{%[ ]*endcomment[ ]*%}
     | {%[ ]*filter\b(?:(?!%}).)*?%}.*?{%[ ]*endfilter[ ]*%}
     # liquid/shopify blocks whose bodies are json, css or js
@@ -877,6 +878,7 @@ _IGNORED_BLOCKS_TAIL: Final = (
     | {{-?\s*/\*(?!\s*djlint\:\s*(?:off|on)).*?\*/\s*-?}}
     | <!--.*?-->
     | <\?php.*?\?>
+    | <%(?!\w).*?%>
     | {%[ ]*filter\b(?:(?!%}).)*?%}.*?{%[ ]*endfilter[ ]*%}
     # liquid/shopify blocks whose bodies are json, css or js
     | {%[-+]?[ ]*(?:schema|javascript|stylesheet|style)[ ]*[-+]?%}
@@ -889,6 +891,12 @@ _IGNORED_BLOCKS_TAIL: Final = (
     + YAML_FRONT_MATTER
 )
 
+
+# A self closed tag opens nothing, and the quoted values are stepped over
+# so that a "/" written inside one is not read as the close.
+_TEMPLATE_NAMED_OPENING_TAG: Final = (
+    rf"<(?:{TEMPLATE_TAG_NAME})(?!(?:[^>\"']|\"[^\"]*\"|'[^']*')*?/>)"
+)
 
 _RAW_TEXT_OPENING_TAG: Final = r"""(?:\"[^\"]*\"|'[^']*'|[^>\"'])*>"""
 
@@ -962,6 +970,7 @@ _IGNORED_BLOCK_OPENING_PATTERN: Final = re.compile(
       <style
     | {\*
     | <\?php
+    | <%(?!\w)
     | <script
     | <!--
     | [^\{]{\#(?!\s*djlint\:\s*(?:on|off))
@@ -983,6 +992,7 @@ _IGNORED_BLOCK_CLOSING_BEFORE: Final = r"""
       </style
     | \*}
     | \?>
+    | %>
     | </script
 """
 # a "-->" reachable without crossing the start of a raw text element.
@@ -1042,6 +1052,7 @@ _IGNORED_BLOCKS_INLINE_PATTERN: Final = re.compile(
     | {{-?\s*/\*(?!\s*djlint\:\s*(?:off|on)).*?\*/\s*-?}}
     | <!--.*?-->
     | <\?php.*?\?>
+    | <%(?!\w).*?%>
     | {%[ ]*filter\b(?:(?!%}).)*?%}.*?{%[ ]*endfilter[ ]*%}
     | {%[ ]*blocktranslate\b(?:(?!%}|\btrimmed\b).)*?%}.*?{%[ ]*endblocktranslate[ ]*%}
     | {%[ ]*blocktrans\b(?:(?!%}|\btrimmed\b).)*?%}.*?{%[ ]*endblocktrans[ ]*%}
@@ -1261,6 +1272,7 @@ class Config:
         "require_pragma",
         "safe_closing_block_pattern",
         "safe_closing_tag_pattern",
+        "sarif",
         "single_attribute_per_line",
         "single_line_template_tags",
         "sort_attributes",
@@ -1346,6 +1358,7 @@ class Config:
         quote_style: str | None = None,
         max_blank_lines: int | None = None,
         github_output: bool = False,
+        sarif: bool = False,
         stdin: bool | None = None,
         stdin_filename: str | None = None,
     ) -> None:
@@ -1378,6 +1391,7 @@ class Config:
         self.lint = lint
         self.warn = warn
         self.github_output = github_output
+        self.sarif = sarif
         self.statistics = statistics
         self.stdin_filename = stdin_filename
 
@@ -1772,6 +1786,9 @@ class Config:
             + """
                 )\\b
               )
+            | (?:"""
+            + _TEMPLATE_NAMED_OPENING_TAG
+            + """)
         """
         )
         self.tag_unindent = (
@@ -1787,6 +1804,9 @@ class Config:
             + """
                 )\\b
               )
+            | (?:^</(?:"""
+            + TEMPLATE_TAG_NAME
+            + """))
             | (?:</
                 (?:
                     """
@@ -1794,6 +1814,9 @@ class Config:
             + """
                 )>$
               )
+            | (?:</(?:"""
+            + TEMPLATE_TAG_NAME
+            + """)>$)
         """
         )
 

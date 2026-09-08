@@ -21,6 +21,12 @@ from dbt.task.test import TestRunner
 from typing_extensions import override
 
 try:
+    from dbt.task.docs.generate import GenerateTask
+    from dbt.task.list import ListTask
+except ImportError:
+    ListTask = GenerateTask = None  # ty:ignore[invalid-assignment]
+
+try:
     from dbt.task.run import MicrobatchBatchRunner, MicrobatchModelRunner
 except ImportError:
     # dbt < 1.9 has no microbatch runners
@@ -62,12 +68,29 @@ if hasattr(TestRunner, "build_test_run_result"):
 if MicrobatchModelRunner is not None:
     ORIGINALS["MicrobatchModelRunner.execute"] = MicrobatchModelRunner.execute
 
+if ListTask is not None:
+    ORIGINALS["ListTask.run"] = ListTask.run
+
+if GenerateTask is not None:
+    ORIGINALS["GenerateTask.run"] = GenerateTask.run
+
 SIGNAL_HANDLER_ORIGINALS: t.Dict[str, t.Union[t.Optional[t.Callable], int]] = {
     "SIGINT": signal.getsignal(signal.SIGINT),
     "SIGTERM": signal.getsignal(signal.SIGTERM),
 }
 
-ENABLED_FOR_COMMANDS = ["run", "build", "seed", "snapshot", "compile", "test", "show"]
+ENABLED_FOR_COMMANDS = [
+    "run",
+    "build",
+    "seed",
+    "snapshot",
+    "compile",
+    "test",
+    "show",
+    "list",
+    "ls",
+    "generate",
+]
 
 
 def is_supported_command() -> bool:
@@ -149,6 +172,13 @@ def set_runner_overrides() -> None:
             **kwargs,
         )
 
+    def run_override(self: GraphRunnableTask) -> t.Any:
+        runner_override.set_runtime_config(self.config)
+        class_name = self.__class__.__name__
+        if f"{class_name}.run" in ORIGINALS:
+            return ORIGINALS[f"{class_name}.run"](self)
+        return None
+
     CompileRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     ModelRunner.compile = compile_override  # ty: ignore[invalid-assignment]
     ModelRunner.execute = execute_override  # ty: ignore[invalid-assignment]
@@ -165,6 +195,10 @@ def set_runner_overrides() -> None:
     MethodManager.SELECTOR_METHODS[MethodName.State] = state_selector_override  # ty:ignore[invalid-assignment]
     CompileTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = defer_to_manifest_override  # ty: ignore[invalid-assignment]
+    if ListTask is not None:
+        ListTask.run = run_override  # ty: ignore[invalid-assignment]
+    if GenerateTask is not None:
+        GenerateTask.run = run_override  # ty: ignore[invalid-assignment]
     if MicrobatchModelRunner is not None:
         MicrobatchModelRunner.execute = microbatch_execute_override  # ty: ignore[invalid-assignment]
 
@@ -235,6 +269,10 @@ def remove_runner_overrides() -> None:
     ]  # ty: ignore[assignment]  # ty:ignore[invalid-assignment]
     CompileTask.defer_to_manifest = ORIGINALS["CompileTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
     RunTask.defer_to_manifest = ORIGINALS["RunTask.defer_to_manifest"]  # ty: ignore[invalid-assignment]
+    if ListTask is not None and "ListTask.run" in ORIGINALS:
+        ListTask.run = ORIGINALS["ListTask.run"]  # ty: ignore[invalid-assignment]
+    if GenerateTask is not None and "GenerateTask.run" in ORIGINALS:
+        GenerateTask.run = ORIGINALS["GenerateTask.run"]  # ty: ignore[invalid-assignment]
     if MicrobatchModelRunner is not None and "MicrobatchModelRunner.execute" in ORIGINALS:
         MicrobatchModelRunner.execute = ORIGINALS["MicrobatchModelRunner.execute"]  # ty: ignore[invalid-assignment]
 

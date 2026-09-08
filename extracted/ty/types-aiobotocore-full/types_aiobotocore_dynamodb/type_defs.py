@@ -58,6 +58,7 @@ from .literals import (
     ReturnValueType,
     S3SseAlgorithmType,
     ScalarAttributeTypeType,
+    SearchSchemaElementTypeType,
     SelectType,
     SSEStatusType,
     SSETypeType,
@@ -65,6 +66,7 @@ from .literals import (
     TableClassType,
     TableStatusType,
     TimeToLiveStatusType,
+    VectorDistanceFunctionType,
     WitnessStatusType,
 )
 
@@ -126,6 +128,7 @@ __all__ = (
     "CreateTableInputServiceResourceCreateTableTypeDef",
     "CreateTableInputTypeDef",
     "CreateTableOutputTypeDef",
+    "CreateVectorIndexActionTypeDef",
     "CsvOptionsOutputTypeDef",
     "CsvOptionsTypeDef",
     "DeleteBackupInputTypeDef",
@@ -149,6 +152,7 @@ __all__ = (
     "DeleteTableInputTypeDef",
     "DeleteTableOutputTypeDef",
     "DeleteTypeDef",
+    "DeleteVectorIndexActionTypeDef",
     "DescribeBackupInputTypeDef",
     "DescribeBackupOutputTypeDef",
     "DescribeContinuousBackupsInputTypeDef",
@@ -316,6 +320,10 @@ __all__ = (
     "ScanInputTypeDef",
     "ScanOutputTableTypeDef",
     "ScanOutputTypeDef",
+    "SearchResultItemTypeDef",
+    "SearchSchemaElementTypeDef",
+    "SearchVectorsInputTypeDef",
+    "SearchVectorsOutputTypeDef",
     "SourceTableDetailsTypeDef",
     "SourceTableFeatureDetailsTypeDef",
     "StreamSpecificationTypeDef",
@@ -366,6 +374,14 @@ __all__ = (
     "UpdateTimeToLiveInputTypeDef",
     "UpdateTimeToLiveOutputTypeDef",
     "UpdateTypeDef",
+    "VectorAttributeDefinitionTypeDef",
+    "VectorCapacityTypeDef",
+    "VectorIndexDescriptionTypeDef",
+    "VectorIndexInfoTypeDef",
+    "VectorIndexOutputTypeDef",
+    "VectorIndexTypeDef",
+    "VectorIndexUnionTypeDef",
+    "VectorIndexUpdateTypeDef",
     "WaiterConfigTypeDef",
     "WarmThroughputTypeDef",
     "WriteRequestOutputTypeDef",
@@ -478,6 +494,11 @@ class CapacityTypeDef(TypedDict):
 ConditionBaseImportTypeDef = Union[str, ConditionBase]
 
 
+class VectorCapacityTypeDef(TypedDict):
+    VectorSearchRequestBytes: NotRequired[float]
+    VectorWriteRequestBytes: NotRequired[float]
+
+
 class PointInTimeRecoveryDescriptionTypeDef(TypedDict):
     PointInTimeRecoveryStatus: NotRequired[PointInTimeRecoveryStatusType]
     RecoveryPeriodInDays: NotRequired[int]
@@ -561,6 +582,15 @@ class TagTypeDef(TypedDict):
     Value: str
 
 
+class SearchSchemaElementTypeDef(TypedDict):
+    AttributeName: str
+    SearchSchemaElementType: SearchSchemaElementTypeType
+
+
+class VectorAttributeDefinitionTypeDef(TypedDict):
+    AttributeName: str
+
+
 class CsvOptionsOutputTypeDef(TypedDict):
     Delimiter: NotRequired[str]
     HeaderList: NotRequired[list[str]]
@@ -606,6 +636,10 @@ class DeleteResourcePolicyInputTypeDef(TypedDict):
 
 class DeleteTableInputTypeDef(TypedDict):
     TableName: str
+
+
+class DeleteVectorIndexActionTypeDef(TypedDict):
+    IndexName: str
 
 
 class DescribeBackupInputTypeDef(TypedDict):
@@ -879,6 +913,11 @@ class PutRequestOutputTypeDef(TypedDict):
     Item: dict[str, AttributeValueTypeDef]
 
 
+class SearchResultItemTypeDef(TypedDict):
+    Item: NotRequired[dict[str, AttributeValueTypeDef]]
+    Score: NotRequired[float]
+
+
 UniversalAttributeValueTypeDef = Union[
     AttributeValueTypeDef,
     bytes,
@@ -1041,6 +1080,7 @@ class ConsumedCapacityTypeDef(TypedDict):
     Table: NotRequired[CapacityTypeDef]
     LocalSecondaryIndexes: NotRequired[dict[str, CapacityTypeDef]]
     GlobalSecondaryIndexes: NotRequired[dict[str, CapacityTypeDef]]
+    VectorIndexes: NotRequired[dict[str, VectorCapacityTypeDef]]
 
 
 class ContinuousBackupsDescriptionTypeDef(TypedDict):
@@ -1281,6 +1321,38 @@ class LocalSecondaryIndexInfoTypeDef(TypedDict):
     Projection: NotRequired[ProjectionOutputTypeDef]
 
 
+class VectorIndexDescriptionTypeDef(TypedDict):
+    IndexName: NotRequired[str]
+    SearchSchema: NotRequired[list[SearchSchemaElementTypeDef]]
+    Projection: NotRequired[ProjectionOutputTypeDef]
+    VectorAttribute: NotRequired[VectorAttributeDefinitionTypeDef]
+    Dimensions: NotRequired[int]
+    DistanceFunction: NotRequired[VectorDistanceFunctionType]
+    IndexStatus: NotRequired[IndexStatusType]
+    Backfilling: NotRequired[bool]
+    IndexSizeBytes: NotRequired[int]
+    ItemCount: NotRequired[int]
+    IndexArn: NotRequired[str]
+
+
+class VectorIndexInfoTypeDef(TypedDict):
+    IndexName: NotRequired[str]
+    VectorAttribute: NotRequired[VectorAttributeDefinitionTypeDef]
+    SearchSchema: NotRequired[list[SearchSchemaElementTypeDef]]
+    Projection: NotRequired[ProjectionOutputTypeDef]
+    Dimensions: NotRequired[int]
+    DistanceFunction: NotRequired[VectorDistanceFunctionType]
+
+
+class VectorIndexOutputTypeDef(TypedDict):
+    IndexName: str
+    VectorAttribute: VectorAttributeDefinitionTypeDef
+    Projection: ProjectionOutputTypeDef
+    Dimensions: int
+    DistanceFunction: VectorDistanceFunctionType
+    SearchSchema: NotRequired[list[SearchSchemaElementTypeDef]]
+
+
 class GlobalSecondaryIndexDescriptionTypeDef(TypedDict):
     IndexName: NotRequired[str]
     KeySchema: NotRequired[list[KeySchemaElementTypeDef]]
@@ -1364,6 +1436,12 @@ class BatchStatementResponseTypeDef(TypedDict):
 class WriteRequestOutputTypeDef(TypedDict):
     PutRequest: NotRequired[PutRequestOutputTypeDef]
     DeleteRequest: NotRequired[DeleteRequestOutputTypeDef]
+
+
+class SearchVectorsOutputTypeDef(TypedDict):
+    ConsumedCapacity: VectorCapacityTypeDef
+    SearchResults: list[SearchResultItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AttributeValueUpdateTypeDef(TypedDict):
@@ -1464,6 +1542,18 @@ class PutTypeDef(TypedDict):
     ExpressionAttributeNames: NotRequired[Mapping[str, str]]
     ExpressionAttributeValues: NotRequired[Mapping[str, UniversalAttributeValueTypeDef]]
     ReturnValuesOnConditionCheckFailure: NotRequired[ReturnValuesOnConditionCheckFailureType]
+
+
+class SearchVectorsInputTypeDef(TypedDict):
+    TableName: str
+    IndexName: str
+    SearchVector: Sequence[UniversalAttributeValueTypeDef]
+    TopK: int
+    ReturnConsumedCapacity: NotRequired[ReturnConsumedCapacityType]
+    ExpressionAttributeNames: NotRequired[Mapping[str, str]]
+    ExpressionAttributeValues: NotRequired[Mapping[str, UniversalAttributeValueTypeDef]]
+    ProjectionExpression: NotRequired[str]
+    SearchConditionExpression: NotRequired[str]
 
 
 class UpdateTypeDef(TypedDict):
@@ -1799,6 +1889,15 @@ ReplicaDescriptionTypeDef = TypedDict(
 )
 
 
+class SourceTableFeatureDetailsTypeDef(TypedDict):
+    LocalSecondaryIndexes: NotRequired[list[LocalSecondaryIndexInfoTypeDef]]
+    GlobalSecondaryIndexes: NotRequired[list[GlobalSecondaryIndexInfoTypeDef]]
+    StreamDescription: NotRequired[StreamSpecificationTypeDef]
+    TimeToLiveDescription: NotRequired[TimeToLiveDescriptionTypeDef]
+    SSEDescription: NotRequired[SSEDescriptionTypeDef]
+    VectorIndexes: NotRequired[list[VectorIndexInfoTypeDef]]
+
+
 class TableCreationParametersOutputTypeDef(TypedDict):
     TableName: str
     AttributeDefinitions: list[AttributeDefinitionTypeDef]
@@ -1808,14 +1907,7 @@ class TableCreationParametersOutputTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     SSESpecification: NotRequired[SSESpecificationTypeDef]
     GlobalSecondaryIndexes: NotRequired[list[GlobalSecondaryIndexOutputTypeDef]]
-
-
-class SourceTableFeatureDetailsTypeDef(TypedDict):
-    LocalSecondaryIndexes: NotRequired[list[LocalSecondaryIndexInfoTypeDef]]
-    GlobalSecondaryIndexes: NotRequired[list[GlobalSecondaryIndexInfoTypeDef]]
-    StreamDescription: NotRequired[StreamSpecificationTypeDef]
-    TimeToLiveDescription: NotRequired[TimeToLiveDescriptionTypeDef]
-    SSEDescription: NotRequired[SSEDescriptionTypeDef]
+    VectorIndexes: NotRequired[list[VectorIndexOutputTypeDef]]
 
 
 class ListImportsOutputTypeDef(TypedDict):
@@ -1833,6 +1925,15 @@ class CreateGlobalSecondaryIndexActionTypeDef(TypedDict):
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
 
 
+class CreateVectorIndexActionTypeDef(TypedDict):
+    IndexName: str
+    VectorAttribute: VectorAttributeDefinitionTypeDef
+    Projection: ProjectionUnionTypeDef
+    Dimensions: int
+    DistanceFunction: VectorDistanceFunctionType
+    SearchSchema: NotRequired[Sequence[SearchSchemaElementTypeDef]]
+
+
 class GlobalSecondaryIndexTypeDef(TypedDict):
     IndexName: str
     KeySchema: Sequence[KeySchemaElementTypeDef]
@@ -1846,6 +1947,15 @@ class LocalSecondaryIndexTypeDef(TypedDict):
     IndexName: str
     KeySchema: Sequence[KeySchemaElementTypeDef]
     Projection: ProjectionUnionTypeDef
+
+
+class VectorIndexTypeDef(TypedDict):
+    IndexName: str
+    VectorAttribute: VectorAttributeDefinitionTypeDef
+    Projection: ProjectionUnionTypeDef
+    Dimensions: int
+    DistanceFunction: VectorDistanceFunctionType
+    SearchSchema: NotRequired[Sequence[SearchSchemaElementTypeDef]]
 
 
 class BatchExecuteStatementOutputTypeDef(TypedDict):
@@ -2124,6 +2234,13 @@ class TableDescriptionTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[TableWarmThroughputDescriptionTypeDef]
     MultiRegionConsistency: NotRequired[MultiRegionConsistencyType]
+    VectorIndexes: NotRequired[list[VectorIndexDescriptionTypeDef]]
+
+
+class BackupDescriptionTypeDef(TypedDict):
+    BackupDetails: NotRequired[BackupDetailsTypeDef]
+    SourceTableDetails: NotRequired[SourceTableDetailsTypeDef]
+    SourceTableFeatureDetails: NotRequired[SourceTableFeatureDetailsTypeDef]
 
 
 class ImportTableDescriptionTypeDef(TypedDict):
@@ -2148,16 +2265,15 @@ class ImportTableDescriptionTypeDef(TypedDict):
     FailureMessage: NotRequired[str]
 
 
-class BackupDescriptionTypeDef(TypedDict):
-    BackupDetails: NotRequired[BackupDetailsTypeDef]
-    SourceTableDetails: NotRequired[SourceTableDetailsTypeDef]
-    SourceTableFeatureDetails: NotRequired[SourceTableFeatureDetailsTypeDef]
-
-
 class GlobalSecondaryIndexUpdateTypeDef(TypedDict):
     Update: NotRequired[UpdateGlobalSecondaryIndexActionTypeDef]
     Create: NotRequired[CreateGlobalSecondaryIndexActionTypeDef]
     Delete: NotRequired[DeleteGlobalSecondaryIndexActionTypeDef]
+
+
+class VectorIndexUpdateTypeDef(TypedDict):
+    Create: NotRequired[CreateVectorIndexActionTypeDef]
+    Delete: NotRequired[DeleteVectorIndexActionTypeDef]
 
 
 GlobalSecondaryIndexUnionTypeDef = Union[
@@ -2174,6 +2290,10 @@ class TableCreationParametersTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     SSESpecification: NotRequired[SSESpecificationTypeDef]
     GlobalSecondaryIndexes: NotRequired[Sequence[GlobalSecondaryIndexTypeDef]]
+    VectorIndexes: NotRequired[Sequence[VectorIndexTypeDef]]
+
+
+VectorIndexUnionTypeDef = Union[VectorIndexTypeDef, VectorIndexOutputTypeDef]
 
 
 class TransactGetItemsInputTypeDef(TypedDict):
@@ -2310,16 +2430,6 @@ class UpdateTableOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DescribeImportOutputTypeDef(TypedDict):
-    ImportTableDescription: ImportTableDescriptionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ImportTableOutputTypeDef(TypedDict):
-    ImportTableDescription: ImportTableDescriptionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DeleteBackupOutputTypeDef(TypedDict):
     BackupDescription: BackupDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2327,6 +2437,16 @@ class DeleteBackupOutputTypeDef(TypedDict):
 
 class DescribeBackupOutputTypeDef(TypedDict):
     BackupDescription: BackupDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeImportOutputTypeDef(TypedDict):
+    ImportTableDescription: ImportTableDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ImportTableOutputTypeDef(TypedDict):
+    ImportTableDescription: ImportTableDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2345,6 +2465,7 @@ class UpdateTableInputTableUpdateTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
+    VectorIndexUpdates: NotRequired[Sequence[VectorIndexUpdateTypeDef]]
 
 
 class UpdateTableInputTypeDef(TypedDict):
@@ -2363,6 +2484,12 @@ class UpdateTableInputTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     WarmThroughput: NotRequired[WarmThroughputTypeDef]
     GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
+    VectorIndexUpdates: NotRequired[Sequence[VectorIndexUpdateTypeDef]]
+
+
+TableCreationParametersUnionTypeDef = Union[
+    TableCreationParametersTypeDef, TableCreationParametersOutputTypeDef
+]
 
 
 class CreateTableInputServiceResourceCreateTableTypeDef(TypedDict):
@@ -2383,6 +2510,7 @@ class CreateTableInputServiceResourceCreateTableTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     GlobalTableSourceArn: NotRequired[str]
     GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
+    VectorIndexes: NotRequired[Sequence[VectorIndexUnionTypeDef]]
 
 
 class CreateTableInputTypeDef(TypedDict):
@@ -2403,6 +2531,7 @@ class CreateTableInputTypeDef(TypedDict):
     OnDemandThroughput: NotRequired[OnDemandThroughputTypeDef]
     GlobalTableSourceArn: NotRequired[str]
     GlobalTableSettingsReplicationMode: NotRequired[GlobalTableSettingsReplicationModeType]
+    VectorIndexes: NotRequired[Sequence[VectorIndexUnionTypeDef]]
 
 
 class RestoreTableFromBackupInputTypeDef(TypedDict):
@@ -2414,6 +2543,7 @@ class RestoreTableFromBackupInputTypeDef(TypedDict):
     ProvisionedThroughputOverride: NotRequired[ProvisionedThroughputTypeDef]
     OnDemandThroughputOverride: NotRequired[OnDemandThroughputTypeDef]
     SSESpecificationOverride: NotRequired[SSESpecificationTypeDef]
+    VectorIndexOverride: NotRequired[Sequence[VectorIndexUnionTypeDef]]
 
 
 class RestoreTableToPointInTimeInputTypeDef(TypedDict):
@@ -2428,11 +2558,9 @@ class RestoreTableToPointInTimeInputTypeDef(TypedDict):
     ProvisionedThroughputOverride: NotRequired[ProvisionedThroughputTypeDef]
     OnDemandThroughputOverride: NotRequired[OnDemandThroughputTypeDef]
     SSESpecificationOverride: NotRequired[SSESpecificationTypeDef]
+    VectorIndexOverride: NotRequired[Sequence[VectorIndexUnionTypeDef]]
 
 
-TableCreationParametersUnionTypeDef = Union[
-    TableCreationParametersTypeDef, TableCreationParametersOutputTypeDef
-]
 WriteRequestUnionTypeDef = Union[WriteRequestTypeDef, WriteRequestOutputTypeDef]
 
 

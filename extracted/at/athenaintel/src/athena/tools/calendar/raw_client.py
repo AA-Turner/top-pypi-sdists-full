@@ -8,6 +8,13 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.http_response import AsyncHttpResponse, HttpResponse
 from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
+from ...errors.bad_gateway_error import BadGatewayError
+from ...errors.bad_request_error import BadRequestError
+from ...errors.forbidden_error import ForbiddenError
+from ...errors.not_found_error import NotFoundError
+from ...errors.too_many_requests_error import TooManyRequestsError
+from ...errors.unprocessable_entity_error import UnprocessableEntityError
+from ...types.calendar_events_response_out import CalendarEventsResponseOut
 
 
 class RawCalendarClient:
@@ -15,76 +22,147 @@ class RawCalendarClient:
         self._client_wrapper = client_wrapper
 
     def list_events(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+        self,
+        *,
+        title: typing.Optional[str] = None,
+        start: typing.Optional[str] = None,
+        end: typing.Optional[str] = None,
+        location: typing.Optional[str] = None,
+        attendees: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        catalog_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[CalendarEventsResponseOut]:
         """
-        Coming soon! List calendar events with optional filtering.
+        List events on the calendar of the caller's connected account.
+
+        Reads the primary Google Calendar of a Gmail account or the default calendar
+        of an Outlook account. `start`/`end` select the events overlapping that
+        window; without them, Outlook returns recurring series as single entries, so
+        supply a window to expand them. `title`, `location` and `attendees` filter the
+        events that were read.
 
         Parameters
         ----------
+        title : typing.Optional[str]
+            Text filter. On Outlook this matches the event title only (`contains(subject, …)`); on Google Calendar it is Google's free-text event search (`q`), which also matches the description, location and attendee names.
+
+        start : typing.Optional[str]
+            Window start. `start` and `end` select events that overlap the window: an event that begins before `start` but is still running at `start` is included. ISO 8601 with an explicit UTC offset or Z (e.g. `2026-10-01T00:00:00-04:00`); the instant is forwarded in RFC 3339 form. Recurring series are expanded into their instances inside the window. Given only one bound, Google leaves the other side open while Outlook derives it 60 days away.
+
+        end : typing.Optional[str]
+            Window end (see `start`); must be later than `start` when both are given. ISO 8601 with an explicit UTC offset or Z.
+
+        location : typing.Optional[str]
+            Only events whose location contains this text. Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        attendees : typing.Optional[str]
+            Only events with at least one of these attendee emails (comma-separated). Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        limit : typing.Optional[int]
+            Maximum number of events (1-200).
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[CalendarEventsResponseOut]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/v0/tools/calendar/events",
             method="GET",
+            params={
+                "title": title,
+                "start": start,
+                "end": end,
+                "location": location,
+                "attendees": attendees,
+                "limit": limit,
+                "catalog_id": catalog_id,
+            },
             request_options=request_options,
         )
         try:
-            if _response is None or not _response.text.strip():
-                return HttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    CalendarEventsResponseOut,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=CalendarEventsResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def create_event(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
-        """
-        Coming soon! Create new calendar events.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[typing.Optional[typing.Any]]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v0/tools/calendar/events",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if _response is None or not _response.text.strip():
-                return HttpResponse(response=_response, data=None)
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.Optional[typing.Any],
-                    parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
-                        object_=_response.json(),
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
                     ),
                 )
-                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -96,76 +174,147 @@ class AsyncRawCalendarClient:
         self._client_wrapper = client_wrapper
 
     async def list_events(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+        self,
+        *,
+        title: typing.Optional[str] = None,
+        start: typing.Optional[str] = None,
+        end: typing.Optional[str] = None,
+        location: typing.Optional[str] = None,
+        attendees: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        catalog_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[CalendarEventsResponseOut]:
         """
-        Coming soon! List calendar events with optional filtering.
+        List events on the calendar of the caller's connected account.
+
+        Reads the primary Google Calendar of a Gmail account or the default calendar
+        of an Outlook account. `start`/`end` select the events overlapping that
+        window; without them, Outlook returns recurring series as single entries, so
+        supply a window to expand them. `title`, `location` and `attendees` filter the
+        events that were read.
 
         Parameters
         ----------
+        title : typing.Optional[str]
+            Text filter. On Outlook this matches the event title only (`contains(subject, …)`); on Google Calendar it is Google's free-text event search (`q`), which also matches the description, location and attendee names.
+
+        start : typing.Optional[str]
+            Window start. `start` and `end` select events that overlap the window: an event that begins before `start` but is still running at `start` is included. ISO 8601 with an explicit UTC offset or Z (e.g. `2026-10-01T00:00:00-04:00`); the instant is forwarded in RFC 3339 form. Recurring series are expanded into their instances inside the window. Given only one bound, Google leaves the other side open while Outlook derives it 60 days away.
+
+        end : typing.Optional[str]
+            Window end (see `start`); must be later than `start` when both are given. ISO 8601 with an explicit UTC offset or Z.
+
+        location : typing.Optional[str]
+            Only events whose location contains this text. Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        attendees : typing.Optional[str]
+            Only events with at least one of these attendee emails (comma-separated). Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        limit : typing.Optional[int]
+            Maximum number of events (1-200).
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[CalendarEventsResponseOut]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/v0/tools/calendar/events",
             method="GET",
+            params={
+                "title": title,
+                "start": start,
+                "end": end,
+                "location": location,
+                "attendees": attendees,
+                "limit": limit,
+                "catalog_id": catalog_id,
+            },
             request_options=request_options,
         )
         try:
-            if _response is None or not _response.text.strip():
-                return AsyncHttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    CalendarEventsResponseOut,
                     parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=CalendarEventsResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def create_event(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
-        """
-        Coming soon! Create new calendar events.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v0/tools/calendar/events",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if _response is None or not _response.text.strip():
-                return AsyncHttpResponse(response=_response, data=None)
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.Optional[typing.Any],
-                    parse_obj_as(
-                        type_=typing.Optional[typing.Any],  # type: ignore
-                        object_=_response.json(),
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
                     ),
                 )
-                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 502:
+                raise BadGatewayError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

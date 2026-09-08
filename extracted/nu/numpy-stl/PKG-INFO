@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-stl
-Version: 4.0.0
+Version: 4.0.1
 Summary: Library to make reading, writing and modifying both binary and ascii STL files easy.
 Author: Rick van Hattem
 Author-email: Rick van Hattem <Wolph@Wol.ph>
@@ -27,10 +27,11 @@ Requires-Dist: ruff>=0.15.0 ; extra == 'dev'
 Requires-Dist: mypy>=1.0 ; extra == 'dev'
 Requires-Dist: basedpyright>=1.0 ; extra == 'dev'
 Requires-Dist: pyrefly>=0.1 ; extra == 'dev'
+Requires-Dist: ty>=0.0.1 ; extra == 'dev'
 Requires-Dist: sphinx>=8.0 ; python_full_version < '3.11' and extra == 'docs'
 Requires-Dist: sphinx>=9.0 ; python_full_version >= '3.11' and extra == 'docs'
 Requires-Dist: furo>=2025.1 ; extra == 'docs'
-Requires-Dist: speedups>=2.0.0 ; extra == 'fast'
+Requires-Dist: speedups>=2.1.0 ; extra == 'fast'
 Requires-Dist: pytest>=9.0 ; extra == 'tests'
 Requires-Dist: pytest-cov>=7.0 ; extra == 'tests'
 Requires-Dist: coverage>=7.0 ; extra == 'tests'

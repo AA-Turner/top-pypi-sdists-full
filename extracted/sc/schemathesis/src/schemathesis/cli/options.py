@@ -86,6 +86,14 @@ MAX_FAILURES = OptionSpec(
     show_default=True,
 )
 
+MAX_TIME = OptionSpec(
+    "--max-time",
+    "max_time",
+    type=click.IntRange(min=1),
+    help="Time budget for the whole run; fuzzing and stateful testing repeat until it is spent",
+    metavar="SECONDS",
+)
+
 CONTINUE_ON_FAILURE = OptionSpec(
     "--continue-on-failure",
     "continue_on_failure",
@@ -147,6 +155,24 @@ AUTH = OptionSpec(
     metavar="USER:PASS",
     type=str,
     callback=validate_auth,
+)
+
+AUTH_WFC = OptionSpec(
+    "--auth-wfc",
+    "auth_wfc",
+    help="Authenticate all API requests using a Web Fuzzing Commons auth file",
+    metavar="PATH",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+)
+
+AUTH_WFC_USER = OptionSpec(
+    "--auth-wfc-user",
+    "auth_wfc_user",
+    help="Name of the entry to use from the Web Fuzzing Commons auth file. Defaults to the first one",
+    metavar="NAME",
+    type=str,
+    default=None,
 )
 
 PROXY = OptionSpec(
@@ -447,6 +473,13 @@ REPORT_HAR_PATH = OptionSpec(
 REPORT_NDJSON_PATH = OptionSpec(
     "--report-ndjson-path",
     help="Custom path for NDJSON events file",
+    type=click.File("w", encoding="utf-8"),
+    is_eager=True,
+)
+
+REPORT_JSON_PATH = OptionSpec(
+    "--report-json-path",
+    help="Custom path for the JSON run report",
     type=click.File("w", encoding="utf-8"),
     is_eager=True,
 )

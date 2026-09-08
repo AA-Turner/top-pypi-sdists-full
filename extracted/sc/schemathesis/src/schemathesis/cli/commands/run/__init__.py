@@ -16,6 +16,8 @@ from schemathesis.cli.ext.groups import group, grouped_option
 from schemathesis.cli.ext.options import CsvChoice
 from schemathesis.cli.options import (
     AUTH,
+    AUTH_WFC,
+    AUTH_WFC_USER,
     BASE_URL,
     CHECKS_OPTION,
     CONTINUE_ON_FAILURE,
@@ -40,6 +42,7 @@ from schemathesis.cli.options import (
     MAX_FAILURES,
     MAX_REDIRECTS,
     MAX_RESPONSE_TIME,
+    MAX_TIME,
     NO_COLOR,
     OUTPUT_SANITIZE,
     OUTPUT_TRUNCATE,
@@ -49,6 +52,7 @@ from schemathesis.cli.options import (
     REPORT_ALLURE_PATH,
     REPORT_DIR,
     REPORT_HAR_PATH,
+    REPORT_JSON_PATH,
     REPORT_JUNIT_PATH,
     REPORT_NDJSON_PATH,
     REPORT_PRESERVE_BYTES,
@@ -84,6 +88,7 @@ DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
 @group("Options")
 @grouped_option(*BASE_URL.args, **BASE_URL.kwargs)
 @grouped_option(*WORKERS.args, **WORKERS.kwargs)
+@grouped_option(*MAX_TIME.args, **MAX_TIME.kwargs)
 @grouped_option(
     "--phases",
     help="A comma-separated list of test phases to run",
@@ -117,6 +122,8 @@ DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
 @group("Network requests options")
 @grouped_option(*HEADER.args, **HEADER.kwargs)
 @grouped_option(*AUTH.args, **AUTH.kwargs)
+@grouped_option(*AUTH_WFC.args, **AUTH_WFC.kwargs)
+@grouped_option(*AUTH_WFC_USER.args, **AUTH_WFC_USER.kwargs)
 @grouped_option(*PROXY.args, **PROXY.kwargs)
 @grouped_option(*TLS_VERIFY.args, **TLS_VERIFY.kwargs)
 @grouped_option(*RATE_LIMIT.args, **RATE_LIMIT.kwargs)
@@ -132,6 +139,7 @@ DEFAULT_PHASES = ["examples", "coverage", "fuzzing", "stateful"]
 @grouped_option(*REPORT_VCR_PATH.args, **REPORT_VCR_PATH.kwargs)
 @grouped_option(*REPORT_HAR_PATH.args, **REPORT_HAR_PATH.kwargs)
 @grouped_option(*REPORT_NDJSON_PATH.args, **REPORT_NDJSON_PATH.kwargs)
+@grouped_option(*REPORT_JSON_PATH.args, **REPORT_JSON_PATH.kwargs)
 @grouped_option(*REPORT_ALLURE_PATH.args, **REPORT_ALLURE_PATH.kwargs)
 @grouped_option(*REPORT_PRESERVE_BYTES.args, **REPORT_PRESERVE_BYTES.kwargs)
 @grouped_option(*OUTPUT_SANITIZE.args, **OUTPUT_SANITIZE.kwargs)
@@ -164,12 +172,15 @@ def run(
     *,
     location: str,
     auth: tuple[str, str] | None,
+    auth_wfc: str | None = None,
+    auth_wfc_user: str | None = None,
     headers: dict[str, str],
     included_check_names: list[str] | None,
     excluded_check_names: list[str] | None,
     max_response_time: float | None = None,
     phases: list[str] = DEFAULT_PHASES,
     max_failures: int | None = None,
+    max_time: int | None = None,
     continue_on_failure: bool | None = None,
     include_path: tuple[str, ...],
     include_path_regex: str | None,
@@ -213,6 +224,7 @@ def run(
     report_vcr_path: LazyFile | None = None,
     report_har_path: LazyFile | None = None,
     report_ndjson_path: LazyFile | None = None,
+    report_json_path: LazyFile | None = None,
     report_allure_path: str | None = None,
     report_preserve_bytes: bool | None = None,
     output_sanitize: bool | None = None,
@@ -262,6 +274,7 @@ def run(
         seed=generation_seed,
         wait_for_schema=wait_for_schema,
         max_failures=max_failures,
+        max_time=max_time,
     )
     config.output.sanitization.update(enabled=output_sanitize)
     config.output.truncation.update(enabled=output_truncate)
@@ -271,6 +284,7 @@ def run(
         vcr_path=report_vcr_path.name if report_vcr_path else None,
         har_path=report_har_path.name if report_har_path else None,
         ndjson_path=report_ndjson_path.name if report_ndjson_path else None,
+        json_path=report_json_path.name if report_json_path else None,
         allure_path=report_allure_path,
         directory=Path(report_directory),
         preserve_bytes=report_preserve_bytes,
@@ -280,6 +294,8 @@ def run(
         base_url=base_url,
         headers=headers or None,
         basic_auth=auth,
+        wfc_auth=auth_wfc,
+        wfc_user=auth_wfc_user,
         workers=workers,
         continue_on_failure=continue_on_failure,
         rate_limit=rate_limit,

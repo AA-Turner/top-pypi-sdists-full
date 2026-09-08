@@ -20,6 +20,8 @@ from typing import Any
 
 import aiohttp
 
+from .mqttclient import MqttClient
+
 LOGGER = logging.getLogger(__name__)
 
 CAPABILITY_DOWNLOAD_TIMEOUT = 10.0
@@ -187,7 +189,7 @@ class CapabilityDownloader:
 
     def __init__(
         self,
-        mqtt_client: Any,
+        mqtt_client: MqttClient,
         session: aiohttp.ClientSession,
     ) -> None:
         self._mqtt = mqtt_client
@@ -245,14 +247,20 @@ class CapabilityDownloader:
             asyncio.get_running_loop().create_future()
         )
         self._pending[response_topic] = future
-        self._mqtt.subscribe(response_topic)
         try:
-            self._mqtt.publish(
-                request_topic,
-                {
-                    "requestId": str(uuid.uuid4()),
-                    "capabilityPartNumber": capability_part_number,
-                },
+            await asyncio.wait_for(
+                self._mqtt.subscribe(response_topic),
+                timeout=CAPABILITY_DOWNLOAD_TIMEOUT,
+            )
+            await asyncio.wait_for(
+                self._mqtt.publish(
+                    request_topic,
+                    {
+                        "requestId": str(uuid.uuid4()),
+                        "capabilityPartNumber": capability_part_number,
+                    },
+                ),
+                timeout=CAPABILITY_DOWNLOAD_TIMEOUT,
             )
             try:
                 response = await asyncio.wait_for(
@@ -274,22 +282,30 @@ class CapabilityDownloader:
             return raw
         finally:
             self._pending.pop(response_topic, None)
-            self._mqtt.unsubscribe(response_topic)
+            await asyncio.wait_for(
+                self._mqtt.unsubscribe(response_topic),
+                timeout=CAPABILITY_DOWNLOAD_TIMEOUT,
+            )
 
     async def _download_file(self, mqtt_response: dict[str, Any]) -> dict[str, Any]:
         # The broker replies with {"responseCode": 200, "downloadUrl": "..."}.
         url = mqtt_response.get("downloadUrl")
         if not isinstance(url, str) or not url.startswith("http"):
             return mqtt_response
-        async with self._session.get(url) as resp:
-            if resp.status != 200:
-                raise CapabilityDownloadError(
-                    f"Capability URL returned HTTP {resp.status}"
-                )
-            text = await resp.text()
-            try:
-                return json.loads(text)
-            except json.JSONDecodeError as e:
-                raise CapabilityDownloadError(
-                    f"Capability body is not valid JSON: {e}"
-                ) from e
+        try:
+            async with self._session.get(url) as resp:
+                if resp.status != 200:
+                    raise CapabilityDownloadError(
+                        f"Capability URL returned HTTP {resp.status}"
+                    )
+                text = await resp.text()
+        except aiohttp.ClientError as e:
+            raise CapabilityDownloadError(
+                f"HTTP error downloading capability file: {e}"
+            ) from e
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            raise CapabilityDownloadError(
+                f"Capability body is not valid JSON: {e}"
+            ) from e

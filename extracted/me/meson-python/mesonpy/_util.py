@@ -16,7 +16,8 @@ from typing import IO
 
 
 if typing.TYPE_CHECKING:  # pragma: no cover
-    from mesonpy._compat import Iterator, Path
+    from typing import Iterator, Union
+    Path = Union[str, os.PathLike[str]]
 
 
 @contextlib.contextmanager
@@ -32,7 +33,7 @@ def chdir(path: Path) -> Iterator[Path]:
 
 @contextlib.contextmanager
 def create_targz(path: Path) -> Iterator[tarfile.TarFile]:
-    """Opens a .tar.gz file in the file system for edition.."""
+    """Opens a .tar.gz file in the file system for edition."""
 
     os.makedirs(os.path.dirname(path), exist_ok=True)
     file = typing.cast(IO[bytes], gzip.GzipFile(

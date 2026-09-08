@@ -2,13 +2,13 @@
 Tests covering SMTP configuration options.
 """
 
-import asyncio
 import socket
 import ssl
+from typing import Any
 
 import pytest
 
-from aiosmtplib import SMTP
+from aiosmtplib import SMTP, SMTPConnectError, SMTPConnectTimeoutError
 
 
 async def test_tls_context_and_cert_raises(client_tls_context: ssl.SSLContext) -> None:
@@ -118,16 +118,25 @@ async def test_default_port_on_connect(
 ) -> None:
     client = SMTP()
 
-    try:
+    # Nothing listens on the default ports; the error names the port tried.
+    with pytest.raises(
+        (SMTPConnectError, SMTPConnectTimeoutError), match=f"port {expected_port}"
+    ):
         await client.connect(
-            hostname=bind_address, use_tls=use_tls, start_tls=start_tls, timeout=0.001
+            hostname=bind_address, use_tls=use_tls, start_tls=start_tls, timeout=0.5
         )
-    except (asyncio.TimeoutError, OSError):
-        pass
 
-    assert client.port == expected_port
+    assert client.port is None
 
-    client.close()
+
+async def test_default_hostname_on_connect() -> None:
+    client = SMTP()
+
+    # No hostname configured; the client defaults to localhost for the attempt.
+    with pytest.raises((SMTPConnectError, SMTPConnectTimeoutError), match="localhost"):
+        await client.connect(timeout=0.5)
+
+    assert client.hostname is None
 
 
 async def test_connect_hostname_takes_precedence(
@@ -327,3 +336,49 @@ async def test_local_hostname_newline_raises_error() -> None:
             hostname="localhost",
             local_hostname="localhost\r\nRCPT TO: <hacker@hackers.org>",
         )
+
+
+@pytest.mark.parametrize(
+    "local_hostname",
+    [
+        "me.example.com XCLIENT ADDR=1.2.3.4",
+        "me.example.com\tXCLIENT ADDR=1.2.3.4",
+        "me.example.com\x00",
+        "",
+        "   ",
+    ],
+    ids=["space", "tab", "nul", "empty", "whitespace_only"],
+)
+async def test_local_hostname_whitespace_raises_error(local_hostname: str) -> None:
+    with pytest.raises(ValueError):
+        SMTP(hostname="localhost", local_hostname=local_hostname)
+
+
+async def test_local_hostname_surrounding_whitespace_is_stripped() -> None:
+    client = SMTP(hostname="localhost", local_hostname="  me.example.com\t")
+
+    assert client.local_hostname == "me.example.com"
+
+
+async def test_connect_local_hostname_whitespace_raises_error(
+    hostname: str, smtpd_server_port: int
+) -> None:
+    client = SMTP(hostname=hostname, port=smtpd_server_port)
+
+    with pytest.raises(ValueError):
+        await client.connect(local_hostname="me.example.com XCLIENT ADDR=1.2.3.4")
+
+
+async def test_starttls_invalid_config_raises_before_ehlo(
+    smtp_client: SMTP,
+    client_tls_context: ssl.SSLContext,
+    received_commands: list[tuple[str, tuple[Any, ...]]],
+) -> None:
+    async with smtp_client:
+        with pytest.raises(ValueError):
+            await smtp_client.starttls(
+                client_cert="test.cert", tls_context=client_tls_context
+            )
+
+        assert smtp_client.is_ehlo_or_helo_needed
+        assert not any(command == "EHLO" for command, _ in received_commands)

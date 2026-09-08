@@ -92,6 +92,7 @@ __all__ = (
     "GetQualificationsDisassociationTaskResponseTypeDef",
     "GetVerificationRequestTypeDef",
     "GetVerificationResponseTypeDef",
+    "HeadquartersTypeDef",
     "ListConnectionInvitationsRequestPaginateTypeDef",
     "ListConnectionInvitationsRequestTypeDef",
     "ListConnectionInvitationsResponseTypeDef",
@@ -306,6 +307,11 @@ class GetQualificationsDisassociationTaskRequestTypeDef(TypedDict):
 
 class GetVerificationRequestTypeDef(TypedDict):
     VerificationType: VerificationTypeType
+
+
+class HeadquartersTypeDef(TypedDict):
+    CountryCode: str
+    SubdivisionCode: str
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -680,6 +686,7 @@ class PartnerProfileTypeDef(TypedDict):
     IndustrySegments: list[IndustrySegmentType]
     TranslationSourceLocale: str
     LocalizedContents: NotRequired[list[LocalizedContentTypeDef]]
+    Headquarters: NotRequired[HeadquartersTypeDef]
     ProfileId: NotRequired[str]
 
 
@@ -692,6 +699,7 @@ class TaskDetailsOutputTypeDef(TypedDict):
     IndustrySegments: list[IndustrySegmentType]
     TranslationSourceLocale: str
     LocalizedContents: NotRequired[list[LocalizedContentTypeDef]]
+    Headquarters: NotRequired[HeadquartersTypeDef]
 
 
 class TaskDetailsTypeDef(TypedDict):
@@ -703,6 +711,7 @@ class TaskDetailsTypeDef(TypedDict):
     IndustrySegments: Sequence[IndustrySegmentType]
     TranslationSourceLocale: str
     LocalizedContents: NotRequired[Sequence[LocalizedContentTypeDef]]
+    Headquarters: NotRequired[HeadquartersTypeDef]
 
 
 class ParticipantTypeDef(TypedDict):

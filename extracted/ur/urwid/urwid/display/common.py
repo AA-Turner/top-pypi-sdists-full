@@ -216,8 +216,8 @@ def _value_lookup_table(values: Sequence[int], size: int) -> list[int]:
     Generate a lookup table for finding the closest item in values.
     Lookup returns (index into values)+1
 
-    values -- list of values in ascending order, all < size
-    size -- size of lookup table and maximum value
+    :param values: list of values in ascending order, all < size
+    :param size: size of lookup table and maximum value
 
     >>> _value_lookup_table([0, 7, 9], 10)
     [0, 0, 0, 0, 1, 1, 1, 1, 2, 2]
@@ -316,6 +316,8 @@ def _color_desc_256(num: int) -> str:
     >>> _color_desc_256(234)
     'g11'
 
+    :raises ValueError: *num* is outside the 256-colour range.
+
     """
     if not 0 <= num < 256:
         raise ValueError(num)
@@ -349,6 +351,8 @@ def _color_desc_88(num: int) -> str:
     'g36'
     >>> _color_desc_88(82)
     'g45'
+
+    :raises ValueError: *num* is outside the 88-colour range.
 
     """
     if not 0 < num < 88:
@@ -545,7 +549,7 @@ class AttrSpec:
         colors: Literal[1, 16, 88, 256, 16777216] = 256,
     ) -> None:
         """
-        fg -- a string containing a comma-separated foreground color and settings
+        :param fg: a string containing a comma-separated foreground color and settings
 
               Color values:
               'default' (use the terminal's default foreground),
@@ -570,7 +574,7 @@ class AttrSpec:
               Most terminals ignore the 'blink' setting.
               If the color is not given then 'default' will be assumed.
 
-        bg -- a string containing the background color
+        :param bg: a string containing the background color
 
               Color values:
               'default' (use the terminal's default background),
@@ -582,7 +586,8 @@ class AttrSpec:
 
               An empty string will be treated the same as 'default'.
 
-        colors -- the maximum colors available for the specification
+        :param colors: the maximum colors available for the specification
+        :raises AttrSpecError: *colors* is not a supported palette size, or *fg*/*bg* need more colours than *colors*.
 
                    Valid values include: 1, 16, 88, 256, and 2**24.  High-color
                    values are only usable with 88, 256, or 2**24 colors.  With
@@ -753,6 +758,12 @@ class AttrSpec:
         )
 
     def __set_foreground(self, foreground: str) -> None:
+        """
+        Parse and store the foreground colour and settings.
+
+        :raises AttrSpecError: *foreground* names an unrecognised colour, repeats a setting, or gives more than one
+            colour.
+        """
         color = None
         scolor: int | None
         flags = 0
@@ -804,6 +815,11 @@ class AttrSpec:
         return _color_desc_256(self.background_number)
 
     def __set_background(self, background: str) -> None:
+        """
+        Parse and store the background colour.
+
+        :raises AttrSpecError: *background* names an unrecognised colour.
+        """
         flags = 0
         color: int | None
         if background in {"", "default"}:
@@ -836,6 +852,8 @@ class AttrSpec:
         (255, 255, 0, 205, 205, 255)
         >>> AttrSpec("default", "g92").get_rgb_values()
         (None, None, None, 238, 238, 238)
+
+        :raises ValueError: this AttrSpec holds a colour number outside the 88-colour range.
         """
         vals: tuple[int | None, int | None, int | None]
         if not (self.foreground_basic or self.foreground_high or self.foreground_true):
@@ -1037,7 +1055,8 @@ class BaseScreen(abc.ABC, metaclass=signals.MetaSignals):
 
         Extra arguments are passed to `start`.
 
-        Deprecated in favor of calling `start` as a context manager.
+        .. deprecated:: 1.3.0
+            Call `start` as a context manager instead. This API will be removed in version 5.0.
         """
         warnings.warn(
             "run_wrapper is deprecated in favor of calling `start` as a context manager."
@@ -1076,8 +1095,9 @@ class BaseScreen(abc.ABC, metaclass=signals.MetaSignals):
     ) -> None:
         """Register a set of palette entries.
 
-        palette -- a list of (name, like_other_name) or
-        (name, foreground, background, mono, foreground_high, background_high) tuples
+        :param palette: a list of (name, like_other_name) or
+            (name, foreground, background, mono, foreground_high, background_high) tuples
+        :raises ScreenError: an entry is neither a 2-, 3-, 4- nor 6-tuple, or copies a name that is not registered yet.
 
             The (name, like_other_name) format will copy the settings
             from the palette entry like_other_name, which must appear
@@ -1111,10 +1131,10 @@ class BaseScreen(abc.ABC, metaclass=signals.MetaSignals):
     ) -> None:
         """Register a single palette entry.
 
-        name -- new entry/attribute name
+        :param name: new entry/attribute name
 
-        foreground -- a string containing a comma-separated foreground
-        color and settings
+        :param foreground: a string containing a comma-separated foreground
+            color and settings
 
             Color values:
             'default' (use the terminal's default foreground),
@@ -1130,22 +1150,22 @@ class BaseScreen(abc.ABC, metaclass=signals.MetaSignals):
             ignore the 'blink' setting.  If the color is not given then
             'default' will be assumed.
 
-        background -- a string containing the background color
+        :param background: a string containing the background color
 
             Background color values:
             'default' (use the terminal's default background),
             'black', 'dark red', 'dark green', 'brown', 'dark blue',
             'dark magenta', 'dark cyan', 'light gray'
 
-        mono -- a comma-separated string containing monochrome terminal
-        settings (see "Settings" above.)
+        :param mono: a comma-separated string containing monochrome terminal
+            settings (see "Settings" above.)
 
             None = no terminal settings (same as 'default')
 
-        foreground_high -- a string containing a comma-separated
-        foreground color and settings, standard foreground
-        colors (see "Color values" above) or high-colors may
-        be used
+        :param foreground_high: a string containing a comma-separated
+            foreground color and settings, standard foreground
+            colors (see "Color values" above) or high-colors may
+            be used
 
             High-color example values:
             '#009' (0% red, 0% green, 60% red, like HTML colors)
@@ -1157,10 +1177,10 @@ class BaseScreen(abc.ABC, metaclass=signals.MetaSignals):
 
             None = use foreground parameter value
 
-        background_high -- a string containing the background color,
-        standard background colors (see "Background colors" above)
-        or high-colors (see "High-color example values" above)
-        may be used
+        :param background_high: a string containing the background color,
+            standard background colors (see "Background colors" above)
+            or high-colors (see "High-color example values" above)
+            may be used
 
             None = use background parameter value
         """

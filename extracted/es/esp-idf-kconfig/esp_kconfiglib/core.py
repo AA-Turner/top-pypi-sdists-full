@@ -11,10 +11,12 @@ import os
 import re
 import sys
 import typing
+from glob import escape as glob_escape
 from glob import iglob
 from os.path import dirname
 from os.path import exists
 from os.path import expandvars
+from os.path import isfile
 from os.path import islink
 from os.path import join
 from os.path import realpath
@@ -311,7 +313,13 @@ sub2/foobarfoo:
   source "sub[12]/foo*foo"
 
 The glob patterns accepted are the same as for the standard glob.glob()
-function.
+function, except that if the expanded path names an existing file, it is
+sourced literally rather than treated as a pattern. This keeps fully literal
+paths that contain glob metacharacters working, e.g. a project directory
+named 'hello_world[test]' passed in through an environment variable. Only
+the argument of the 'source'/'rsource' statement itself carries glob
+semantics; $srctree and the 'rsource' base directory are never interpreted
+as patterns.
 
 Two additional statements are provided for cases where it's acceptable for a
 pattern to match no files: 'osource' and 'orsource' (the o is for "optional").
@@ -330,7 +338,13 @@ files matching "bar*" exist:
 Extra optional warnings
 -----------------------
 
-Some optional warnings can be controlled via environment variables:
+Parser selection and optional warnings can be controlled via environment
+variables:
+
+  - KCONFIG_PARSER_VERSION: Selects the Kconfig parser. ``1`` (default) is the
+    legacy parser; ``2`` is the pyparsing-based parser. If parser ``2`` fails
+    to parse a tree that parser ``1`` accepts, kconfgen reports this as a
+    likely parser bug and suggests falling back to ``1``.
 
   - KCONFIG_WARN_UNDEF: If set to 'y', warnings will be generated for all
     references to undefined symbols within Kconfig files. The only gotcha is
@@ -1567,13 +1581,13 @@ class Kconfig(object):
                         if is_main_sdkconfig:
                             sym._sdkconfig_value = val
                             sym._loaded_as_default = False
-                        sym.present_in_current_sdkconfig = True
+                        sym.mark_present_from_assignment(val)
                         if all(node.prompt is None for node in sym.nodes):
                             if sym.name not in self.promptless_no_warn:
                                 self.report.add_record(DefaultValuesArea, sym_or_choice=sym, promptless=True)
                 # If value is supposed to be a default and symbol has a prompt, save it for later
                 elif any(node.prompt is not None for node in sym.nodes):
-                    sym.present_in_current_sdkconfig = True
+                    sym.mark_present_from_assignment(val)
                     if is_main_sdkconfig:
                         sym._sdkconfig_value = val
                         sym._loaded_as_default = True
@@ -1648,7 +1662,7 @@ class Kconfig(object):
                     if is_main_sdkconfig:
                         sym._sdkconfig_value = val
                         sym._loaded_as_default = False
-                    sym.present_in_current_sdkconfig = True
+                    sym.mark_present_from_assignment(val)
 
             for sym in symbols_with_default_values:
                 sym.resolve_defaults()
@@ -2670,7 +2684,7 @@ class Kconfig(object):
         # working across multiple lines. Lookback and compatibility with old
         # janky versions of the C tools complicate things though.
 
-        self._line = s  # Used for error reporting
+        self._line = s  # Used for error reporting and env. variable detection
         self.check_pragmas(s)
 
         # Initial token on the line
@@ -2784,7 +2798,8 @@ class Kconfig(object):
                         #
                         # The preprocessor functionality changed how
                         # environment variables are referenced, to $(FOO).
-                        val = expandvars(s[i + 1 : end_i - 1].replace("$UNAME_RELEASE", _UNAME_RELEASE))
+                        raw_val = s[i + 1 : end_i - 1].replace("$UNAME_RELEASE", _UNAME_RELEASE)
+                        val = expandvars(raw_val)
 
                         i = end_i
 
@@ -3292,7 +3307,9 @@ class Kconfig(object):
                 pattern = self._expect_str_and_eol()
                 if t0 in _REL_SOURCE_TOKENS:
                     # Relative source
-                    pattern = join(dirname(self.filename), pattern)
+                    prefix = join(self._srctree_prefix, dirname(self.filename))
+                else:
+                    prefix = self._srctree_prefix
 
                 # - glob() doesn't support globbing relative to a directory, so
                 #   we need to prepend $srctree to 'pattern'. Use join()
@@ -3302,7 +3319,7 @@ class Kconfig(object):
                 # - Sort the glob results to ensure a consistent ordering of
                 #   Kconfig symbols, which indirectly ensures a consistent
                 #   ordering in e.g. .config files
-                filenames = sorted(iglob(join(self._srctree_prefix, pattern)))
+                filenames = _resolve_source_pattern(prefix, pattern)
 
                 if not filenames and t0 in _OBL_SOURCE_TOKENS:
                     raise KconfigError(
@@ -3312,7 +3329,7 @@ class Kconfig(object):
                         "environment variables expand to the empty string.".format(
                             self.filename,
                             self.linenr,
-                            pattern,
+                            join(dirname(self.filename), pattern) if t0 in _REL_SOURCE_TOKENS else pattern,
                             self._line.strip(),
                             f"set to '{self.srctree}'" if self.srctree else "unset or blank",
                         )
@@ -3499,6 +3516,8 @@ class Kconfig(object):
 
             elif t0 == _T_DEFAULT:
                 node.defaults.append((self._parse_expr(), self._parse_cond()))
+                if "$" in self._line and type(node.item) is Symbol and _env_ref_search(self._line):
+                    node.item.defaults_from_env = True
 
             elif t0 == _T_PROMPT:
                 self._parse_prompt(node)
@@ -4206,7 +4225,9 @@ class Kconfig(object):
                             # the quotes were left out if 'foo' isn't all-uppercase
                             # (and no symbol named 'foo' exists).
                             log.note(
-                                f"{loc}: style: quotes recommended around default value for string symbol {sym.name}"
+                                f"{loc}: "
+                                f"Deprecation notice: quotes recommended around default value "
+                                f"for string symbol {sym.name}. Will be required in the future."
                             )
 
                     elif not num_ok(default, sym.orig_type):  # INT/HEX/FLOAT
@@ -4220,7 +4241,10 @@ class Kconfig(object):
                     log.note(f"{loc}: the {TYPE_TO_STR[sym.orig_type]} symbol {sym.name} has selects or implies")
 
             else:  # UNKNOWN
-                log.note(f"{loc}: {sym.name} defined without a type")
+                log.note(
+                    f"{loc}: Deprecation notice: {sym.name} defined without a type. "
+                    "Explicit type will be required in the future."
+                )
 
             if sym.ranges:
                 if sym.orig_type not in _INT_HEX_FLOAT:
@@ -4328,36 +4352,13 @@ class Kconfig(object):
         # Prints warnings for all references to undefined symbols within the
         # Kconfig files
 
-        def is_num(s):
-            # Returns True if the string 's' looks like a number.
-            #
-            # Internally, all operands in Kconfig are symbols, only undefined symbols
-            # (which numbers usually are) get their name as their value.
-            #
-            # Only hex numbers that start with 0x/0X are classified as numbers.
-            # Otherwise, symbols whose names happen to contain only the letters A-F
-            # would trigger false positives.
-
-            try:
-                int(s)
-            except ValueError:
-                if not s.startswith(("0x", "0X")):
-                    return False
-
-                try:
-                    int(s, 16)
-                except ValueError:
-                    return False
-
-            return True
-
         for sym in self.syms.values():
             # - sym.nodes empty means the symbol is undefined (has no
             #   definition locations)
             #
             # - Due to Kconfig internals, numbers show up as undefined Kconfig
             #   symbols, but shouldn't be flagged
-            if not sym.nodes and not is_num(sym.name):
+            if not sym.nodes and not _looks_like_number(sym.name):
                 msg = f"undefined symbol {sym.name}:"
                 for node in self.node_iter():
                     if sym in node.referenced:
@@ -4412,6 +4413,7 @@ class Symbol:
         "_user_value",
         "weak_rev_dep",
         "env_var",
+        "defaults_from_env",
         "sets",
         "weak_sets",
         "rev_values",
@@ -4429,6 +4431,7 @@ class Symbol:
     help: Optional[str]
     is_constant: bool
     env_var: Optional[str]
+    defaults_from_env: bool
     ranges: List[Tuple]
     _loaded_as_default: bool
     _sdkconfig_value: Optional[str]
@@ -4551,6 +4554,16 @@ class Symbol:
             C implementation.
         """
         self.env_var = None
+
+        """
+        defaults_from_env:
+            True if at least one of the symbol's 'default' properties (value or condition)
+            references an environment variable ($NAME or ${NAME}), whether or not that
+            variable was set at parse time. Unlike env_var, this does not require
+            'option env'; it simply records that the symbol's value depends on the build
+            environment rather than being a fixed constant.
+        """
+        self.defaults_from_env = False
 
         """
         nodes:
@@ -4909,6 +4922,17 @@ class Symbol:
 
         return self.visibility  # we need to actually call self.visibility to trigger the calculation
 
+    def mark_present_from_assignment(self, assigned_val: str) -> None:
+        """
+        Record that this symbol was assigned in the current sdkconfig file.
+
+        A choice is marked present only when the assignment is y. n-set choice
+        members are written for completeness and must not count as a selection.
+        """
+        self._present_in_current_sdkconfig = True
+        if self.choice and assigned_val == "y":
+            self.choice.present_in_current_sdkconfig = True
+
     @property
     def present_in_current_sdkconfig(self):
         return self._present_in_current_sdkconfig
@@ -4916,21 +4940,6 @@ class Symbol:
     @present_in_current_sdkconfig.setter
     def present_in_current_sdkconfig(self, value: bool) -> None:
         self._present_in_current_sdkconfig = value
-        # NOTE: If the choice symbol is set to n, do not set the choice's present_in_current_sdkconfig flag;
-        #       choice is selected by its y-set symbol, n-set symbols are just "the rest" of choice symbols
-        #       and are present in sdkconfig just for completeness.
-        # WARNING: If users mistreat choice and set its y-selected symbol to n, it will take no effect.
-        #          (correct approach is to set the symbol choice should select to "y" and leave the rest to Kconfig).
-        if self.choice and (
-            self.bool_value == STR_TO_BOOL["y"]  # still can be y even if user set it to n...
-            and
-            # ...so we ensure it is not that case.
-            not (self._user_value == STR_TO_BOOL["n"] and self.choice.selection == self)
-        ):
-            self.choice.present_in_current_sdkconfig = value
-            # Because of our lookup to choice.selection, we need to invalidate choice's cached values
-            # (we can be in the middle of _load_config() and values can change).
-            self.choice._invalidate()
 
     @property
     def type(self):
@@ -5053,10 +5062,10 @@ class Symbol:
 
             if use_defaults:
                 # 4) Apply weak_rev_values (weakly-set) if any
-                # Check if indirect value setting is in effect - equivalent to select on BOOl symbol
+                # Like imply: only apply when the target's direct dependencies are met
                 for weak_rev_value in self.weak_rev_values:
                     candidate_val, cond, src = weak_rev_value
-                    if expr_value(cond):
+                    if expr_value(cond) and expr_value(self.direct_dep):
                         if _is_base_n(candidate_val.name, base):
                             val = candidate_val.name
                             val_num_int = int(val, base)
@@ -5132,11 +5141,12 @@ class Symbol:
                     val = self._user_value
                 else:
                     # 3) Apply weak_rev_values (weakly-set) if any
+                    # Like imply: only apply when the target's direct dependencies are met
                     for weak_rev_value in self.weak_rev_values:
                         candidate_val, cond, _ = weak_rev_value
-                        if expr_value(cond):
+                        if expr_value(cond) and expr_value(self.direct_dep):
                             val = candidate_val.str_value
-                            # same as select; if indirectly set, it is written to .config even if not visible
+                            # same as imply; if weakly set, it is written to .config even if not visible
                             self._write_to_conf = True
                             break
                     # Otherwise, look at defaults
@@ -5214,9 +5224,10 @@ class Symbol:
 
             if use_defaults:
                 # 4) Apply weak_rev_values (weakly-set) if any
+                # Like imply: only apply when the target's direct dependencies are met
                 for weak_rev_value in self.weak_rev_values:
                     candidate_val, cond, src = weak_rev_value
-                    if expr_value(cond):
+                    if expr_value(cond) and expr_value(self.direct_dep):
                         if is_float(candidate_val.name):
                             val = _normalize_float(candidate_val.name)
                             val_num_float = float(val)
@@ -7507,6 +7518,35 @@ def standard_config_filename():
     return os.getenv("KCONFIG_CONFIG", ".config")
 
 
+def _resolve_source_pattern(prefix: str, pattern: str) -> List[str]:
+    """
+    Resolve a (potential) glob pattern used by a 'source' statement into a list
+    of filenames.
+
+    'prefix' is a filesystem path assembled by the library itself (srctree
+    and/or the directory of the sourcing file), while 'pattern' is the
+    (possibly glob) argument written in the 'source' statement.
+
+    If the joined path points at an existing file, it is sourced literally.
+    This keeps paths that contain glob metacharacters (e.g. a project directory
+    named 'hello_world[test]') working, since such characters usually come from
+    variable expansion rather than an intentional glob pattern. Otherwise
+    'prefix' is escaped (so accidental metacharacters in it can never affect
+    globbing) and the pattern is expanded via glob, with the results sorted to
+    ensure a consistent ordering.
+
+    This cannot help if 'pattern' itself mixes accidental and intentional
+    metacharacters after variable expansion (e.g. "my[path]/*/Kconfig", where
+    '[path]' is a literal directory name but '*' is meant as a glob) - the two
+    are indistinguishable once expanded, so no rule applied to 'pattern' can be
+    correct for both.
+    """
+    full_path = join(prefix, pattern)
+    if isfile(full_path):
+        return [full_path]
+    return sorted(iglob(join(glob_escape(prefix), pattern)))
+
+
 #
 # Internal functions
 #
@@ -7590,6 +7630,21 @@ def _is_base_n(s, n):
         return True
     except ValueError:
         return False
+
+
+def _looks_like_number(s):
+    """
+    Return True if the string 's' looks like a number.
+
+    Internally, all operands in Kconfig are symbols; only undefined symbols (which numbers usually are) get their
+    name as their value. Only hex numbers that start with 0x/0X are classified as numbers, otherwise symbols whose
+    names happen to contain only the letters A-F would trigger false positives.
+    """
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return s.startswith(("0x", "0X")) and _is_base_n(s, 16)
 
 
 def is_float(s: str) -> bool:
@@ -8421,3 +8476,8 @@ _name_special_search = re.compile(r"[^A-Za-z0-9_$/.-]|\$\(|$", re.ASCII).search
 # A valid right-hand side for an assignment to a string symbol in a .config
 # file, including escaped characters. Extracts the contents.
 _conf_string_match = re.compile(r'"((?:[^\\"]|\\.)*)"', re.ASCII).match
+
+# A POSIX-style environment variable reference, $NAME or ${NAME}, as understood by
+# os.path.expandvars(). Used to detect that a 'default' references an environment
+# variable, whether or not that variable is currently set (see Symbol.defaults_from_env).
+_env_ref_search = re.compile(r"\$(\w+|\{[^}]*\})", re.ASCII).search

@@ -172,7 +172,7 @@ ImpactRankingTypeType = Literal["HIGH", "LOW", "MEDIUM"]
 LakehouseIdcRegistrationType = Literal["Associate", "Disassociate"]
 LakehouseRegistrationType = Literal["Deregister", "Register"]
 ListRecommendationsPaginatorName = Literal["list_recommendations"]
-LogDestinationTypeType = Literal["cloudwatch", "s3"]
+LogDestinationTypeType = Literal["cloudwatch", "s3", "s3table"]
 ModeType = Literal["high-performance", "standard"]
 NamespaceRegistrationStatusType = Literal["Deregistering", "Registering"]
 NodeConfigurationOptionsFilterNameType = Literal[
@@ -219,8 +219,11 @@ RedshiftServiceName = Literal["redshift"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -525,6 +528,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

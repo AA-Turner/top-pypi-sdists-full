@@ -25,6 +25,7 @@ from .literals import (
     CentralizationFailureReasonType,
     EncryptedLogGroupStrategyType,
     EncryptionConflictResolutionStrategyType,
+    EncryptionScopeType,
     EncryptionStrategyType,
     FilterBehaviorType,
     FilterRequirementType,
@@ -38,6 +39,9 @@ from .literals import (
     SignalTypeType,
     SSEAlgorithmType,
     StatusType,
+    TagConflictResolutionStrategyType,
+    TagPropagationFailureReasonType,
+    TagPropagationStatusType,
     TelemetryEnrichmentStatusType,
     TelemetryPipelineStatusType,
     TelemetrySourceTypeType,
@@ -152,6 +156,7 @@ __all__ = (
     "StartTelemetryEvaluationForOrganizationInputTypeDef",
     "StartTelemetryEvaluationInputTypeDef",
     "StopTelemetryEnrichmentOutputTypeDef",
+    "TagPropagationConfigurationTypeDef",
     "TagResourceInputTypeDef",
     "TelemetryConfigurationTypeDef",
     "TelemetryDestinationConfigurationOutputTypeDef",
@@ -220,6 +225,8 @@ class CentralizationRuleSummaryTypeDef(TypedDict):
     LastUpdateTimeStamp: NotRequired[int]
     RuleHealth: NotRequired[RuleHealthType]
     FailureReason: NotRequired[CentralizationFailureReasonType]
+    TagPropagationStatus: NotRequired[TagPropagationStatusType]
+    TagPropagationFailureReason: NotRequired[TagPropagationFailureReasonType]
     DestinationAccountId: NotRequired[str]
     DestinationRegion: NotRequired[str]
 
@@ -280,6 +287,11 @@ class LogsEncryptionConfigurationTypeDef(TypedDict):
     EncryptionStrategy: EncryptionStrategyType
     KmsKeyArn: NotRequired[str]
     EncryptionConflictResolutionStrategy: NotRequired[EncryptionConflictResolutionStrategyType]
+    EncryptionScope: NotRequired[EncryptionScopeType]
+
+class TagPropagationConfigurationTypeDef(TypedDict):
+    DestinationRoleArn: str
+    TagConflictResolutionStrategy: NotRequired[TagConflictResolutionStrategyType]
 
 class MetricsBackupConfigurationTypeDef(TypedDict):
     Region: str
@@ -553,6 +565,7 @@ class DestinationLogsConfigurationTypeDef(TypedDict):
     LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
     BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
     LogGroupNameConfiguration: NotRequired[LogGroupNameConfigurationTypeDef]
+    TagPropagationConfiguration: NotRequired[TagPropagationConfigurationTypeDef]
 
 class DestinationMetricsConfigurationTypeDef(TypedDict):
     BackupConfiguration: NotRequired[MetricsBackupConfigurationTypeDef]
@@ -740,6 +753,8 @@ class GetCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
     LastUpdateTimeStamp: int
     RuleHealth: RuleHealthType
     FailureReason: CentralizationFailureReasonType
+    TagPropagationStatus: TagPropagationStatusType
+    TagPropagationFailureReason: TagPropagationFailureReasonType
     CentralizationRule: CentralizationRuleOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -755,6 +770,7 @@ class TelemetryDestinationConfigurationOutputTypeDef(TypedDict):
     WAFLoggingParameters: NotRequired[WAFLoggingParametersOutputTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersOutputTypeDef]
     MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
+    KmsKeyArn: NotRequired[str]
 
 class TelemetryDestinationConfigurationTypeDef(TypedDict):
     DestinationType: NotRequired[Literal["cloud-watch-logs"]]
@@ -766,6 +782,7 @@ class TelemetryDestinationConfigurationTypeDef(TypedDict):
     WAFLoggingParameters: NotRequired[WAFLoggingParametersTypeDef]
     LogDeliveryParameters: NotRequired[LogDeliveryParametersTypeDef]
     MskMonitoringParameters: NotRequired[MskMonitoringParametersTypeDef]
+    KmsKeyArn: NotRequired[str]
 
 class CreateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleName: str

@@ -22,6 +22,10 @@ Usage::
         DescribeSourceServersPaginator,
         ListExtensibleSourceServersPaginator,
         ListLaunchActionsPaginator,
+        ListRecoveryPlanExecutionStepsPaginator,
+        ListRecoveryPlanExecutionsPaginator,
+        ListRecoveryPlanStepsPaginator,
+        ListRecoveryPlansPaginator,
         ListStagingAccountsPaginator,
     )
 
@@ -39,6 +43,10 @@ Usage::
         describe_source_servers_paginator: DescribeSourceServersPaginator = client.get_paginator("describe_source_servers")
         list_extensible_source_servers_paginator: ListExtensibleSourceServersPaginator = client.get_paginator("list_extensible_source_servers")
         list_launch_actions_paginator: ListLaunchActionsPaginator = client.get_paginator("list_launch_actions")
+        list_recovery_plan_execution_steps_paginator: ListRecoveryPlanExecutionStepsPaginator = client.get_paginator("list_recovery_plan_execution_steps")
+        list_recovery_plan_executions_paginator: ListRecoveryPlanExecutionsPaginator = client.get_paginator("list_recovery_plan_executions")
+        list_recovery_plan_steps_paginator: ListRecoveryPlanStepsPaginator = client.get_paginator("list_recovery_plan_steps")
+        list_recovery_plans_paginator: ListRecoveryPlansPaginator = client.get_paginator("list_recovery_plans")
         list_staging_accounts_paginator: ListStagingAccountsPaginator = client.get_paginator("list_staging_accounts")
     ```
 """
@@ -71,6 +79,14 @@ from .type_defs import (
     ListExtensibleSourceServersResponseTypeDef,
     ListLaunchActionsRequestPaginateTypeDef,
     ListLaunchActionsResponseTypeDef,
+    ListRecoveryPlanExecutionsRequestPaginateTypeDef,
+    ListRecoveryPlanExecutionsResponseTypeDef,
+    ListRecoveryPlanExecutionStepsRequestPaginateTypeDef,
+    ListRecoveryPlanExecutionStepsResponseTypeDef,
+    ListRecoveryPlansRequestPaginateTypeDef,
+    ListRecoveryPlansResponseTypeDef,
+    ListRecoveryPlanStepsRequestPaginateTypeDef,
+    ListRecoveryPlanStepsResponseTypeDef,
     ListStagingAccountsRequestPaginateTypeDef,
     ListStagingAccountsResponseTypeDef,
 )
@@ -92,6 +108,10 @@ __all__ = (
     "DescribeSourceServersPaginator",
     "ListExtensibleSourceServersPaginator",
     "ListLaunchActionsPaginator",
+    "ListRecoveryPlanExecutionStepsPaginator",
+    "ListRecoveryPlanExecutionsPaginator",
+    "ListRecoveryPlanStepsPaginator",
+    "ListRecoveryPlansPaginator",
     "ListStagingAccountsPaginator",
 )
 
@@ -313,6 +333,94 @@ class ListLaunchActionsPaginator(_ListLaunchActionsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListLaunchActions.html#Drs.Paginator.ListLaunchActions.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listlaunchactionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRecoveryPlanExecutionStepsPaginatorBase = AioPaginator[
+        ListRecoveryPlanExecutionStepsResponseTypeDef
+    ]
+else:
+    _ListRecoveryPlanExecutionStepsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRecoveryPlanExecutionStepsPaginator(_ListRecoveryPlanExecutionStepsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlanExecutionSteps.html#Drs.Paginator.ListRecoveryPlanExecutionSteps)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanexecutionstepspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecoveryPlanExecutionStepsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRecoveryPlanExecutionStepsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlanExecutionSteps.html#Drs.Paginator.ListRecoveryPlanExecutionSteps.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanexecutionstepspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRecoveryPlanExecutionsPaginatorBase = AioPaginator[
+        ListRecoveryPlanExecutionsResponseTypeDef
+    ]
+else:
+    _ListRecoveryPlanExecutionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRecoveryPlanExecutionsPaginator(_ListRecoveryPlanExecutionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlanExecutions.html#Drs.Paginator.ListRecoveryPlanExecutions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanexecutionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecoveryPlanExecutionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRecoveryPlanExecutionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlanExecutions.html#Drs.Paginator.ListRecoveryPlanExecutions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanexecutionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRecoveryPlanStepsPaginatorBase = AioPaginator[ListRecoveryPlanStepsResponseTypeDef]
+else:
+    _ListRecoveryPlanStepsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRecoveryPlanStepsPaginator(_ListRecoveryPlanStepsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlanSteps.html#Drs.Paginator.ListRecoveryPlanSteps)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanstepspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecoveryPlanStepsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRecoveryPlanStepsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlanSteps.html#Drs.Paginator.ListRecoveryPlanSteps.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanstepspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRecoveryPlansPaginatorBase = AioPaginator[ListRecoveryPlansResponseTypeDef]
+else:
+    _ListRecoveryPlansPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListRecoveryPlansPaginator(_ListRecoveryPlansPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlans.html#Drs.Paginator.ListRecoveryPlans)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRecoveryPlansRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListRecoveryPlansResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/drs/paginator/ListRecoveryPlans.html#Drs.Paginator.ListRecoveryPlans.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_drs/paginators/#listrecoveryplanspaginator)
         """
 
 

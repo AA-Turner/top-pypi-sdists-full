@@ -28,13 +28,18 @@ from .literals import (
     ActionGroupSignatureType,
     ActionInvocationTypeType,
     AgentCollaborationType,
+    AgenticRetrieveMemoryMetadataFilterOperatorType,
+    AgenticRetrieveMemoryPersistenceModeType,
     AgenticRetrieveRerankingModelTypeType,
     AgenticRetrieveStatusType,
     AgenticRetrieveStepType,
+    AgenticRetrieveTypeType,
     AttributeTypeType,
     ConfirmationStateType,
     ConversationRoleType,
     CreationModeType,
+    DocumentAclMemberRelationType,
+    DocumentAclMembershipTypeType,
     DocumentOutputFormatType,
     ExecutionTypeType,
     ExternalSourceTypeType,
@@ -111,6 +116,14 @@ __all__ = (
     "AgenticRetrieveFullDocExpansionDetailsTypeDef",
     "AgenticRetrieveGeneratedResponseTypeDef",
     "AgenticRetrieveGuardrailWarningTypeDef",
+    "AgenticRetrieveMemoryConfigurationTypeDef",
+    "AgenticRetrieveMemoryMetadataFilterLeftTypeDef",
+    "AgenticRetrieveMemoryMetadataFilterRightTypeDef",
+    "AgenticRetrieveMemoryMetadataFilterTypeDef",
+    "AgenticRetrieveMemoryMetadataValueTypeDef",
+    "AgenticRetrieveMemoryRetrievalConfigTypeDef",
+    "AgenticRetrieveMemoryRetrieveDetailsTypeDef",
+    "AgenticRetrieveMemorySessionBindingTypeDef",
     "AgenticRetrieveMessageContentTypeDef",
     "AgenticRetrieveMessageTypeDef",
     "AgenticRetrievePolicyConfigurationTypeDef",
@@ -150,6 +163,8 @@ __all__ = (
     "ByteContentDocTypeDef",
     "ByteContentFileTypeDef",
     "CallerTypeDef",
+    "CheckIngestedDocumentAclRequestTypeDef",
+    "CheckIngestedDocumentAclResponseTypeDef",
     "CitationEventTypeDef",
     "CitationTypeDef",
     "CodeInterpreterInvocationInputTypeDef",
@@ -173,6 +188,11 @@ __all__ = (
     "DeleteAgentMemoryRequestTypeDef",
     "DeleteSessionRequestTypeDef",
     "DependencyFailedExceptionTypeDef",
+    "DocumentAclConditionTypeDef",
+    "DocumentAclGroupTypeDef",
+    "DocumentAclMembershipTypeDef",
+    "DocumentAclTypeDef",
+    "DocumentAclUserTypeDef",
     "EndSessionRequestTypeDef",
     "EndSessionResponseTypeDef",
     "ExternalSourceTypeDef",
@@ -238,6 +258,8 @@ __all__ = (
     "GetExecutionFlowSnapshotResponseTypeDef",
     "GetFlowExecutionRequestTypeDef",
     "GetFlowExecutionResponseTypeDef",
+    "GetIngestedDocumentAclRequestTypeDef",
+    "GetIngestedDocumentAclResponseTypeDef",
     "GetInvocationStepRequestTypeDef",
     "GetInvocationStepResponseTypeDef",
     "GetSessionRequestTypeDef",
@@ -533,6 +555,15 @@ AgenticRetrieveGuardrailWarningTypeDef = TypedDict(
     },
 )
 
+class AgenticRetrieveMemorySessionBindingTypeDef(TypedDict):
+    actorId: str
+    sessionId: str
+
+class AgenticRetrieveMemoryMetadataFilterLeftTypeDef(TypedDict):
+    metadataKey: NotRequired[str]
+
+TimestampTypeDef = Union[datetime, str]
+
 class AgenticRetrieveResponseEventTypeDef(TypedDict):
     text: str
 
@@ -543,7 +574,7 @@ class RetrievalContentTypeDef(TypedDict):
 
 class AgenticRetrieveSourceMetadataTypeDef(TypedDict):
     identifier: NotRequired[str]
-    retrievalType: NotRequired[Literal["BedrockKnowledgeBase"]]
+    retrievalType: NotRequired[AgenticRetrieveTypeType]
 
 class UserContextTypeDef(TypedDict):
     userId: str
@@ -664,6 +695,21 @@ class DeleteAgentMemoryRequestTypeDef(TypedDict):
 
 class DeleteSessionRequestTypeDef(TypedDict):
     sessionIdentifier: str
+
+DocumentAclGroupTypeDef = TypedDict(
+    "DocumentAclGroupTypeDef",
+    {
+        "id": str,
+        "type": DocumentAclMembershipTypeType,
+    },
+)
+DocumentAclUserTypeDef = TypedDict(
+    "DocumentAclUserTypeDef",
+    {
+        "id": str,
+        "type": DocumentAclMembershipTypeType,
+    },
+)
 
 class EndSessionRequestTypeDef(TypedDict):
     sessionIdentifier: str
@@ -835,6 +881,11 @@ class GetFlowExecutionRequestTypeDef(TypedDict):
     executionIdentifier: str
     flowAliasIdentifier: str
     flowIdentifier: str
+
+class GetIngestedDocumentAclRequestTypeDef(TypedDict):
+    dataSourceId: str
+    documentId: str
+    knowledgeBaseId: str
 
 class GetInvocationStepRequestTypeDef(TypedDict):
     invocationIdentifier: str
@@ -1059,8 +1110,6 @@ class PreProcessingParsedResponseTypeDef(TypedDict):
     isValid: NotRequired[bool]
     rationale: NotRequired[str]
 
-TimestampTypeDef = Union[datetime, str]
-
 class ReasoningTextBlockTypeDef(TypedDict):
     text: str
     signature: NotRequired[str]
@@ -1165,6 +1214,13 @@ class PropertyParametersTypeDef(TypedDict):
 class RequestBodyTypeDef(TypedDict):
     content: NotRequired[dict[str, list[ParameterTypeDef]]]
 
+class AgenticRetrieveMemoryRetrieveDetailsTypeDef(TypedDict):
+    inputQuery: AgenticRetrieveMessageContentTypeDef
+    memoryId: str
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    strategyId: NotRequired[str]
+
 class AgenticRetrieveMessageTypeDef(TypedDict):
     content: AgenticRetrieveMessageContentTypeDef
     role: ConversationRoleType
@@ -1188,6 +1244,12 @@ class AgenticRetrieveCitationTypeDef(TypedDict):
     references: list[AgenticRetrieveCitationReferenceTypeDef]
     startIndex: int
 
+class AgenticRetrieveMemoryMetadataValueTypeDef(TypedDict):
+    dateTimeValue: NotRequired[TimestampTypeDef]
+    numberValue: NotRequired[float]
+    stringListValue: NotRequired[Sequence[str]]
+    stringValue: NotRequired[str]
+
 class AgenticRetrieveResultItemTypeDef(TypedDict):
     content: RetrievalContentTypeDef
     sourceRetriever: AgenticRetrieveSourceRetrieverTypeDef
@@ -1198,12 +1260,22 @@ class AgenticRetrieveTraceResultItemTypeDef(TypedDict):
     metadata: NotRequired[dict[str, dict[str, Any]]]
     sourceRetriever: NotRequired[AgenticRetrieveSourceRetrieverTypeDef]
 
+class CheckIngestedDocumentAclRequestTypeDef(TypedDict):
+    dataSourceId: str
+    documentId: str
+    knowledgeBaseId: str
+    userContext: UserContextTypeDef
+
 class GetDocumentContentRequestTypeDef(TypedDict):
     dataSourceId: str
     documentId: str
     knowledgeBaseId: str
     outputFormat: NotRequired[DocumentOutputFormatType]
     userContext: NotRequired[UserContextTypeDef]
+
+class CheckIngestedDocumentAclResponseTypeDef(TypedDict):
+    hasAccess: bool
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateInvocationResponseTypeDef(TypedDict):
     createdAt: datetime
@@ -1332,6 +1404,11 @@ class CustomOrchestrationTraceTypeDef(TypedDict):
 
 class CustomOrchestrationTypeDef(TypedDict):
     executor: NotRequired[OrchestrationExecutorTypeDef]
+
+class DocumentAclConditionTypeDef(TypedDict):
+    conditionOperator: NotRequired[DocumentAclMemberRelationType]
+    groups: NotRequired[list[DocumentAclGroupTypeDef]]
+    users: NotRequired[list[DocumentAclUserTypeDef]]
 
 class RerankingMetadataSelectiveModeConfigurationTypeDef(TypedDict):
     fieldsToExclude: NotRequired[Sequence[FieldForRerankingTypeDef]]
@@ -1690,6 +1767,7 @@ class ActionGroupInvocationInputTypeDef(TypedDict):
 
 class AgenticRetrieveActionTypeDef(TypedDict):
     fullDocumentExpansion: NotRequired[AgenticRetrieveFullDocExpansionDetailsTypeDef]
+    memoryRetrieve: NotRequired[AgenticRetrieveMemoryRetrieveDetailsTypeDef]
     retrieve: NotRequired[AgenticRetrieveActionDetailsTypeDef]
 
 AgenticRetrieveRerankingConfigurationTypeDef = TypedDict(
@@ -1705,6 +1783,9 @@ AgenticRetrieveRerankingConfigurationTypeDef = TypedDict(
 class AgenticRetrieveGeneratedResponseTypeDef(TypedDict):
     answer: str
     citations: NotRequired[list[AgenticRetrieveCitationTypeDef]]
+
+class AgenticRetrieveMemoryMetadataFilterRightTypeDef(TypedDict):
+    metadataValue: NotRequired[AgenticRetrieveMemoryMetadataValueTypeDef]
 
 FoundationModelConfigurationTypeDef = TypedDict(
     "FoundationModelConfigurationTypeDef",
@@ -1745,6 +1826,10 @@ KnowledgeBaseQueryTypeDef = TypedDict(
 
 class ConversationHistoryTypeDef(TypedDict):
     messages: NotRequired[Sequence[MessageTypeDef]]
+
+class DocumentAclMembershipTypeDef(TypedDict):
+    conditions: NotRequired[list[DocumentAclConditionTypeDef]]
+    memberRelation: NotRequired[DocumentAclMemberRelationType]
 
 class MetadataConfigurationForRerankingTypeDef(TypedDict):
     selectionMode: RerankingMetadataSelectionModeType
@@ -1975,6 +2060,15 @@ class AgenticRetrieveResultEventTypeDef(TypedDict):
     generatedResponse: NotRequired[AgenticRetrieveGeneratedResponseTypeDef]
     nextToken: NotRequired[str]
 
+AgenticRetrieveMemoryMetadataFilterTypeDef = TypedDict(
+    "AgenticRetrieveMemoryMetadataFilterTypeDef",
+    {
+        "left": AgenticRetrieveMemoryMetadataFilterLeftTypeDef,
+        "operator": AgenticRetrieveMemoryMetadataFilterOperatorType,
+        "right": NotRequired[AgenticRetrieveMemoryMetadataFilterRightTypeDef],
+    },
+)
+
 class AgenticRetrieveConfigurationTypeDef(TypedDict):
     foundationModelConfiguration: NotRequired[FoundationModelConfigurationTypeDef]
     foundationModelType: NotRequired[FoundationModelTypeType]
@@ -1994,6 +2088,10 @@ ImageInputTypeDef = TypedDict(
         "source": ImageInputSourceUnionTypeDef,
     },
 )
+
+class DocumentAclTypeDef(TypedDict):
+    allowList: NotRequired[DocumentAclMembershipTypeDef]
+    denyList: NotRequired[DocumentAclMembershipTypeDef]
 
 class ManagedSearchBedrockRerankingConfigurationTypeDef(TypedDict):
     modelConfiguration: ManagedSearchBedrockRerankingModelConfigurationTypeDef
@@ -2121,7 +2219,19 @@ AgenticRetrieveTraceEventTypeDef = TypedDict(
         "timestamp": int,
     },
 )
+
+class AgenticRetrieveMemoryRetrievalConfigTypeDef(TypedDict):
+    metadataFilters: NotRequired[Sequence[AgenticRetrieveMemoryMetadataFilterTypeDef]]
+    namespace: NotRequired[str]
+    namespacePath: NotRequired[str]
+    strategyId: NotRequired[str]
+
 ImageInputUnionTypeDef = Union[ImageInputTypeDef, ImageInputOutputTypeDef]
+
+class GetIngestedDocumentAclResponseTypeDef(TypedDict):
+    documentAcl: DocumentAclTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 ManagedSearchRerankingConfigurationTypeDef = TypedDict(
     "ManagedSearchRerankingConfigurationTypeDef",
     {
@@ -2206,6 +2316,12 @@ class AgenticRetrieveStreamResponseOutputTypeDef(TypedDict):
     throttlingException: NotRequired[ThrottlingExceptionTypeDef]
     traceEvent: NotRequired[AgenticRetrieveTraceEventTypeDef]
     validationException: NotRequired[ValidationExceptionTypeDef]
+
+class AgenticRetrieveMemoryConfigurationTypeDef(TypedDict):
+    memoryId: str
+    persistenceMode: NotRequired[AgenticRetrieveMemoryPersistenceModeType]
+    retrievalConfigs: NotRequired[Sequence[AgenticRetrieveMemoryRetrievalConfigTypeDef]]
+    sessionBinding: NotRequired[AgenticRetrieveMemorySessionBindingTypeDef]
 
 class ContentBodyTypeDef(TypedDict):
     body: NotRequired[str]
@@ -2325,6 +2441,7 @@ class AgenticRetrieveStreamRequestTypeDef(TypedDict):
     messages: Sequence[AgenticRetrieveMessageTypeDef]
     retrievers: Sequence[AgenticRetrieverTypeDef]
     generateResponse: NotRequired[bool]
+    memoryConfiguration: NotRequired[AgenticRetrieveMemoryConfigurationTypeDef]
     nextToken: NotRequired[str]
     policyConfiguration: NotRequired[AgenticRetrievePolicyConfigurationTypeDef]
     userContext: NotRequired[UserContextTypeDef]

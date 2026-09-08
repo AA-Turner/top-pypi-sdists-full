@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: array-api-extra
-Version: 0.11.2
+Version: 0.11.4
 Summary: Extra array functions built on top of the array API standard.
 Author-Email: Lucas Colley <lucas.colley8@gmail.com>
 License-Expression: MIT

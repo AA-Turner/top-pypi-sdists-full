@@ -13,6 +13,7 @@ import importlib.machinery
 import importlib.util
 import inspect
 import json
+import locale
 import os
 import pathlib
 import subprocess
@@ -35,13 +36,14 @@ else:
 
 if sys.version_info >= (3, 12):
     from importlib.resources.abc import Traversable, TraversableResources
-elif sys.version_info >= (3, 9):
-    from importlib.abc import Traversable, TraversableResources
 else:
-    class Traversable:
-        pass
-    class TraversableResources:
-        pass
+    from importlib.abc import Traversable, TraversableResources
+
+if sys.version_info >= (3, 11):
+    getencoding = locale.getencoding
+else:
+    def getencoding() -> str:
+        return locale.getpreferredencoding(False)
 
 
 MARKER = 'MESONPY_EDITABLE_SKIP'
@@ -101,7 +103,7 @@ class MesonpyTraversable(Traversable):
 
     def iterdir(self) -> Iterator[Traversable]:
         for name, node in self._tree.items():
-            yield MesonpyTraversable(name, node) if isinstance(node, dict) else pathlib.Path(node)  # type: ignore
+            yield MesonpyTraversable(name, node) if isinstance(node, dict) else pathlib.Path(node)
 
     def open(self, *args, **kwargs):  # type: ignore
         raise IsADirectoryError()
@@ -147,7 +149,7 @@ class ExtensionFileLoader(importlib.machinery.ExtensionFileLoader):
         super().__init__(name, path)
         self._tree = tree
 
-    def get_resource_reader(self, name: str) -> TraversableResources:
+    def get_resource_reader(self, name: str) -> TraversableResources:  # type: ignore[override]
         return MesonpyReader(name, self._tree)
 
 
@@ -160,7 +162,7 @@ class SourceFileLoader(importlib.machinery.SourceFileLoader):
         # disable saving bytecode
         pass
 
-    def get_resource_reader(self, name: str) -> TraversableResources:
+    def get_resource_reader(self, name: str) -> TraversableResources:  # type: ignore[override]
         return MesonpyReader(name, self._tree)
 
 
@@ -169,7 +171,7 @@ class SourcelessFileLoader(importlib.machinery.SourcelessFileLoader):
         super().__init__(name, path)
         self._tree = tree
 
-    def get_resource_reader(self, name: str) -> TraversableResources:
+    def get_resource_reader(self, name: str) -> TraversableResources:  # type: ignore[override]
         return MesonpyReader(name, self._tree)
 
 
@@ -230,8 +232,8 @@ def walk(src: str, exclude_files: Set[str], exclude_dirs: Set[str]) -> Iterator[
             relpath = os.path.relpath(dirsrc, src)
             if relpath in exclude_dirs:
                 dirnames.remove(name)
-            # sort to process directories determninistically
-            dirnames.sort()
+        # sort to process directories deterministically
+        dirnames.sort()
         for name in sorted(filenames):
             filesrc = os.path.join(root, name)
             relpath = os.path.relpath(filesrc, src)
@@ -324,7 +326,7 @@ class MesonpyMetaFinder(importlib.abc.MetaPathFinder):
             dry_run_build_cmd = self._build_cmd + ['-n']
         # Check adapted from
         # https://github.com/mesonbuild/meson/blob/a35d4d368a21f4b70afa3195da4d6292a649cb4c/mesonbuild/mtest.py#L1635-L1636
-        p = subprocess.run(dry_run_build_cmd, cwd=self._build_path, env=env, capture_output=True)
+        p = subprocess.run(dry_run_build_cmd, cwd=self._build_path, env=env, check=False, capture_output=True)
         return b'ninja: no work to do.' not in p.stdout and b'samu: nothing to do' not in p.stdout
 
     @functools.lru_cache(maxsize=1)
@@ -337,15 +339,50 @@ class MesonpyMetaFinder(importlib.abc.MetaPathFinder):
             env[MARKER] = os.pathsep.join((env.get(MARKER, ''), self._build_path))
 
             if self._verbose or bool(env.get(VERBOSE, '')):
+                log_path = None
                 # We want to show some output only if there is some work to do.
                 if self._work_to_do(env):
                     build_command = ' '.join(self._build_cmd)
                     print(f'meson-python: building {self._name}: {build_command}', flush=True)
                     subprocess.run(self._build_cmd, cwd=self._build_path, env=env, check=True)
             else:
-                subprocess.run(self._build_cmd, cwd=self._build_path, env=env, stdout=subprocess.DEVNULL, check=True)
-        except subprocess.CalledProcessError as exc:
-            raise ImportError(f're-building the {self._name} meson-python editable wheel package failed') from exc
+                # Redirect build log to file.
+                log_path = os.path.join(self._build_path, 'meson-logs', 'meson-python-build-log.txt')
+                # It does not matter if the log file is opened in text or
+                # binary mode: `subprocess.run()` directly connects the
+                # underlying file descriptor to the child process stdout.
+                with open(log_path, 'w') as log:
+                    subprocess.run(self._build_cmd, cwd=self._build_path, env=env, check=True,
+                                   stderr=subprocess.STDOUT, stdout=log)
+        except subprocess.CalledProcessError as err:
+            msg = f'rebuilding the "{self._name}" editable package failed'
+            if log_path:
+                # Compiler and other tools are expected to write log
+                # messages using the environment default text encoding.
+                # Since Python 3.15, UTF-8 mode is the default, thus
+                # explicitly set the encoding.
+                with open(log_path, 'r', encoding=getencoding(), errors='backslashreplace') as log:
+                    # Skip to the error.
+                    for line in log:
+                        if line.startswith('FAILED: '):
+                            break
+                    else:
+                        # When no `FAILED: ` line is found, rewind to the
+                        # beginning of the log.
+                        log.seek(0)
+                    if line.strip().endswith(' build.ninja'):
+                        # When the error occurred when rebuilding `ninja.build`,
+                        # the meson output appears before the `FAILED: ` line.
+                        # Rewind the build log to the beginning to report the
+                        # error.
+                        log.seek(0)
+                    error = log.read()
+                if sys.version_info >= (3, 11):
+                    exc = ImportError(msg)
+                    exc.add_note(error)
+                    raise exc from err
+                msg = f'{msg}:\n{error}'
+            raise ImportError(msg) from err
 
         install_plan_path = os.path.join(self._build_path, 'meson-info', 'intro-install_plan.json')
         with open(install_plan_path, 'r', encoding='utf8') as f:
@@ -387,9 +424,3 @@ class MesonpyPathFinder(importlib.abc.PathEntryFinder):
             elif modname and '.' not in modname:
                 yielded.add(modname)
                 yield prefix + modname, False
-
-
-def install(package: str, names: Set[str], path: str, cmd: List[str], verbose: bool) -> None:
-    finder = MesonpyMetaFinder(package, names, path, cmd, verbose)
-    sys.meta_path.insert(0, finder)
-    sys.path_hooks.insert(0, finder._path_hook)

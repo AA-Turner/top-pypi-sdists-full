@@ -38,6 +38,7 @@ class AopClient:
         agent_config: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         description: typing.Optional[str] = OMIT,
         icon: typing.Optional[str] = OMIT,
+        is_hidden: typing.Optional[bool] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
         prompt: typing.Optional[str] = OMIT,
         section: typing.Optional[str] = OMIT,
@@ -65,6 +66,9 @@ class AopClient:
 
         icon : typing.Optional[str]
             Icon identifier for UI display
+
+        is_hidden : typing.Optional[bool]
+            Create the AOP hidden: it keeps its asset_id and stays reachable by id, but is left out of the Library, search and the AOP pickers. Meant for fixtures and smoke tests seeded into a shared workspace; omit it for user-facing AOPs.
 
         parent_folder_id : typing.Optional[str]
             ID of the folder to create the AOP in (workspace root if omitted)
@@ -118,6 +122,7 @@ class AopClient:
             agent_config=agent_config,
             description=description,
             icon=icon,
+            is_hidden=is_hidden,
             parent_folder_id=parent_folder_id,
             prompt=prompt,
             section=section,
@@ -341,6 +346,7 @@ class AsyncAopClient:
         agent_config: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
         description: typing.Optional[str] = OMIT,
         icon: typing.Optional[str] = OMIT,
+        is_hidden: typing.Optional[bool] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
         prompt: typing.Optional[str] = OMIT,
         section: typing.Optional[str] = OMIT,
@@ -368,6 +374,9 @@ class AsyncAopClient:
 
         icon : typing.Optional[str]
             Icon identifier for UI display
+
+        is_hidden : typing.Optional[bool]
+            Create the AOP hidden: it keeps its asset_id and stays reachable by id, but is left out of the Library, search and the AOP pickers. Meant for fixtures and smoke tests seeded into a shared workspace; omit it for user-facing AOPs.
 
         parent_folder_id : typing.Optional[str]
             ID of the folder to create the AOP in (workspace root if omitted)
@@ -429,6 +438,7 @@ class AsyncAopClient:
             agent_config=agent_config,
             description=description,
             icon=icon,
+            is_hidden=is_hidden,
             parent_folder_id=parent_folder_id,
             prompt=prompt,
             section=section,

@@ -5,15 +5,16 @@ from __future__ import annotations
 from enum import Enum
 import os
 import platform
-from subprocess import PIPE
-from subprocess import Popen
-from subprocess import TimeoutExpired
+import subprocess
+import sys
+from typing import NoReturn
 
 import numpy as np
 
 import pyvista as pv
 from pyvista import _vtk
 from pyvista._deprecate_positional_args import _deprecate_positional_args
+from pyvista.core.errors import DeprecationError
 
 from .colors import Color
 
@@ -29,6 +30,64 @@ class FONTS(Enum):
 # Track render window support and plotting
 SUPPORTS_OPENGL = None
 SUPPORTS_PLOTTING = None
+
+
+def _prepare_offscreen_macos_render_window(  # pragma: no cover
+    render_window: _vtk.vtkRenderWindow | None,
+):
+    """Configure ``render_window`` for quiet, off-screen use on macOS.
+
+    Two independent fixes for ``vtkCocoaRenderWindow`` behavior, both
+    needed because VTK's off-screen path doesn't fully suppress its
+    on-screen side effects:
+
+    1. Merely instantiating ``NSApplication``, which VTK does internally
+       in ``CreateAWindow()`` unconditionally, even for off-screen use,
+       is enough for an unbundled Python process to get a Dock icon. VTK
+       never reverses this, so we demote the activation policy via PyObjC.
+       ``Accessory`` hides the Dock icon while still allowing the process
+       to be activated later; ``Prohibited`` also forbids activation, which
+       leaves any later on-screen window stuck behind other applications.
+       An application already running on the ``Regular`` policy is left
+       alone: the activation policy is process-global, so demoting it
+       would strip the Dock icon and menu bar from a host GUI toolkit,
+       such as a Qt application embedding a plotter.
+    2. ``SetConnectContextToNSView(False)`` stops this particular render
+       window from creating a real NSWindow.
+
+    Safe to call unconditionally on any platform or render window type;
+    each step no-ops where it doesn't apply (non-macOS, missing PyObjC,
+    non-Cocoa render windows, a visible application).
+    """
+
+    def _suppress_dock_icon():
+        if sys.platform != 'darwin':
+            return
+        try:  # type:ignore[unreachable]
+            from AppKit import NSApp  # noqa: PLC0415
+            from AppKit import NSApplication  # noqa: PLC0415
+            from AppKit import NSApplicationActivationPolicyAccessory  # noqa: PLC0415
+            from AppKit import NSApplicationActivationPolicyRegular  # noqa: PLC0415
+        except ImportError:
+            return
+
+        # NSApp() reads the shared application without creating one, so a
+        # process that has none still gets its Dock icon suppressed below
+        app = NSApp()
+        if app is not None and app.activationPolicy() == NSApplicationActivationPolicyRegular:
+            return
+        NSApplication.sharedApplication().setActivationPolicy_(
+            NSApplicationActivationPolicyAccessory,
+        )
+
+    def _disable_cocoa_nsview_context():
+        if hasattr(render_window, 'SetConnectContextToNSView'):
+            render_window.SetConnectContextToNSView(False)  # type:ignore[union-attr]
+
+    if render_window is None:
+        return
+    _suppress_dock_icon()
+    _disable_cocoa_nsview_context()
 
 
 def supports_open_gl():
@@ -47,8 +106,7 @@ def supports_open_gl():
     if SUPPORTS_OPENGL is None:
         ren_win = _vtk.vtkRenderWindow()
         ren_win.SetOffScreenRendering(True)
-        if hasattr(ren_win, 'SetConnectContextToNSView'):
-            ren_win.SetConnectContextToNSView(False)
+        _prepare_offscreen_macos_render_window(ren_win)
         SUPPORTS_OPENGL = bool(ren_win.SupportsOpenGL())
     return SUPPORTS_OPENGL
 
@@ -73,10 +131,15 @@ def _system_supports_plotting() -> bool:  # noqa: PLR0911
     # mac case
     if platform.system() == 'Darwin':
         # check if finder available
-        proc = Popen(['pgrep', '-qx', 'Finder'], stdout=PIPE, stderr=PIPE, encoding='utf8')
+        proc = subprocess.Popen(
+            ['pgrep', '-qx', 'Finder'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            encoding='utf8',
+        )
         try:
             proc.communicate(timeout=10)
-        except TimeoutExpired:
+        except subprocess.TimeoutExpired:
             return False
         if proc.returncode == 0:
             return True
@@ -89,9 +152,11 @@ def _system_supports_plotting() -> bool:  # noqa: PLR0911
         return True
 
     try:
-        proc = Popen(['xset', '-q'], stdout=PIPE, stderr=PIPE, encoding='utf8')
+        proc = subprocess.Popen(
+            ['xset', '-q'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf8'
+        )
         proc.communicate(timeout=10)
-    except (OSError, TimeoutExpired):  # pragma: no cover
+    except (OSError, subprocess.TimeoutExpired):  # pragma: no cover
         # possible we have EGL support
         return supports_open_gl()
     else:  # pragma: no cover
@@ -356,26 +421,29 @@ def create_axes_orientation_box(  # noqa: PLR0917
 
     Examples
     --------
-    Create and plot an orientation box
+    .. pyvista-plot::
+        :force_static:
 
-    >>> import pyvista as pv
-    >>> actor = pv.create_axes_orientation_box(
-    ...     line_width=1,
-    ...     text_scale=0.53,
-    ...     edge_color='black',
-    ...     x_color='k',
-    ...     y_color=None,
-    ...     z_color=None,
-    ...     xlabel='X',
-    ...     ylabel='Y',
-    ...     zlabel='Z',
-    ...     color_box=False,
-    ...     labels_off=False,
-    ...     opacity=1.0,
-    ... )
-    >>> pl = pv.Plotter()
-    >>> _ = pl.add_actor(actor)
-    >>> pl.show()
+        Create and plot an orientation box
+
+        >>> import pyvista as pv
+        >>> actor = pv.create_axes_orientation_box(
+        ...     line_width=1,
+        ...     text_scale=0.53,
+        ...     edge_color='black',
+        ...     x_color='k',
+        ...     y_color=None,
+        ...     z_color=None,
+        ...     xlabel='X',
+        ...     ylabel='Y',
+        ...     zlabel='Z',
+        ...     color_box=False,
+        ...     labels_off=False,
+        ...     opacity=1.0,
+        ... )
+        >>> pl = pv.Plotter()
+        >>> _ = pl.add_actor(actor)
+        >>> pl.show()
 
     """
     x_color = Color(x_color, default_color=pv.global_theme.axes.x_color)
@@ -714,7 +782,7 @@ def parse_font_family(font_family: str) -> int:
     Raises
     ------
     ValueError
-        If the font_family is not one of the defined font names in the ``FONTS``
+        If the ``font_family`` is not one of the defined font names in the ``FONTS``
         enum class.
 
     """
@@ -726,36 +794,21 @@ def parse_font_family(font_family: str) -> int:
     return FONTS[font_family].value
 
 
-def check_math_text_support() -> bool:  # pragma: no cover
-    """Raise a DeprecationError as this has been moved.
-
-    Returns
-    -------
-    bool
-        Returns False for compatibility.
-
-    """
-    from pyvista.core.errors import DeprecationError  # noqa: PLC0415
-
+def check_math_text_support() -> NoReturn:
+    """Raise a DeprecationError as this has been moved."""
     # Deprecated on v0.47.0, estimated removal on v0.50.0
-    msg = '`check_math_text_support` is now imported from `pyvista.report`'
-    DeprecationError(msg)
+    msg = (
+        '`pyvista.plotting.check_math_text_support` is deprecated. '
+        'Use `pyvista.check_math_text_support` instead.'
+    )
+    raise DeprecationError(msg)
 
-    return False
 
-
-def check_matplotlib_vtk_compatibility() -> bool:  # pragma: no cover
-    """Raise a DeprecationError as this has been moved.
-
-    Returns
-    -------
-    bool
-        Returns False for compatibility.
-
-    """
-    from pyvista.core.errors import DeprecationError  # noqa: PLC0415
-
+def check_matplotlib_vtk_compatibility() -> NoReturn:
+    """Raise a DeprecationError as this has been moved."""
     # Deprecated on v0.47.0, estimated removal on v0.50.0
-    msg = '`check_matplotlib_vtk_compatibility` is now imported from `pyvista.report`'
-    DeprecationError(msg)
-    return False  # returning bool for compatibility
+    msg = (
+        '`pyvista.plotting.check_matplotlib_vtk_compatibility` is deprecated. '
+        'Use `pyvista.check_matplotlib_vtk_compatibility` instead.'
+    )
+    raise DeprecationError(msg)

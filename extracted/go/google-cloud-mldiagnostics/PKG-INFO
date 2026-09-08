@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: google-cloud-mldiagnostics
-Version: 1.0.7
+Version: 1.0.8
 Summary: diagnostic packages for profiling and ML experiment management
 Author-email: Google Diagon++ <hypercompute-diagon@google.com>
 License: Apache-2.0
+Project-URL: Repository, https://github.com/AI-Hypercomputer/google-cloud-mldiagnostics
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -18,6 +19,10 @@ Requires-Dist: google-cloud-logging>=2.0.0
 Requires-Dist: psutil>=6.0.0
 Requires-Dist: packaging>=24.0
 Requires-Dist: pynvml>=11.5.0
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.20.0; extra == "otel"
+Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "otel"
+Requires-Dist: opentelemetry-exporter-otlp>=1.20.0; extra == "otel"
 Dynamic: license-file
 
 <!--
@@ -45,9 +50,11 @@ Dynamic: license-file
   - [IAM Permissions](#iam-permissions)
   - [Configure GKE Cluster](#configure-gke-cluster)
   - [Install ML Diagnostics SDK](#install-ml-diagnostics-sdk)
+  - [Upgrading & Known Limitations in Older Versions](#upgrading-known-limitations-in-older-versions)
 - [How to use](#how-to-use)
   - [Enable Cloud Logging](#enable-cloud-logging)
   - [Enable Debug Logging](#enable-debug-logging)
+  - [Configure Telemetry Exporters for OTel Integration](#configure-telemetry-exporters-for-otel-integration)
   - [Creating a machine learning run](#creating-a-machine-learning-run)
   - [Write configs using yaml or json](#write-configs-using-yaml-or-json)
   - [Collect metrics](#collect-metrics)
@@ -58,10 +65,14 @@ Dynamic: license-file
   - [Package Workload with SDK with Dockerfile for GKE](#package-workload-with-sdk-with-dockerfile-for-gke)
   - [Deploy Workload with SDK integrated](#deploy-workload-with-sdk-integrated)
 - [Using ML Diagnostics with Maxtext](#using-ml-diagnostics-with-maxtext)
+- [Using ML Diagnostics with vLLM](#using-ml-diagnostics-with-vllm)
 
 ## Overview
 
-**Note:** Google Cloud ML Diagnostics supports JAX on Google Cloud TPUs and GPUs today.
+[**Release Notes**](https://github.com/AI-Hypercomputer/google-cloud-mldiagnostics/blob/main/docs/release_notes.md)
+
+
+**Note:** Google Cloud ML Diagnostics supports JAX and vLLM on Google Cloud TPUs and GPUs today.
 
 Google Cloud ML Diagnostics is an end-to-end managed platform for optimizing
 and diagnosing AI/ML workloads on Google Cloud. The platform lets you collect
@@ -97,6 +108,8 @@ and profiles in Cluster Director and Google Kubernetes Engine in the Google
 Cloud console.
 - **Link sharing**: ML Diagnostics allows easy collaboration with shareable
 links for profiles and machine learning run information.
+- **Universal Telemetry Stack Integration**: Log and metric collection setup (OTel, Prometheus, Loki, Grafana).
+
 
 ### Github Repo
 
@@ -139,6 +152,7 @@ The Google Service Account used by your workload requires the following IAM role
 1. `roles/clusterdirector.editor`: For full access to create and manage MLRun resources and view the user interface.
 1. `roles/logging.logWriter`: To write logs and metrics to Google Cloud Logging.
 1. `roles/storage.objectUser`: To save profiles to the GCS bucket specified in `machinelearning_run`.
+1. `roles/storage.bucketViewer`: To view the GCS bucket metadata for uploading profiles.
 
 For read-only access (viewing UI only, not creating MLRuns), `roles/clusterdirector.viewer` is sufficient.
 
@@ -383,6 +397,21 @@ pip install google-cloud-mldiagnostics
 This package does not install `libtpu`, `jax`, and `xprof`; you are expected to
 install these separately if needed for your workload.
 
+### Upgrading & Known Limitations in Older Versions
+
+We strongly recommend upgrading to **SDK version `1.0.6` or later** (`pip install --upgrade google-cloud-mldiagnostics`).
+
+**Known limitations in SDK versions `< 1.0.6`:**
+
+*   **GKE Workload Monitoring Compatibility:** If your GKE cluster version is `1.36.0-gke.4681000` or later and the cluster is present in a supported Workload Monitoring GA region (`us-central1`, `us-east1`, `us-east4`, `us-east5`, `us-south1`, `us-west1`, `europe-west1`, `europe-west2`, `europe-west4`, `southamerica-west1`), Diagon Workload Monitoring automatically pre-creates a Machine Learning Run for the workload. Using MLDiagnostics SDK version `< 1.0.6` will log an informational message similar to the following and skip updating it, which prevents profiling from being enabled on the run:
+
+    ```log
+    INFO:google_cloud_mldiagnostics.core.global_manager:ML run 'projects/12345/locations/us-central1/machineLearningRuns/my-job' already exists, skipping creation.
+    ```
+
+    The mitigation is to upgrade MLDiagnostics to the latest SDK version (`1.0.6` or higher), which automatically updates existing runs and enables full profile capture.
+
+
 ## How to use
 
 ### Enable Cloud Logging
@@ -437,6 +466,49 @@ Logging, for example:
 ```
 DEBUG:google_cloud_mldiagnostics.core.global_manager:current run details: {'name': 'projects/my-gcp-project/locations/us-central1/mlRuns/my-run-12345', 'gcs_path': 'gs://my-bucket/profiles', ...}
 ```
+### Configure Telemetry Exporters for OTel Integration
+
+**New Feature**: The SDK now supports dual-routing and pluggable telemetry! In addition to standard Google Cloud Logging, you can configure the SDK to export metrics and logs to an OpenTelemetry (OTel) Collector. This is extremely useful for integration with localized monitoring stacks like **Prometheus, Loki, and Grafana**.
+
+#### Prerequisites for OTel Integration
+
+- OpenTelemetry Collector running and accessible from your workload.
+- (Optional) Prometheus, Loki, and Grafana set up to consume data from the OTel Collector.
+
+#### Configuring Exporters in SDK
+
+You can configure the metrics exporter mode and user configuration using the `metrics_exporter_config` parameter in `machinelearning_run`.
+
+> [!TIP]
+> If you are using the **Google Cloud Exporter** in your OpenTelemetry Collector, make sure to configure `default_log_name` in the collector configuration. The Google Cloud exporter requires a log name; if the SDK doesn't provide the `gcp.log_name` attribute, logs will be dropped unless `default_log_name` is set in the collector. See [OpenTelemetry Google Cloud Exporter docs](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/googlecloudexporter#log-configuration) for more details.
+
+Example:
+
+```python
+machinelearning_run(
+    # ... other parameters ...
+    metrics_exporter_config={
+        "mode": ["otel", "cloud_logging"], # Export system metrics to both OTel and Cloud Logging
+        "userConfig": ["otel", "cloud_logging"], # Export user metrics to both OTel and Cloud Logging
+    },
+)
+```
+
+By default, if `metrics_exporter_config` is not provided, it defaults to `["cloud_logging"]`.
+
+#### Environment Variables
+
+You can also use environment variables to control OTel integration:
+
+- `DIAGON_ENABLE_OTEL`: Set to `'true'` to enable OTel exporter.
+- `OTEL_EXPORTER_OTLP_ENDPOINT`: The endpoint of the OTel Collector (e.g., `http://otel-collector.diagon.svc.cluster.local:4317`).
+- `OTEL_METRIC_EXPORT_INTERVAL`: Metric export interval in milliseconds (default is `5000`).
+- `OTEL_PYTHON_LOG_LEVEL`: Log level for OTel Python SDK (e.g., `DEBUG`).
+- `OTEL_EXPORTER_OTLP_INSECURE`: Set to `'true'` to disable TLS for OTLP exporter.
+
+> [!IMPORTANT]
+> Ensure the `opentelemetry-sdk` and `opentelemetry-exporter-otlp` packages are installed (or install via `pip install google_cloud_mldiagnostics[otel]`).
+
 
 ### Creating a machine learning run
 
@@ -577,8 +649,8 @@ charts.
 
 The SDK provides two functions for recording metrics: `metrics.record()` for
 capturing individual data points, and `metrics.record_metrics()` for recording
-multiple metrics in a single batch. Both functions write metrics to Cloud
-Logging, enabling subsequent visualization and analysis.
+multiple metrics in a single batch. These functions dispatch metrics to the
+configured exporters (Cloud Logging by default, or OpenTelemetry if enabled).
 
 #### Single metric recording
 
@@ -683,7 +755,7 @@ XLA, Tensorflow) for profile collection so you can use the same profile capture
 code across all frameworks. All the profile sessions will be captured in the GCS
 bucket defined in the machine learning run.
 
-**Note:** Google Cloud ML Diagnostics supports JAX on Google Cloud TPUs and GPUs (support for other frameworks like vllm, sglang, Torch TPU, etc will come in the future).
+**Note:** Google Cloud ML Diagnostics supports JAX and vLLM on Google Cloud TPUs and GPUs (support for other frameworks like sglang, Torch TPU, etc will come in the future).
 
 ```python
 # Support collection via APIs
@@ -964,3 +1036,89 @@ python3 -m MaxText.train src/MaxText/configs/base.yml run_name="demo-mldiagnosti
 ```
 
 `upload_all_profiler_results=True` captures multihost profiles from all hosts.
+
+## Using ML Diagnostics with vLLM
+
+ML Diagnostics provides a built-in wrapper command, `google_cloud_mldiagnostics.commands.run_vllm`, to run vLLM serving and inference workloads with ML Diagnostics telemetry and profiling enabled on Google Cloud TPUs and GPUs.
+
+The `run_vllm` wrapper:
+- Creates and registers a managed Machine Learning Run (`MLRun`) with `serving_engine="VLLM"`.
+- Configures profiler environment variables (`USE_JAX_PROFILER_SERVER`, `JAX_PROFILER_SERVER_PORT`, `PHASED_PROFILING_DIR`, and `VLLM_TORCH_PROFILER_DIR`) and updates profiler output paths to organize profiles under `<mlrun_gcs_path>/<run_name>/plugins/profile/`.
+- Forwards all remaining command-line arguments directly to `vllm`.
+
+### `run_vllm` Command-Line Arguments
+
+- `--mlrun_name` (Required): Unique identifier for the MLRun.
+- `--mlrun_gcs_path` (Required): Google Cloud Storage bucket path where profiler traces and artifacts are saved (e.g., `gs://my-bucket/vllm-profiles`).
+- `--project` (Optional): Google Cloud Project ID.
+- `--region` (Optional): Region where the MLRun metadata is stored (default: `us-central1`).
+- `--run_group` (Optional): Identifier used to group multiple related runs.
+- `--configs` (Optional): User-defined configurations passed as a JSON object string (e.g., `'{"user":"my-team", "running_on":"TPU"}'`).
+- `--framework` (Optional): Underlying ML framework for the workload (`pytorch` or `jax`, default: `pytorch`).
+- `--jax_profiler_port` (Optional): JAX profiler server port (default: `9999`).
+
+### 1. Prepare Docker Image for vLLM
+
+Below is an example `Dockerfile` for packaging a vLLM TPU image with the ML Diagnostics SDK:
+
+```dockerfile
+FROM vllm/vllm-tpu:latest
+WORKDIR /app
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+        google-cloud-mldiagnostics \
+        xprof \
+        google-cloud-logging \
+        packaging \
+        tensorflow-cpu
+EXPOSE 8000 9999
+ENTRYPOINT ["python3", "-m", "google_cloud_mldiagnostics.commands.run_vllm"]
+CMD ["--help"]
+```
+
+### 2. Run vLLM with ML Diagnostics
+
+You can run the container on GKE or GCE by passing the MLRun arguments along with your standard `vllm serve` arguments:
+
+```bash
+docker run --name vllm_diagnostics -d --privileged --net=host \
+  -e HF_HUB_DISABLE_XET=1 \
+  -e USE_MOE_EP_KERNEL=1 \
+  -e PJRT_DEVICE=TPU \
+  -e ENABLE_GOOGLE_DIAGON_ML_DIAGNOSTICS=True \
+  -e VLLM_LOGGING_LEVEL=DEBUG \
+  -e VLLM_TORCH_PROFILER_DIR="gs://<your_gcs_bucket>/vllm_profiles" \
+  -e PHASED_PROFILING_DIR="gs://<your_gcs_bucket>/vllm_profiles" \
+  -e PYTHONUNBUFFERED=1 \
+  -e PHASED_PROFILER_NUM_STEPS_TO_PROFILE_FOR=100 \
+  -e HF_TOKEN="<your_hf_token>" \
+  -e HUGGING_FACE_HUB_TOKEN="<your_hf_token>" \
+  <your_vllm_image> \
+  --mlrun_name="vllm-tpu-run" \
+  --run_group="vllm-benchmark" \
+  --configs='{"user":"ml-team", "running_on":"TPU"}' \
+  --mlrun_gcs_path="gs://<your_gcs_bucket>/vllm_profiles" \
+  --project="<your_project_id>" \
+  --region="us-central1" \
+  serve Qwen/Qwen2-1.5B \
+  --kv-cache-dtype=fp8 \
+  --tensor-parallel-size=1 \
+  --data-parallel-size=1 \
+  --max-model-len=2048 \
+  --max-num-batched-tokens=2048 \
+  --max-num-seqs=64 \
+  --no-enable-prefix-caching \
+  --block-size=256 \
+  --gpu-memory-utilization=0.95 \
+  --port=8000 \
+  --profiler-config.profiler=torch \
+  --profiler-config.torch_profiler_dir="gs://<your_gcs_bucket>/vllm_profiles"
+```
+
+### 3. Profiling vLLM Workloads
+
+You can capture profiler traces from your vLLM workload using any of the following methods:
+
+1. **Phased Profiling**: When `ENABLE_GOOGLE_DIAGON_ML_DIAGNOSTICS=True` and `PHASED_PROFILING_DIR` are configured, profiling is automatically captured across different inference workload phases (such as `PREFILL_ONLY`, `PREFILL_HEAVY`, `BALANCED`, and `DECODE_HEAVY`) for the number of steps specified by `PHASED_PROFILER_NUM_STEPS_TO_PROFILE_FOR`.
+2. **Manual (API-Triggered) Profiling**: You can programmatically trigger and stop profiling sessions by sending HTTP requests to vLLM's `/start_profile` and `/stop_profile` API endpoints while generating load against the server.
+3. **On-Demand UI Profiling**: Capture profile sessions directly from the **Profiles** tab of your MLRun in the Google Cloud Console (Cluster Director or GKE AI/ML Diagnostics UI).

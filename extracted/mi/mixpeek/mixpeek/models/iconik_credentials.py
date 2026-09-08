@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class IconikCredentials(BaseModel):
     """
-    App-ID + Auth-Token credentials for Iconik DAM platform.  Security:     - auth_token is encrypted at rest via CSFLE     - Tokens are created in Iconik Admin > Settings > API Applications
+    App-ID + Auth-Token credentials for Iconik DAM platform.  Security:     - auth_token is a secret credential, redacted on read     - Tokens are created in Iconik Admin > Settings > API Applications
     """ # noqa: E501
     type: Optional[StrictStr] = 'app_token'
     app_id: StrictStr = Field(description="REQUIRED. Iconik application ID. Found in: Iconik Admin > Settings > API Applications.")

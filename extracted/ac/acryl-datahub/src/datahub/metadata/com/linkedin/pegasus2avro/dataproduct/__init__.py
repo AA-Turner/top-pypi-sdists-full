@@ -10,10 +10,12 @@
 from .....schema_classes import DataProductAssociationClass
 from .....schema_classes import DataProductKeyClass
 from .....schema_classes import DataProductPropertiesClass
+from .....schema_classes import DataProductsClass
 
 
 DataProductAssociation = DataProductAssociationClass
 DataProductKey = DataProductKeyClass
 DataProductProperties = DataProductPropertiesClass
+DataProducts = DataProductsClass
 
 # fmt: on

@@ -1,9 +1,6 @@
-use std::cell::RefCell;
 use std::future::poll_fn;
 use std::io::{self, ErrorKind};
-use std::mem::ManuallyDrop;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 
 use mio::Interest;
 
@@ -13,7 +10,7 @@ use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 use std::os::windows::io::{AsRawHandle, IntoRawHandle, RawHandle};
 
 use crate::vibeio::fs::Metadata;
-use crate::vibeio::io::{IoBuf, IoBufMut, IoBufWithCursor, iobuf_to_slice, iobufmut_to_slice};
+use crate::vibeio::io::{IoBuf, IoBufMut, IoBufWithCursor, iobuf_to_slice, read_into_buf};
 use crate::vibeio::{
     driver::RegistrationMode,
     executor::current_driver,
@@ -27,29 +24,9 @@ use crate::vibeio::fd_inner::RawOsHandle;
 
 use crate::vibeio::fs::open_options::OpenOptions;
 
-/// A file handle for asynchronous file I/O operations.
-///
-/// This struct provides async versions of common file operations like reading,
-/// writing, and syncing. It supports both io_uring completion-based I/O on Linux
-/// and blocking thread pool fallback for other platforms.
-///
-/// # Examples
-///
-/// ```ignore
-/// use vibeio::fs::File;
-///
-/// // Open a file for reading
-/// let file = File::open("hello.txt").await?;
-///
-/// // Read from the file
-/// let mut buf = [0u8; 1024];
-/// let (read, buf) = file.read_at(buf, 0).await;
-/// let read = read?;
-///
-/// println!("Read {} bytes", read);
-/// ```
+/// Selects completion-based I/O or the synchronous/offloaded fallback.
 enum FileIo {
-    Completion(ManuallyDrop<InnerRawHandle>),
+    Completion(InnerRawHandle),
     Blocking,
 }
 
@@ -61,22 +38,12 @@ enum FileIo {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::fs::File;
-///
-/// // Open a file for reading
-/// let file = File::open("hello.txt").await?;
-///
-/// // Read from the file
-/// let mut buf = [0u8; 1024];
-/// let (read, buf) = file.read_at(buf, 0).await;
-/// let read = read?;
-///
-/// println!("Read {} bytes", read);
-/// ```
+/// See "Filesystem offload" in `tools/vibeio-check/EXAMPLES.md` for an executable
+/// example of opening a file and using the returned count and owned read buffer.
 pub struct File {
-    inner: std::fs::File,
+    // Fields drop in declaration order: deregister before closing the file.
     io: FileIo,
+    inner: std::fs::File,
     cursor: u64,
 }
 
@@ -99,11 +66,8 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::open("hello.txt").await?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
     pub async fn open(path: impl AsRef<Path>) -> io::Result<Self> {
         OpenOptions::new().read(true).open(path).await
@@ -127,11 +91,8 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::create("hello.txt").await?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
     pub async fn create(path: impl AsRef<Path>) -> io::Result<Self> {
         OpenOptions::new()
@@ -176,7 +137,7 @@ impl File {
                     Interest::READABLE | Interest::WRITABLE,
                     RegistrationMode::Completion,
                 ) {
-                    Ok(handle) => FileIo::Completion(ManuallyDrop::new(handle)),
+                    Ok(handle) => FileIo::Completion(handle),
                     Err(_) => FileIo::Blocking,
                 }
             } else {
@@ -192,13 +153,9 @@ impl File {
     /// Converts the `File` back into a standard library `std::fs::File`.
     #[inline]
     pub fn into_std(self) -> std::fs::File {
-        let mut this = ManuallyDrop::new(self);
-        unsafe {
-            if let FileIo::Completion(handle) = &mut this.io {
-                ManuallyDrop::drop(handle);
-            }
-            std::ptr::read(&this.inner)
-        }
+        let Self { io, inner, .. } = self;
+        drop(io);
+        inner
     }
 
     /// Returns the completion handle if this file is using io_uring completion.
@@ -217,7 +174,7 @@ impl File {
     ///
     /// # Platform-specific behavior
     ///
-    /// - On Linux with io_uring support, this uses the `readv` syscall directly.
+    /// - On Linux with io_uring support, this submits positional `Read` operations.
     /// - On other platforms, this either offloads to a blocking thread pool or falls back
     ///   to synchronous reading.
     ///
@@ -229,17 +186,11 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::open("hello.txt").await?;
-    /// let mut buf = [0u8; 1024];
-    /// let (read, buf) = file.read_at(buf, 0).await;
-    /// let read = read?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
     pub async fn read_at<B: IoBufMut>(&self, mut buf: B, offset: u64) -> (io::Result<usize>, B) {
-        if buf.buf_len() == 0 {
+        if buf.buf_capacity() == 0 {
             return (Ok(0), buf);
         }
 
@@ -250,19 +201,24 @@ impl File {
         } else if crate::vibeio::executor::offload_fs() && current_driver().is_some() {
             read_at_in_blocking_pool(&self.inner, buf, offset).await
         } else {
-            let slice = iobufmut_to_slice(&mut buf);
-            (read_at_blocking(&self.inner, slice, offset), buf)
+            let result = read_into_buf(&mut buf, |slice| {
+                read_at_blocking(&self.inner, slice, offset)
+            });
+            (result, buf)
         }
     }
 
     /// Reads bytes from the file at a specific offset, filling the entire buffer.
     ///
-    /// This method reads into the provided buffer starting at the given offset,
-    /// ensuring the entire buffer is filled. The cursor position of the file is not modified.
+    /// This method fills the provided buffer's writable capacity starting at the
+    /// given offset, including spare capacity in an empty Vec. The cursor
+    /// position of the file is not modified.
+    /// Interrupted reads are retried. Reaching EOF before filling the buffer
+    /// returns [`io::ErrorKind::UnexpectedEof`].
     ///
     /// # Platform-specific behavior
     ///
-    /// - On Linux with io_uring support, this uses the `readv` syscall directly.
+    /// - On Linux with io_uring support, this submits positional `Read` operations.
     /// - On other platforms, this either offloads to a blocking thread pool or falls back
     ///   to synchronous reading.
     ///
@@ -275,41 +231,14 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::open("hello.txt").await?;
-    /// let mut buf = [0u8; 1024];
-    /// let (result, buf) = file.read_exact_at(buf, 0).await;
-    /// result?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
-    pub async fn read_exact_at<B: IoBufMut>(&self, buf: B, mut offset: u64) -> (io::Result<()>, B) {
-        let mut buf = IoBufWithCursor::new(buf);
-        while buf.buf_len() > 0 {
-            let (read, mut buf_returned) = self.read_at(buf, offset).await;
-            let read = match read {
-                Ok(read) => read,
-                Err(err) => {
-                    return (Err(err), buf_returned.into_inner());
-                }
-            };
-            if read == 0 {
-                return (
-                    Err(io::Error::new(
-                        ErrorKind::UnexpectedEof,
-                        "failed to fill whole buffer",
-                    )),
-                    buf_returned.into_inner(),
-                );
-            }
-
-            offset = offset.saturating_add(read as u64);
-            buf_returned.advance(read);
-            buf = buf_returned
-        }
-
-        (Ok(()), buf.into_inner())
+    pub async fn read_exact_at<B: IoBufMut>(&self, buf: B, offset: u64) -> (io::Result<()>, B) {
+        exact_at(buf, offset, ExactAt::Read, |buf, offset| {
+            self.read_at(buf, offset)
+        })
+        .await
     }
 
     /// Writes bytes to the file at a specific offset.
@@ -319,7 +248,7 @@ impl File {
     ///
     /// # Platform-specific behavior
     ///
-    /// - On Linux with io_uring support, this uses the `writev` syscall directly.
+    /// - On Linux with io_uring support, this submits positional `Write` operations.
     /// - On other platforms, this either offloads to a blocking thread pool or falls back
     ///   to synchronous writing.
     ///
@@ -331,18 +260,17 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::create("hello.txt").await?;
-    /// let buf = b"Hello, world!";
-    /// let (written, buf) = file.write_at(buf.to_vec(), 0).await;
-    /// let written = written?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
     pub async fn write_at<B: IoBuf>(&self, buf: B, offset: u64) -> (io::Result<usize>, B) {
         if buf.buf_len() == 0 {
             return (Ok(0), buf);
+        }
+
+        #[cfg(windows)]
+        if let Err(error) = crate::vibeio::op::validate_windows_write_offset(offset) {
+            return (Err(error), buf);
         }
 
         if let Some(handle) = self.completion_handle() {
@@ -361,10 +289,12 @@ impl File {
     ///
     /// This method writes from the provided buffer starting at the given offset,
     /// ensuring the entire buffer is written. The cursor position of the file is not modified.
+    /// Interrupted writes are retried. A write that makes no progress returns
+    /// [`io::ErrorKind::WriteZero`].
     ///
     /// # Platform-specific behavior
     ///
-    /// - On Linux with io_uring support, this uses the `writev` syscall directly.
+    /// - On Linux with io_uring support, this submits positional `Write` operations.
     /// - On other platforms, this either offloads to a blocking thread pool or falls back
     ///   to synchronous writing.
     ///
@@ -377,41 +307,14 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::create("hello.txt").await?;
-    /// let buf = b"Hello, world!";
-    /// let (result, buf) = file.write_exact_at(buf.to_vec(), 0).await;
-    /// result?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
-    pub async fn write_exact_at<B: IoBuf>(&self, buf: B, mut offset: u64) -> (io::Result<()>, B) {
-        let mut buf = IoBufWithCursor::new(buf);
-        while buf.buf_len() > 0 {
-            let (written, mut buf_returned) = self.write_at(buf, offset).await;
-            let written = match written {
-                Ok(written) => written,
-                Err(err) => {
-                    return (Err(err), buf_returned.into_inner());
-                }
-            };
-            if written == 0 {
-                return (
-                    Err(io::Error::new(
-                        ErrorKind::UnexpectedEof,
-                        "failed to write whole buffer",
-                    )),
-                    buf_returned.into_inner(),
-                );
-            }
-
-            offset = offset.saturating_add(written as u64);
-            buf_returned.advance(written);
-            buf = buf_returned;
-        }
-
-        (Ok(()), buf.into_inner())
+    pub async fn write_exact_at<B: IoBuf>(&self, buf: B, offset: u64) -> (io::Result<()>, B) {
+        exact_at(buf, offset, ExactAt::Write, |buf, offset| {
+            self.write_at(buf, offset)
+        })
+        .await
     }
 
     /// Synchronizes all data and metadata to disk.
@@ -431,12 +334,8 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::create("hello.txt").await?;
-    /// file.sync_all().await?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
     pub async fn sync_all(&self) -> io::Result<()> {
         if let Some(handle) = self.completion_handle() {
@@ -474,12 +373,8 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::create("hello.txt").await?;
-    /// file.sync_data().await?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
     pub async fn sync_data(&self) -> io::Result<()> {
         if let Some(handle) = self.completion_handle() {
@@ -517,13 +412,8 @@ impl File {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::File;
-    ///
-    /// let file = File::open("hello.txt").await?;
-    /// let metadata = file.metadata().await?;
-    /// println!("File size: {} bytes", metadata.len());
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md` for checked results and owned buffers.
     #[inline]
     pub async fn metadata(&self) -> io::Result<Metadata> {
         if let Some(handle) = self.completion_handle() {
@@ -532,6 +422,7 @@ impl File {
                 use std::ffi::CString;
 
                 let mut op = crate::vibeio::op::StatxOp::new(
+                    handle.driver_owner(),
                     handle.handle,
                     CString::new(b"").expect("invalid path"),
                     libc::AT_EMPTY_PATH,
@@ -551,6 +442,174 @@ impl File {
             metadata_blocking(&self.inner)
         }
     }
+}
+
+enum ExactAt {
+    Read,
+    Write,
+}
+
+#[cfg(test)]
+mod exact_at_tests {
+    use super::*;
+
+    fn run_script(
+        mode: ExactAt,
+        len: usize,
+        offset: u64,
+        results: Vec<io::Result<usize>>,
+    ) -> (io::Result<()>, Vec<u8>, Vec<(u64, usize)>) {
+        let runtime =
+            crate::vibeio::executor::Runtime::new(crate::vibeio::driver::AnyDriver::new_mock());
+        runtime.block_on(async move {
+            let mut results = results.into_iter();
+            let mut calls = Vec::new();
+            let (result, buffer) = exact_at(vec![7u8; len], offset, mode, |buf, offset| {
+                calls.push((offset, buf.buf_capacity()));
+                std::future::ready((results.next().expect("unexpected I/O retry"), buf))
+            })
+            .await;
+            assert!(results.next().is_none(), "unused scripted result");
+            (result, buffer, calls)
+        })
+    }
+
+    #[test]
+    fn exact_io_retries_interruptions_without_advancing_position() {
+        for mode in [ExactAt::Read, ExactAt::Write] {
+            let (result, buffer, calls) = run_script(
+                mode,
+                4,
+                10,
+                vec![
+                    Err(io::ErrorKind::Interrupted.into()),
+                    Ok(1),
+                    Err(io::ErrorKind::Interrupted.into()),
+                    Ok(3),
+                ],
+            );
+            result.unwrap();
+            assert_eq!(buffer, vec![7; 4]);
+            assert_eq!(calls, [(10, 4), (10, 4), (11, 3), (11, 3)]);
+        }
+    }
+
+    #[test]
+    fn exact_io_distinguishes_eof_from_write_zero() {
+        for (mode, kind) in [
+            (ExactAt::Read, ErrorKind::UnexpectedEof),
+            (ExactAt::Write, ErrorKind::WriteZero),
+        ] {
+            let (result, buffer, calls) = run_script(mode, 4, 10, vec![Ok(2), Ok(0)]);
+            assert_eq!(result.unwrap_err().kind(), kind);
+            assert_eq!(buffer, vec![7; 4]);
+            assert_eq!(calls, [(10, 4), (12, 2)]);
+        }
+    }
+
+    #[test]
+    fn exact_io_checks_offset_overflow_only_when_another_io_is_needed() {
+        for mode in [ExactAt::Read, ExactAt::Write] {
+            let (result, buffer, calls) = run_script(mode, 4, u64::MAX, vec![Ok(1)]);
+            assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidInput);
+            assert_eq!(buffer, vec![7; 4]);
+            assert_eq!(calls, [(u64::MAX, 4)]);
+        }
+        let (result, _, calls) = run_script(ExactAt::Write, 1, u64::MAX, vec![Ok(1)]);
+        result.unwrap();
+        assert_eq!(calls, [(u64::MAX, 1)]);
+    }
+
+    #[test]
+    fn exact_io_preserves_errors_rejects_excess_counts_and_skips_empty_buffers() {
+        for mode in [ExactAt::Read, ExactAt::Write] {
+            let (result, buffer, _) = run_script(
+                mode,
+                4,
+                0,
+                vec![Ok(1), Err(io::Error::from_raw_os_error(5))],
+            );
+            assert_eq!(result.unwrap_err().raw_os_error(), Some(5));
+            assert_eq!(buffer, vec![7; 4]);
+        }
+        for mode in [ExactAt::Read, ExactAt::Write] {
+            let (result, buffer, _) = run_script(mode, 4, 0, vec![Ok(5)]);
+            assert_eq!(result.unwrap_err().kind(), ErrorKind::InvalidData);
+            assert_eq!(buffer, vec![7; 4]);
+        }
+        for mode in [ExactAt::Read, ExactAt::Write] {
+            let (result, buffer, calls) = run_script(mode, 0, u64::MAX, vec![]);
+            result.unwrap();
+            assert!(buffer.is_empty());
+            assert!(calls.is_empty());
+        }
+    }
+}
+
+impl ExactAt {
+    fn remaining(&self, buf: &impl IoBuf) -> usize {
+        match self {
+            Self::Read => buf.buf_capacity(),
+            Self::Write => buf.buf_len(),
+        }
+    }
+}
+
+async fn exact_at<B, F, Fut>(
+    buf: B,
+    mut offset: u64,
+    mode: ExactAt,
+    mut operation: F,
+) -> (io::Result<()>, B)
+where
+    B: IoBuf,
+    F: FnMut(IoBufWithCursor<B>, u64) -> Fut,
+    Fut: std::future::Future<Output = (io::Result<usize>, IoBufWithCursor<B>)>,
+{
+    let mut buf = IoBufWithCursor::new(buf);
+    while mode.remaining(&buf) > 0 {
+        let remaining = mode.remaining(&buf);
+        let (result, returned) = operation(buf, offset).await;
+        buf = returned;
+        let count = match result {
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
+            Err(error) => return (Err(error), buf.into_inner()),
+            Ok(0) => {
+                let kind = match mode {
+                    ExactAt::Read => ErrorKind::UnexpectedEof,
+                    ExactAt::Write => ErrorKind::WriteZero,
+                };
+                return (
+                    Err(io::Error::new(kind, "failed to complete positional I/O")),
+                    buf.into_inner(),
+                );
+            }
+            Ok(count) if count > remaining => {
+                return (
+                    Err(io::Error::new(
+                        ErrorKind::InvalidData,
+                        "I/O count exceeds remaining buffer",
+                    )),
+                    buf.into_inner(),
+                );
+            }
+            Ok(count) => count,
+        };
+        buf.advance(count);
+        if mode.remaining(&buf) > 0 {
+            let Some(next) = offset.checked_add(count as u64) else {
+                return (
+                    Err(io::Error::new(
+                        ErrorKind::InvalidInput,
+                        "file offset overflow",
+                    )),
+                    buf.into_inner(),
+                );
+            };
+            offset = next;
+        }
+    }
+    (Ok(()), buf.into_inner())
 }
 
 #[cfg(unix)]
@@ -611,28 +670,14 @@ async fn read_at_in_blocking_pool<B: IoBufMut>(
         Ok(file) => file,
         Err(e) => return (Err(e), buf),
     };
-    let buf = Arc::new(Mutex::new(RefCell::new(Some(buf))));
-    let buf_clone = buf.clone();
-    crate::vibeio::spawn_blocking(move || {
-        let mut buf = buf_clone
-            .try_lock()
-            .ok()
-            .and_then(|rc| rc.take())
-            .expect("buf is none");
-        let temp_slice = iobufmut_to_slice(&mut buf);
-        let result = read_at_blocking(&file, temp_slice, offset);
-        (result, buf)
+    let (result, buf) = crate::vibeio::blocking::with_buffer(buf, move |buf| {
+        read_into_buf(buf, |slice| read_at_blocking(&file, slice, offset))
     })
-    .await
-    .unwrap_or_else(|_| {
-        (
-            Err(blocking_pool_io_error()),
-            buf.try_lock()
-                .ok()
-                .and_then(|rc| rc.take())
-                .expect("buf is none"),
-        )
-    })
+    .await;
+    (
+        result.unwrap_or_else(|_| Err(blocking_pool_io_error())),
+        buf,
+    )
 }
 
 #[inline]
@@ -645,28 +690,14 @@ async fn write_at_in_blocking_pool<B: IoBuf>(
         Ok(file) => file,
         Err(e) => return (Err(e), buf),
     };
-    let buf = Arc::new(Mutex::new(RefCell::new(Some(buf))));
-    let buf_clone = buf.clone();
-    crate::vibeio::spawn_blocking(move || {
-        let buf = buf_clone
-            .try_lock()
-            .ok()
-            .and_then(|rc| rc.take())
-            .expect("buf is none");
-        let temp_slice = iobuf_to_slice(&buf);
-        let result = write_at_blocking(&file, temp_slice, offset);
-        (result, buf)
+    let (result, buf) = crate::vibeio::blocking::with_buffer(buf, move |buf| {
+        write_at_blocking(&file, iobuf_to_slice(buf), offset)
     })
-    .await
-    .unwrap_or_else(|_| {
-        (
-            Err(blocking_pool_io_error()),
-            buf.try_lock()
-                .ok()
-                .and_then(|rc| rc.take())
-                .expect("buf is none"),
-        )
-    })
+    .await;
+    (
+        result.unwrap_or_else(|_| Err(blocking_pool_io_error())),
+        buf,
+    )
 }
 
 #[inline]
@@ -720,17 +751,6 @@ impl AsyncWrite for File {
     }
 }
 
-impl Drop for File {
-    #[inline]
-    fn drop(&mut self) {
-        unsafe {
-            if let FileIo::Completion(handle) = &mut self.io {
-                ManuallyDrop::drop(handle);
-            }
-        }
-    }
-}
-
 #[cfg(unix)]
 impl AsRawFd for File {
     #[inline]
@@ -760,5 +780,92 @@ impl IntoRawHandle for File {
     #[inline]
     fn into_raw_handle(self) -> RawHandle {
         self.into_std().into_raw_handle()
+    }
+}
+
+#[cfg(test)]
+mod blocking_buffer_tests {
+    use super::*;
+
+    #[test]
+    fn file_conversion_and_drop_release_each_registration_once() {
+        use crate::vibeio::driver::AnyDriver;
+        let mut driver = AnyDriver::new_mock();
+        let AnyDriver::Mock(mock) = &mut driver else {
+            unreachable!()
+        };
+        mock.registrations = Some(Default::default());
+        mock.registrations
+            .as_ref()
+            .unwrap()
+            .results
+            .borrow_mut()
+            .extend([Ok(mio::Token(0)), Ok(mio::Token(1))]);
+        crate::vibeio::Runtime::new(driver).block_on(async {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+            let original = std::fs::File::open(&path).unwrap();
+            #[cfg(unix)]
+            let raw = original.as_raw_fd();
+            #[cfg(windows)]
+            let raw = original.as_raw_handle();
+            let file = File::from_std(original).unwrap();
+            assert!(file.completion_handle().is_some());
+            let mut returned = file.into_std();
+            #[cfg(unix)]
+            assert_eq!(returned.as_raw_fd(), raw);
+            #[cfg(windows)]
+            assert_eq!(returned.as_raw_handle(), raw);
+            let mut contents = Vec::new();
+            std::io::Read::read_to_end(&mut returned, &mut contents).unwrap();
+            assert_eq!(contents, std::fs::read(&path).unwrap());
+            drop(returned);
+            let file = File::from_std(std::fs::File::open(path).unwrap()).unwrap();
+            assert!(file.completion_handle().is_some());
+            drop(file);
+            let driver = current_driver().unwrap();
+            let AnyDriver::Mock(mock) = driver.as_ref() else {
+                unreachable!()
+            };
+            assert_eq!(
+                *mock.registrations.as_ref().unwrap().deregistered.borrow(),
+                [mio::Token(0), mio::Token(1)]
+            );
+        });
+    }
+
+    struct JoiningPool;
+    impl crate::vibeio::blocking::BlockingThreadPool for JoiningPool {
+        fn spawn(&self, task: Box<dyn FnOnce() + Send>) {
+            std::thread::spawn(task).join().unwrap();
+        }
+    }
+
+    #[test]
+    fn blocking_file_io_preserves_buffers_on_success_and_error() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let contents = std::fs::read(&path).unwrap();
+        let file = std::fs::File::open(path).unwrap();
+        let runtime = crate::vibeio::RuntimeBuilder::new()
+            .driver(crate::vibeio::DriverKind::Mock)
+            .blocking_pool(Box::new(JoiningPool))
+            .build()
+            .unwrap();
+        runtime.block_on(async move {
+            let buffer = Vec::with_capacity(16);
+            let ptr = buffer.as_ptr();
+            let (result, buffer) = read_at_in_blocking_pool(&file, buffer, 1).await;
+            let count = result.unwrap();
+            assert!(count > 0);
+            assert_eq!(buffer, contents[1..1 + count]);
+            assert_eq!(buffer.as_ptr(), ptr);
+
+            // The descriptor is read-only: no repository file can be modified.
+            let buffer = b"unchanged".to_vec();
+            let ptr = buffer.as_ptr();
+            let (result, buffer) = write_at_in_blocking_pool(&file, buffer, 0).await;
+            assert!(result.is_err());
+            assert_eq!(buffer, b"unchanged");
+            assert_eq!(buffer.as_ptr(), ptr);
+        });
     }
 }

@@ -34,6 +34,7 @@ Usage::
         ListEntitySecurityProfilesPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
+        ListExtractionDefinitionsPaginator,
         ListFlowAssociationsPaginator,
         ListHoursOfOperationOverridesPaginator,
         ListHoursOfOperationsPaginator,
@@ -43,6 +44,7 @@ Usage::
         ListIntegrationAssociationsPaginator,
         ListLambdaFunctionsPaginator,
         ListLexBotsPaginator,
+        ListMetricsPaginator,
         ListPhoneNumbersPaginator,
         ListPhoneNumbersV2Paginator,
         ListPredefinedAttributesPaginator,
@@ -79,6 +81,7 @@ Usage::
         SearchDataTablesPaginator,
         SearchHoursOfOperationOverridesPaginator,
         SearchHoursOfOperationsPaginator,
+        SearchMetricsPaginator,
         SearchPredefinedAttributesPaginator,
         SearchPromptsPaginator,
         SearchQueuesPaginator,
@@ -124,6 +127,7 @@ Usage::
     list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
+    list_extraction_definitions_paginator: ListExtractionDefinitionsPaginator = client.get_paginator("list_extraction_definitions")
     list_flow_associations_paginator: ListFlowAssociationsPaginator = client.get_paginator("list_flow_associations")
     list_hours_of_operation_overrides_paginator: ListHoursOfOperationOverridesPaginator = client.get_paginator("list_hours_of_operation_overrides")
     list_hours_of_operations_paginator: ListHoursOfOperationsPaginator = client.get_paginator("list_hours_of_operations")
@@ -133,6 +137,7 @@ Usage::
     list_integration_associations_paginator: ListIntegrationAssociationsPaginator = client.get_paginator("list_integration_associations")
     list_lambda_functions_paginator: ListLambdaFunctionsPaginator = client.get_paginator("list_lambda_functions")
     list_lex_bots_paginator: ListLexBotsPaginator = client.get_paginator("list_lex_bots")
+    list_metrics_paginator: ListMetricsPaginator = client.get_paginator("list_metrics")
     list_phone_numbers_paginator: ListPhoneNumbersPaginator = client.get_paginator("list_phone_numbers")
     list_phone_numbers_v2_paginator: ListPhoneNumbersV2Paginator = client.get_paginator("list_phone_numbers_v2")
     list_predefined_attributes_paginator: ListPredefinedAttributesPaginator = client.get_paginator("list_predefined_attributes")
@@ -169,6 +174,7 @@ Usage::
     search_data_tables_paginator: SearchDataTablesPaginator = client.get_paginator("search_data_tables")
     search_hours_of_operation_overrides_paginator: SearchHoursOfOperationOverridesPaginator = client.get_paginator("search_hours_of_operation_overrides")
     search_hours_of_operations_paginator: SearchHoursOfOperationsPaginator = client.get_paginator("search_hours_of_operations")
+    search_metrics_paginator: SearchMetricsPaginator = client.get_paginator("search_metrics")
     search_predefined_attributes_paginator: SearchPredefinedAttributesPaginator = client.get_paginator("search_predefined_attributes")
     search_prompts_paginator: SearchPromptsPaginator = client.get_paginator("search_prompts")
     search_queues_paginator: SearchQueuesPaginator = client.get_paginator("search_queues")
@@ -211,6 +217,7 @@ from .paginator import (
     ListEntitySecurityProfilesPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
+    ListExtractionDefinitionsPaginator,
     ListFlowAssociationsPaginator,
     ListHoursOfOperationOverridesPaginator,
     ListHoursOfOperationsPaginator,
@@ -220,6 +227,7 @@ from .paginator import (
     ListIntegrationAssociationsPaginator,
     ListLambdaFunctionsPaginator,
     ListLexBotsPaginator,
+    ListMetricsPaginator,
     ListPhoneNumbersPaginator,
     ListPhoneNumbersV2Paginator,
     ListPredefinedAttributesPaginator,
@@ -256,6 +264,7 @@ from .paginator import (
     SearchDataTablesPaginator,
     SearchHoursOfOperationOverridesPaginator,
     SearchHoursOfOperationsPaginator,
+    SearchMetricsPaginator,
     SearchPredefinedAttributesPaginator,
     SearchPromptsPaginator,
     SearchQueuesPaginator,
@@ -301,6 +310,7 @@ __all__ = (
     "ListEntitySecurityProfilesPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
+    "ListExtractionDefinitionsPaginator",
     "ListFlowAssociationsPaginator",
     "ListHoursOfOperationOverridesPaginator",
     "ListHoursOfOperationsPaginator",
@@ -310,6 +320,7 @@ __all__ = (
     "ListIntegrationAssociationsPaginator",
     "ListLambdaFunctionsPaginator",
     "ListLexBotsPaginator",
+    "ListMetricsPaginator",
     "ListPhoneNumbersPaginator",
     "ListPhoneNumbersV2Paginator",
     "ListPredefinedAttributesPaginator",
@@ -346,6 +357,7 @@ __all__ = (
     "SearchDataTablesPaginator",
     "SearchHoursOfOperationOverridesPaginator",
     "SearchHoursOfOperationsPaginator",
+    "SearchMetricsPaginator",
     "SearchPredefinedAttributesPaginator",
     "SearchPromptsPaginator",
     "SearchQueuesPaginator",

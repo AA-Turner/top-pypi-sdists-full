@@ -4,9 +4,8 @@ from typing import Annotated
 import pytest
 import requests
 from fastapi import FastAPI, HTTPException, Security, status
-from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from hypothesis import Phase, given, settings
-from starlette_testclient import TestClient
 
 import schemathesis
 from schemathesis.checks import CheckContext
@@ -16,6 +15,7 @@ from schemathesis.core.transport import Response
 from schemathesis.engine import Status
 from schemathesis.engine.events import ScenarioFinished
 from schemathesis.engine.run import PhaseName
+from schemathesis.python.asgi import ASGIClient
 from schemathesis.specs.openapi.checks import AuthKind, IgnoredAuth, _contains_auth, ignored_auth, remove_auth
 from schemathesis.transport.requests import RequestsTransport
 from test.utils import EventStream
@@ -289,7 +289,7 @@ def test_proper_session(ignores_auth):
     @given(case=schema["/"]["GET"].as_strategy())
     @settings(max_examples=3, phases=[Phase.generate])
     def test(case):
-        client = TestClient(app)
+        client = ASGIClient(app)
         case.call_and_validate(session=client)
 
     if ignores_auth:
@@ -327,12 +327,72 @@ def test_accepts_any_auth_if_explicit_is_present(ignores_auth, expected):
     @given(case=schema["/"]["GET"].as_strategy())
     @settings(max_examples=3, phases=[Phase.generate])
     def test(case):
-        client = TestClient(app)
+        client = ASGIClient(app)
         case.call_and_validate(session=client, headers={"x-api-key": "INCORRECT"})
 
     with pytest.raises(FailureGroup) as exc:
         test()
     assert str(exc.value.exceptions[0]).startswith(expected)
+
+
+# Frameworks whose first authentication scheme offers no challenge answer 403 instead of 401.
+def test_forbidden_response_counts_as_enforced_auth():
+    app = FastAPI()
+    api_key = APIKeyHeader(name="Authorization", auto_error=False)
+
+    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}, 403: {"model": {}}})
+    def root(credentials: Annotated[str | None, Security(api_key)]):
+        if credentials != "Basic dGVzdDp0ZXN0":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        return {"message": "OK"}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+    schema["/"]["GET"].Case().call_and_validate(session=ASGIClient(app), auth=("test", "test"), checks=[ignored_auth])
+
+
+def test_server_error_without_auth_is_reported():
+    app = FastAPI()
+    api_key = APIKeyHeader(name="Authorization", auto_error=False)
+
+    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
+    def root(credentials: Annotated[str | None, Security(api_key)]):
+        if credentials != "Basic dGVzdDp0ZXN0":
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return {"message": "OK"}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+    with pytest.raises(FailureGroup) as exc:
+        schema["/"]["GET"].Case().call_and_validate(
+            session=ASGIClient(app), auth=("test", "test"), checks=[ignored_auth]
+        )
+    assert str(exc.value.exceptions[0]) == (
+        "Unexpected response to a request without authentication\n\n"
+        "Expected 401 or 403, got `500 Internal Server Error` for `GET /`"
+    )
+
+
+def test_accepts_any_well_formed_bearer_token():
+    app = FastAPI()
+
+    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
+    async def root(
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Security(HTTPBearer(auto_error=False))],
+    ):
+        if credentials is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        return {"token": credentials.credentials}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+
+    @given(case=schema["/"]["GET"].as_strategy())
+    @settings(max_examples=3, phases=[Phase.generate])
+    def test(case):
+        client = ASGIClient(app)
+        case.call_and_validate(session=client, headers={"Authorization": "Bearer secret"})
+
+    with pytest.raises(FailureGroup) as exc:
+        test()
+    assert str(exc.value.exceptions[0]).startswith("API accepts invalid authentication")
 
 
 def test_explicit_auth_cli(ctx, cli, snapshot_cli):
@@ -443,7 +503,7 @@ def test_custom_auth():
     @given(case=schema["/"]["GET"].as_strategy())
     @settings(max_examples=10, deadline=None)
     def test(case):
-        client = TestClient(app)
+        client = ASGIClient(app)
         case.call_and_validate(session=client)
 
     test()
@@ -494,7 +554,7 @@ def test_explicit_auth_tuple_in_call_and_validate():
 
     schema = schemathesis.openapi.from_asgi("/openapi.json", app)
     case = schema["/"]["GET"].Case()
-    client = TestClient(app)
+    client = ASGIClient(app)
     # Valid auth passed as tuple - should NOT raise IgnoredAuth
     case.call_and_validate(session=client, auth=("test", "test"), checks=[ignored_auth])
 

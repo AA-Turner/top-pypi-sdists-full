@@ -76,13 +76,20 @@ impl Drop for OwnedReadBuffer {
 pub(super) struct PendingReadBuffer<'a> {
     bytes: Vec<u8>,
     home: &'a Mutex<Vec<u8>>,
+    pool: Option<&'a ReadBufferPool>,
 }
 
 impl<'a> PendingReadBuffer<'a> {
-    pub(super) fn new(home: &'a Mutex<Vec<u8>>) -> Self {
-        let mut bytes = std::mem::take(&mut *home.lock().expect("poisoned read coalesce buffer"));
-        bytes.clear();
-        Self { bytes, home }
+    pub(super) fn from_pooled(
+        bytes: Vec<u8>,
+        pool: &'a ReadBufferPool,
+        home: &'a Mutex<Vec<u8>>,
+    ) -> Self {
+        Self {
+            bytes,
+            home,
+            pool: Some(pool),
+        }
     }
 
     #[inline]
@@ -96,14 +103,31 @@ impl<'a> PendingReadBuffer<'a> {
     }
 
     pub(super) fn extend(&mut self, data: &[u8]) {
+        // Most drains contain one read. Keep that allocation until delivery;
+        // only acquire and copy into the coalescing buffer for a second chunk.
+        if let Some(pool) = self.pool.take() {
+            let mut joined =
+                std::mem::take(&mut *self.home.lock().expect("poisoned read coalesce buffer"));
+            joined.clear();
+            joined.extend_from_slice(&self.bytes);
+            pool.release(std::mem::replace(&mut self.bytes, joined));
+        }
         self.bytes.extend_from_slice(data);
     }
 }
 
 impl Drop for PendingReadBuffer<'_> {
     fn drop(&mut self) {
+        if let Some(pool) = self.pool.take() {
+            pool.release(std::mem::take(&mut self.bytes));
+            return;
+        }
         self.bytes.clear();
-        *self.home.lock().expect("poisoned read coalesce buffer") = std::mem::take(&mut self.bytes);
+        // This is only an allocation cache. Do not wait or panic during drop
+        // if another consumer holds it or a previous consumer poisoned it.
+        if let Ok(mut home) = self.home.try_lock() {
+            *home = std::mem::take(&mut self.bytes);
+        }
     }
 }
 
@@ -480,9 +504,17 @@ impl ReadBufferPool {
 
     pub(super) fn release(&self, buffer: Vec<u8>) {
         let mut state = self.state.lock().expect("poisoned stream read buffer pool");
+        // Waiters can sleep only when all slots are checked out. Capture that
+        // condition under the same mutex used by wait_timeout/has_available,
+        // before release either stores a buffer or frees an oversized slot.
+        // Unconditional Condvar notification makes an otherwise uncontended
+        // read handoff issue a futex wake on Linux, once per received chunk.
+        let was_exhausted = state.buffers.is_empty() && state.allocated >= READ_BUFFER_POOL_LIMIT;
         state.release(buffer);
         drop(state);
-        self.notify_all();
+        if was_exhausted {
+            self.notify_all();
+        }
     }
 }
 
@@ -605,7 +637,7 @@ mod verification {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::Ordering;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
 
     use super::{
@@ -643,15 +675,78 @@ mod tests {
     #[test]
     fn pending_read_buffer_coalesces_and_returns_storage_home() {
         let home = Mutex::new(vec![1, 2]);
-        let mut pending = PendingReadBuffer::new(&home);
-        let input = vec![3, 4, 5];
+        let pool = ReadBufferPool::new();
+        let mut input = pool.try_acquire(16).unwrap();
+        input.extend_from_slice(&[3, 4]);
+        let pointer = input.as_ptr();
+        let mut pending = PendingReadBuffer::from_pooled(input, &pool, &home);
 
-        pending.extend(&input);
+        pending.extend(&[5]);
 
         assert_eq!(pending.len(), 3);
         assert_eq!(pending.as_slice(), &[3, 4, 5]);
+        let recycled = pool.try_acquire(16).unwrap();
+        assert_eq!(recycled.as_ptr(), pointer);
+        pool.release(recycled);
         drop(pending);
         assert!(home.lock().expect("coalesce buffer").capacity() >= 3);
+    }
+
+    #[test]
+    fn pending_coalesced_read_drop_does_not_wait_for_cache() {
+        let home = Mutex::new(Vec::new());
+        let pending = PendingReadBuffer {
+            bytes: vec![1, 2, 3],
+            home: &home,
+            pool: None,
+        };
+        std::thread::scope(|scope| {
+            let guard = home.lock().unwrap();
+            let (done, receiver) = std::sync::mpsc::channel();
+            let worker = scope.spawn(move || {
+                drop(pending);
+                done.send(()).unwrap();
+            });
+            let result = receiver.recv_timeout(std::time::Duration::from_secs(2));
+            // Release the lock before joining even if the regression occurs.
+            assert!(guard.is_empty());
+            drop(guard);
+            worker.join().unwrap();
+            assert!(result.is_ok(), "drop waited for the coalescing cache");
+        });
+    }
+
+    #[test]
+    fn pending_coalesced_read_drop_tolerates_poisoned_cache() {
+        let home = Mutex::new(Vec::new());
+        let _ = std::panic::catch_unwind(|| {
+            let _guard = home.lock().unwrap();
+            panic!("poison cache");
+        });
+        assert!(home.is_poisoned());
+        drop(PendingReadBuffer {
+            bytes: vec![1, 2, 3],
+            home: &home,
+            pool: None,
+        });
+    }
+
+    #[test]
+    fn pending_single_read_keeps_allocation_and_returns_it_to_pool() {
+        let home = Mutex::new(Vec::new());
+        let pool = ReadBufferPool::new();
+        let mut input = pool.try_acquire(16).unwrap();
+        input.extend_from_slice(b"frame");
+        let pointer = input.as_ptr();
+        let pending = PendingReadBuffer::from_pooled(input, &pool, &home);
+        assert_eq!(pending.as_slice().as_ptr(), pointer);
+        assert_eq!(pending.as_slice(), b"frame");
+        drop(pending);
+        let recycled = pool.try_acquire(16).unwrap();
+        assert_eq!(recycled.as_ptr(), pointer);
+        assert!(recycled.is_empty());
+        assert_eq!(home.lock().unwrap().capacity(), 0);
+        pool.release(recycled);
     }
 
     #[test]
@@ -731,6 +826,87 @@ mod tests {
         pool.release(held.into_iter().next().expect("held buffer"));
 
         assert!(pool.has_available());
+    }
+
+    #[test]
+    fn exhausted_read_pool_wakes_async_waiter_for_reused_and_discarded_buffers() {
+        use std::future::Future;
+        use std::task::{Context, Poll, Wake, Waker};
+
+        struct WakeCount(AtomicUsize);
+        impl Wake for WakeCount {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        for oversized in [false, true] {
+            let pool = ReadBufferPool::new();
+            let mut held = (0..READ_BUFFER_POOL_LIMIT)
+                .map(|_| pool.try_acquire(64).unwrap())
+                .collect::<Vec<_>>();
+            let wake = Arc::new(WakeCount(AtomicUsize::new(0)));
+            let waker = Waker::from(wake.clone());
+            let mut context = Context::from_waker(&waker);
+            let mut wait = std::pin::pin!(pool.wait_async());
+            assert_eq!(wait.as_mut().poll(&mut context), Poll::Pending);
+            let mut returned = held.pop().unwrap();
+            if oversized {
+                returned.reserve(MAX_STREAM_READ_BUFFER_SIZE + 1);
+            }
+            // Worker-thread releases must wake a reader on the loop thread.
+            std::thread::scope(|scope| {
+                scope.spawn(|| pool.release(returned)).join().unwrap();
+            });
+            assert_eq!(wake.0.load(Ordering::Relaxed), 1);
+            assert_eq!(wait.as_mut().poll(&mut context), Poll::Ready(()));
+            assert!(pool.try_acquire(64).is_some());
+            for buffer in held {
+                pool.release(buffer);
+            }
+        }
+    }
+
+    #[test]
+    fn read_pool_release_before_wait_registration_is_observed() {
+        let pool = ReadBufferPool::new();
+        let mut held = (0..READ_BUFFER_POOL_LIMIT)
+            .map(|_| pool.try_acquire(64).unwrap())
+            .collect::<Vec<_>>();
+        let wait = pool.wait_async();
+        pool.release(held.pop().unwrap());
+        assert_eq!(futures::FutureExt::now_or_never(wait), Some(()));
+        for buffer in held {
+            pool.release(buffer);
+        }
+    }
+
+    #[test]
+    fn exhausted_read_pool_release_wakes_blocking_reader() {
+        let pool = ReadBufferPool::new();
+        let mut held = (0..READ_BUFFER_POOL_LIMIT)
+            .map(|_| pool.try_acquire(64).unwrap())
+            .collect::<Vec<_>>();
+        std::thread::scope(|scope| {
+            let (started, start_rx) = std::sync::mpsc::channel();
+            let (done, done_rx) = std::sync::mpsc::channel();
+            let pool = &pool;
+            scope.spawn(move || {
+                started.send(()).unwrap();
+                pool.wait_timeout(std::time::Duration::from_secs(5));
+                done.send(pool.try_acquire(64).is_some()).unwrap();
+            });
+            start_rx.recv().unwrap();
+            pool.release(held.pop().unwrap());
+            assert!(
+                done_rx
+                    .recv_timeout(std::time::Duration::from_secs(1))
+                    .unwrap()
+            );
+        });
+        for buffer in held {
+            pool.release(buffer);
+        }
     }
 
     #[test]

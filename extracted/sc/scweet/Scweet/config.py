@@ -31,9 +31,17 @@ class ScweetConfig(BaseModel):
     # Rate limiting
     daily_requests_limit: int = Field(default=30, ge=1)
     daily_tweets_limit: int = Field(default=600, ge=1)
-    max_empty_pages: int = Field(default=1, ge=1)
+    # Not 1, because X sends a stray empty page mid-chain while results remain, and 1 loses the rest.
+    max_empty_pages: int = Field(default=3, ge=1)
     api_page_size: int = Field(default=20, ge=1, le=100)
-    min_delay_s: float = Field(default=2.0, ge=0.0)
+    # X counts requests per account per window; measured 2026-08-31: 50 allowed, request 51 gave 429.
+    window_request_limit: int = Field(default=50, ge=1)
+    rate_limit_window_s: float = Field(default=900.0, gt=0.0)
+    # An optional floor between two requests. X counts the window total, not the gap, so 0 is safe.
+    min_delay_s: float = Field(default=0.0, ge=0.0)
+    # Hand off when x-rate-limit-remaining falls to this value. Not 0, because the header can lag one
+    # request behind X, and a 429 loses the page.
+    rate_limit_min_remaining: int = Field(default=2, ge=0)
 
     # Advanced
     enable_wal: bool = True
@@ -44,6 +52,8 @@ class ScweetConfig(BaseModel):
     transient_cooldown_s: float = Field(default=120.0, ge=0.0)
     auth_cooldown_s: float = Field(default=30 * 24 * 60 * 60, ge=0.0)
     cooldown_jitter_s: float = Field(default=10.0, ge=0.0)
+    # Deprecated. The limiter paces to `window_request_limit` over `rate_limit_window_s`, not to a per-minute
+    # rate. This field stays so an old configuration still loads, and the limiter no longer reads it.
     requests_per_min: int = Field(default=30, ge=1)
     task_retry_base_s: int = Field(default=1, ge=0)
     task_retry_max_s: int = Field(default=30, ge=0)
@@ -52,6 +62,12 @@ class ScweetConfig(BaseModel):
     max_account_switches: int = Field(default=2, ge=0)
     scheduler_min_interval_s: int = Field(default=300, ge=1)
     n_splits: int = Field(default=5, ge=1)
+    # A backstop on the continuation of a truncated interval; the interval floor and the result limit are the
+    # real bounds. Not a low value, because 6 filled only 17% of a live 20,000-tweet order. 0 turns it off.
+    max_interval_depth: int = Field(default=100, ge=0)
+    # Wait this long for a cooldown to expire before AccountPoolExhausted; 0 fails at once.
+    pool_wait_max_s: float = Field(default=120.0, ge=0.0)
+    pool_wait_poll_s: float = Field(default=5.0, gt=0.0)
     priority: int = 1
     proxy_check_on_lease: bool = True
     proxy_check_url: str = "https://x.com/robots.txt"

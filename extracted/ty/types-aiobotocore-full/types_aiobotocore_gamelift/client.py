@@ -416,7 +416,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[CreateFleetLocationsInputTypeDef]
     ) -> CreateFleetLocationsOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/create_fleet_locations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#create_fleet_locations)
@@ -576,7 +576,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteFleetInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/delete_fleet.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#delete_fleet)
@@ -586,7 +586,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteFleetLocationsInputTypeDef]
     ) -> DeleteFleetLocationsOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/delete_fleet_locations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#delete_fleet_locations)
@@ -644,7 +644,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteScalingPolicyInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2.
+        <b>This API works with the following fleet types:</b> EC2, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/delete_scaling_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#delete_scaling_policy)
@@ -814,7 +814,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFleetLocationAttributesInputTypeDef]
     ) -> DescribeFleetLocationAttributesOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_fleet_location_attributes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_fleet_location_attributes)
@@ -824,7 +824,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFleetLocationCapacityInputTypeDef]
     ) -> DescribeFleetLocationCapacityOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_fleet_location_capacity.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_fleet_location_capacity)
@@ -834,7 +834,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFleetLocationUtilizationInputTypeDef]
     ) -> DescribeFleetLocationUtilizationOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_fleet_location_utilization.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_fleet_location_utilization)
@@ -844,7 +844,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFleetPortSettingsInputTypeDef]
     ) -> DescribeFleetPortSettingsOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_fleet_port_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_fleet_port_settings)
@@ -854,7 +854,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeFleetUtilizationInputTypeDef]
     ) -> DescribeFleetUtilizationOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_fleet_utilization.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_fleet_utilization)
@@ -994,7 +994,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeScalingPoliciesInputTypeDef]
     ) -> DescribeScalingPoliciesOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2.
+        <b>This API works with the following fleet types:</b> EC2, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/describe_scaling_policies.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#describe_scaling_policies)
@@ -1215,7 +1215,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[PutScalingPolicyInputTypeDef]
     ) -> PutScalingPolicyOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2.
+        <b>This API works with the following fleet types:</b> EC2, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/put_scaling_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#put_scaling_policy)
@@ -1225,7 +1225,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[RegisterComputeInputTypeDef]
     ) -> RegisterComputeOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> Anywhere, Container.
+        <b>This API works with the following fleet types:</b> Anywhere.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/register_compute.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#register_compute)
@@ -1431,7 +1431,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateFleetAttributesInputTypeDef]
     ) -> UpdateFleetAttributesOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/update_fleet_attributes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#update_fleet_attributes)
@@ -1451,7 +1451,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateFleetPortSettingsInputTypeDef]
     ) -> UpdateFleetPortSettingsOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> EC2, Container.
+        <b>This API works with the following fleet types:</b> EC2.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/update_fleet_port_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#update_fleet_port_settings)

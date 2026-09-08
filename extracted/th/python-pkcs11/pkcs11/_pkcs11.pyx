@@ -35,9 +35,13 @@ cdef class lib(HasFuncList)
 
 cdef class HasFuncList:
     cdef CK_FUNCTION_LIST *funclist
+    cdef CK_FUNCTION_LIST_3_0 *funclist30
+    cdef CK_FUNCTION_LIST_3_2 *funclist32
 
     def __cinit__(self, *args, **kwargs):
         self.funclist = NULL
+        self.funclist30 = NULL
+        self.funclist32 = NULL
 
 
 cdef assertRV(rv) with gil:
@@ -451,6 +455,8 @@ cdef class Token(HasFuncList, types.Token):
 
         cdef Token token = Token.__new__(Token)
         token.funclist = slot.funclist
+        token.funclist30 = slot.funclist30
+        token.funclist32 = slot.funclist32
         token.slot = slot
         token.label = _CK_UTF8CHAR_to_str(label)
         token.serial = serial_number.rstrip()
@@ -847,6 +853,28 @@ def merge_templates(default_template, *user_templates):
     }
 
 
+cdef _check_key_type(key_type):
+    if not isinstance(key_type, KeyType):
+        raise ArgumentsBad("`key_type` must be KeyType.")
+
+
+cdef _check_bit_length(value, name, required=False):
+    if value is None and not required:
+        return
+    if not isinstance(value, int):
+        raise ArgumentsBad("`%s` is the length in bits." % name)
+
+
+cdef _resolve_capabilities(key_type, capabilities):
+    if capabilities is not None:
+        return capabilities
+    try:
+        return DEFAULT_KEY_CAPABILITIES[key_type]
+    except KeyError:
+        raise ArgumentsBad("No default capabilities for this key "
+                           "type. Please specify `capabilities`.")
+
+
 cdef class Session(HasFuncList, types.Session):
     """Extend Session with implementation."""
 
@@ -870,6 +898,8 @@ cdef class Session(HasFuncList, types.Session):
         cdef Session session = Session.__new__(Session)
 
         session.funclist = token.funclist
+        session.funclist30 = token.funclist30
+        session.funclist32 = token.funclist32
         session.token = token
 
         session.handle = handle
@@ -963,11 +993,8 @@ cdef class Session(HasFuncList, types.Session):
     def generate_domain_parameters(self, key_type, param_length, store=False,
                                    mechanism=None, mechanism_param=None,
                                    template=None):
-        if not isinstance(key_type, KeyType):
-            raise ArgumentsBad("`key_type` must be KeyType.")
-
-        if not isinstance(param_length, int):
-            raise ArgumentsBad("`param_length` is the length in bits.")
+        _check_key_type(key_type)
+        _check_bit_length(param_length, "param_length", required=True)
 
         mech = MechanismWithParam(
             key_type, DEFAULT_PARAM_GENERATE_MECHANISMS,
@@ -991,18 +1018,9 @@ cdef class Session(HasFuncList, types.Session):
                      mechanism=None, mechanism_param=None,
                      template=None):
 
-        if not isinstance(key_type, KeyType):
-            raise ArgumentsBad("`key_type` must be KeyType.")
-
-        if key_length is not None and not isinstance(key_length, int):
-            raise ArgumentsBad("`key_length` is the length in bits.")
-
-        if capabilities is None:
-            try:
-                capabilities = DEFAULT_KEY_CAPABILITIES[key_type]
-            except KeyError:
-                raise ArgumentsBad("No default capabilities for this key "
-                                   "type. Please specify `capabilities`.")
+        _check_key_type(key_type)
+        _check_bit_length(key_length, "key_length")
+        capabilities = _resolve_capabilities(key_type, capabilities)
 
         mech = MechanismWithParam(
             key_type, DEFAULT_GENERATE_MECHANISMS,
@@ -1044,24 +1062,18 @@ cdef class Session(HasFuncList, types.Session):
                           mechanism=None, mechanism_param=None,
                           public_template=None, private_template=None):
 
-        if not isinstance(key_type, KeyType):
-            raise ArgumentsBad("`key_type` must be KeyType.")
-
-        if key_length is not None and not isinstance(key_length, int):
-            raise ArgumentsBad("`key_length` is the length in bits.")
-
-        if capabilities is None:
-            try:
-                capabilities = DEFAULT_KEY_CAPABILITIES[key_type]
-            except KeyError:
-                raise ArgumentsBad("No default capabilities for this key "
-                                   "type. Please specify `capabilities`.")
+        _check_key_type(key_type)
+        _check_bit_length(key_length, "key_length")
+        capabilities = _resolve_capabilities(key_type, capabilities)
 
         mech = MechanismWithParam(
             key_type, DEFAULT_GENERATE_MECHANISMS,
             mechanism, mechanism_param)
 
         public_template_ = self.attribute_mapper.public_key_template(
+            id_=id, label=label, store=store, capabilities=capabilities,
+        )
+        private_template_ = self.attribute_mapper.private_key_template(
             id_=id, label=label, store=store, capabilities=capabilities,
         )
 
@@ -1083,11 +1095,16 @@ cdef class Session(HasFuncList, types.Session):
                     "in `public_template` (e.g. MLDSAParameterSet.ML_DSA_65)."
                 )
 
-        public_attrs = self.make_attribute_list(merge_templates(public_template_, public_template))
+        elif key_type is KeyType.ML_KEM:
+            if public_template is None or Attribute.PARAMETER_SET not in public_template:
+                raise ArgumentsBad(
+                    "ML-KEM key generation requires `Attribute.PARAMETER_SET` "
+                    "in `public_template` (e.g. MLKEMParameterSet.ML_KEM_768)."
+                )
+            public_template_[Attribute.ENCAPSULATE] = True
+            private_template_[Attribute.DECAPSULATE] = True
 
-        private_template_ = self.attribute_mapper.private_key_template(
-            id_=id, label=label, store=store, capabilities=capabilities,
-        )
+        public_attrs = self.make_attribute_list(merge_templates(public_template_, public_template))
         private_attrs = self.make_attribute_list(merge_templates(private_template_, private_template))
         return self.generate_keypair_from_attrs(public_attrs, private_attrs, mech)
 
@@ -1362,7 +1379,7 @@ cdef object make_object(Session session, CK_OBJECT_HANDLE handle) with gil:
     """
     wrapper = ObjectHandleWrapper.wrap(session, handle)
 
-    cdef CK_ATTRIBUTE_TYPE[8] attr_keys = [
+    cdef CK_ATTRIBUTE_TYPE[10] attr_keys = [
         Attribute.CLASS,
         Attribute.ENCRYPT,
         Attribute.DECRYPT,
@@ -1370,13 +1387,15 @@ cdef object make_object(Session session, CK_OBJECT_HANDLE handle) with gil:
         Attribute.VERIFY,
         Attribute.WRAP,
         Attribute.UNWRAP,
-        Attribute.DERIVE
+        Attribute.DERIVE,
+        Attribute.ENCAPSULATE,
+        Attribute.DECAPSULATE,
     ]
 
     try:
         # Determine a list of base classes to manufacture our class with
         try:
-            attributes = wrapper.get_attribute_list(&attr_keys[0], 8)
+            attributes = wrapper.get_attribute_list(&attr_keys[0], 10)
         except PKCS11Error:
             # retry fetching the flags one by one, some tokens do not implement error handling
             # on bulk fetches correctly.
@@ -1399,6 +1418,8 @@ cdef object make_object(Session session, CK_OBJECT_HANDLE handle) with gil:
                 (Attribute.WRAP, WrapMixin),
                 (Attribute.UNWRAP, UnwrapMixin),
                 (Attribute.DERIVE, DeriveMixin),
+                (Attribute.ENCAPSULATE, EncapsulateMixin),
+                (Attribute.DECAPSULATE, DecapsulateMixin),
         ):
             try:
                 if attributes.get(attribute, session.attribute_mapper):
@@ -1437,12 +1458,7 @@ class GenerateWithParametersMixin(types.DomainParameters):
                          public_template=None, private_template=None):
 
         cdef Session session = self.session
-        if capabilities is None:
-            try:
-                capabilities = DEFAULT_KEY_CAPABILITIES[self.key_type]
-            except KeyError:
-                raise ArgumentsBad("No default capabilities for this key "
-                                   "type. Please specify `capabilities`.")
+        capabilities = _resolve_capabilities(self.key_type, capabilities)
 
         mech = MechanismWithParam(self.key_type, DEFAULT_GENERATE_MECHANISMS, mechanism, mechanism_param)
 
@@ -1861,15 +1877,8 @@ class UnwrapMixin(types.UnwrapMixin):
         if not isinstance(object_class, ObjectClass):
             raise ArgumentsBad("`object_class` must be ObjectClass.")
 
-        if not isinstance(key_type, KeyType):
-            raise ArgumentsBad("`key_type` must be KeyType.")
-
-        if capabilities is None:
-            try:
-                capabilities = DEFAULT_KEY_CAPABILITIES[key_type]
-            except KeyError:
-                raise ArgumentsBad("No default capabilities for this key "
-                                   "type. Please specify `capabilities`.")
+        _check_key_type(key_type)
+        capabilities = _resolve_capabilities(key_type, capabilities)
 
         mech = MechanismWithParam(self.key_type, DEFAULT_WRAP_MECHANISMS, mechanism, mechanism_param)
 
@@ -1912,18 +1921,9 @@ class DeriveMixin(types.DeriveMixin):
                    mechanism=None, mechanism_param=None,
                    template=None):
 
-        if not isinstance(key_type, KeyType):
-            raise ArgumentsBad("`key_type` must be KeyType.")
-
-        if not isinstance(key_length, int):
-            raise ArgumentsBad("`key_length` is the length in bits.")
-
-        if capabilities is None:
-            try:
-                capabilities = DEFAULT_KEY_CAPABILITIES[key_type]
-            except KeyError:
-                raise ArgumentsBad("No default capabilities for this key "
-                                   "type. Please specify `capabilities`.")
+        _check_key_type(key_type)
+        _check_bit_length(key_length, "key_length", required=True)
+        capabilities = _resolve_capabilities(key_type, capabilities)
 
         mech = MechanismWithParam(self.key_type, DEFAULT_DERIVE_MECHANISMS, mechanism, mechanism_param)
 
@@ -1949,6 +1949,103 @@ class DeriveMixin(types.DeriveMixin):
         return make_object(session, key)
 
 
+class EncapsulateMixin(types.EncapsulateMixin):
+    """Expand EncapsulateMixin with an implementation (ML-KEM)."""
+
+    def encapsulate_key(self, key_type,
+                        key_length=None,
+                        id=None, label=None,
+                        store=False, capabilities=None,
+                        mechanism=None, mechanism_param=None,
+                        template=None):
+
+        _check_key_type(key_type)
+        capabilities = _resolve_capabilities(key_type, capabilities)
+
+        mech = MechanismWithParam(self.key_type, DEFAULT_ENCAPSULATE_MECHANISMS, mechanism, mechanism_param)
+
+        cdef Session session = self.session
+
+        if session.funclist32 == NULL:
+            raise FunctionNotSupported("C_EncapsulateKey requires a PKCS#11 v3.2+ library")
+
+        template_ = session.attribute_mapper.secret_key_template(
+            capabilities=capabilities, id_=id, label=label, store=store,
+        )
+        if key_length is not None:
+            template_[Attribute.VALUE_LEN] = key_length // 8
+        template_[Attribute.KEY_TYPE] = key_type
+        cdef AttributeList attrs = session.make_attribute_list(merge_templates(template_, template))
+        cdef CK_MECHANISM *mech_data = mech.data
+        cdef CK_OBJECT_HANDLE pub_key = self.handle
+        cdef CK_ATTRIBUTE *attr_data = attrs.data
+        cdef CK_ULONG attr_count = attrs.count
+        cdef CK_ULONG ct_len = 0
+        cdef CK_OBJECT_HANDLE ss_handle
+        cdef CK_RV retval
+
+        with nogil:
+            retval = session.funclist32.C_EncapsulateKey(
+                session.handle, mech_data, pub_key,
+                attr_data, attr_count, NULL, &ct_len, &ss_handle)
+        assertRV(retval)
+
+        cdef CK_BYTE [:] ct_buf = CK_BYTE_buffer(ct_len)
+
+        with nogil:
+            retval = session.funclist32.C_EncapsulateKey(
+                session.handle, mech_data, pub_key,
+                attr_data, attr_count, &ct_buf[0], &ct_len, &ss_handle)
+        assertRV(retval)
+
+        return (bytes(ct_buf[:ct_len]), make_object(session, ss_handle))
+
+
+class DecapsulateMixin(types.DecapsulateMixin):
+    """Expand DecapsulateMixin with an implementation (ML-KEM)."""
+
+    def decapsulate_key(self, ciphertext, key_type,
+                        key_length=None,
+                        id=None, label=None,
+                        store=False, capabilities=None,
+                        mechanism=None, mechanism_param=None,
+                        template=None):
+
+        _check_key_type(key_type)
+        capabilities = _resolve_capabilities(key_type, capabilities)
+
+        mech = MechanismWithParam(self.key_type, DEFAULT_ENCAPSULATE_MECHANISMS, mechanism, mechanism_param)
+
+        cdef Session session = self.session
+
+        if session.funclist32 == NULL:
+            raise FunctionNotSupported("C_DecapsulateKey requires a PKCS#11 v3.2+ library")
+
+        template_ = session.attribute_mapper.secret_key_template(
+            capabilities=capabilities, id_=id, label=label, store=store,
+        )
+        if key_length is not None:
+            template_[Attribute.VALUE_LEN] = key_length // 8
+        template_[Attribute.KEY_TYPE] = key_type
+        cdef AttributeList attrs = session.make_attribute_list(merge_templates(template_, template))
+        cdef CK_MECHANISM *mech_data = mech.data
+        cdef CK_OBJECT_HANDLE priv_key = self.handle
+        cdef CK_BYTE *ct_ptr = ciphertext
+        cdef CK_ULONG ct_len = <CK_ULONG> len(ciphertext)
+        cdef CK_ATTRIBUTE *attr_data = attrs.data
+        cdef CK_ULONG attr_count = attrs.count
+        cdef CK_OBJECT_HANDLE key
+        cdef CK_RV retval
+
+        with nogil:
+            retval = session.funclist32.C_DecapsulateKey(
+                session.handle, mech_data, priv_key,
+                attr_data, attr_count, ct_ptr, ct_len, &key)
+        assertRV(retval)
+
+        return make_object(session, key)
+
+
 _CLASS_MAP = {
     ObjectClass.SECRET_KEY: SecretKey,
     ObjectClass.PUBLIC_KEY: PublicKey,
@@ -1960,6 +2057,7 @@ _CLASS_MAP = {
 cdef extern from "../extern/load_module.c":
     ctypedef struct P11_HANDLE:
         void *get_function_list_ptr
+        void *get_interface_ptr
 
     object p11_error()
     P11_HANDLE* p11_open(object path_str)
@@ -2063,6 +2161,22 @@ cdef class lib(HasFuncList):
         self._cryptoki_version = info.cryptokiVersion
         self._library_version = info.libraryVersion
 
+        cdef C_GetInterface_ptr get_interface
+        cdef CK_INTERFACE *iface
+        cdef CK_VERSION ver
+        if self._p11_handle.get_interface_ptr != NULL:
+            get_interface = <C_GetInterface_ptr>self._p11_handle.get_interface_ptr
+            ver.major = 3
+            ver.minor = 0
+            retval = get_interface(<CK_UTF8CHAR*>"PKCS 11", &ver, &iface, 0)
+            if retval == CKR_OK and iface != NULL:
+                self.funclist30 = <CK_FUNCTION_LIST_3_0*>iface.pFunctionList
+            ver.major = 3
+            ver.minor = 2
+            retval = get_interface(<CK_UTF8CHAR*>"PKCS 11", &ver, &iface, 0)
+            if retval == CKR_OK and iface != NULL:
+                self.funclist32 = <CK_FUNCTION_LIST_3_2*>iface.pFunctionList
+
     @property
     def library_version(self):
         """Hardware version (:class:`tuple`)."""
@@ -2117,9 +2231,10 @@ cdef class lib(HasFuncList):
                 retval = self.funclist.C_GetSlotInfo(slot_id, &info)
             assertRV(retval)
 
-            slots.append(
-                Slot.make(self.funclist, slot_id, info, self._cryptoki_version)
-            )
+            slot = Slot.make(self.funclist, slot_id, info, self._cryptoki_version)
+            slot.funclist30 = self.funclist30
+            slot.funclist32 = self.funclist32
+            slots.append(slot)
 
         return slots
 

@@ -818,11 +818,6 @@ class UpdateServiceNetworkRequestTypeDef(TypedDict):
     authType: AuthTypeType
 
 
-class UpdateServiceNetworkVpcAssociationRequestTypeDef(TypedDict):
-    serviceNetworkVpcAssociationIdentifier: str
-    securityGroupIds: Sequence[str]
-
-
 class UpdateServiceRequestTypeDef(TypedDict):
     serviceIdentifier: str
     certificateArn: NotRequired[str]
@@ -1036,17 +1031,6 @@ UpdateServiceNetworkResponseTypeDef = TypedDict(
         "name": str,
         "arn": str,
         "authType": AuthTypeType,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-UpdateServiceNetworkVpcAssociationResponseTypeDef = TypedDict(
-    "UpdateServiceNetworkVpcAssociationResponseTypeDef",
-    {
-        "id": str,
-        "arn": str,
-        "status": ServiceNetworkVpcAssociationStatusType,
-        "createdBy": str,
-        "securityGroupIds": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1292,6 +1276,19 @@ ServiceNetworkVpcAssociationSummaryTypeDef = TypedDict(
         "dnsOptions": NotRequired[DnsOptionsOutputTypeDef],
         "vpcId": NotRequired[str],
         "lastUpdatedAt": NotRequired[datetime],
+    },
+)
+UpdateServiceNetworkVpcAssociationResponseTypeDef = TypedDict(
+    "UpdateServiceNetworkVpcAssociationResponseTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "status": ServiceNetworkVpcAssociationStatusType,
+        "createdBy": str,
+        "securityGroupIds": list[str],
+        "privateDnsEnabled": bool,
+        "dnsOptions": DnsOptionsOutputTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
@@ -1572,6 +1569,13 @@ class CreateServiceNetworkVpcAssociationRequestTypeDef(TypedDict):
     privateDnsEnabled: NotRequired[bool]
     securityGroupIds: NotRequired[Sequence[str]]
     tags: NotRequired[Mapping[str, str]]
+    dnsOptions: NotRequired[DnsOptionsUnionTypeDef]
+
+
+class UpdateServiceNetworkVpcAssociationRequestTypeDef(TypedDict):
+    serviceNetworkVpcAssociationIdentifier: str
+    securityGroupIds: NotRequired[Sequence[str]]
+    privateDnsEnabled: NotRequired[bool]
     dnsOptions: NotRequired[DnsOptionsUnionTypeDef]
 
 

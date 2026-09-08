@@ -36,8 +36,15 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         'error': If an unknown label occurs, error message is displayed.
         'return_nan': If an unknown label occurs, np.nan is returned in all columns.
     handle_missing: str
-        options are 'error', 'value' and 'return_nan'. The default is 'value'.
-        Missing value also considered as unknown value in the final data set.
+        options are 'error', 'return_nan', 'value', and 'ignore'. The default is 'value'.
+
+        'error' will raise a `ValueError` if a missing value is encountered.
+        'return_nan' will encode a missing value as `np.nan` in every rank column.
+        'value' will treat a missing value seen during fit as its own category, adding a rank
+        column for it if the training data contained missing values (matching the treatment of
+        any other category). See 'ignore' below to zero-fill missing values instead.
+        'ignore' will encode missing values as 0 in every rank column,
+        NOT adding an additional category.
 
     Example
     -------
@@ -56,7 +63,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
      ... ]
      >>> y = bunch.target
      >>> X = pd.DataFrame(bunch.data, columns=bunch.feature_names)[display_cols]
-     >>> enc = RankHotEncoder(cols=['CentralAir', 'Heating'], handle_unknown='indicator').fit(X, y)
+     >>> enc = RankHotEncoder(cols=['CentralAir', 'Heating']).fit(X, y)
      >>> numeric_dataset = enc.transform(X)
      >>> print(numeric_dataset.info())
      <class 'pandas.core.frame.DataFrame'>
@@ -84,6 +91,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
 
     prefit_ordinal = True
     encoding_relation = util.EncodingRelation.ONE_TO_N_UNIQUE
+    _VALID_HANDLE_MISSING = ('error', 'return_nan', 'value', 'ignore')
 
     def __init__(
         self,
@@ -94,6 +102,9 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         handle_missing: str = 'value',
         handle_unknown: str = 'value',
         use_cat_names: bool = False,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
     ) -> None:
         super().__init__(
             verbose=verbose,
@@ -102,6 +113,9 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
         )
         self._dim = None
         self.mapping = None
@@ -113,6 +127,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             'return_nan': 'return_nan',
             'value': 'value',
             'indicator': 'return_nan',
+            'ignore': 'return_nan',
         }[self.handle_missing]
         # supply custom mapping in order to assure order of ordinal variable
         ordered_mapping = []
@@ -145,7 +160,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
         input_cols = X.columns.tolist()
 
         if self.handle_unknown == 'error':
-            if X[self.cols].isin([-1]).any().any():
+            if X[self.cols].isin([util.UNKNOWN_SENTINEL]).any().any():
                 raise ValueError('Columns to be encoded cannot contain new values')
 
         for switch, _ordinal_switch in zip(
@@ -155,7 +170,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             mod = switch.get('mapping')
             encode_feature_series = X[col]
 
-            unknow_elements = encode_feature_series[encode_feature_series == -1]
+            unknow_elements = encode_feature_series[encode_feature_series == util.UNKNOWN_SENTINEL]
 
             encoding_dict = {
                 i: list(row.values()) for i, row in mod.to_dict(orient='index').items()
@@ -178,7 +193,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             def apply_coding(row: pd.Series):
                 val = row.iloc[0]
                 if pd.isna(val):
-                    if self.handle_missing == 'value':
+                    if self.handle_missing in ('value', 'ignore'):
                         return default_value
                     elif self.handle_missing == 'return_nan':
                         return [np.nan] * len(default_value)
@@ -240,9 +255,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             reencode = arrs.sum(axis=1).rename(col)
 
             orig_dtype = ordinal_mapping.get('data_type')
-            reencode2 = reencode.replace(inv_map).astype(orig_dtype)
-            if np.any(reencode2[:] == 0):
-                reencode2[reencode2[:] == 0] = np.nan
+            reencode2 = reencode.replace(0, np.nan).replace(inv_map).astype(orig_dtype)
 
             X = self._create_dataframe(X, reencode2, col)
 
@@ -271,7 +284,7 @@ class RankHotEncoder( util.UnsupervisedTransformerMixin,util.BaseEncoder):
             col: str = switch.get('col')
             values: pd.Series = switch.get('mapping').copy(deep=True)
 
-            if self.handle_missing == 'value':
+            if self.handle_missing in ('value', 'ignore'):
                 values = values[values > 0]
 
             if len(values) == 0:

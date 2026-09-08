@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pystiebeleltron
-Version: 0.7.0
+Version: 0.7.1
 Summary: Python API for interacting with the Stiebel Eltron ISG web gateway via Modbus for controlling integral ventilation units and heat pumps.
 Project-URL: Homepage, https://github.com/ThyMYthOS/python-stiebel-eltron
 Project-URL: Issues, https://github.com/ThyMYthOS/python-stiebel-eltron/issues

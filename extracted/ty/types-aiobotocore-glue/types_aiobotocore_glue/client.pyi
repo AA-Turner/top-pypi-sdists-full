@@ -88,6 +88,8 @@ from .type_defs import (
     BatchGetCustomEntityTypesResponseTypeDef,
     BatchGetDataQualityResultRequestTypeDef,
     BatchGetDataQualityResultResponseTypeDef,
+    BatchGetDataQualityRulesetEvaluationRunRequestTypeDef,
+    BatchGetDataQualityRulesetEvaluationRunResponseTypeDef,
     BatchGetDevEndpointsRequestTypeDef,
     BatchGetDevEndpointsResponseTypeDef,
     BatchGetIterableFormsRequestTypeDef,
@@ -277,6 +279,7 @@ from .type_defs import (
     GetDatabasesResponseTypeDef,
     GetDataCatalogEncryptionSettingsRequestTypeDef,
     GetDataCatalogEncryptionSettingsResponseTypeDef,
+    GetDataCatalogExportConfigurationOutputTypeDef,
     GetDataflowGraphRequestTypeDef,
     GetDataflowGraphResponseTypeDef,
     GetDataQualityModelRequestTypeDef,
@@ -472,6 +475,8 @@ from .type_defs import (
     PutAttachmentRequestTypeDef,
     PutAttachmentResponseTypeDef,
     PutDataCatalogEncryptionSettingsRequestTypeDef,
+    PutDataCatalogExportConfigurationInputTypeDef,
+    PutDataCatalogExportConfigurationOutputTypeDef,
     PutDataQualityProfileAnnotationRequestTypeDef,
     PutFormTypeRequestTypeDef,
     PutFormTypeResponseTypeDef,
@@ -780,6 +785,16 @@ class GlueClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_result.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#batch_get_data_quality_result)
+        """
+
+    async def batch_get_data_quality_ruleset_evaluation_run(
+        self, **kwargs: Unpack[BatchGetDataQualityRulesetEvaluationRunRequestTypeDef]
+    ) -> BatchGetDataQualityRulesetEvaluationRunResponseTypeDef:
+        """
+        Retrieves the details of multiple evaluation runs in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_data_quality_ruleset_evaluation_run.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#batch_get_data_quality_ruleset_evaluation_run)
         """
 
     async def batch_get_dev_endpoints(
@@ -1923,6 +1938,16 @@ class GlueClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_data_catalog_encryption_settings)
         """
 
+    async def get_data_catalog_export_configuration(
+        self,
+    ) -> GetDataCatalogExportConfigurationOutputTypeDef:
+        """
+        Retrieves the current export configuration for the Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_data_catalog_export_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#get_data_catalog_export_configuration)
+        """
+
     async def get_data_quality_model(
         self, **kwargs: Unpack[GetDataQualityModelRequestTypeDef]
     ) -> GetDataQualityModelResponseTypeDef:
@@ -2943,6 +2968,16 @@ class GlueClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#put_data_catalog_encryption_settings)
         """
 
+    async def put_data_catalog_export_configuration(
+        self, **kwargs: Unpack[PutDataCatalogExportConfigurationInputTypeDef]
+    ) -> PutDataCatalogExportConfigurationOutputTypeDef:
+        """
+        Creates or updates the export configuration for the Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_data_catalog_export_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#put_data_catalog_export_configuration)
+        """
+
     async def put_data_quality_profile_annotation(
         self, **kwargs: Unpack[PutDataQualityProfileAnnotationRequestTypeDef]
     ) -> dict[str, Any]:
@@ -3216,7 +3251,7 @@ class GlueClient(AioBaseClient):
         self, **kwargs: Unpack[StartMaterializedViewRefreshTaskRunRequestTypeDef]
     ) -> StartMaterializedViewRefreshTaskRunResponseTypeDef:
         """
-        Starts a materialized view refresh task run, for a specified table and columns.
+        Starts a materialized view refresh task run for a specified materialized view.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/start_materialized_view_refresh_task_run.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#start_materialized_view_refresh_task_run)
@@ -3285,7 +3320,7 @@ class GlueClient(AioBaseClient):
         self, **kwargs: Unpack[StopMaterializedViewRefreshTaskRunRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Stops a materialized view refresh task run, for a specified table and columns.
+        Stops a materialized view refresh task run for a specified materialized view.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/stop_materialized_view_refresh_task_run.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_glue/client/#stop_materialized_view_refresh_task_run)

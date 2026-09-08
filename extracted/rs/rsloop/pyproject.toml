@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "rsloop"
-version = "0.1.46"
+version = "0.1.50"
 description = "An event loop for asyncio written in Rust"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -53,13 +53,25 @@ dev = [
     "rust-just>=1.54.0",
     "typing-extensions>=4.0",
     { include-group = "test" },
+    { include-group = "integration" },
 ]
-# Dependencies for the library/framework tests in tests/packages
+# Core pytest dependencies, including on free-threaded Python.
 test = [
+    "pytest>=8.4",
+    "pytest-mock>=3.14",
+    "typing-extensions>=4.0",
+    "websockets>=13.0",
+]
+# Optional library/framework scripts in tests/packages. Native dependencies
+# here may not support every interpreter in the core test matrix.
+integration = [
     "aiohttp>=3.14.3",
+    "aiosqlite>=0.20.0",
     "anyio>=4.14.2",
+    "beanie>=2.0.0",
     "daphne>=4.2.3",
     "django>=5.2.17",
+    "edgy>=0.30.0",
     "falcon>=4.1.0",
     "fastapi>=0.124.4",
     "faststream[nats]>=0.5.48",
@@ -67,9 +79,20 @@ test = [
     "hypercorn>=0.17.3",
     "litestar>=2.24.0",
     "mangum>=0.21.0",
+    "ormar>=0.22.0",
+    "piccolo>=1.30.0",
     "quart>=0.19.9",
     "sanic>=23.12.1,<24; python_version < '3.10'",
     "sanic>=25.3.0; python_version >= '3.10'",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "sqlmodel>=0.0.24",
     "starlette>=0.44.0",
+    "tortoise-orm>=1.0.0",
     "uvicorn>=0.33.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tests/packages/*_test.py are standalone, optional integration scripts.
+python_files = ["test_*.py"]
+pythonpath = ["."]

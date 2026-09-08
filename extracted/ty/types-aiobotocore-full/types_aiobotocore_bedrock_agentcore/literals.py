@@ -32,6 +32,7 @@ __all__ = (
     "BrowserActionStatusType",
     "BrowserEnterprisePolicyTypeType",
     "BrowserSessionStatusType",
+    "CapacityProviderSessionStatusType",
     "CloudWatchLogsFilterOperatorType",
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
@@ -118,6 +119,9 @@ BlockchainChainIdType = Literal["BASE", "BASE_SEPOLIA", "ETHEREUM", "SOLANA", "S
 BrowserActionStatusType = Literal["FAILED", "SUCCESS"]
 BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
+CapacityProviderSessionStatusType = Literal[
+    "Active", "Deleted", "Deleting", "Deprovisioning", "Provisioning", "Stopped"
+]
 CloudWatchLogsFilterOperatorType = Literal[
     "Contains",
     "Equals",
@@ -231,11 +235,11 @@ OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "TOKEN_
 Oauth2FlowTypeType = Literal["M2M", "ON_BEHALF_OF_TOKEN_EXCHANGE", "USER_FEDERATION"]
 OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
 PaymentHttpMethodTypeType = Literal["DELETE", "GET", "PATCH", "POST", "PUT"]
-PaymentInstrumentStatusType = Literal["ACTIVE", "DELETED", "FAILED", "INITIATED"]
+PaymentInstrumentStatusType = Literal["ACTIVE", "BLOCKED", "DELETED", "FAILED", "INITIATED"]
 PaymentInstrumentTypeType = Literal["EMBEDDED_CRYPTO_WALLET"]
 PaymentSessionStatusType = Literal["ACTIVE", "DELETED", "EXPIRED"]
 PaymentStatusType = Literal["PROOF_GENERATED"]
-PaymentTypeType = Literal["CRYPTO_X402"]
+PaymentTypeType = Literal["CRYPTO_X402", "MPP"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 RecommendationStatusType = Literal["COMPLETED", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]
 RecommendationTypeType = Literal["SYSTEM_PROMPT_RECOMMENDATION", "TOOL_DESCRIPTION_RECOMMENDATION"]
@@ -270,8 +274,11 @@ BedrockAgentCoreServiceName = Literal["bedrock-agentcore"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -576,6 +583,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

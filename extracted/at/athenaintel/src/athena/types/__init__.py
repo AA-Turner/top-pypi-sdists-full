@@ -31,6 +31,9 @@ if typing.TYPE_CHECKING:
     from .border_model import BorderModel
     from .border_style import BorderStyle
     from .borders_model import BordersModel
+    from .calendar_attendee_out import CalendarAttendeeOut
+    from .calendar_event_out import CalendarEventOut
+    from .calendar_events_response_out import CalendarEventsResponseOut
     from .cell_format import CellFormat
     from .cell_format_horizontal_alignment import CellFormatHorizontalAlignment
     from .cell_format_text_rotation import CellFormatTextRotation
@@ -53,7 +56,6 @@ if typing.TYPE_CHECKING:
     from .create_asset_response_out import CreateAssetResponseOut
     from .create_new_sheet_tab_response import CreateNewSheetTabResponse
     from .create_project_response_out import CreateProjectResponseOut
-    from .custom_agent_response import CustomAgentResponse
     from .data_frame_request_out import DataFrameRequestOut
     from .data_frame_request_out_columns_item import DataFrameRequestOutColumnsItem
     from .data_frame_request_out_data_item_item import DataFrameRequestOutDataItemItem
@@ -73,14 +75,15 @@ if typing.TYPE_CHECKING:
     from .delete_ssh_key_response_out import DeleteSshKeyResponseOut
     from .deploy_computer_response_out import DeployComputerResponseOut
     from .dimension_properties import DimensionProperties
-    from .drive_agent_response import DriveAgentResponse
     from .duplicate_asset_response_out import DuplicateAssetResponseOut
+    from .email_draft_response_out import EmailDraftResponseOut
+    from .email_search_response_out import EmailSearchResponseOut
+    from .email_search_result_out import EmailSearchResultOut
     from .file_too_large_error import FileTooLargeError
     from .folder_response import FolderResponse
     from .general_agent_config import GeneralAgentConfig
     from .general_agent_config_enabled_tools_item import GeneralAgentConfigEnabledToolsItem
     from .general_agent_config_enabled_tools_item_zero import GeneralAgentConfigEnabledToolsItemZero
-    from .general_agent_request import GeneralAgentRequest
     from .general_agent_response import GeneralAgentResponse
     from .general_agent_response_message import GeneralAgentResponseMessage
     from .general_agent_response_message_content import GeneralAgentResponseMessageContent
@@ -118,7 +121,6 @@ if typing.TYPE_CHECKING:
     from .read_capabilities_out import ReadCapabilitiesOut
     from .redacted_thinking_content import RedactedThinkingContent
     from .rename_asset_response_out import RenameAssetResponseOut
-    from .research_agent_response import ResearchAgentResponse
     from .revoke_ssh_access_response_out import RevokeSshAccessResponseOut
     from .run_task_response import RunTaskResponse
     from .save_asset_request_out import SaveAssetRequestOut
@@ -132,7 +134,6 @@ if typing.TYPE_CHECKING:
     from .share_recipient_result_out import ShareRecipientResultOut
     from .sheet import Sheet
     from .sheet_operation_response import SheetOperationResponse
-    from .sql_agent_response import SqlAgentResponse
     from .ssh_access_info_out import SshAccessInfoOut
     from .ssh_access_response_out import SshAccessResponseOut
     from .ssh_key_list_response_out import SshKeyListResponseOut
@@ -189,6 +190,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BorderModel": ".border_model",
     "BorderStyle": ".border_style",
     "BordersModel": ".borders_model",
+    "CalendarAttendeeOut": ".calendar_attendee_out",
+    "CalendarEventOut": ".calendar_event_out",
+    "CalendarEventsResponseOut": ".calendar_events_response_out",
     "CellFormat": ".cell_format",
     "CellFormatHorizontalAlignment": ".cell_format_horizontal_alignment",
     "CellFormatTextRotation": ".cell_format_text_rotation",
@@ -213,7 +217,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateAssetResponseOut": ".create_asset_response_out",
     "CreateNewSheetTabResponse": ".create_new_sheet_tab_response",
     "CreateProjectResponseOut": ".create_project_response_out",
-    "CustomAgentResponse": ".custom_agent_response",
     "DataFrameRequestOut": ".data_frame_request_out",
     "DataFrameRequestOutColumnsItem": ".data_frame_request_out_columns_item",
     "DataFrameRequestOutDataItemItem": ".data_frame_request_out_data_item_item",
@@ -233,14 +236,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DeleteSshKeyResponseOut": ".delete_ssh_key_response_out",
     "DeployComputerResponseOut": ".deploy_computer_response_out",
     "DimensionProperties": ".dimension_properties",
-    "DriveAgentResponse": ".drive_agent_response",
     "DuplicateAssetResponseOut": ".duplicate_asset_response_out",
+    "EmailDraftResponseOut": ".email_draft_response_out",
+    "EmailSearchResponseOut": ".email_search_response_out",
+    "EmailSearchResultOut": ".email_search_result_out",
     "FileTooLargeError": ".file_too_large_error",
     "FolderResponse": ".folder_response",
     "GeneralAgentConfig": ".general_agent_config",
     "GeneralAgentConfigEnabledToolsItem": ".general_agent_config_enabled_tools_item",
     "GeneralAgentConfigEnabledToolsItemZero": ".general_agent_config_enabled_tools_item_zero",
-    "GeneralAgentRequest": ".general_agent_request",
     "GeneralAgentResponse": ".general_agent_response",
     "GeneralAgentResponseMessage": ".general_agent_response_message",
     "GeneralAgentResponseMessageContent": ".general_agent_response_message_content",
@@ -276,7 +280,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ReadCapabilitiesOut": ".read_capabilities_out",
     "RedactedThinkingContent": ".redacted_thinking_content",
     "RenameAssetResponseOut": ".rename_asset_response_out",
-    "ResearchAgentResponse": ".research_agent_response",
     "RevokeSshAccessResponseOut": ".revoke_ssh_access_response_out",
     "RunTaskResponse": ".run_task_response",
     "SaveAssetRequestOut": ".save_asset_request_out",
@@ -290,7 +293,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ShareRecipientResultOut": ".share_recipient_result_out",
     "Sheet": ".sheet",
     "SheetOperationResponse": ".sheet_operation_response",
-    "SqlAgentResponse": ".sql_agent_response",
     "SshAccessInfoOut": ".ssh_access_info_out",
     "SshAccessResponseOut": ".ssh_access_response_out",
     "SshKeyListResponseOut": ".ssh_key_list_response_out",
@@ -371,6 +373,9 @@ __all__ = [
     "BorderModel",
     "BorderStyle",
     "BordersModel",
+    "CalendarAttendeeOut",
+    "CalendarEventOut",
+    "CalendarEventsResponseOut",
     "CellFormat",
     "CellFormatHorizontalAlignment",
     "CellFormatTextRotation",
@@ -395,7 +400,6 @@ __all__ = [
     "CreateAssetResponseOut",
     "CreateNewSheetTabResponse",
     "CreateProjectResponseOut",
-    "CustomAgentResponse",
     "DataFrameRequestOut",
     "DataFrameRequestOutColumnsItem",
     "DataFrameRequestOutDataItemItem",
@@ -415,14 +419,15 @@ __all__ = [
     "DeleteSshKeyResponseOut",
     "DeployComputerResponseOut",
     "DimensionProperties",
-    "DriveAgentResponse",
     "DuplicateAssetResponseOut",
+    "EmailDraftResponseOut",
+    "EmailSearchResponseOut",
+    "EmailSearchResultOut",
     "FileTooLargeError",
     "FolderResponse",
     "GeneralAgentConfig",
     "GeneralAgentConfigEnabledToolsItem",
     "GeneralAgentConfigEnabledToolsItemZero",
-    "GeneralAgentRequest",
     "GeneralAgentResponse",
     "GeneralAgentResponseMessage",
     "GeneralAgentResponseMessageContent",
@@ -458,7 +463,6 @@ __all__ = [
     "ReadCapabilitiesOut",
     "RedactedThinkingContent",
     "RenameAssetResponseOut",
-    "ResearchAgentResponse",
     "RevokeSshAccessResponseOut",
     "RunTaskResponse",
     "SaveAssetRequestOut",
@@ -472,7 +476,6 @@ __all__ = [
     "ShareRecipientResultOut",
     "Sheet",
     "SheetOperationResponse",
-    "SqlAgentResponse",
     "SshAccessInfoOut",
     "SshAccessResponseOut",
     "SshKeyListResponseOut",

@@ -310,14 +310,7 @@ class TestCase:
         ) -> None: ...
 
     # Runtime has *args, **kwargs, but will error if any are supplied
-    def __init_subclass__(cls, *args: Never, **kwargs: Never) -> None:
-        """
-        This method is called when a class is subclassed.
-
-        The default implementation does nothing. It may be
-        overridden to extend subclasses.
-        """
-        ...
+    def __init_subclass__(cls, *args: Never, **kwargs: Never) -> None: ...
 
     if sys.version_info >= (3, 14):
         def assertIsSubclass(self, cls: type, superclass: type | tuple[type, ...], msg: Any = None) -> None: ...

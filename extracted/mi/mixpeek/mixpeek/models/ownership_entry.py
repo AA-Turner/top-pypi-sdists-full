@@ -29,7 +29,7 @@ class OwnershipEntry(BaseModel):
     One subsystem: who owns it and what to do when it pages.
     """ # noqa: E501
     id: StrictStr = Field(description="Stable subsystem slug.")
-    owner: StrictStr = Field(description="Lane/team that fixes this subsystem.")
+    owner: StrictStr = Field(description="The team that owns and fixes this subsystem.")
     escalation: Optional[StrictStr] = Field(default=None, description="Who to pull in when the owner is dark.")
     runbook: Optional[StrictStr] = Field(default=None, description="Repo path or URL of the procedure doc.")
     runbook_text: Optional[StrictStr] = Field(default=None, description="Inline minimal procedure when no doc exists yet.")

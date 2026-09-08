@@ -249,6 +249,7 @@ from mixpeek.models.collection_overview_response import CollectionOverviewRespon
 from mixpeek.models.collection_reconciliation_response import CollectionReconciliationResponse
 from mixpeek.models.collection_response import CollectionResponse
 from mixpeek.models.collection_schedule_config import CollectionScheduleConfig
+from mixpeek.models.collection_vector_index import CollectionVectorIndex
 from mixpeek.models.column_source import ColumnSource
 from mixpeek.models.components_config import ComponentsConfig
 from mixpeek.models.compound_index_pattern import CompoundIndexPattern
@@ -417,6 +418,7 @@ from mixpeek.models.event_filter import EventFilter
 from mixpeek.models.execute_batch_request import ExecuteBatchRequest
 from mixpeek.models.execute_cluster_by_id_request import ExecuteClusterByIdRequest
 from mixpeek.models.execute_retriever_request import ExecuteRetrieverRequest
+from mixpeek.models.execute_retriever_response import ExecuteRetrieverResponse
 from mixpeek.models.execute_taxonomy_request import ExecuteTaxonomyRequest
 from mixpeek.models.execution_detail import ExecutionDetail
 from mixpeek.models.execution_history_response import ExecutionHistoryResponse

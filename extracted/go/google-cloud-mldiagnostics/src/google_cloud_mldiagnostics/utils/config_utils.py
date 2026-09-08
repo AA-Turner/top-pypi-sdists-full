@@ -15,16 +15,18 @@
 """Utility functions for configurations."""
 
 from collections.abc import Mapping
+from importlib import metadata
 import logging
 import os
-from importlib import metadata
 from typing import Any
 
 from google_cloud_mldiagnostics.custom_types import metric_types
 from google_cloud_mldiagnostics.custom_types import mlrun_types
 
+
 _config_instance = None
 _jax_config_module_cache = None
+_torch_config_module_cache = None
 _libtpu_metric_module_cache = None
 
 logger = logging.getLogger(__name__)
@@ -42,11 +44,26 @@ def _import_jax_config_module():
   return _jax_config_module_cache
 
 
+def _import_torch_config_module():
+  """Lazy load torch_config module and cache result."""
+  global _torch_config_module_cache
+  if _torch_config_module_cache is not None:
+    return _torch_config_module_cache
+
+  from google_cloud_mldiagnostics.utils.torch_utils import torch_config  # pylint: disable=g-import-not-at-top
+
+  _torch_config_module_cache = torch_config
+  return _torch_config_module_cache
+
+
 def _get_libtpu_version(
     serving_engine: mlrun_types.ServingEngine = mlrun_types.ServingEngine.NONE,
 ):
   """Lazy load libtpu_metric module and cache result."""
-  if serving_engine != mlrun_types.ServingEngine.NONE and serving_engine != mlrun_types.ServingEngine.VLLM:
+  if (
+      serving_engine != mlrun_types.ServingEngine.NONE
+      and serving_engine != mlrun_types.ServingEngine.VLLM
+  ):
     return "n/a"
   global _libtpu_metric_module_cache
   if _libtpu_metric_module_cache is not None:
@@ -72,9 +89,10 @@ def _get_framework_version(
     return "unknown"
   if framework == mlrun_types.Framework.JAX:
     return _import_jax_config_module().jax_version()
+  elif framework == mlrun_types.Framework.PYTORCH:
+    return _import_torch_config_module().torch_version()
   else:
     return "unknown"
-
 
 
 def _get_xla_flags() -> str:
@@ -82,20 +100,54 @@ def _get_xla_flags() -> str:
   return os.environ.get("XLA_FLAGS", "default")
 
 
+def _is_pathways_orchestrator_detected(
+    framework: mlrun_types.Framework,
+) -> bool:
+  """Detects if Pathways orchestration is used."""
+  if framework != mlrun_types.Framework.JAX:
+    return False
+
+  jax_platforms_env = os.environ.get("JAX_PLATFORMS", "").lower()
+  if "proxy" in jax_platforms_env or "pathways" in jax_platforms_env:
+    return True
+
+  try:
+    import jax  # pylint: disable=g-import-not-at-top
+
+    if jax.config.jax_platforms and (
+        "proxy" in jax.config.jax_platforms
+        or "pathways" in jax.config.jax_platforms
+    ):
+      return True
+  except (ImportError, AttributeError):
+    pass
+
+  return False
+
+
 def get_software_config(
     framework: mlrun_types.Framework = mlrun_types.Framework.JAX,
     serving_engine: mlrun_types.ServingEngine = mlrun_types.ServingEngine.NONE,
+    accelerator_orchestrator: mlrun_types.AcceleratorOrchestrator = mlrun_types.AcceleratorOrchestrator.NONE,
 ) -> dict[str, str]:
   """Returns the software configuration for ML workload."""
   framework_val = framework.value
   if serving_engine != mlrun_types.ServingEngine.NONE:
     framework_val = serving_engine.value
-  return {
+
+  if accelerator_orchestrator == mlrun_types.AcceleratorOrchestrator.NONE:
+    if _is_pathways_orchestrator_detected(framework):
+      accelerator_orchestrator = mlrun_types.AcceleratorOrchestrator.PATHWAYS
+
+  config = {
       "framework": framework_val,
       "framework_version": _get_framework_version(framework, serving_engine),
       "xla_flags": _get_xla_flags(),
       "libtpu_version": _get_libtpu_version(serving_engine),
   }
+  if accelerator_orchestrator != mlrun_types.AcceleratorOrchestrator.NONE:
+    config["accelerator_orchestrator"] = accelerator_orchestrator.value
+  return config
 
 
 # Hardware configs.
@@ -132,12 +184,22 @@ class GpuHardwareConfig:
 
 
 class EnvVarTpuHardwareConfig:
-  """TPU hardware config detector using environment variables."""
+  """TPU hardware config detector using environment variables, GCE metadata, and device nodes."""
 
   def __init__(self):
-    self.tpu_type = os.environ.get("TPU_ACCELERATOR_TYPE", "unknown")
+    import glob  # pylint: disable=g-import-not-at-top
+    from google_cloud_mldiagnostics.utils import gcp  # pylint: disable=g-import-not-at-top
+
+    tpu_type = (
+        os.environ.get("TPU_ACCELERATOR_TYPE")
+        or os.environ.get("TPU_TYPE")
+        or gcp.get_tpu_accelerator_type()
+        or "unknown"
+    )
+    self.tpu_type: str = tpu_type
+
     self.devices_per_slice = "unknown"
-    if "-" in self.tpu_type:
+    if self.tpu_type != "unknown" and "-" in self.tpu_type:
       try:
         cores = int(self.tpu_type.split("-")[-1])
         if self.tpu_type.startswith("v4"):
@@ -147,13 +209,24 @@ class EnvVarTpuHardwareConfig:
       except ValueError:
         pass
 
+    if self.devices_per_slice == "unknown":
+      accel_nodes = glob.glob("/dev/accel[0-9]*")
+      if accel_nodes:
+        self.devices_per_slice = str(len(accel_nodes))
+
+    self._num_slices = (
+        os.environ.get("TPU_NUM_SLICES")
+        or os.environ.get("NUM_SLICES")
+        or "1"
+    )
+
   @property
   def device_type(self) -> str:
     return self.tpu_type
 
   @property
   def num_slices(self) -> str:
-    return "1"
+    return self._num_slices
 
   @property
   def accelerator_type(self) -> str:
@@ -199,6 +272,8 @@ def _get_framework_config_instance(
         return None
     elif framework == mlrun_types.Framework.JAX:
       _config_instance = _import_jax_config_module().JaxHardwareConfig()
+    elif framework == mlrun_types.Framework.PYTORCH:
+      _config_instance = _import_torch_config_module().TorchHardwareConfig()
     else:
       logging.warning(
           "Hardware configuration for framework '%s' is not supported.",

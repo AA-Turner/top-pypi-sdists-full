@@ -416,13 +416,16 @@ TrainedModelStatusType = Literal[
 ]
 TrainingDatasetStatusType = Literal["ACTIVE"]
 TrainingInputModeType = Literal["FastFile", "File", "Pipe"]
-WorkerComputeTypeType = Literal["CR.1X", "CR.4X"]
+WorkerComputeTypeType = Literal["CR.1X", "CR.4X", "CR.8X"]
 CleanRoomsMLServiceName = Literal["cleanroomsml"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -727,6 +730,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

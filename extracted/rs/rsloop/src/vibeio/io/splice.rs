@@ -2,30 +2,17 @@
 //!
 //! This module provides async-aware zero-copy I/O operations:
 //! - `splice()`: transfer data between file descriptors without copying to userspace.
-//! - `splice_exact()`: transfer exactly `len` bytes using `splice`.
+//! - `splice_exact()`: transfer up to `len` bytes using `splice`, stopping at EOF.
 //! - `sendfile_exact()`: transfer data from a file to a socket using a pipe as an intermediary.
 //!
 //! These operations are only available on Linux with the `splice` feature enabled.
 //!
 //! # Examples
 //!
-//! ```ignore
-//! use vibeio::io::{splice, AsyncRead, AsyncWrite, pipe};
-//!
-//! async fn zero_copy_example() {
-//!     let (reader, writer) = pipe().unwrap();
-//!     let mut file = std::fs::File::open("data.txt").unwrap();
-//!
-//!     // Transfer 1024 bytes from file to pipe
-//!     let n = splice(&file, &writer, 1024).await.unwrap();
-//!     println!("Spliced {} bytes", n);
-//! }
-//! ```
+//! See "Splice through EOF" in `tools/vibeio-check/EXAMPLES.md` for an
+//! executable pipe-to-socket transfer that needs only the `splice` feature.
 
-use std::{
-    mem::ManuallyDrop,
-    os::fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd},
-};
+use std::os::fd::{AsRawFd, OwnedFd};
 
 use mio::Interest;
 
@@ -35,15 +22,29 @@ use crate::vibeio::{fd_inner::InnerRawHandle, io::AsInnerRawHandle, op::SpliceOp
 ///
 /// This function uses the kernel's `splice` system call to transfer data
 /// between file descriptors without copying to userspace.
+/// A single call requests at most `i32::MAX` bytes to fit the completion result;
+/// short transfers are permitted. Use `splice_exact` to keep transferring up to
+/// the requested length or EOF.
+///
+/// With a readiness-based driver, an empty source is watched for readability;
+/// otherwise a blocked transfer watches the destination for writability. The
+/// source watch uses a temporary duplicated descriptor and is removed when the
+/// operation finishes or is cancelled. Do not concurrently read from the source.
+/// Sockets used with a readiness-based driver must be nonblocking; this function
+/// does not change the source descriptor's status flags. Regular-file access may
+/// still block on storage I/O.
+///
+/// Completion-based transfers retain owned duplicates of both descriptors until
+/// the kernel finishes. Dropping the future does not roll back bytes already
+/// transferred or guarantee that a queued transfer will not run.
 pub async fn splice<'a, 'b>(
     from: &'a impl AsRawFd,
     to: &'b impl AsInnerRawHandle<'b>,
     len: usize,
 ) -> Result<usize, std::io::Error> {
-    let from_handle = unsafe { BorrowedFd::borrow_raw(from.as_raw_fd()) };
     let to_handle = to.as_inner_raw_handle();
 
-    let mut op = SpliceOp::new(from_handle, to_handle, len);
+    let mut op = SpliceOp::new(from.as_raw_fd(), to_handle, len);
     let result = std::future::poll_fn(move |cx| to_handle.poll_op(cx, &mut op)).await;
     result
 }
@@ -51,7 +52,7 @@ pub async fn splice<'a, 'b>(
 /// Transfer exactly `len` bytes from one file descriptor to another using `splice`.
 ///
 /// This function calls `splice()` repeatedly until `len` bytes have been transferred
-/// or EOF is reached.
+/// or EOF is reached. Interrupted calls are retried without resetting progress.
 pub async fn splice_exact<'a, 'b>(
     from: &'a impl AsRawFd,
     to: &'b impl AsInnerRawHandle<'b>,
@@ -59,7 +60,8 @@ pub async fn splice_exact<'a, 'b>(
 ) -> Result<u64, std::io::Error> {
     let mut total = 0;
     while total < len {
-        let n = splice(from, to, (len - total).min(usize::MAX as u64) as usize).await?;
+        let requested = (len - total).min(usize::MAX as u64) as usize;
+        let n = retry_splice(|| splice(from, to, requested)).await?;
         if n == 0 {
             break;
         }
@@ -74,6 +76,9 @@ pub async fn splice_exact<'a, 'b>(
 /// This function implements `sendfile`-like behavior using `splice` with an
 /// intermediate pipe, allowing data to be transferred from a regular file to
 /// a socket without copying to userspace.
+/// Returns the transferred count if the source reaches EOF before `len` bytes.
+/// Reports `WriteZero` if draining a nonempty staging pipe makes no progress.
+/// Interrupted fills and drains are retried without discarding staged bytes.
 pub async fn sendfile_exact<'a, 'b>(
     from: &'a impl AsRawFd,
     to: &'b impl AsInnerRawHandle<'b>,
@@ -81,67 +86,79 @@ pub async fn sendfile_exact<'a, 'b>(
 ) -> Result<u64, std::io::Error> {
     // splice() requires at least one of the file descriptors to be a pipe.
     // Therefore, we need to create a pipe and use it as the destination.
-    let mut fds: [RawFd; 2] = [0; 2];
-    if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
-        // pipe2 failed, can't continue
-        return Err(std::io::Error::last_os_error());
-    }
-    let pipe_reader = unsafe { OwnedFd::from_raw_fd(fds[0]) };
-    let pipe_writer = unsafe { OwnedFd::from_raw_fd(fds[1]) };
+    let (pipe_reader, pipe_writer) = std::io::pipe()?;
 
     // We only need to poll the pipe writer for writability.
-    let pipe_writer_handle = WriteOwnedFd::new(pipe_writer)?;
+    let pipe_writer_handle = WriteOwnedFd::new(pipe_writer.into())?;
 
-    let mut total_from_file = 0;
-    let mut total_to_socket = 0;
-    let mut file_eof = false;
-    while (total_from_file < len && !file_eof) || total_to_socket < total_from_file {
-        let splice_from_file_len = (len - total_from_file).min(usize::MAX as u64) as usize;
-        if !file_eof && splice_from_file_len > 0 {
-            let n = splice(from, &pipe_writer_handle, splice_from_file_len).await?;
-            if n == 0 {
-                file_eof = true;
-            } else {
-                total_from_file += n as u64;
-            }
-        }
+    transfer_batches(
+        len,
+        |count| splice(from, &pipe_writer_handle, count),
+        |count| splice(&pipe_reader, to, count),
+    )
+    .await
+}
 
-        let splice_to_socket_len =
-            (total_from_file - total_to_socket).min(usize::MAX as u64) as usize;
-        if splice_to_socket_len > 0 {
-            let n = splice(&pipe_reader, to, splice_to_socket_len).await?;
-            if n == 0 {
-                break;
-            }
-            total_to_socket += n as u64;
+async fn retry_splice<F>(mut transfer: impl FnMut() -> F) -> std::io::Result<usize>
+where
+    F: std::future::Future<Output = std::io::Result<usize>>,
+{
+    loop {
+        match transfer().await {
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            result => return result,
         }
     }
+}
 
-    drop(pipe_reader);
-    drop(pipe_writer_handle);
-
-    Ok(total_to_socket)
+async fn transfer_batches<F, D, Fill, Drain>(
+    len: u64,
+    mut fill: Fill,
+    mut drain: Drain,
+) -> std::io::Result<u64>
+where
+    Fill: FnMut(usize) -> F,
+    Drain: FnMut(usize) -> D,
+    F: std::future::Future<Output = std::io::Result<usize>>,
+    D: std::future::Future<Output = std::io::Result<usize>>,
+{
+    let mut total = 0;
+    while total < len {
+        let requested = (len - total).min(usize::MAX as u64) as usize;
+        let mut pending = retry_splice(|| fill(requested)).await?;
+        if pending == 0 {
+            break;
+        }
+        // Never refill until this batch is fully drained. A partial socket
+        // transfer may leave the pipe full, and no other task drains this pipe.
+        while pending > 0 {
+            let written = retry_splice(|| drain(pending)).await?;
+            if written == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::WriteZero,
+                    "splice made no progress draining the staging pipe",
+                ));
+            }
+            pending -= written;
+            total += written as u64;
+        }
+    }
+    Ok(total)
 }
 
 struct WriteOwnedFd {
+    // Field order releases registration before closing its descriptor.
+    handle: InnerRawHandle,
     _writer: OwnedFd,
-    handle: ManuallyDrop<InnerRawHandle>,
 }
 
 impl WriteOwnedFd {
     fn new(writer: OwnedFd) -> std::io::Result<Self> {
-        let handle =
-            ManuallyDrop::new(InnerRawHandle::new(writer.as_raw_fd(), Interest::WRITABLE)?);
-        if !handle.uses_completion() {
-            // Set the pipe write side to non-blocking mode.
-            let flags = unsafe { libc::fcntl(writer.as_raw_fd(), libc::F_GETFL) };
-            if flags != -1 {
-                unsafe { libc::fcntl(writer.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK) };
-            }
-        }
+        let handle = InnerRawHandle::new(writer.as_raw_fd(), Interest::WRITABLE)?;
+        crate::vibeio::fd_inner::set_nonblocking(writer.as_raw_fd(), !handle.uses_completion())?;
         Ok(Self {
-            _writer: writer,
             handle,
+            _writer: writer,
         })
     }
 }
@@ -153,12 +170,223 @@ impl<'a> AsInnerRawHandle<'a> for WriteOwnedFd {
     }
 }
 
-impl Drop for WriteOwnedFd {
-    #[inline]
-    fn drop(&mut self) {
-        // Safety: The struct is dropped after the handle is dropped.
-        unsafe {
-            ManuallyDrop::drop(&mut self.handle);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vibeio::{driver::AnyDriver, executor::Runtime};
+    use std::{cell::Cell, future::ready, io};
+
+    #[test]
+    fn staging_writer_closes_on_drop_and_failed_registration() {
+        for fail_registration in [false, true] {
+            let mut driver = AnyDriver::new_mock();
+            let AnyDriver::Mock(mock) = &mut driver else {
+                unreachable!()
+            };
+            mock.registrations = Some(Default::default());
+            mock.registrations
+                .as_ref()
+                .unwrap()
+                .results
+                .borrow_mut()
+                .push_back(if fail_registration {
+                    Err(io::ErrorKind::PermissionDenied.into())
+                } else {
+                    Ok(mio::Token(9))
+                });
+            Runtime::new(driver).block_on(async move {
+                let (mut reader, writer) = std::io::pipe().unwrap();
+                crate::vibeio::fd_inner::set_nonblocking(reader.as_raw_fd(), true).unwrap();
+                let result = WriteOwnedFd::new(writer.into());
+                if fail_registration {
+                    assert!(matches!(result, Err(error) if error.kind() == io::ErrorKind::PermissionDenied));
+                } else {
+                    drop(result.unwrap());
+                }
+                // EOF proves the owned writer was released on both paths;
+                // nonblocking mode makes a leaked writer fail instead of hang.
+                crate::vibeio::test_support::assert_eof(&mut reader);
+                let driver = crate::vibeio::executor::current_driver().unwrap();
+                let AnyDriver::Mock(mock) = driver.as_ref() else {
+                    unreachable!()
+                };
+                let deregistered = mock.registrations.as_ref().unwrap().deregistered.borrow();
+                assert_eq!(deregistered.as_slice(), if fail_registration { &[][..] } else { &[mio::Token(9)][..] });
+            });
         }
+    }
+
+    #[test]
+    fn invalid_raw_source_returns_an_os_error() {
+        struct InvalidSource;
+        impl AsRawFd for InvalidSource {
+            fn as_raw_fd(&self) -> std::os::fd::RawFd {
+                -1
+            }
+        }
+        Runtime::new(AnyDriver::new_mio().unwrap()).block_on(async {
+            let (_reader, writer) = std::io::pipe().unwrap();
+            let destination = WriteOwnedFd::new(writer.into()).unwrap();
+            let error = splice(&InvalidSource, &destination, 1).await.unwrap_err();
+            assert_eq!(error.raw_os_error(), Some(libc::EBADF));
+        });
+    }
+
+    #[test]
+    fn sendfile_transfers_file_contents_and_reports_early_eof() {
+        use std::io::{Read, Seek, Write};
+        use std::os::fd::FromRawFd;
+        // SAFETY: the name is NUL-terminated and the flag requests owned,
+        // close-on-exec storage. No pointers are retained by memfd_create.
+        let fd = unsafe { libc::memfd_create(c"vibeio-splice-test".as_ptr(), libc::MFD_CLOEXEC) };
+        assert_ne!(fd, -1);
+        // SAFETY: memfd_create returned a fresh descriptor owned by this test.
+        let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+        file.write_all(b"hello splice").unwrap();
+        file.rewind().unwrap();
+        let mut peer = Runtime::new(AnyDriver::new_mio().unwrap()).block_on(async move {
+            let (socket, peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let socket = crate::vibeio::net::UnixStream::from_std_poll(socket).unwrap();
+            assert_eq!(sendfile_exact(&file, &socket, 100).await.unwrap(), 12);
+            peer
+        });
+        let mut received = [0; 12];
+        peer.set_read_timeout(Some(crate::vibeio::test_support::WATCHDOG))
+            .unwrap();
+        peer.read_exact(&mut received).unwrap();
+        assert_eq!(&received, b"hello splice");
+    }
+
+    #[test]
+    fn interrupted_fill_and_partial_drain_preserve_transfer_progress() {
+        Runtime::new(AnyDriver::new_mock()).block_on(async {
+            let mut fills = 0;
+            let mut drains = 0;
+            let result = transfer_batches(
+                10,
+                |requested| {
+                    fills += 1;
+                    ready(match fills {
+                        1 => {
+                            assert_eq!(requested, 10);
+                            Err(io::ErrorKind::Interrupted.into())
+                        }
+                        2 => {
+                            assert_eq!(requested, 10);
+                            Ok(5)
+                        }
+                        3 => {
+                            assert_eq!(requested, 5);
+                            Ok(0)
+                        }
+                        _ => panic!("unexpected refill"),
+                    })
+                },
+                |requested| {
+                    drains += 1;
+                    ready(match drains {
+                        1 => {
+                            assert_eq!(requested, 5);
+                            Ok(2)
+                        }
+                        2 => {
+                            assert_eq!(requested, 3);
+                            Err(io::ErrorKind::Interrupted.into())
+                        }
+                        3 => {
+                            assert_eq!(requested, 3);
+                            Ok(3)
+                        }
+                        _ => panic!("unexpected drain"),
+                    })
+                },
+            )
+            .await
+            .unwrap();
+            assert_eq!(result, 5);
+            assert_eq!((fills, drains), (3, 3));
+        });
+    }
+
+    #[test]
+    fn partial_drains_finish_before_refill_and_eof_returns_actual_count() {
+        let remaining = Cell::new(11usize);
+        let pending = Cell::new(0usize);
+        Runtime::new(AnyDriver::new_mock()).block_on(async move {
+            let result = transfer_batches(
+                20,
+                |requested| {
+                    assert_eq!(pending.get(), 0, "refilling before draining can deadlock");
+                    let count = requested.min(4).min(remaining.get());
+                    remaining.set(remaining.get() - count);
+                    pending.set(count);
+                    ready(Ok(count))
+                },
+                |requested| {
+                    assert_eq!(requested, pending.get());
+                    pending.set(pending.get() - 1);
+                    ready(Ok(1))
+                },
+            )
+            .await
+            .unwrap();
+            assert_eq!(result, 11);
+            assert_eq!(pending.get(), 0);
+        });
+    }
+
+    #[test]
+    fn drain_errors_and_zero_progress_terminate_without_refilling() {
+        Runtime::new(AnyDriver::new_mock()).block_on(async {
+            for zero_progress in [true, false] {
+                let fills = Cell::new(0);
+                let result = transfer_batches(
+                    8,
+                    |_| {
+                        fills.set(fills.get() + 1);
+                        ready(Ok(4))
+                    },
+                    |_| {
+                        ready(if zero_progress {
+                            Ok(0)
+                        } else {
+                            Err(io::Error::from(io::ErrorKind::BrokenPipe))
+                        })
+                    },
+                )
+                .await;
+                assert_eq!(fills.get(), 1);
+                assert_eq!(
+                    result.unwrap_err().kind(),
+                    if zero_progress {
+                        io::ErrorKind::WriteZero
+                    } else {
+                        io::ErrorKind::BrokenPipe
+                    }
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn transfer_limit_does_not_read_past_requested_bytes() {
+        Runtime::new(AnyDriver::new_mock()).block_on(async {
+            let requested = Cell::new(0);
+            for limit in [0, 3, 9] {
+                requested.set(0);
+                let result = transfer_batches(
+                    limit,
+                    |count| {
+                        requested.set(requested.get() + count);
+                        ready(Ok(count))
+                    },
+                    |count| ready(Ok(count)),
+                )
+                .await
+                .unwrap();
+                assert_eq!(result, limit);
+                assert_eq!(requested.get() as u64, limit);
+            }
+        });
     }
 }

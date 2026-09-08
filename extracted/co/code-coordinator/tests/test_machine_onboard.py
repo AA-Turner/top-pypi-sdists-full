@@ -438,6 +438,61 @@ def test_probe_coord_on_worker_path_delegates_to_the_canonical_agent_function():
     assert ".local/bin" not in script
 
 
+def test_probe_coord_on_worker_path_reports_the_searched_path_on_absence():
+    """#3176: a bare `found=False` named no evidence — confirming (or
+    refuting) it meant hand-rolling this exact probe again by hand over ssh,
+    which is how #3176 itself got investigated. The post-strip WORKER_PATH
+    the remote script actually searched must ride along in `error` even on
+    the boolean-False branch, not just the UNKNOWN/SSH-trouble ones."""
+    with patch("subprocess.run", return_value=_ssh_result(
+        "AGENT_PATH_FOUND=1\n"
+        "WORKER_PATH=/home/john/.cargo/bin:/home/john/.local/bin:/usr/bin:/bin\n"
+        "COORD_ON_WORKER_PATH_OK=0\n"
+        "VERSION=\n"
+    )):
+        found, error, version = machine_onboard.probe_coord_on_worker_path("host")
+    assert found is False
+    assert error == (
+        "searched PATH: '/home/john/.cargo/bin:/home/john/.local/bin:/usr/bin:/bin'"
+    )
+    assert version is None
+
+
+def test_probe_coord_on_worker_path_names_a_stale_launchd_job_as_a_likely_explanation():
+    """#3176: when the agent's PATH came from a launchd job whose live
+    environment disagrees with what its plist currently declares, that is a
+    concrete, checkable explanation for a CRIT — launchd does not hot-reload
+    a plist edit into an already-loaded job — and the error should name it
+    with the actual restart command, not leave it to a hand-rolled
+    reproduction."""
+    with patch("subprocess.run", return_value=_ssh_result(
+        "AGENT_PATH_FOUND=1\n"
+        "WORKER_PATH=/usr/bin:/bin:/usr/sbin:/sbin\n"
+        "COORD_ON_WORKER_PATH_OK=0\n"
+        "VERSION=\n"
+        "LAUNCHD_PATH_STALE=1\n"
+        "LAUNCHD_DECLARED_PATH=/Users/john/.local/bin:/opt/homebrew/bin:/usr/bin\n"
+    )):
+        found, error, version = machine_onboard.probe_coord_on_worker_path("macmini")
+    assert found is False
+    assert version is None
+    assert "searched PATH: '/usr/bin:/bin:/usr/sbin:/sbin'" in error
+    assert "/Users/john/.local/bin:/opt/homebrew/bin:/usr/bin" in error
+    assert "launchctl kickstart" in error
+
+
+def test_probe_coord_on_worker_path_absence_without_a_reported_path_stays_none():
+    """An older probe script (or a stripped WORKER_PATH= line) must not turn
+    into a fabricated diagnostic — no evidence means no evidence, exactly
+    like the pre-#3176 behaviour this replaces."""
+    with patch("subprocess.run",
+               return_value=_ssh_result("AGENT_PATH_FOUND=1\nCOORD_ON_WORKER_PATH_OK=0\n")):
+        found, error, version = machine_onboard.probe_coord_on_worker_path("host")
+    assert found is False
+    assert error is None
+    assert version is None
+
+
 def test_probe_coord_on_worker_path_fails_soft_when_the_pinned_interpreter_is_gone():
     """If `~/.coord-venv/bin/python3` itself doesn't resolve on the remote
     shell (e.g. the venv was never installed), the remote shell reports a
@@ -580,6 +635,85 @@ def test_agent_path_discovery_prefers_the_loaded_launchd_jobs_live_environment(t
     assert ns["discover_agent_path"]() == "/Users/john/.local/bin:/usr/bin"
 
 
+def test_agent_path_discovery_ignores_a_registered_but_not_running_launchd_jobs_stale_environment(
+    tmp_path,
+):
+    """#3176: `launchctl print` succeeding only proves the job is REGISTERED
+    with launchd, not that it is the process actually serving requests right
+    now — setup-macmini.sh's own plist comment warns "a crash loop here is
+    quiet" and docs/MAC_MINI.md's trap #4 says to read the state/exit-code
+    lines rather than infer liveness from `print` succeeding. Before this
+    fix, a job `print` could merely describe (loaded but not running) would
+    have its reported environment trusted anyway — exactly the shape that
+    would make a healthy mac's CURRENT, wider PATH (on disk, in the plist)
+    lose to a narrower one frozen at an earlier, abandoned bootstrap."""
+    _seed_launchd_plist(
+        tmp_path, path_value="/Users/john/.local/bin:/opt/homebrew/bin:/usr/bin"
+    )
+
+    import subprocess as _subprocess
+
+    def run(argv, **kwargs):
+        if "systemctl" in argv[0]:
+            raise FileNotFoundError("systemctl")
+        assert argv[:2] == ["launchctl", "print"]
+        return _subprocess.CompletedProcess(argv, 0, (
+            "com.jdonaghy.coord-agent = {\n"
+            "\tstate = not running\n"
+            "\tlast exit code = 1\n"
+            "\tenvironment = {\n"
+            "\t\tHOME => /Users/john\n"
+            "\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n"
+            "\t}\n"
+            "}\n"
+        ), "")
+
+    ns = _discovery_ns(tmp_path, run)
+    # Falls back to the plist's CURRENT declaration, not the not-running
+    # job's stale-or-irrelevant "live" environment.
+    assert ns["discover_agent_path"]() == (
+        "/Users/john/.local/bin:/opt/homebrew/bin:/usr/bin"
+    )
+
+
+def test_agent_path_discovery_records_a_running_jobs_live_vs_declared_divergence(
+    tmp_path,
+):
+    """#3176: a job CAN be genuinely `state = running` and still be serving
+    the environment it was bootstrapped with — launchd does not hot-reload a
+    plist edit into a job that is already loaded. That live PATH is still
+    correctly preferred (it's what a real worker spawned by THIS agent
+    process would actually get, which is the whole question #2936 asks) —
+    but the divergence from what the plist currently declares must be
+    recorded so the worker-PATH probe can surface it instead of leaving a
+    CRIT unexplained."""
+    _seed_launchd_plist(
+        tmp_path, path_value="/Users/john/.local/bin:/opt/homebrew/bin:/usr/bin"
+    )
+
+    import subprocess as _subprocess
+
+    def run(argv, **kwargs):
+        if "systemctl" in argv[0]:
+            raise FileNotFoundError("systemctl")
+        return _subprocess.CompletedProcess(argv, 0, (
+            "com.jdonaghy.coord-agent = {\n"
+            "\tstate = running\n"
+            "\tenvironment = {\n"
+            "\t\tHOME => /Users/john\n"
+            "\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n"
+            "\t}\n"
+            "}\n"
+        ), "")
+
+    ns = _discovery_ns(tmp_path, run)
+    assert ns["discover_agent_path"]() == "/usr/bin:/bin:/usr/sbin:/sbin"
+    assert ns["_LAUNCHD_LIVE_PATH"] == "/usr/bin:/bin:/usr/sbin:/sbin"
+    assert ns["_LAUNCHD_DECLARED_PATH"] == (
+        "/Users/john/.local/bin:/opt/homebrew/bin:/usr/bin"
+    )
+
+
 def test_agent_path_discovery_returns_none_rather_than_guessing(tmp_path):
     """Nothing supervises the agent here. The answer is "I don't know" — NOT
     a hardcoded ~/.local/bin, which is exactly the guess #2937 was opened to
@@ -635,6 +769,25 @@ def test_coord_absent_from_worker_path_crits():
     assert finding.severity == CRIT
     assert "worker" in finding.summary.lower()
     assert "~/.coord-venv" in finding.fix
+
+
+def test_coord_absent_from_worker_path_crit_names_the_searched_path():
+    """#3176: the CRIT must show its work — the exact PATH the probe
+    searched — so a false positive is falsifiable by reading the doctor's
+    own output, instead of requiring a hand-rolled reproduction on the box."""
+    facts = MachineFacts(
+        name="macmini", configured=True, host="macmini.tail1234.ts.net",
+        declared_capabilities=["python"], declared_repos=["api"],
+        repo_paths={"api": "~/src/api"}, known_repos=["api"],
+        coord_on_worker_path=False,
+        coord_on_worker_path_error=(
+            "searched PATH: '/Users/john/.cargo/bin:/Users/john/.local/bin:"
+            "/usr/bin:/bin'"
+        ),
+    )
+    finding = _by_check(machine_onboard.evaluate(facts), "runtime.coord_on_worker_path_missing")
+    assert finding.severity == CRIT
+    assert "/Users/john/.local/bin" in finding.summary
 
 
 def test_coord_on_worker_path_unknown_without_the_ssh_probe(cfg):

@@ -24,20 +24,24 @@ pub use mobile::{
 };
 pub use pending_actions::{
     cleanup_stale_pending_actions, current_unix_time,
-    legacy_telegram_pending_actions_path, pending_action_from_notification,
+    legacy_telegram_pending_actions_path, mark_pending_action_handled,
+    merge_pending_action_transport, pending_action_from_notification,
     pending_action_state_for_notification, pending_action_state_from_store,
-    pending_action_store_path, read_pending_action_store,
-    register_pending_action, resolve_pending_action_prefix,
-    PendingActionStoreWire, PendingActionTransportWire, PendingActionWire,
-    DEFAULT_PENDING_ACTION_PREFIX_LEN, DEFAULT_PENDING_ACTION_STALE_SECONDS,
+    pending_action_store_path, pending_action_transport,
+    read_pending_action_store, register_pending_action, remove_pending_action,
+    resolve_pending_action_prefix, PendingActionStoreWire,
+    PendingActionTransportRequestWire, PendingActionTransportWire,
+    PendingActionWire, DEFAULT_PENDING_ACTION_PREFIX_LEN,
+    DEFAULT_PENDING_ACTION_STALE_SECONDS,
     PENDING_ACTION_STORE_WIRE_SCHEMA_VERSION,
 };
 pub use store::{
     append_notification, append_notification_counts,
-    apply_notification_state_update, apply_notification_state_update_counts,
+    append_notification_plus_one, apply_notification_state_update,
+    apply_notification_state_update_counts,
     read_current_notifications_snapshot, read_notifications_snapshot,
     read_notifications_snapshot_with_options, rewrite_notifications,
-    rewrite_notifications_counts,
+    rewrite_notifications_counts, upsert_notification,
 };
 pub use tabs::{
     classify_notification_tabs, tab_key_for, tab_label, DONE_TAB_KEY,
@@ -47,8 +51,13 @@ pub use tabs::{
 pub use wire::{
     notification_activity_at, notification_activity_cursor,
     NotificationAgentKeyWire, NotificationCountsWire,
+    NotificationPlusOneActionWire, NotificationPlusOneOutcomeWire,
+    NotificationPlusOneRequestWire, NotificationPlusOneWire,
     NotificationStateUpdateWire, NotificationStoreSnapshotWire,
     NotificationStoreStatsWire, NotificationTabClassificationWire,
-    NotificationTabWire, NotificationUpdateOutcomeWire, NotificationWire,
+    NotificationTabWire, NotificationUpdateOutcomeWire,
+    NotificationUpsertActionWire, NotificationUpsertOutcomeWire,
+    NotificationUpsertRequestWire, NotificationWire,
+    NOTIFICATION_PLUS_ONE_MAX_ENTRIES, NOTIFICATION_PLUS_ONE_NOTE_MAX_CHARS,
     NOTIFICATION_STORE_WIRE_SCHEMA_VERSION,
 };

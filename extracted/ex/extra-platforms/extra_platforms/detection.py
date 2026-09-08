@@ -629,6 +629,12 @@ def is_cloudlinux() -> bool:
 
 
 @cache
+def is_crux() -> bool:
+    """Return {data}`True` if current platform is {data}`~extra_platforms.CRUX`."""
+    return os_release_id() == "crux"
+
+
+@cache
 def is_cygwin() -> bool:
     """Return {data}`True` if current platform is {data}`~extra_platforms.CYGWIN`."""
     return sys.platform.startswith("cygwin")
@@ -826,6 +832,12 @@ def is_nobara() -> bool:
 
 
 @cache
+def is_nutyx() -> bool:
+    """Return {data}`True` if current platform is {data}`~extra_platforms.NUTYX`."""
+    return os_release_id() == "nutyx"
+
+
+@cache
 def is_openbsd() -> bool:
     """Return {data}`True` if current platform is {data}`~extra_platforms.OPENBSD`."""
     return sys.platform.startswith("openbsd") or os_release_id() == "openbsd"
@@ -993,6 +1005,12 @@ def is_solaris() -> bool:
         and platform.platform(aliased=True, terse=True).startswith("Solaris")
         and not is_illumos()
     )
+
+
+@cache
+def is_solus() -> bool:
+    """Return {data}`True` if current platform is {data}`~extra_platforms.SOLUS`."""
+    return os_release_id() == "solus"
 
 
 @cache

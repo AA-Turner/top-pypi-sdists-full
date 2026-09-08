@@ -1,18 +1,31 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
+pub use sase_core::fleet_attention::{
+    FleetAttentionEntryWire, FleetAttentionIntentWire, FleetAttentionKindWire,
+    FleetAttentionLogicalIdentityWire, FleetAttentionNotificationRowWire,
+    FleetAttentionOutcomeWire, FleetAttentionPreconditionDecisionWire,
+    FleetAttentionPreconditionReasonWire, FleetAttentionReceiptWire,
+    FleetAttentionRequestWire, FleetAttentionResponseWire,
+    FleetAttentionSnapshotWire,
+};
 pub use sase_core::fleet_contract::{
     CapabilitySetWire, FleetAuthoritativeSnapshotWire,
     FleetCatalogPageSelectionWire, FleetCatalogPageWire, FleetCatalogQueryWire,
     FleetContentReadRequestWire, FleetContentReadResponseWire,
     FleetDetailRequestWire, FleetDetailResponseWire, FleetEventStreamItemWire,
     FleetInvalidationEventWire, FleetInvalidationKindWire,
+    FleetLaunchReceiptWire, FleetLaunchRequestWire, FleetLaunchResponseWire,
     FleetLogicalAgentCountsWire, FleetLogicalBatchEntryWire,
     FleetLogicalBatchRequestWire, FleetLogicalBatchResponseWire,
     FleetProjectEligibilityRequestWire, FleetProjectEligibilityResponseWire,
     FleetProjectEligibilityWire, FleetResyncReasonWire,
     FleetResyncRequiredWire, FleetSnapshotFreshnessWire,
     FleetSummaryResponseWire, InstallationIdentityRecordWire, StoreCursorWire,
+};
+pub use sase_core::fleet_mutation::{
+    FleetMutationReceiptWire, FleetMutationRequestWire,
+    FleetMutationResponseWire,
 };
 pub use sase_core::host_bridge::{
     MobileBeadDetailWire, MobileBeadListRequestWire,
@@ -722,6 +735,22 @@ pub struct MobileAgentRetryRequestWire {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MobileAgentRetryResultWire {
+    pub schema_version: u32,
+    pub source_agent: String,
+    pub launch: MobileAgentLaunchResultWire,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MobileAgentForkRequestWire {
+    pub schema_version: u32,
+    pub request_id: Option<String>,
+    pub prompt: String,
+    pub dry_run: Option<bool>,
+    pub device_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MobileAgentForkResultWire {
     pub schema_version: u32,
     pub source_agent: String,
     pub launch: MobileAgentLaunchResultWire,

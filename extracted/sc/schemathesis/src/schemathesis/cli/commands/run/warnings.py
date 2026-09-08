@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from schemathesis.cli.commands.run.filters import describe_filter
 from schemathesis.cli.context import BaseExecutionContext
+from schemathesis.cli.summary import WarningData
 from schemathesis.config import ProjectConfig, SchemathesisWarning
 from schemathesis.core.errors import RefResolutionError
 from schemathesis.core.parameters import ParameterLocation
@@ -15,73 +18,8 @@ from schemathesis.engine.run import PhaseName
 from schemathesis.generation.meta import CoveragePhaseData, CoverageScenario
 from schemathesis.generation.modes import GenerationMode
 
-
-@dataclass(slots=True)
-class WarningData:
-    missing_auth: dict[int, set[str]]
-    missing_test_data: set[str]
-    validation_mismatch: set[str]
-    missing_deserializer: dict[str, dict[str, set[str]]]
-    unused_openapi_auth: set[str]
-    unsupported_regex: dict[str, set[str]]
-    method_not_allowed: set[str]
-    constants_extraction: set[str]
-    unmatched_filter: set[str]
-
-    def __init__(
-        self,
-        missing_auth: dict[int, set[str]] | None = None,
-        missing_test_data: set[str] | None = None,
-        validation_mismatch: set[str] | None = None,
-        missing_deserializer: dict[str, dict[str, set[str]]] | None = None,
-        unused_openapi_auth: set[str] | None = None,
-        unsupported_regex: dict[str, set[str]] | None = None,
-        method_not_allowed: set[str] | None = None,
-        constants_extraction: set[str] | None = None,
-        unmatched_filter: set[str] | None = None,
-    ) -> None:
-        self.missing_auth = missing_auth or {}
-        self.missing_test_data = missing_test_data or set()
-        self.validation_mismatch = validation_mismatch or set()
-        self.missing_deserializer = missing_deserializer or {}
-        self.unused_openapi_auth = unused_openapi_auth or set()
-        self.unsupported_regex = unsupported_regex or {}
-        self.method_not_allowed = method_not_allowed or set()
-        self.constants_extraction = constants_extraction or set()
-        self.unmatched_filter = unmatched_filter or set()
-
-    @property
-    def is_empty(self) -> bool:
-        return not bool(
-            self.missing_auth
-            or self.missing_test_data
-            or self.validation_mismatch
-            or self.missing_deserializer
-            or self.unused_openapi_auth
-            or self.unsupported_regex
-            or self.method_not_allowed
-            or self.constants_extraction
-            or self.unmatched_filter
-        )
-
-    @property
-    def kind_count(self) -> int:
-        """Count distinct warning kinds currently recorded."""
-        return sum(
-            1
-            for warnings in (
-                self.missing_auth,
-                self.missing_test_data,
-                self.validation_mismatch,
-                self.missing_deserializer,
-                self.unused_openapi_auth,
-                self.unsupported_regex,
-                self.method_not_allowed,
-                self.constants_extraction,
-                self.unmatched_filter,
-            )
-            if warnings
-        )
+if TYPE_CHECKING:
+    from schemathesis.schemas import APIOperation
 
 
 @dataclass(slots=True)
@@ -108,7 +46,7 @@ class StatusCodeStatistic:
 
     def _is_only_4xx_responses(self) -> bool:
         """Check if all responses are 4xx (excluding 5xx)."""
-        return all(400 <= code < 500 for code in self.counts.keys() if code != 500)
+        return all(400 <= code < 500 for code in self.counts if code != 500)
 
     def _can_warn_about_4xx(self) -> bool:
         """Check basic conditions for 4xx warnings."""
@@ -179,6 +117,22 @@ def auth_error_codes(statistic: StatusCodeStatistic, recorder: RecordedScenario)
     return tuple(code for code in (401, 403) if statistic.ratio_for(code) >= AUTH_ERRORS_THRESHOLD)
 
 
+def missing_base_path(operation: APIOperation) -> str | None:
+    """The path the schema declares that the configured base URL leaves out, if any.
+
+    `--url` is the complete base URL by design, so nothing is merged from the schema. When every
+    request 404s, the difference between the two is the likely cause.
+    """
+    schema = operation.schema
+    configured = schema.config.base_url
+    if configured is None:
+        return None
+    declared = schema._get_base_path().rstrip("/")
+    if not declared:
+        return None
+    return declared if not urlsplit(configured).path.rstrip("/").endswith(declared) else None
+
+
 def all_positive_are_rejected(recorder: RecordedScenario) -> bool:
     """Whether the scenario generated positive test cases and none of them got a 2xx response."""
     seen_positive = False
@@ -241,6 +195,13 @@ class WarningCollector:
                     warning.kind,
                     self._record_unsupported_regex_warning(warning.operation_label, warning.message),
                 )
+            elif warning.kind is SchemathesisWarning.UNRESOLVABLE_REFERENCE:
+                assert warning.operation_label is not None
+                self._handle_warning(
+                    ctx,
+                    warning.kind,
+                    self._record_unresolvable_reference_warning(warning.operation_label, warning.message),
+                )
             elif warning.kind is SchemathesisWarning.CONSTANTS_EXTRACTION:
                 self._handle_warning(
                     ctx,
@@ -275,6 +236,25 @@ class WarningCollector:
                 # Check if this warning should cause test failure
                 if warnings.should_fail(SchemathesisWarning.MISSING_AUTH):
                     ctx.exit_code = 1
+
+        # A wrong base URL 404s everything, and those 404s trip other checks - so this must not be
+        # gated on the scenario passing, unlike the generic 404 warning below.
+        if (
+            warnings.should_display(SchemathesisWarning.BASE_URL_MISMATCH)
+            and GenerationMode.POSITIVE
+            in self.config.generation_for(operation=operation, phase=event.phase.value).modes
+            and all_positive_are_rejected(event.recorder)
+            and statistic.should_warn_about_missing_test_data()
+        ):
+            missing = missing_base_path(operation) if operation is not None else None
+            if missing is not None:
+                assert operation is not None
+                self.data.base_url_suggestion = f"{(operation.schema.config.base_url or '').rstrip('/')}{missing}"
+                self._handle_warning(
+                    ctx,
+                    SchemathesisWarning.BASE_URL_MISMATCH,
+                    lambda: self.data.base_url_mismatch.add(event.recorder.label),
+                )
 
         # Warn if all positive test cases got 4xx in return and no failure was found
         if (
@@ -349,6 +329,14 @@ class WarningCollector:
 
         def record() -> None:
             self.data.unsupported_regex.setdefault(operation_label, set()).add(message)
+
+        return record
+
+    def _record_unresolvable_reference_warning(self, operation_label: str, message: str) -> Callable[[], None]:
+        """Create a callback that records a dropped parameter with an unresolvable reference."""
+
+        def record() -> None:
+            self.data.unresolvable_reference.setdefault(operation_label, set()).add(message)
 
         return record
 

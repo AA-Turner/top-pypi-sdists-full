@@ -139,6 +139,11 @@ class GridFlow(
         _slc: tuple[int, int, int],
         new_items: Iterable[GridFlowContentsItem],
     ) -> None:
+        """
+        Reject contents changes that would put an invalid item into the GridFlow.
+
+        :raises GridFlowError: an added item is not a valid ``(widget, options)`` pair.
+        """
         for item in new_items:
             try:
                 _w, (t, _n) = item
@@ -150,11 +155,11 @@ class GridFlow(
     @property
     def cells(self) -> MonitoredList[AbstractFlowWidget]:
         """
-        A list of the widgets in this GridFlow
+        A list of the widgets in this GridFlow.
 
-        .. note:: only for backwards compatibility. You should use the new
-            standard container property :attr:`contents` to modify GridFlow
-            contents.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility."
@@ -173,6 +178,13 @@ class GridFlow(
 
     @cells.setter
     def cells(self, widgets: MonitoredList[AbstractFlowWidget]) -> None:
+        """
+        Replace the widgets in this GridFlow, giving each of them the current cell width.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "only for backwards compatibility."
             "You should use the new standard container property `contents` to modify GridFlow."
@@ -229,8 +241,9 @@ class GridFlow(
         """
         Return a new options tuple for use in a GridFlow's .contents list.
 
-        width_type -- 'given' is the only value accepted
-        width_amount -- None to use the default cell_width for this GridFlow
+        :param width_type: 'given' is the only value accepted
+        :param width_amount: None to use the default cell_width for this GridFlow
+        :raises GridFlowError: *width_type* is not ``GIVEN``.
         """
         if width_type != WHSettings.GIVEN:
             raise GridFlowError(f"invalid width_type: {width_type!r}")
@@ -240,13 +253,16 @@ class GridFlow(
 
     def set_focus(self, cell: AbstractFlowWidget | int) -> None:
         """
-        Set the cell in focus, for backwards compatibility.
-
-        .. note:: only for backwards compatibility. You may also use the new
-            standard container property :attr:`focus_position` to get the focus.
+        Set the cell in focus.
 
         :param cell: contained element to focus
         :type cell: Widget or int
+        :raises IndexError: *cell* is an index with no child widget at it.
+        :raises ValueError: *cell* is a widget that is not in the contents.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility."
@@ -281,10 +297,11 @@ class GridFlow(
 
     def get_focus(self) -> AbstractFlowWidget | None:
         """
-        Return the widget in focus, for backwards compatibility.
+        Return the widget in focus.
 
-        .. note:: only for backwards compatibility. You may also use the new
-            standard container property :attr:`focus` to get the focus.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility."
@@ -299,6 +316,14 @@ class GridFlow(
 
     @property
     def focus_cell(self) -> AbstractFlowWidget | None:
+        """
+        The cell in focus.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus` to read the cell in focus,
+            and :attr:`focus_position` to read or set it by index.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "only for backwards compatibility."
             "You may also use the new standard container property"
@@ -311,6 +336,16 @@ class GridFlow(
 
     @focus_cell.setter
     def focus_cell(self, cell: AbstractFlowWidget) -> None:
+        """
+        Set the cell in focus.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus` to read the cell in focus,
+            and :attr:`focus_position` to read or set it by index.
+            This API will be removed in version 5.0.
+
+        :raises ValueError: *cell* is a widget that is not in the contents.
+        """
         warnings.warn(
             "only for backwards compatibility."
             "You may also use the new standard container property"
@@ -330,6 +365,8 @@ class GridFlow(
         """
         index of child widget in focus.
         Raises :exc:`IndexError` if read when GridFlow is empty, or when set to an invalid index.
+
+        :raises IndexError: the GridFlow is empty.
         """
         if (focus := self.contents.focus) is not None:
             return focus
@@ -341,7 +378,8 @@ class GridFlow(
         """
         Set the widget in focus.
 
-        position -- index of child widget to be made focus
+        :param position: index of child widget to be made focus
+        :raises IndexError: *position* is not an index of a child widget.
         """
         try:
             if position < 0 or position >= len(self.contents):

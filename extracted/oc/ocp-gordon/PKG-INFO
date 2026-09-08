@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ocp_gordon
-Version: 0.2.2
+Version: 0.3.0
 Summary: A Python library for Gordon Surface interpolation using B-splines.
 Author-email: Fan Gong <gongfan99@hotmail.com>
 License-Expression: Apache-2.0
@@ -12,17 +12,16 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.15,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cadquery_ocp_proxy<8.0,>=7.9
+Requires-Dist: cadquery-ocp-novtk<8.1,>=8.0
 Requires-Dist: numpy<3,>=2
 Requires-Dist: scipy
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
-Requires-Dist: cadquery_ocp_novtk<8.0,>=7.9; extra == "test"
 Provides-Extra: stubs
-Requires-Dist: cadquery-ocp-stubs<8.0,>=7.9; extra == "stubs"
+Requires-Dist: cadquery-ocp-stubs<8.1,>=8.0; extra == "stubs"
 Dynamic: license-file
 
 # Gordon Surface Library for CadQuery's OCP
@@ -49,9 +48,13 @@ pip install ocp_gordon
 
 ## Dependencies
 
-- OCP (OpenCASCADE Python)
+- CadQuery OCP 8.x (`cadquery-ocp-novtk`)
 - NumPy
 - SciPy
+
+The OCP 8 bindings expose typed arrays through `OCP.collections` (for example,
+`Array1_gp_Pnt`, `Array2_gp_Pnt`, `Array1_double`, and `Array1_int`). Array
+elements are read with `.Value(...)` and written with `SetValue(...)`.
 
 ## Usage
 

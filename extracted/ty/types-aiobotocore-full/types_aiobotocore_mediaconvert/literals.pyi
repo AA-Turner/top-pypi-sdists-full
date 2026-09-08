@@ -1471,6 +1471,7 @@ S3ServerSideEncryptionTypeType = Literal["SERVER_SIDE_ENCRYPTION_KMS", "SERVER_S
 S3StorageClassType = Literal[
     "DEEP_ARCHIVE",
     "GLACIER",
+    "GLACIER_IR",
     "INTELLIGENT_TIERING",
     "ONEZONE_IA",
     "REDUCED_REDUNDANCY",
@@ -1647,8 +1648,11 @@ MediaConvertServiceName = Literal["mediaconvert"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -1953,6 +1957,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

@@ -34,6 +34,7 @@ Usage::
         ListEntitySecurityProfilesPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
+        ListExtractionDefinitionsPaginator,
         ListFlowAssociationsPaginator,
         ListHoursOfOperationOverridesPaginator,
         ListHoursOfOperationsPaginator,
@@ -43,6 +44,7 @@ Usage::
         ListIntegrationAssociationsPaginator,
         ListLambdaFunctionsPaginator,
         ListLexBotsPaginator,
+        ListMetricsPaginator,
         ListPhoneNumbersPaginator,
         ListPhoneNumbersV2Paginator,
         ListPredefinedAttributesPaginator,
@@ -79,6 +81,7 @@ Usage::
         SearchDataTablesPaginator,
         SearchHoursOfOperationOverridesPaginator,
         SearchHoursOfOperationsPaginator,
+        SearchMetricsPaginator,
         SearchPredefinedAttributesPaginator,
         SearchPromptsPaginator,
         SearchQueuesPaginator,
@@ -122,6 +125,7 @@ Usage::
         list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
         list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
         list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
+        list_extraction_definitions_paginator: ListExtractionDefinitionsPaginator = client.get_paginator("list_extraction_definitions")
         list_flow_associations_paginator: ListFlowAssociationsPaginator = client.get_paginator("list_flow_associations")
         list_hours_of_operation_overrides_paginator: ListHoursOfOperationOverridesPaginator = client.get_paginator("list_hours_of_operation_overrides")
         list_hours_of_operations_paginator: ListHoursOfOperationsPaginator = client.get_paginator("list_hours_of_operations")
@@ -131,6 +135,7 @@ Usage::
         list_integration_associations_paginator: ListIntegrationAssociationsPaginator = client.get_paginator("list_integration_associations")
         list_lambda_functions_paginator: ListLambdaFunctionsPaginator = client.get_paginator("list_lambda_functions")
         list_lex_bots_paginator: ListLexBotsPaginator = client.get_paginator("list_lex_bots")
+        list_metrics_paginator: ListMetricsPaginator = client.get_paginator("list_metrics")
         list_phone_numbers_paginator: ListPhoneNumbersPaginator = client.get_paginator("list_phone_numbers")
         list_phone_numbers_v2_paginator: ListPhoneNumbersV2Paginator = client.get_paginator("list_phone_numbers_v2")
         list_predefined_attributes_paginator: ListPredefinedAttributesPaginator = client.get_paginator("list_predefined_attributes")
@@ -167,6 +172,7 @@ Usage::
         search_data_tables_paginator: SearchDataTablesPaginator = client.get_paginator("search_data_tables")
         search_hours_of_operation_overrides_paginator: SearchHoursOfOperationOverridesPaginator = client.get_paginator("search_hours_of_operation_overrides")
         search_hours_of_operations_paginator: SearchHoursOfOperationsPaginator = client.get_paginator("search_hours_of_operations")
+        search_metrics_paginator: SearchMetricsPaginator = client.get_paginator("search_metrics")
         search_predefined_attributes_paginator: SearchPredefinedAttributesPaginator = client.get_paginator("search_predefined_attributes")
         search_prompts_paginator: SearchPromptsPaginator = client.get_paginator("search_prompts")
         search_queues_paginator: SearchQueuesPaginator = client.get_paginator("search_queues")
@@ -237,6 +243,8 @@ from .type_defs import (
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestPaginateTypeDef,
     ListEvaluationFormVersionsResponseTypeDef,
+    ListExtractionDefinitionsRequestPaginateTypeDef,
+    ListExtractionDefinitionsResponseTypeDef,
     ListFlowAssociationsRequestPaginateTypeDef,
     ListFlowAssociationsResponseTypeDef,
     ListHoursOfOperationOverridesRequestPaginateTypeDef,
@@ -255,6 +263,8 @@ from .type_defs import (
     ListLambdaFunctionsResponseTypeDef,
     ListLexBotsRequestPaginateTypeDef,
     ListLexBotsResponseTypeDef,
+    ListMetricsRequestPaginateTypeDef,
+    ListMetricsResponseTypeDef,
     ListPhoneNumbersRequestPaginateTypeDef,
     ListPhoneNumbersResponseTypeDef,
     ListPhoneNumbersV2RequestPaginateTypeDef,
@@ -327,6 +337,8 @@ from .type_defs import (
     SearchHoursOfOperationOverridesResponseTypeDef,
     SearchHoursOfOperationsRequestPaginateTypeDef,
     SearchHoursOfOperationsResponseTypeDef,
+    SearchMetricsRequestPaginateTypeDef,
+    SearchMetricsResponseTypeDef,
     SearchPredefinedAttributesRequestPaginateTypeDef,
     SearchPredefinedAttributesResponseTypeDef,
     SearchPromptsRequestPaginateTypeDef,
@@ -387,6 +399,7 @@ __all__ = (
     "ListEntitySecurityProfilesPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
+    "ListExtractionDefinitionsPaginator",
     "ListFlowAssociationsPaginator",
     "ListHoursOfOperationOverridesPaginator",
     "ListHoursOfOperationsPaginator",
@@ -396,6 +409,7 @@ __all__ = (
     "ListIntegrationAssociationsPaginator",
     "ListLambdaFunctionsPaginator",
     "ListLexBotsPaginator",
+    "ListMetricsPaginator",
     "ListPhoneNumbersPaginator",
     "ListPhoneNumbersV2Paginator",
     "ListPredefinedAttributesPaginator",
@@ -432,6 +446,7 @@ __all__ = (
     "SearchDataTablesPaginator",
     "SearchHoursOfOperationOverridesPaginator",
     "SearchHoursOfOperationsPaginator",
+    "SearchMetricsPaginator",
     "SearchPredefinedAttributesPaginator",
     "SearchPromptsPaginator",
     "SearchQueuesPaginator",
@@ -862,6 +877,24 @@ class ListEvaluationFormsPaginator(_ListEvaluationFormsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListExtractionDefinitionsPaginatorBase = AioPaginator[ListExtractionDefinitionsResponseTypeDef]
+else:
+    _ListExtractionDefinitionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListExtractionDefinitionsPaginator(_ListExtractionDefinitionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListExtractionDefinitions.html#Connect.Paginator.ListExtractionDefinitions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listextractiondefinitionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListExtractionDefinitionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListExtractionDefinitionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListExtractionDefinitions.html#Connect.Paginator.ListExtractionDefinitions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listextractiondefinitionspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListFlowAssociationsPaginatorBase = AioPaginator[ListFlowAssociationsResponseTypeDef]
 else:
     _ListFlowAssociationsPaginatorBase = AioPaginator  # type: ignore[assignment]
@@ -1027,6 +1060,24 @@ class ListLexBotsPaginator(_ListLexBotsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListLexBots.html#Connect.Paginator.ListLexBots.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listlexbotspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListMetricsPaginatorBase = AioPaginator[ListMetricsResponseTypeDef]
+else:
+    _ListMetricsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListMetricsPaginator(_ListMetricsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListMetrics.html#Connect.Paginator.ListMetrics)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listmetricspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListMetricsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListMetricsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListMetrics.html#Connect.Paginator.ListMetrics.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#listmetricspaginator)
         """
 
 if TYPE_CHECKING:
@@ -1693,6 +1744,24 @@ class SearchHoursOfOperationsPaginator(_SearchHoursOfOperationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchHoursOfOperations.html#Connect.Paginator.SearchHoursOfOperations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchhoursofoperationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchMetricsPaginatorBase = AioPaginator[SearchMetricsResponseTypeDef]
+else:
+    _SearchMetricsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class SearchMetricsPaginator(_SearchMetricsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchMetrics.html#Connect.Paginator.SearchMetrics)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchmetricspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchMetricsRequestPaginateTypeDef]
+    ) -> AioPageIterator[SearchMetricsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchMetrics.html#Connect.Paginator.SearchMetrics.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchmetricspaginator)
         """
 
 if TYPE_CHECKING:

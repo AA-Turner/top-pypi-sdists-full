@@ -25,11 +25,11 @@ from typing_extensions import Self
 
 class SnowflakeKeyPairCredentials(BaseModel):
     """
-    Snowflake key pair authentication (RECOMMENDED for production).  Key pair authentication provides secure, password-less access to Snowflake. The private key is encrypted at rest using MongoDB CSFLE.  Prerequisites:     1. Generate RSA key pair (2048-bit minimum)     2. Extract public key and assign to Snowflake user     3. Store private key securely (encrypted)  Security:     - Private key encrypted at rest via CSFLE     - No password exposure     - Key rotation supported     - Recommended for production  Example:     Generate key pair:     ```bash     openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out rsa_key.p8 -nocrypt     openssl rsa -in rsa_key.p8 -pubout -out rsa_key.pub     ```      Assign public key to Snowflake user:     ```sql     ALTER USER mixpeek_sync SET RSA_PUBLIC_KEY='MIIBIjANBg...';     ```
+    Snowflake key pair authentication (RECOMMENDED for production).  Key pair authentication provides secure, password-less access to Snowflake.  Prerequisites:     1. Generate RSA key pair (2048-bit minimum)     2. Extract public key and assign to Snowflake user     3. Store private key securely (encrypted)  Security:     - Private key is a secret credential, redacted on read     - No password exposure     - Key rotation supported     - Recommended for production  Example:     Generate key pair:     ```bash     openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out rsa_key.p8 -nocrypt     openssl rsa -in rsa_key.p8 -pubout -out rsa_key.pub     ```      Assign public key to Snowflake user:     ```sql     ALTER USER mixpeek_sync SET RSA_PUBLIC_KEY='MIIBIjANBg...';     ```
     """ # noqa: E501
     type: Optional[StrictStr] = 'key_pair'
     username: StrictStr = Field(description="Snowflake username for authentication")
-    private_key: StrictStr = Field(description="REQUIRED. PEM-encoded RSA private key for authentication. SECURITY: This field is encrypted at rest via CSFLE. Never log or expose. Format: -----BEGIN PRIVATE KEY-----...-----END PRIVATE KEY----- ")
+    private_key: StrictStr = Field(description="REQUIRED. PEM-encoded RSA private key for authentication. SECURITY: This is a secret credential, redacted on read. Never log or expose. Format: -----BEGIN PRIVATE KEY-----...-----END PRIVATE KEY----- ")
     private_key_passphrase: Optional[StrictStr] = Field(default=None, description="NOT REQUIRED. Passphrase for encrypted private key. SECURITY: Encrypted at rest if provided. Use only if private key is passphrase-protected.")
     __properties: ClassVar[List[str]] = ["type", "username", "private_key", "private_key_passphrase"]
 

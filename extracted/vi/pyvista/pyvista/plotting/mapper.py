@@ -41,16 +41,26 @@ if TYPE_CHECKING:
 
 @abstract_class
 class _BaseMapper(_NoNewAttrMixin, _BoundsSizeMixin, DisableVtkSnakeCase, _vtk.vtkAbstractMapper):
-    """Base Mapper with methods common to other mappers."""
+    """Base Mapper with methods common to other mappers.
+
+    .. note::
+        This class is a private internal implementation detail. It is documented
+        solely so that its public members, which are inherited by public classes,
+        are visible in the documentation.
+
+    Parameters
+    ----------
+    theme : pyvista.plotting.themes.Theme, optional
+        Plot-specific theme.
+
+    **kwargs : dict, optional
+        Supports ``interpolate_before_map``.
+
+    """
 
     def __init__(self, theme=None, **kwargs) -> None:
-        self._theme = pv.themes.Theme()
-        if theme is None:
-            # copy global theme to ensure local property theme is fixed
-            # after creation.
-            self._theme.load_theme(pv.global_theme)
-        else:
-            self._theme.load_theme(theme)
+        # snapshot the theme so later edits to the source theme do not reach this mapper
+        self._theme = pv.themes.Theme._from_theme(pv.global_theme if theme is None else theme)
         self.lookup_table = LookupTable()
 
         self.interpolate_before_map = kwargs.get(
@@ -281,7 +291,6 @@ class _BaseMapper(_NoNewAttrMixin, _BoundsSizeMixin, DisableVtkSnakeCase, _vtk.v
 
     @array_name.setter
     def array_name(self, name: str) -> None:
-        """Return or set the array name or number and component to color by."""
         self.SetArrayName(name)
 
     @property
@@ -376,13 +385,34 @@ class _BaseMapper(_NoNewAttrMixin, _BoundsSizeMixin, DisableVtkSnakeCase, _vtk.v
     def scalar_visibility(self, value: bool) -> None:
         self.SetScalarVisibility(value)
 
+    @property
+    def static(self) -> bool:  # numpydoc ignore=RT01
+        """Return or set whether the mapper treats its input as static.
+
+        A static mapper skips checking its input pipeline for updates when
+        rendering.
+
+        .. versionadded:: 0.49
+
+        """
+        return bool(self.GetStatic())
+
+    @static.setter
+    def static(self, value: bool) -> None:
+        self.SetStatic(value)
+
     def update(self) -> None:
         """Update this mapper."""
         self.Update()
 
 
-class _DataSetMapper(_BaseMapper):
+class _BaseDataSetMapper(_BaseMapper):
     """Base wrapper for :vtk:`vtkDataSetMapper`.
+
+    .. note::
+        This class is a private internal implementation detail. It is documented
+        solely so that its public members, which are inherited by public classes,
+        are visible in the documentation.
 
     Parameters
     ----------
@@ -399,9 +429,9 @@ class _DataSetMapper(_BaseMapper):
     still derived from the mapped array (``True``) or has been pinned by
     the caller (``False``). It starts ``True``. Setting ``scalar_range``
     directly, or calling :meth:`set_scalars` with an explicit ``clim``,
-    flips it to ``False`` via :meth:`_set_scalar_range`. While ``True``,
+    flips it to ``False`` via ``_set_scalar_range``. While ``True``,
     the range auto-refreshes from the mapped array in
-    :meth:`_maybe_set_default_scalar_range`, which is called from
+    ``_maybe_set_default_scalar_range``, which is called from
     :meth:`set_active_scalars` and the ``dataset`` setter. Once
     ``False``, auto-refresh is suppressed so user-supplied ``clim``
     values are preserved.
@@ -423,10 +453,34 @@ class _DataSetMapper(_BaseMapper):
         # -> _maybe_set_default_scalar_range) see the theme colors before
         # any set_scalars call.
         self.lookup_table.apply_cmap(self._theme.cmap, self.lookup_table.n_values)
-        self._active_scalars_algo: ActiveScalarsAlgorithm | None = None
         self._input_dataset_ref: weakref.ref[DataSet] | None = None
         if dataset is not None:
             self.dataset = dataset
+
+    @property
+    def _active_scalars_algo(self) -> ActiveScalarsAlgorithm | None:
+        """Return the spliced active-scalars algorithm, if any.
+
+        Derived from the mapper's VTK input connection rather than stored on
+        the instance: a ``__dict__`` reference would close an uncollectable
+        Python<->C++ cycle whenever the mapper's Python wrapper dies before
+        its C++ object. VTK's "ghost" mechanism then keeps the old
+        ``__dict__`` (and thus the algorithm's Python object) alive as long
+        as the mapper's C++ object lives, while the algorithm's pipeline
+        consumer references keep that C++ object alive -- and neither
+        Python's nor VTK's garbage collector can traverse the full loop.
+
+        A ``weakref`` (like ``_input_dataset_ref``) is not an option: this
+        dict entry was the *only* strong Python reference to the algorithm
+        (``vtkPythonAlgorithm`` does not keep its Python half alive), so a
+        weak one would die as soon as ``set_active_scalars`` returned even
+        though the C++ algorithm stays spliced in the pipeline. Deriving
+        from the pipeline instead re-wraps on demand; VTK's ghost dict
+        restores the wrapper's class and state on resurrection.
+        """
+        conn = cast('_vtk.vtkAlgorithmOutput | None', self.GetInputConnection(0, 0))
+        producer = conn.GetProducer() if conn is not None else None
+        return producer if isinstance(producer, ActiveScalarsAlgorithm) else None
 
     @property
     def dataset(self) -> DataSet | None:  # numpydoc ignore=RT01
@@ -452,6 +506,11 @@ class _DataSetMapper(_BaseMapper):
             set_algorithm_input(self, self._active_scalars_algo)
         else:
             set_algorithm_input(self, obj)
+        # Static mappers skip input-pipeline updates during rendering. An
+        # explicit input replacement must therefore update the newly connected
+        # pipeline once before rendering resumes.
+        if self.static:
+            self.update()
         self._maybe_set_default_scalar_range()
 
     @property
@@ -653,8 +712,9 @@ class _DataSetMapper(_BaseMapper):
 
         """
         source_dataset = self._scalar_source_dataset
-        if self._active_scalars_algo is None:
-            self._active_scalars_algo = ActiveScalarsAlgorithm(name=name, preference=preference)
+        algo = self._active_scalars_algo
+        if algo is None:
+            algo = ActiveScalarsAlgorithm(name=name, preference=preference)
             # Splice the algo between the mapper and its current input.
             # Prefer the existing pipeline connection so upstream
             # modifications propagate on re-render. If no connection exists
@@ -662,13 +722,15 @@ class _DataSetMapper(_BaseMapper):
             # cached dataset input instead of wiring a null VTK connection.
             input_conn = cast('_vtk.vtkAlgorithmOutput | None', self.GetInputConnection(0, 0))
             if input_conn is not None:
-                self._active_scalars_algo.SetInputConnection(0, input_conn)
+                algo.SetInputConnection(0, input_conn)
             elif self._input_dataset is not None:
-                set_algorithm_input(self._active_scalars_algo, self._input_dataset)
-            self.SetInputConnection(0, self._active_scalars_algo.GetOutputPort())
+                set_algorithm_input(algo, self._input_dataset)
+            # The pipeline connection is the only reference kept: see
+            # _active_scalars_algo for why it must not land in __dict__.
+            self.SetInputConnection(0, algo.GetOutputPort())
         else:
-            self._active_scalars_algo.scalars_name = name
-            self._active_scalars_algo.preference = preference
+            algo.scalars_name = name
+            algo.preference = preference
         # Also point the mapper at the array directly. SetInputConnection
         # above clears the VTK-level array name, so this must come last.
         self.SetArrayName(name)
@@ -687,10 +749,9 @@ class _DataSetMapper(_BaseMapper):
         set_active_scalars
 
         """
-        if self._active_scalars_algo is None:
-            return
         algo = self._active_scalars_algo
-        self._active_scalars_algo = None
+        if algo is None:
+            return
         if self._input_dataset is not None:
             set_algorithm_input(self, self._input_dataset)
         else:
@@ -711,7 +772,7 @@ class _DataSetMapper(_BaseMapper):
             pipeline.
 
         """
-        new_mapper = cast('_DataSetMapper', super().copy())
+        new_mapper = cast('_BaseDataSetMapper', super().copy())
         new_mapper._input_dataset = self._input_dataset
         new_mapper._use_default_scalar_range = self._use_default_scalar_range
         if self._active_scalars_algo is not None:
@@ -870,7 +931,7 @@ class _DataSetMapper(_BaseMapper):
             (``clim``). This will automatically set the scalar bar
             ``below_label`` to ``'below'``.
 
-        cmap : str, list, or pyvista.LookupTable
+        cmap : str | list | pyvista.LookupTable
             Name of the Matplotlib colormap to use when mapping the
             ``scalars``.  See available Matplotlib colormaps.  Only applicable
             for when displaying ``scalars``.
@@ -887,14 +948,14 @@ class _DataSetMapper(_BaseMapper):
             will be ignored.
 
         flip_scalars : bool, default: False
-            Flip direction of cmap. Most colormaps allow ``*_r`` suffix to do
+            Flip direction of ``cmap``. Most colormaps allow ``*_r`` suffix to do
             this as well.
 
         opacity : str or numpy.ndarray, optional
             Opacity mapping for the scalars array.
             A string can also be specified to map the scalars range to a
-            predefined opacity transfer function (options include: 'linear',
-            'linear_r', 'geom', 'geom_r'). Or you can pass a custom made
+            predefined opacity transfer function (options include: ``'linear'``,
+            ``'linear_r'``, ``'geom'``, ``'geom_r'``). Or you can pass a custom made
             transfer function that is an array either ``n_colors`` in length or
             shorter.
 
@@ -1042,22 +1103,22 @@ class _DataSetMapper(_BaseMapper):
         """Set or return the global flag to avoid z-buffer resolution.
 
         A global flag that controls whether the coincident topology
-        (e.g., a line on top of a polygon) is shifted to avoid
+        (for example, a line on top of a polygon) is shifted to avoid
         z-buffer resolution (and hence rendering problems).
 
         If not off, there are two methods to choose from.
-        `polygon_offset` uses graphics systems calls to shift polygons,
+        ``polygon_offset`` uses graphics systems calls to shift polygons,
         lines, and points from each other.
-        `shift_zbuffer` is a legacy method that is used to remap the z-buffer
+        ``shift_zbuffer`` is a legacy method that is used to remap the z-buffer
         to distinguish vertices, lines, and polygons,
         but does not always produce acceptable results.
-        You should only use the polygon_offset method (or none) at this point.
+        You should only use the ``polygon_offset`` method (or none) at this point.
 
         Returns
         -------
         str
             Global flag to avoid z-buffer resolution.
-            Must be either `off`, `polygon_offset` or `shift_zbuffer`.
+            Must be either ``off``, ``polygon_offset`` or ``shift_zbuffer``.
 
         Examples
         --------
@@ -1127,9 +1188,11 @@ class _DataSetMapper(_BaseMapper):
             rgba = np.empty((self.dataset.n_cells, 4), np.uint8)  # type: ignore[union-attr]
         else:  # pragma: no cover
             msg = (
-                f'Opacity array size ({opacity.size}) does not equal '
-                f'the number of points ({self.dataset.n_points}) or the '  # type: ignore[union-attr]
-                f'number of cells ({self.dataset.n_cells}).',  # type: ignore[union-attr]
+                (
+                    f'Opacity array size ({opacity.size}) does not equal '
+                    f'the number of points ({self.dataset.n_points}) or the '  # type: ignore[union-attr]
+                    f'number of cells ({self.dataset.n_cells}).'  # type: ignore[union-attr]
+                ),
             )
             raise ValueError(msg)
 
@@ -1162,7 +1225,7 @@ class _DataSetMapper(_BaseMapper):
         return '\n'.join(mapper_attr)
 
 
-class DataSetMapper(_DataSetMapper, _vtk.vtkDataSetMapper):
+class DataSetMapper(_BaseDataSetMapper, _vtk.vtkDataSetMapper):
     """Wrap :vtk:`vtkDataSetMapper`.
 
     Parameters
@@ -1195,7 +1258,7 @@ class DataSetMapper(_DataSetMapper, _vtk.vtkDataSetMapper):
         super().__init__(dataset=dataset, theme=theme)
 
 
-class PointGaussianMapper(_DataSetMapper, _vtk.vtkPointGaussianMapper):
+class PointGaussianMapper(_BaseDataSetMapper, _vtk.vtkPointGaussianMapper):
     """Wrap :vtk:`vtkPointGaussianMapper`.
 
     Parameters
@@ -1248,7 +1311,7 @@ class PointGaussianMapper(_DataSetMapper, _vtk.vtkPointGaussianMapper):
     def scale_array(self) -> str:  # numpydoc ignore=RT01
         """Set or return the name of the array used to scale the splats.
 
-        Scalars used to scale the gaussian points. Accepts a string
+        Scalars used to scale the Gaussian points. Accepts a string
         name of an array that is present on the mesh.
 
         Notes
@@ -1353,7 +1416,19 @@ class PointGaussianMapper(_DataSetMapper, _vtk.vtkPointGaussianMapper):
 
 @abstract_class
 class _BaseVolumeMapper(_BaseMapper):
-    """Volume mapper class to override methods and attributes for to volume mappers."""
+    """Volume mapper class to override methods and attributes for to volume mappers.
+
+    .. note::
+        This class is a private internal implementation detail. It is documented
+        solely so that its public members, which are inherited by public classes,
+        are visible in the documentation.
+
+    Parameters
+    ----------
+    theme : pyvista.plotting.themes.Theme, optional
+        Plot-specific theme.
+
+    """
 
     def __init__(self, theme=None) -> None:
         """Initialize this class."""
@@ -1367,7 +1442,7 @@ class _BaseVolumeMapper(_BaseMapper):
         return None
 
     @interpolate_before_map.setter
-    def interpolate_before_map(self, *args) -> None:
+    def interpolate_before_map(self, value) -> None:
         pass
 
     @property
@@ -1384,6 +1459,7 @@ class _BaseVolumeMapper(_BaseMapper):
 
     @property
     def lookup_table(self):  # numpydoc ignore=RT01
+        """Return or set the lookup table used to map scalars to colors."""
         return self._lut
 
     @lookup_table.setter
@@ -1464,7 +1540,14 @@ class _BaseVolumeMapper(_BaseMapper):
 
 
 class FixedPointVolumeRayCastMapper(_BaseVolumeMapper, _vtk.vtkFixedPointVolumeRayCastMapper):
-    """Wrap :vtk:`vtkFixedPointVolumeRayCastMapper`."""
+    """Wrap :vtk:`vtkFixedPointVolumeRayCastMapper`.
+
+    Parameters
+    ----------
+    theme : pyvista.plotting.themes.Theme, optional
+        Plot-specific theme.
+
+    """
 
     def __init__(self, theme=None) -> None:
         """Initialize this class."""
@@ -1473,7 +1556,14 @@ class FixedPointVolumeRayCastMapper(_BaseVolumeMapper, _vtk.vtkFixedPointVolumeR
 
 
 class GPUVolumeRayCastMapper(_BaseVolumeMapper, _vtk.vtkGPUVolumeRayCastMapper):
-    """Wrap :vtk:`vtkGPUVolumeRayCastMapper`."""
+    """Wrap :vtk:`vtkGPUVolumeRayCastMapper`.
+
+    Parameters
+    ----------
+    theme : pyvista.plotting.themes.Theme, optional
+        Plot-specific theme.
+
+    """
 
     def __init__(self, theme=None) -> None:
         """Initialize this class."""
@@ -1482,7 +1572,14 @@ class GPUVolumeRayCastMapper(_BaseVolumeMapper, _vtk.vtkGPUVolumeRayCastMapper):
 
 
 class OpenGLGPUVolumeRayCastMapper(_BaseVolumeMapper, _vtk.vtkOpenGLGPUVolumeRayCastMapper):
-    """Wrap :vtk:`vtkOpenGLGPUVolumeRayCastMapper`."""
+    """Wrap :vtk:`vtkOpenGLGPUVolumeRayCastMapper`.
+
+    Parameters
+    ----------
+    theme : pyvista.plotting.themes.Theme, optional
+        Plot-specific theme.
+
+    """
 
     def __init__(self, theme=None) -> None:
         """Initialize this class."""
@@ -1491,7 +1588,14 @@ class OpenGLGPUVolumeRayCastMapper(_BaseVolumeMapper, _vtk.vtkOpenGLGPUVolumeRay
 
 
 class SmartVolumeMapper(_BaseVolumeMapper, _vtk.vtkSmartVolumeMapper):
-    """Wrap :vtk:`vtkSmartVolumeMapper`."""
+    """Wrap :vtk:`vtkSmartVolumeMapper`.
+
+    Parameters
+    ----------
+    theme : pyvista.plotting.themes.Theme, optional
+        Plot-specific theme.
+
+    """
 
     def __init__(self, theme=None) -> None:
         """Initialize this class."""
@@ -1503,7 +1607,14 @@ class SmartVolumeMapper(_BaseVolumeMapper, _vtk.vtkSmartVolumeMapper):
 class UnstructuredGridVolumeRayCastMapper(
     _BaseVolumeMapper, _vtk.vtkUnstructuredGridVolumeRayCastMapper
 ):
-    """Wrap :vtk:`vtkUnstructuredGridVolumeMapper`."""
+    """Wrap :vtk:`vtkUnstructuredGridVolumeMapper`.
+
+    Parameters
+    ----------
+    theme : pyvista.plotting.themes.Theme, optional
+        Plot-specific theme.
+
+    """
 
     def __init__(self, theme=None) -> None:
         """Initialize this class."""
@@ -1514,8 +1625,8 @@ class UnstructuredGridVolumeRayCastMapper(
 def _mapper_has_data_set_input(mapper):
     """Check if mapper has a data set input using the appropriate method.
 
-    Some mappers use 'GetDataSetInput', others use 'GetInputAsDataSet'. This has
-    been standardized to 'GetDataSetInput' in VTK >= 9.5.
+    Some mappers use ``GetDataSetInput``, others use ``GetInputAsDataSet``. This has
+    been standardized to ``GetDataSetInput`` in VTK >= 9.5.
     """
     return hasattr(mapper, 'GetDataSetInput') or hasattr(mapper, 'GetInputAsDataSet')
 
@@ -1523,8 +1634,8 @@ def _mapper_has_data_set_input(mapper):
 def _mapper_get_data_set_input(mapper) -> _vtk.vtkDataSet:
     """Get data set input from mapper using the appropriate method.
 
-    Some mappers use 'GetDataSetInput', others use 'GetInputAsDataSet'. This has
-    been standardized to 'GetDataSetInput' in VTK >= 9.5.
+    Some mappers use ``GetDataSetInput``, others use ``GetInputAsDataSet``. This has
+    been standardized to ``GetDataSetInput`` in VTK >= 9.5.
     """
     return (
         mapper.GetDataSetInput()

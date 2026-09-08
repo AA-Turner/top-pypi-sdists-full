@@ -11,22 +11,10 @@
 //!
 //! # Examples
 //!
-//! ```ignore
-//! use vibeio::io::{AsyncRead, AsyncWrite};
-//!
-//! async fn echo<R: AsyncRead, W: AsyncWrite>(reader: &mut R, writer: &mut W) {
-//!     let mut buf = vec![0u8; 1024];
-//!     loop {
-//!         let (read, buf) = reader.read(buf).await;
-//!         let read = read?;
-//!         if read == 0 {
-//!             break;
-//!         }
-//!         let (written, buf) = writer.write(buf).await;
-//!         written?;
-//!     }
-//! }
-//! ```
+//! See the executable examples in `tools/vibeio-check/EXAMPLES.md` for buffer
+//! ownership, pipes, and copying through EOF. Prefer [`copy`] for a transfer loop:
+//! it writes only bytes actually read and handles partial writes before reusing
+//! the buffer.
 //!
 //! # Implementation notes
 //! - The `AsyncRead` and `AsyncWrite` traits are similar to tokio's but return
@@ -51,11 +39,19 @@ use crate::vibeio::fd_inner::InnerRawHandle;
 
 pub use self::buf::*;
 #[cfg(all(unix, feature = "pipe"))]
+// Public runtime API; not every embedding uses this re-export.
+#[allow(unused_imports)]
 pub use self::pipe::*;
 #[cfg(all(target_os = "linux", feature = "splice"))]
+// Public runtime API; not every embedding uses this re-export.
+#[allow(unused_imports)]
 pub use self::splice::*;
 #[cfg(feature = "stdio")]
+// Public runtime API; not every embedding uses this re-export.
+#[allow(unused_imports)]
 pub use self::stdio::*;
+// Public runtime API; not every embedding uses this re-export.
+#[allow(unused_imports)]
 pub use self::util::*;
 
 use std::io::{self, ErrorKind};
@@ -66,6 +62,11 @@ use std::io::{self, ErrorKind};
 /// `(Result<usize, Error>, Buffer)` to support buffer reuse.
 pub trait AsyncRead {
     /// Read data into the buffer, returning the number of bytes read and the buffer.
+    ///
+    /// Reads may use the full writable capacity, including spare capacity in an
+    /// empty vector. On success, the first returned-count bytes must be initialized.
+    /// The buffer may contain additional initialized bytes; those are not part
+    /// of this read. A zero count indicates EOF unless capacity was zero.
     async fn read<B: IoBufMut>(&mut self, buf: B) -> (Result<usize, io::Error>, B);
 
     /// Read data into vectored buffers.
@@ -90,6 +91,7 @@ pub trait AsyncRead {
 /// `(Result<usize, Error>, Buffer)` to support buffer reuse.
 pub trait AsyncWrite {
     /// Write data from the buffer, returning the number of bytes written and the buffer.
+    /// The returned count must not exceed the supplied initialized length.
     async fn write<B: IoBuf>(&mut self, buf: B) -> (Result<usize, io::Error>, B);
 
     /// Write data from vectored buffers.
@@ -114,7 +116,6 @@ pub trait AsyncWrite {
 /// Trait to get an inner raw handle reference.
 pub trait AsInnerRawHandle<'a> {
     /// Returns a reference to the inner raw handle.
-    #[allow(private_interfaces)]
     fn as_inner_raw_handle(&'a self) -> &'a crate::vibeio::fd_inner::InnerRawHandle;
 }
 

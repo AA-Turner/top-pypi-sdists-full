@@ -281,6 +281,7 @@ class Screen(BaseScreen, RealTerminal):
         self._pal_escape: dict[str | None, str] = {}
         self._pal_attrspec: dict[str | None, AttrSpec] = {}
         self._alternate_buffer: bool = False
+        self._modified_palette_entries: set[int] = set()
         signals.connect_signal(self, UPDATE_PALETTE_ENTRY, self._on_update_palette_entry)
         self.term = os.environ.get("TERM", "")
         properties = detect_terminal_properties(self.term, os.environ)
@@ -321,7 +322,7 @@ class Screen(BaseScreen, RealTerminal):
 
     def _sigwinch_handler(self, signum: int = 28, frame: FrameType | None = None) -> None:
         """
-        frame -- will always be None when the GLib event loop is being used.
+        :param frame: will always be None when the GLib event loop is being used.
         """
         logger = self.logger.getChild("signal_handlers")
 
@@ -365,15 +366,12 @@ class Screen(BaseScreen, RealTerminal):
         Set the get_input timeout values.  All values are in floating
         point numbers of seconds.
 
-        max_wait -- amount of time in seconds to wait for input when
-            there is no input pending, wait forever if None
-        complete_wait -- amount of time in seconds to wait when
-            get_input detects an incomplete escape sequence at the
-            end of the available input
-        resize_wait -- amount of time in seconds to wait for more input
-            after receiving two screen resize requests in a row to
-            stop Urwid from consuming 100% cpu during a gradual
-            window resize operation
+        :param max_wait: amount of time in seconds to wait for input when there is no input pending, wait forever if
+            None
+        :param complete_wait: amount of time in seconds to wait when get_input detects an incomplete escape sequence at
+            the end of the available input
+        :param resize_wait: amount of time in seconds to wait for more input after receiving two screen resize requests
+            in a row to stop Urwid from consuming 100% cpu during a gradual window resize operation
         """
         self.max_wait = max_wait
         if max_wait is not None:
@@ -414,7 +412,7 @@ class Screen(BaseScreen, RealTerminal):
         """
         Initialize the screen and input mode.
 
-        alternate_buffer -- use alternate screen buffer
+        :param alternate_buffer: use alternate screen buffer
         """
 
     def _stop_mouse_restore_buffer(self) -> None:
@@ -428,6 +426,21 @@ class Screen(BaseScreen, RealTerminal):
             move_cursor = escape.set_cursor_position(0, self.maxrow)
         self.write(self._attrspec_to_escape(AttrSpec("", "")) + escape.SI + move_cursor + escape.SHOW_CURSOR)
         self.flush()
+
+    def _stop_restore_palette(self) -> None:
+        """Reset (OSC 104) any palette entries modify_terminal_palette() changed this session."""
+        if not self._modified_palette_entries:
+            return
+        if self.term == "fbterm":
+            # fbterm's palette-modification escape (used in modify_terminal_palette) has no
+            # known reset counterpart, so there is nothing safe to send here.
+            self._modified_palette_entries.clear()
+            return
+
+        indexes = ";".join(str(index) for index in sorted(self._modified_palette_entries))
+        self.write(f"\x1b]104;{indexes}\x1b\\")
+        self.flush()
+        self._modified_palette_entries.clear()
 
     @abc.abstractmethod
     def _stop(self) -> None:
@@ -460,7 +473,8 @@ class Screen(BaseScreen, RealTerminal):
     def get_input(self, raw_keys: bool = False) -> _DecodedInput | tuple[_DecodedInput, list[int]]:
         """Return pending input as a list.
 
-        raw_keys -- return raw keycodes as well as translated versions
+        :param raw_keys: return raw keycodes as well as translated versions
+        :raises RuntimeError: the screen has not been started.
 
         This function will immediately return all the input since the
         last time it was called.  If there is no input pending it will
@@ -473,11 +487,11 @@ class Screen(BaseScreen, RealTerminal):
 
         Examples of keys returned:
 
-        * ASCII printable characters:  " ", "a", "0", "A", "-", "/"
-        * ASCII control characters:  "tab", "enter"
-        * Escape sequences:  "up", "page up", "home", "insert", "f1"
-        * Key combinations:  "shift f1", "meta a", "ctrl b"
-        * Window events:  "window resize"
+        * ASCII printable characters:  :kbd:`space`, :kbd:`a`, :kbd:`0`, :kbd:`A`, :kbd:`-`, :kbd:`/`
+        * ASCII control characters:  :kbd:`tab`, :kbd:`enter`
+        * Escape sequences:  :kbd:`up`, :kbd:`page up`, :kbd:`home`, :kbd:`insert`, :kbd:`f1`
+        * Key combinations:  :kbd:`shift f1`, :kbd:`meta a`, :kbd:`ctrl b`
+        * Window events:  ``"window resize"``
 
         When a narrow encoding is not enabled:
 
@@ -747,7 +761,11 @@ class Screen(BaseScreen, RealTerminal):
         self._setup_G1_done = True
 
     def draw_screen(self, size: tuple[int, int], canvas: Canvas) -> None:
-        """Paint screen with rendered canvas."""
+        """Paint screen with rendered canvas.
+
+        :raises RuntimeError: the screen has not been started.
+        :raises ValueError: *canvas* does not have the number of rows given by *size*.
+        """
 
         def set_cursor_home() -> str:
             if not partial_display():
@@ -780,6 +798,11 @@ class Screen(BaseScreen, RealTerminal):
             run: bytes,
             last: bool,
         ) -> None:
+            """Append the escape sequences and text of one canvas run to the output.
+
+            :raises TypeError: *run* is not a byte string.
+            :raises ValueError: *charset* is not a known character set flag.
+            """
             nonlocal last_charset_flag, last_attributes, first  # type: ignore[misc]
 
             if not isinstance(run, bytes):  # canvases render with bytes
@@ -1079,15 +1102,11 @@ class Screen(BaseScreen, RealTerminal):
         has_underline: bool | None = None,
     ) -> None:
         """
-        colors -- number of colors terminal supports (1, 16, 88, 256, or 2**24)
-            or None to leave unchanged
-        bright_is_bold -- set to True if this terminal uses the bold
-            setting to create bright colors (numbers 8-15), set to False
-            if this Terminal can create bright colors without bold or
-            None to leave unchanged
-        has_underline -- set to True if this terminal can use the
-            underline setting, False if it cannot or None to leave
-            unchanged
+        :param colors: number of colors terminal supports (1, 16, 88, 256, or 2**24) or None to leave unchanged
+        :param bright_is_bold: set to True if this terminal uses the bold setting to create bright colors (numbers
+            8-15), set to False if this Terminal can create bright colors without bold or None to leave unchanged
+        :param has_underline: set to True if this terminal can use the underline setting, False if it cannot or None to
+            leave unchanged
         """
         if colors is None:
             colors = self.colors
@@ -1148,6 +1167,7 @@ class Screen(BaseScreen, RealTerminal):
             modify = [f"{index:d};rgb:{red:02x}/{green:02x}/{blue:02x}" for index, red, green, blue in entries]
             self.write(f"\x1b]4;{';'.join(modify)}\x1b\\")
         self.flush()
+        self._modified_palette_entries.update(index for index, _red, _green, _blue in entries)
 
     # shortcut for creating an AttrSpec with this screen object's
     # number of colors

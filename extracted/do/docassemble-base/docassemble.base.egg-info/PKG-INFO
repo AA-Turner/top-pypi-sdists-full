@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docassemble.base
-Version: 1.10.7
+Version: 1.10.8
 Summary: The base components of the docassemble system.
 Author-email: Jonathan Pyle <jhpyle@gmail.com>
 License-Expression: MIT

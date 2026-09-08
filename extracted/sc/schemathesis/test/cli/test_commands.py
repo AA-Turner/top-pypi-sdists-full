@@ -8,6 +8,7 @@ import threading
 import time
 from http.client import RemoteDisconnected
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from itertools import count
 from urllib.parse import urljoin
 
 import hypothesis
@@ -21,8 +22,12 @@ from flask import Flask, Response, jsonify, redirect, request, url_for
 from urllib3.exceptions import ProtocolError
 
 import schemathesis
+from schemathesis.cli.commands.run.context import ExecutionContext
+from schemathesis.config import SchemathesisConfig
 from schemathesis.config._output import MAX_PAYLOAD_SIZE
 from schemathesis.core.shell import ShellType
+from schemathesis.engine import Status, events
+from schemathesis.engine.run import Phase, PhaseName
 from schemathesis.schemas import APIOperation
 from schemathesis.specs.openapi import unregister_string_format
 from test.apps.catalog.graphql import bookstore as graphql_bookstore
@@ -1201,6 +1206,22 @@ def test_filter_by(ctx, cli, snapshot_cli, value):
     assert cli.run(api.schema_url, "--mode=positive", "--max-examples=1", value) == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_schema_serving_endpoint_is_not_tested(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/openapi.json": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/users": {"get": {"responses": {"200": {"description": "OK"}}}},
+        }
+    )
+
+    @app.route("/users")
+    def users():
+        return jsonify([])
+
+    assert cli.run_openapi_app(app, "--max-examples=5") == snapshot_cli
+
+
 def test_colon_in_headers(ctx, cli):
     api = ctx.openapi.apps.success()
     header = "X-FOO"
@@ -1302,6 +1323,114 @@ def test_exit_first(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success_and_failure()
     assert (
         cli.run(api.schema_url, "--max-failures=1", "--phases=fuzzing", "--checks=not_a_server_error") == snapshot_cli
+    )
+
+
+LINKED_USERS_PATHS = {
+    "/users": {
+        "post": {
+            "responses": {
+                "201": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}
+                    },
+                    "links": {"GetUser": {"operationId": "getUser", "parameters": {"userId": "$response.body#/id"}}},
+                }
+            }
+        }
+    },
+    "/users/{userId}": {
+        "get": {
+            "operationId": "getUser",
+            "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+            "responses": {"200": {"description": "OK"}},
+        }
+    },
+}
+
+
+@pytest.mark.snapshot(replace_cycle_metrics=True, replace_reproduce_with=True)
+def test_max_time_reports_the_first_cycle_in_full(ctx, cli, snapshot_cli):
+    # Each phase still reports everything it covered on its first pass, budget or no budget.
+    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
+    counter = count()
+
+    @app.route("/users", methods=["POST"])
+    def create_user():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/users/<int:user_id>")
+    def get_user(user_id):
+        # Fuzzing is bounded by `--max-examples`, so only the linked calls can reach the bug.
+        return ("", 500) if next(counter) >= 5 else jsonify({"id": user_id})
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--max-time=30",
+            "--max-failures=1",
+            "--max-examples=5",
+            "--generation-database=none",
+            "--phases=fuzzing,stateful",
+            "--checks=not_a_server_error",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_max_time_counts_every_operation_once(ctx, cli, snapshot_cli):
+    # A phase repeats until the budget is gone; its block still counts operations, not passes over them.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/users": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/boom": {"get": {"responses": {"200": {"description": "OK"}}}},
+        }
+    )
+
+    @app.route("/users")
+    def users():
+        return jsonify([])
+
+    @app.route("/boom")
+    def boom():
+        return "", 500
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--max-time=2",
+            "--max-examples=5",
+            "--generation-database=none",
+            "--phases=fuzzing",
+            "--checks=not_a_server_error",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_cycle_metrics=True, replace_reproduce_with=True)
+def test_max_time_reports_a_failure_found_in_a_repeat(ctx, cli, snapshot_cli):
+    # The collapsed line stands for every repeat, so a failure inside one has to show on it.
+    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    counter = count()
+
+    @app.route("/users")
+    def users():
+        # The first cycle is bounded by `--max-examples`, so only a repeat can reach the bug.
+        return ("", 500) if next(counter) >= 5 else jsonify([])
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "--max-time=30",
+            "--max-failures=1",
+            "--max-examples=5",
+            "--generation-database=none",
+            "--phases=fuzzing",
+        )
+        == snapshot_cli
     )
 
 
@@ -1773,6 +1902,86 @@ def test_unresolvable_reference(ctx, cli, open_api_3_schema_with_recoverable_err
     schema_path = ctx.makefile(open_api_3_schema_with_recoverable_errors)
     # Then we should show an error message derived from JSON Schema
     assert cli.run(str(schema_path), f"--url={api.base_url}/api") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_optional_parameter_with_unresolvable_reference(ctx, cli, snapshot_cli):
+    # The operation stays testable; the dropped parameter is reported instead
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/things": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "filter",
+                            "required": False,
+                            "schema": {"$ref": "#/components/schemas/Missing"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/things")
+    def things():
+        return jsonify([])
+
+    assert cli.run_openapi_app(app, "--max-examples=1") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_unresolvable_reference_in_response_schema(ctx, cli, snapshot_cli):
+    # Only the unresolvable response goes unvalidated; the operation keeps running every other check
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/things": {
+                "get": {
+                    "responses": {
+                        "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}},
+                        "404": {
+                            "description": "Not Found",
+                            "content": {"*/*": {"schema": {"$ref": "#/components/schemas/ExceptionResponse"}}},
+                        },
+                    }
+                }
+            }
+        }
+    )
+
+    @app.route("/things")
+    def things():
+        return jsonify({"detail": "nope"}), 404
+
+    assert cli.run_openapi_app(app, "--max-examples=1") == snapshot_cli
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_required_body_with_unresolvable_reference(ctx, cli, snapshot_cli):
+    # With no body schema, omitting the body is the only request the operation can be judged on.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/things": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Missing"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/things", methods=["POST"])
+    def things():
+        if not request.get_data():
+            return jsonify({"error": "body required"}), 400
+        return jsonify([])
+
+    assert cli.run_openapi_app(app, "--max-examples=1") == snapshot_cli
 
 
 @pytest.mark.parametrize("value", ["true", "false"])
@@ -2821,3 +3030,14 @@ def test_skip_reasons_not_borrowed_from_tested_operations(ctx, cli, snapshot_cli
         )
         == snapshot_cli
     )
+
+
+def test_repeated_phase_keeps_its_executed_status():
+    # Under `--max-time` a phase runs once per cycle; a later cycle with no budget left must not
+    # rewrite the summary to say the phase never ran.
+    ctx = ExecutionContext(config=SchemathesisConfig().projects.get_default())
+    phase = Phase(name=PhaseName.STATEFUL_TESTING, is_enabled=True, skip_reason=None)
+    for status in (Status.SUCCESS, Status.SKIP):
+        ctx.on_event(events.PhaseFinished(phase=phase, status=status, payload=None))
+
+    assert ctx.phases[PhaseName.STATEFUL_TESTING][0] == Status.SUCCESS

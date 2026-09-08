@@ -120,6 +120,7 @@ from .detection import (
     is_contour,
     is_copilot_cli,
     is_crush,
+    is_crux,
     is_csh,
     is_cursor,
     is_cygwin,
@@ -172,6 +173,7 @@ from .detection import (
     is_nixos,
     is_nobara,
     is_nushell,
+    is_nutyx,
     is_openbsd,
     is_opensuse,
     is_openwrt,
@@ -198,6 +200,7 @@ from .detection import (
     is_sles,
     is_slitaz,
     is_solaris,
+    is_solus,
     is_sourcemage,
     is_sparc,
     is_sparc64,
@@ -308,6 +311,7 @@ from .platform_data import (
     CHROMEOS,
     CLEARLINUX,
     CLOUDLINUX,
+    CRUX,
     CYGWIN,
     DEBIAN,
     DRAGONFLY_BSD,
@@ -333,6 +337,7 @@ from .platform_data import (
     NETBSD,
     NIXOS,
     NOBARA,
+    NUTYX,
     OPENBSD,
     OPENSUSE,
     OPENWRT,
@@ -349,6 +354,7 @@ from .platform_data import (
     SLES,
     SLITAZ,
     SOLARIS,
+    SOLUS,
     SOURCEMAGE,
     SUNOS,
     TUXEDO,
@@ -424,7 +430,7 @@ Pytest optional.
 """
 
 
-__version__ = "13.7.1"
+__version__ = "13.9.0"
 
 
 def _initialize_group_detection_functions() -> None:
@@ -616,6 +622,7 @@ __all__ = (
     "CONTOUR",
     "COPILOT_CLI",
     "CRUSH",
+    "CRUX",
     "CSH",
     "CURSOR",
     "CYGWIN",
@@ -679,6 +686,7 @@ __all__ = (
     "NOBARA",
     "NON_CANONICAL_GROUPS",
     "NUSHELL",
+    "NUTYX",
     "OPENBSD",
     "OPENSUSE",
     "OPENWRT",
@@ -709,6 +717,7 @@ __all__ = (
     "SLES",
     "SLITAZ",
     "SOLARIS",
+    "SOLUS",
     "SOURCEMAGE",
     "SPARC",
     "SPARC64",
@@ -824,6 +833,7 @@ __all__ = (
     "is_contour",
     "is_copilot_cli",
     "is_crush",
+    "is_crux",
     "is_csh",
     "is_cursor",
     "is_cygwin",
@@ -885,6 +895,7 @@ __all__ = (
     "is_nixos",
     "is_nobara",
     "is_nushell",
+    "is_nutyx",
     "is_openbsd",
     "is_opensuse",
     "is_openwrt",
@@ -915,6 +926,7 @@ __all__ = (
     "is_sles",
     "is_slitaz",
     "is_solaris",
+    "is_solus",
     "is_sourcemage",
     "is_sparc",
     "is_sparc64",

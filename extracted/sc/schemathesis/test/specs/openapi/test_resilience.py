@@ -1,8 +1,12 @@
 import pytest
+from flask import jsonify
+from hypothesis import given, settings
 
 import schemathesis
 from schemathesis.core.errors import InvalidSchema
-from schemathesis.core.result import Err
+from schemathesis.core.parameters import SkippedParameter
+from schemathesis.core.result import Err, Ok
+from schemathesis.specs.openapi.adapter.responses import ResolvedSchema
 
 
 def _schema(servers):
@@ -28,6 +32,9 @@ def _schema(servers):
         "not-a-list",
         {"url": "http://x"},
         [{"url": "http://x/{undefined}"}],
+        [{"url": "http://x/}"}],
+        [{"url": "http://x/{"}],
+        [{"url": "http://x/{var!}", "variables": {"var": {"default": "v"}}}],
     ],
     ids=[
         "missing_url",
@@ -41,6 +48,9 @@ def _schema(servers):
         "servers_string",
         "servers_dict",
         "url_undefined_variable",
+        "url_stray_closing_brace",
+        "url_unclosed_brace",
+        "url_bad_conversion",
     ],
 )
 def test_invalid_servers_v3(servers):
@@ -123,3 +133,246 @@ def test_invalid_parameters_v3(parameters):
     for result in results:
         assert isinstance(result, Err)
         assert isinstance(result.err(), InvalidSchema)
+
+
+def _first_operation(schema):
+    return next(iter(schema.get_all_operations()))
+
+
+@pytest.mark.parametrize("required", [False, True], ids=["optional", "required"])
+def test_body_parameter_with_unresolvable_ref_v2(ctx, required):
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "body",
+                            "name": "payload",
+                            "required": required,
+                            "schema": {"$ref": "#/definitions/Missing"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+    result = _first_operation(schema)
+    assert isinstance(result, Ok)
+    assert list(result.ok().body) == []
+    assert result.ok().skipped_parameters == [
+        SkippedParameter(location="body", name="payload", reference="#/definitions/Missing", required=required)
+    ]
+
+
+@pytest.mark.parametrize("reference", ["missing.json", "missing\x00.json"], ids=["missing_file", "null_byte"])
+def test_parameter_ref_that_names_no_file_v3(ctx, reference):
+    # A reference is arbitrary text, and text with a null byte in it reaches the filesystem as a path.
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "get": {
+                    "parameters": [{"in": "query", "name": "q", "required": True, "schema": {"$ref": reference}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    result = _first_operation(schema)
+    assert isinstance(result, Err)
+    assert "Unresolvable reference" in str(result.err())
+
+
+@pytest.mark.parametrize("required", [False, True], ids=["optional", "required"])
+def test_query_parameter_with_unresolvable_ref_v3(ctx, required):
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "filter",
+                            "required": required,
+                            "schema": {"$ref": "#/components/schemas/Missing"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    result = _first_operation(schema)
+    if required:
+        assert isinstance(result, Err)
+        assert isinstance(result.err(), InvalidSchema)
+    else:
+        assert isinstance(result, Ok)
+        assert list(result.ok().query) == []
+
+
+@pytest.mark.parametrize("required", [False, True], ids=["optional", "required"])
+def test_request_body_with_unresolvable_ref_v3(ctx, required):
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "post": {
+                    "requestBody": {
+                        "required": required,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Missing"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    result = _first_operation(schema)
+    assert isinstance(result, Ok)
+    assert list(result.ok().body) == []
+    assert result.ok().skipped_parameters == [
+        SkippedParameter(location="body", name=None, reference="#/components/schemas/Missing", required=required)
+    ]
+
+
+# The dangling `$ref` sits three levels down in an otherwise usable object; bundling is all-or-nothing.
+def test_nested_unresolvable_ref_in_optional_parameter_v3(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "filter",
+                            "required": False,
+                            "schema": {
+                                "type": "object",
+                                "properties": {"nested": {"items": {"$ref": "#/components/schemas/Missing"}}},
+                            },
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    result = _first_operation(schema)
+    assert isinstance(result, Ok)
+    assert list(result.ok().query) == []
+
+
+def test_request_is_sent_when_optional_parameter_is_dropped(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/things": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "filter",
+                            "required": False,
+                            "schema": {"$ref": "#/components/schemas/Missing"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/things")
+    def things():
+        return jsonify([])
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    operation = _first_operation(schema).ok()
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=1, deadline=None)
+    def test(case):
+        assert case.call().status_code == 200
+
+    test()
+
+
+# `required` and the parameter's name live behind the `$ref`, not on the stub that names it.
+@pytest.mark.parametrize("required", [False, True], ids=["optional", "required"])
+def test_referenced_parameter_with_unresolvable_ref_v3(ctx, required):
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "get": {
+                    "parameters": [{"$ref": "#/components/parameters/Filter"}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "parameters": {
+                "Filter": {
+                    "in": "query",
+                    "name": "filter",
+                    "required": required,
+                    "schema": {"$ref": "#/components/schemas/Missing"},
+                }
+            }
+        },
+    )
+    result = _first_operation(schema)
+    if required:
+        assert isinstance(result, Err)
+        assert isinstance(result.err(), InvalidSchema)
+    else:
+        assert isinstance(result, Ok)
+        assert result.ok().skipped_parameters == [
+            SkippedParameter(location="query", name="filter", reference="#/components/schemas/Missing")
+        ]
+
+
+def test_response_schema_with_unresolvable_ref_is_unvalidatable(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "get": {
+                    "responses": {
+                        "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}},
+                        "404": {
+                            "description": "Not Found",
+                            "content": {"*/*": {"schema": {"$ref": "#/components/schemas/Missing"}}},
+                        },
+                    }
+                }
+            }
+        }
+    )
+    responses = schema["/things"]["GET"].responses
+
+    assert responses.get("200").get_schema("application/json") == ResolvedSchema(
+        schema={"type": "object"}, media_type="application/json", name_to_uri={}, unresolvable_reference=None
+    )
+    assert responses.get("404").get_schema("application/json") == ResolvedSchema(
+        schema=None, media_type="*/*", name_to_uri={}, unresolvable_reference="#/components/schemas/Missing"
+    )
+
+
+def test_response_header_with_unresolvable_ref_is_unvalidatable(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/things": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "headers": {"X-Total": {"schema": {"$ref": "#/components/schemas/Missing"}}},
+                        }
+                    }
+                }
+            }
+        }
+    )
+    header = dict(schema["/things"]["GET"].responses.get("200").headers.items())["X-Total"]
+
+    assert header.unresolvable_reference == "#/components/schemas/Missing"
+    assert header.schema == {}

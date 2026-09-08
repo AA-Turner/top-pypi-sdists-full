@@ -191,13 +191,32 @@ soilgrids_col_map = {
 }
 aridity_col_map = {"AI": "aridity"}
 
+# MSU/USFS Productivity Index -- ordinal 0-19 rank of soil productivity from
+# family-level Soil Taxonomy in SSURGO 2012 (Schaetzl, Krist & Miller 2012,
+# Soil Science 177:288-299). Native 240 m, CONUS ONLY, so non-USA countries
+# simply never get the column (presence-driven skip in
+# _add_static_eo_features). One value per admin region, cropland-weighted,
+# extracted by geoprepare's process_pi.
+#
+# Unlike the SoilGrids layers this is an INDEX, not a measured property: it
+# already encodes the agronomic interpretation (drainage, texture, depth,
+# temperature regime) that sand/clay/SOC/bulk-density leave to the model.
+dict_pi = {
+    "PI": [
+        "Soil",
+        "MSU/USFS Productivity Index, ordinal 0-19 (higher = more productive; "
+        "Schaetzl et al. 2012), cropland-weighted regional mean",
+    ]
+}
+pi_col_map = {"PI": "pi"}
+
 # Static per-region EO features (no time/stage dimension). These are NOT
 # emitted as staged CID rows by cid/indices.py — geocif joins the raw
 # geomerge columns onto the wide ML frame post-pivot as bare stage-less
 # columns (geocif._add_static_eo_features) and force-includes them in
 # create_feature_names, gated by use_cids.
-dict_static_eo = {**dict_aridity, **dict_soilgrids}
-STATIC_EO_COL_MAP = {**aridity_col_map, **soilgrids_col_map}
+dict_static_eo = {**dict_aridity, **dict_soilgrids, **dict_pi}
+STATIC_EO_COL_MAP = {**aridity_col_map, **soilgrids_col_map, **pi_col_map}
 
 # Annual per-region features (one value per region PER YEAR, no stage/month
 # dimension). Like the static EO block above these are joined onto the wide ML
@@ -238,6 +257,7 @@ ANNUAL_REGION_COL_MAP = {"IRR_SHARE": "irr_share"}
 STATIC_COLUMN_SOURCE = {
     **{col: "aridity" for col in aridity_col_map.values()},
     **{col: "soilgrids" for col in soilgrids_col_map.values()},
+    **{col: "pi" for col in pi_col_map.values()},
 }
 
 # FLDAS forecast variables (5 variables × 6 lead times, monthly resolution)

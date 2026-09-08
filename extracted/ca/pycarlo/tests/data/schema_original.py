@@ -888,6 +888,17 @@ class AiAgentType(sgqlc.types.Enum):
     __choices__ = ("CHAT", "GENERAL", "MONITORING", "TRIAGE", "TROUBLESHOOTING", "TUNING")
 
 
+class AlationConnectionStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CREDENTIALS_REJECTED`None
+    * `HEALTHY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREDENTIALS_REJECTED", "HEALTHY")
+
+
 class AlertAccessRequestStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -8804,6 +8815,60 @@ class ThresholdType(sgqlc.types.Enum):
         "SIZE_DIFF",
         "UNCHANGED_SIZE",
         "VOLUME_CHANGE",
+    )
+
+
+class TimeAxisForm(sgqlc.types.Enum):
+    """The shape of the resolved axis, which decides who can consume it.
+
+    Enumeration Choices:
+
+    * `NATIVE_COLUMN`None
+    * `SQL_EXPRESSION`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("NATIVE_COLUMN", "SQL_EXPRESSION")
+
+
+class TimeAxisPurpose(sgqlc.types.Enum):
+    """What the caller intends to do with the axis.      Each purpose
+    maps to a form set and a rung preference order in
+    ``_PURPOSE_SPECS``; adding a purpose means adding both.
+
+    Enumeration Choices:
+
+    * `BOUNDED_SQL`None
+    * `DEPLOYED_MONITOR`None
+    * `FRESHNESS_PROBE`None
+    * `SEGMENT_COUNT_PROBE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BOUNDED_SQL", "DEPLOYED_MONITOR", "FRESHNESS_PROBE", "SEGMENT_COUNT_PROBE")
+
+
+class TimeAxisRung(sgqlc.types.Enum):
+    """Where a resolved time axis came from, best-evidence first.
+
+    Enumeration Choices:
+
+    * `CASTABLE`None
+    * `CASTABLE_PARTITION_KEY`None
+    * `NATIVE`None
+    * `NONE`None
+    * `PARTITION_KEY`None
+    * `SIBLING_MONITOR`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CASTABLE",
+        "CASTABLE_PARTITION_KEY",
+        "NATIVE",
+        "NONE",
+        "PARTITION_KEY",
+        "SIBLING_MONITOR",
     )
 
 
@@ -75662,6 +75727,7 @@ class Query(sgqlc.types.Type):
         "get_table_monitor_validation_statuses",
         "get_table_monitor_configuration",
         "get_default_monitor_configuration",
+        "get_time_axis_recommendation",
         "test_datadog_credentials",
         "get_datadog_integrations",
         "get_datadog_users",
@@ -76198,6 +76264,7 @@ class Query(sgqlc.types.Type):
         "get_collibra_monitor_note",
         "get_collibra_monitor_table_search_names",
         "get_collibra_domains_for_table_search_name",
+        "get_alation_integrations",
         "get_alation_table_flags",
         "get_task_graph",
         "get_job_dependencies",
@@ -79074,6 +79141,40 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcon` (`String!`)None
+    """
+
+    get_time_axis_recommendation = sgqlc.types.Field(
+        "TimeAxisRecommendation",
+        graphql_name="getTimeAxisRecommendation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "purpose",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TimeAxisPurpose), graphql_name="purpose", default=None
+                    ),
+                ),
+                ("max_candidates", sgqlc.types.Arg(Int, graphql_name="maxCandidates", default=1)),
+            )
+        ),
+    )
+    """(experimental) Resolves the best usable time axis for a table, for
+    the given purpose
+
+    Arguments:
+
+    * `mcon` (`String!`)None
+    * `purpose` (`TimeAxisPurpose!`)None
+    * `max_candidates` (`Int`): How many axes to return in candidates,
+      including the top pick, for a caller that validates axes against
+      the warehouse and falls to the next one on rejection. Capped at
+      8 (default: `1`)
     """
 
     test_datadog_credentials = sgqlc.types.Field(
@@ -99112,6 +99213,20 @@ class Query(sgqlc.types.Type):
       format (e.g., '>project>dataset>table')
     """
 
+    get_alation_integrations = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AlationIntegration")),
+        graphql_name="getAlationIntegrations",
+        args=sgqlc.types.ArgDict(
+            (("integration_id", sgqlc.types.Arg(UUID, graphql_name="integrationId", default=None)),)
+        ),
+    )
+    """(experimental) Get the configured Alation integrations
+
+    Arguments:
+
+    * `integration_id` (`UUID`): Filter by integration ID
+    """
+
     get_alation_table_flags = sgqlc.types.Field(
         sgqlc.types.list_of(GetAlationTableFlags),
         graphql_name="getAlationTableFlags",
@@ -105836,9 +105951,9 @@ class TableMonitorConfiguration(sgqlc.types.Type):
     """Status of configuration process"""
 
     reference_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="referenceMonitorUuid")
-    """UUID of the monitor to use as a reference to suggest the default
-    configuration. If none, the configuration was instead derived from
-    the table characteristics.
+    """The monitor the suggested time axis was copied from. None when the
+    axis comes from the table schema instead — schedule and collection
+    lag may still be copied from a monitor.
     """
 
 
@@ -107481,6 +107596,56 @@ class ThresholdsData(sgqlc.types.Type):
     """
 
 
+class TimeAxisCandidate(sgqlc.types.Type):
+    """One usable time axis for a table, in preference order"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "rung",
+        "form",
+        "field_name",
+        "warehouse_type",
+        "reference_monitor_uuid",
+        "cast_expression",
+        "span_check_sql",
+    )
+    rung = sgqlc.types.Field(sgqlc.types.non_null(TimeAxisRung), graphql_name="rung")
+    """Where the axis came from; NONE when no usable axis was resolved"""
+
+    form = sgqlc.types.Field(TimeAxisForm, graphql_name="form")
+    """NATIVE_COLUMN for a bare column, SQL_EXPRESSION for an axis usable
+    only through a cast; unset when the rung is NONE
+    """
+
+    field_name = sgqlc.types.Field(String, graphql_name="fieldName")
+    """The axis column name, or the SQL expression when the form is
+    SQL_EXPRESSION
+    """
+
+    warehouse_type = sgqlc.types.Field(String, graphql_name="warehouseType")
+    """Normalized uppercased type for a native column; the raw warehouse
+    type for a castable axis
+    """
+
+    reference_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="referenceMonitorUuid")
+    """Monitor the axis came from, when the rung is SIBLING_MONITOR"""
+
+    cast_expression = sgqlc.types.Field(String, graphql_name="castExpression")
+    """The axis wrapped in the warehouse dialect's default cast to
+    timestamp, for SQL_EXPRESSION forms. A candidate the caller must
+    validate against the warehouse before relying on it
+    """
+
+    span_check_sql = sgqlc.types.Field(String, graphql_name="spanCheckSql")
+    """A predicate-free SELECT MIN(axis), MAX(axis) over the table in the
+    warehouse's dialect, for validating the axis is live and spans
+    more than one day before committing to it. The result columns are
+    aliased axis_min and axis_max; warehouses that fold unquoted
+    identifiers return them uppercased, so match them case-
+    insensitively
+    """
+
+
 class TimeAxisDeltaDetectionResult(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("delta",)
@@ -107496,6 +107661,66 @@ class TimeAxisMetadata(sgqlc.types.Type):
 
     suggested = sgqlc.types.Field(String, graphql_name="suggested")
     """Field most likely to be the time axis"""
+
+
+class TimeAxisRecommendation(sgqlc.types.Type):
+    """The resolved time axis for a table, for a given caller purpose"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "rung",
+        "form",
+        "field_name",
+        "warehouse_type",
+        "reference_monitor_uuid",
+        "cast_expression",
+        "span_check_sql",
+        "candidates",
+    )
+    rung = sgqlc.types.Field(sgqlc.types.non_null(TimeAxisRung), graphql_name="rung")
+    """Where the axis came from; NONE when no usable axis was resolved"""
+
+    form = sgqlc.types.Field(TimeAxisForm, graphql_name="form")
+    """NATIVE_COLUMN for a bare column, SQL_EXPRESSION for an axis usable
+    only through a cast; unset when the rung is NONE
+    """
+
+    field_name = sgqlc.types.Field(String, graphql_name="fieldName")
+    """The axis column name, or the SQL expression when the form is
+    SQL_EXPRESSION
+    """
+
+    warehouse_type = sgqlc.types.Field(String, graphql_name="warehouseType")
+    """Normalized uppercased type for a native column; the raw warehouse
+    type for a castable axis
+    """
+
+    reference_monitor_uuid = sgqlc.types.Field(UUID, graphql_name="referenceMonitorUuid")
+    """Monitor the axis came from, when the rung is SIBLING_MONITOR"""
+
+    cast_expression = sgqlc.types.Field(String, graphql_name="castExpression")
+    """The axis wrapped in the warehouse dialect's default cast to
+    timestamp, for SQL_EXPRESSION forms. A candidate the caller must
+    validate against the warehouse before relying on it
+    """
+
+    span_check_sql = sgqlc.types.Field(String, graphql_name="spanCheckSql")
+    """A predicate-free SELECT MIN(axis), MAX(axis) over the table in the
+    warehouse's dialect, for validating the axis is live and spans
+    more than one day before committing to it. The result columns are
+    aliased axis_min and axis_max; warehouses that fold unquoted
+    identifiers return them uppercased, so match them case-
+    insensitively
+    """
+
+    candidates = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TimeAxisCandidate))),
+        graphql_name="candidates",
+    )
+    """Every usable axis, up to maxCandidates, ordered by rung then field
+    name; the top fields above are the first entry. Empty when no
+    usable axis was resolved
+    """
 
 
 class TimeFilter(sgqlc.types.Type):
@@ -112589,6 +112814,7 @@ class AlationIntegration(sgqlc.types.Type, Node):
         "dc_proxy",
         "disable_ssl_verification",
         "warehouse_datasource_mapping",
+        "connection_status",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -112631,6 +112857,15 @@ class AlationIntegration(sgqlc.types.Type, Node):
         JSONString, graphql_name="warehouseDatasourceMapping"
     )
     """Mapping of MC warehouse UUID to Alation data source ID"""
+
+    connection_status = sgqlc.types.Field(
+        sgqlc.types.non_null(AlationConnectionStatus), graphql_name="connectionStatus"
+    )
+    """Whether Monte Carlo can authenticate to the Alation server.
+    CREDENTIALS_REJECTED means Alation refused the stored credentials;
+    saving the integration again with valid credentials restores
+    HEALTHY.
+    """
 
 
 class Alert(sgqlc.types.Type, NodeWithUUID):

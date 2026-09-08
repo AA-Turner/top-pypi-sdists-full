@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from schemathesis.config import SchemathesisWarning
 from schemathesis.core import deserialization
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
+from schemathesis.core.jsonschema.resolver import find_unresolvable_reference
 from schemathesis.core.jsonschema.types import get_type
 from schemathesis.specs.openapi.patterns import is_valid_python_regex, normalize_regex
 
@@ -193,3 +194,60 @@ def _iter_patterns(schema: Any) -> Iterator[str]:
     elif isinstance(schema, list):
         for item in schema:
             yield from _iter_patterns(item)
+
+
+@dataclass(slots=True)
+class UnresolvableReferenceWarning:
+    """Warning for a part of an operation skipped because its schema names a missing component."""
+
+    operation_label: str | None
+    """Label of the operation (e.g., 'GET /users')."""
+
+    subject: str
+    """The skipped part of the operation (e.g. '`query` parameter `filter`')."""
+
+    reference: str
+    """The reference that could not be followed."""
+
+    @property
+    def kind(self) -> SchemathesisWarning:
+        return SchemathesisWarning.UNRESOLVABLE_REFERENCE
+
+    @property
+    def message(self) -> str:
+        return f"{self.subject} - unresolvable reference `{self.reference}`"
+
+    @property
+    def group(self) -> str | None:
+        return None
+
+
+def detect_unresolvable_references(
+    operation: APIOperation, memo: dict[str, str | None] | None = None
+) -> list[UnresolvableReferenceWarning]:
+    """Report parts of an operation skipped because a `$ref` in their schema does not resolve.
+
+    `memo` is shared across the operations of one document so a component is inspected only once.
+    """
+    skipped: list[tuple[str, str]] = [
+        (parameter.label, parameter.reference) for parameter in operation.skipped_parameters
+    ]
+    skipped.extend(_iter_unvalidatable_responses(operation, memo if memo is not None else {}))
+    return [
+        UnresolvableReferenceWarning(operation_label=operation.label, subject=subject, reference=reference)
+        for subject, reference in skipped
+    ]
+
+
+def _iter_unvalidatable_responses(operation: APIOperation, memo: dict[str, str | None]) -> Iterator[tuple[str, str]]:
+    """Yield the responses that cannot be validated, with the reference to blame."""
+    for status_code, response in operation.responses.items():
+        seen: set[str] = set()
+        for schema in response.iter_documented_schemas():
+            reference = find_unresolvable_reference(schema, response.resolver, memo)
+            if reference is not None and reference not in seen:
+                seen.add(reference)
+                yield f"response `{status_code}`", reference
+        for name, header in response.headers.items():
+            if header.unresolvable_reference is not None:
+                yield f"response `{status_code}` header `{name}`", header.unresolvable_reference

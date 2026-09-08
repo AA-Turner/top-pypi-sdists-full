@@ -19,12 +19,11 @@ import zipfile
 if typing.TYPE_CHECKING:  # pragma: no cover
     from types import TracebackType
     from typing import List, Optional, Tuple, Type, Union
-
-    from mesonpy._compat import Path
+    Path = Union[str, os.PathLike[str]]
 
 
 MIN_TIMESTAMP = 315532800  # 1980-01-01 00:00:00 UTC
-WHEEL_FILENAME_REGEX = re.compile(r'^(?P<name>[^-]+)-(?P<version>[^-]+)(:?-(?P<build>[^-]+))?-(?P<tag>[^-]+-[^-]+-[^-]+).whl$')
+WHEEL_FILENAME_REGEX = re.compile(r'^(?P<name>[^-]+)-(?P<version>[^-]+)(?:-(?P<build>[^-]+))?-(?P<tag>[^-]+-[^-]+-[^-]+).whl$')
 
 
 def _b64encode(data: bytes) -> bytes:

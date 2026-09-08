@@ -24,22 +24,28 @@ else:
 __all__ = (
     "AmiProductSortByType",
     "AmiProductVisibilityStringType",
+    "AssessmentResultType",
     "ChangeStatusType",
     "ContainerProductSortByType",
     "ContainerProductVisibilityStringType",
+    "ControlAssessmentResultType",
     "DataProductSortByType",
     "DataProductVisibilityStringType",
+    "DescribeAssessmentPaginatorName",
     "FailureCodeType",
     "IntentType",
+    "ListAssessmentsPaginatorName",
     "ListChangeSetsPaginatorName",
     "ListEntitiesPaginatorName",
     "MachineLearningProductSortByType",
     "MachineLearningProductVisibilityStringType",
     "MarketplaceCatalogServiceName",
+    "OfferCreatedBySourceStringType",
     "OfferSetSortByType",
     "OfferSetStateStringType",
     "OfferSortByType",
     "OfferStateStringType",
+    "OfferTargetAgreementIntentStringType",
     "OfferTargetingStringType",
     "OwnershipTypeType",
     "PaginatorName",
@@ -56,21 +62,26 @@ __all__ = (
 
 AmiProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 AmiProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+AssessmentResultType = Literal["FAIL", "PASS"]
 ChangeStatusType = Literal["APPLYING", "CANCELLED", "FAILED", "PREPARING", "SUCCEEDED"]
 ContainerProductSortByType = Literal[
     "CompatibleAWSServices", "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
 ]
 ContainerProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+ControlAssessmentResultType = Literal["EXEMPTION_PASS", "FAIL", "NOT_EXECUTED", "PASS"]
 DataProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 DataProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted", "Unavailable"]
+DescribeAssessmentPaginatorName = Literal["describe_assessment"]
 FailureCodeType = Literal["CLIENT_ERROR", "SERVER_FAULT"]
 IntentType = Literal["APPLY", "VALIDATE"]
+ListAssessmentsPaginatorName = Literal["list_assessments"]
 ListChangeSetsPaginatorName = Literal["list_change_sets"]
 ListEntitiesPaginatorName = Literal["list_entities"]
 MachineLearningProductSortByType = Literal[
     "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
 ]
 MachineLearningProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+OfferCreatedBySourceStringType = Literal["AwsMarketplace", "Seller"]
 OfferSetSortByType = Literal[
     "EntityId", "LastModifiedDate", "Name", "ReleaseDate", "SolutionId", "State"
 ]
@@ -78,6 +89,7 @@ OfferSetStateStringType = Literal["Draft", "Released"]
 OfferSortByType = Literal[
     "AvailabilityEndDate",
     "BuyerAccounts",
+    "CreatedBySource",
     "EntityId",
     "LastModifiedDate",
     "Name",
@@ -86,9 +98,12 @@ OfferSortByType = Literal[
     "ReleaseDate",
     "ResaleAuthorizationId",
     "State",
+    "TargetAgreementId",
+    "TargetAgreementIntent",
     "Targeting",
 ]
 OfferStateStringType = Literal["Draft", "Released"]
+OfferTargetAgreementIntentStringType = Literal["Renew"]
 OfferTargetingStringType = Literal["BuyerAccounts", "CountryCodes", "None", "ParticipatingPrograms"]
 OwnershipTypeType = Literal["SELF", "SHARED"]
 ResaleAuthorizationResellerRoleStringType = Literal["ChannelPartner", "Distributor"]
@@ -117,8 +132,11 @@ MarketplaceCatalogServiceName = Literal["marketplace-catalog"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -423,6 +441,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -544,5 +563,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_change_sets", "list_entities"]
+PaginatorName = Literal[
+    "describe_assessment", "list_assessments", "list_change_sets", "list_entities"
+]
 RegionName = Literal["us-east-1"]

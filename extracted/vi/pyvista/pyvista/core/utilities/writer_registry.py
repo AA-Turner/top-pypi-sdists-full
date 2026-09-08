@@ -13,6 +13,8 @@ from typing import overload
 
 import pyvista as pv
 from pyvista._warn_external import warn_external
+from pyvista.core.utilities._optional_formats import _WRITE
+from pyvista.core.utilities._optional_formats import _missing_message
 from pyvista.core.utilities._registry_helpers import handler_source
 
 if TYPE_CHECKING:
@@ -22,10 +24,10 @@ if TYPE_CHECKING:
 
 
 class WriterHandler(Protocol):
-    """Callable that writes *dataset* to *path*."""
+    """Callable that writes ``dataset`` to ``path``."""
 
     def __call__(self, dataset: DataObject, path: str, /, **kwargs: Any) -> None:
-        """Write *dataset* to *path*, consuming format-specific *kwargs*."""
+        """Write ``dataset`` to ``path``, consuming format-specific ``kwargs``."""
 
 
 class WriterRegistration(NamedTuple):
@@ -39,7 +41,7 @@ class WriterRegistration(NamedTuple):
     ----------
     extension : str
         File extension the writer is registered against, including the
-        leading dot (e.g. ``'.myformat'``).
+        leading dot (for example, ``'.myformat'``).
     handler : callable
         The writer callable.
     source : str
@@ -55,6 +57,8 @@ class WriterRegistration(NamedTuple):
 
 
 class _RegistryState(TypedDict):
+    """Mutable state of the writer registry."""
+
     ext: dict[str, WriterHandler]
     sources: dict[str, str]
     pending: dict[str, list[EntryPoint]]
@@ -153,13 +157,13 @@ def register_writer(
     Parameters
     ----------
     key : str
-        A file extension (e.g. ``'.myformat'``).
+        A file extension (for example, ``'.myformat'``).
 
     handler : callable, optional
         A callable with signature ``handler(dataset, path, **kwargs)`` that
-        writes *dataset* to *path*.  Any extra keyword arguments passed to
+        writes ``dataset`` to ``path``.  Any extra keyword arguments passed to
         :meth:`pyvista.DataObject.save` are forwarded to the handler as
-        ``**kwargs`` — use them to expose format-specific options such as
+        ``**kwargs``—use them to expose format-specific options such as
         compression level, thread count, or chunking.  Handlers that do
         not need per-call options can omit ``**kwargs``; a call to
         :meth:`~pyvista.DataObject.save` that passes extras to such a
@@ -181,7 +185,7 @@ def register_writer(
     Raises
     ------
     ValueError
-        If ``key`` collides with a built-in PyVista writer and *override*
+        If ``key`` collides with a built-in PyVista writer and ``override``
         is ``False``.
 
     Warns
@@ -201,7 +205,7 @@ def register_writer(
     Notes
     -----
     When :meth:`pyvista.DataObject.save` is called, registered custom
-    writers are dispatched *before* built-in VTK writers — mirroring
+    writers are dispatched *before* built-in VTK writers—mirroring
     the dispatch order of :func:`pyvista.read`.  Passing
     ``override=True`` is therefore the only way to replace a built-in
     writer at save time.
@@ -210,7 +214,7 @@ def register_writer(
     beyond its documented parameters are forwarded verbatim to the
     registered handler.  When no custom writer is registered for the
     target extension, extra keyword arguments raise :class:`TypeError`
-    from :meth:`~pyvista.DataObject.save` — PyVista never silently
+    from :meth:`~pyvista.DataObject.save`—PyVista never silently
     drops writer options.
 
     Examples
@@ -269,10 +273,15 @@ def _register(
     _custom_ext_writer_sources[key] = source if source is not None else handler_source(handler)
 
 
+def _missing_writer_message(ext: str, filename: str | None = None) -> str | None:
+    """Return install instructions when ``ext`` needs a companion package PyVista cannot import."""
+    return _missing_message(ext, _WRITE, filename)
+
+
 def _get_ext_handler(ext: str) -> WriterHandler | None:
     """Look up a custom extension handler, importing the plugin lazily.
 
-    Built-in extensions never trigger entry-point plugin imports — only
+    Built-in extensions never trigger entry-point plugin imports—only
     extensions that an installed plugin has actually claimed do.
     """
     handler = _custom_ext_writers.get(ext)
@@ -309,7 +318,7 @@ def _ensure_entry_points() -> None:
 
 
 def _resolve_pending_writer(ext: str) -> bool:
-    """Import the plugin claiming *ext*, if any.
+    """Import the plugin claiming ``ext``, if any.
 
     Returns
     -------
@@ -330,7 +339,7 @@ def _resolve_pending_writer(ext: str) -> bool:
         return False
     winner = eps[0]
     try:
-        # ep.load() runs third-party import machinery — it can raise
+        # ep.load() runs third-party import machinery—it can raise
         # literally anything. Convert to a warning so one broken plugin
         # cannot take down every pyvista.save call.
         handler = winner.load()

@@ -7,6 +7,7 @@ from types import MethodType
 from typing import Any
 
 from pyrig_runtime.core.strings import snake_to_kebab_case
+from ruamel.yaml.comments import CommentedMap
 
 from pyrig.core.iterate import deep_sorted_dict, traverse_structure
 from pyrig.core.strings import (
@@ -142,6 +143,41 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return {name: "write" if write else "read"}
 
+    def documented_permissions(self, permissions: dict[str, str]) -> CommentedMap:
+        """Return `permissions` as a `CommentedMap` that documents permissions.
+
+        zizmor's `undocumented-permissions` audit requires an explanatory
+        comment on any permission entry other than `contents: read`.
+
+        Is assembled via multiple single-entry `CommentedMap` instances to ensure
+        consistent inline comment placement.
+
+        Args:
+            permissions: Mapping of permission name to `"read"` or `"write"`.
+
+        Returns:
+            Equivalent `CommentedMap`; every entry except `contents: read`
+            carries an inline comment.
+        """
+        commented = CommentedMap()
+        for name, level in permissions.items():
+            if (name, level) == ("contents", "read"):
+                commented[name] = level
+                continue
+            permission = CommentedMap({name: level})
+            permission.yaml_add_eol_comment(self.permission_comment(), name)
+            commented[name] = level
+            commented.ca.items[name] = permission.ca.items[name]
+        return commented
+
+    def permission_comment(self) -> str:
+        """Return the comment attached to every documented permission entry.
+
+        Returns:
+            `"required"`.
+        """
+        return "required"
+
     def concurrency(self) -> dict[str, Any]:
         """Return the workflow's concurrency setting.
 
@@ -172,7 +208,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
     def parent_path(self) -> Path:
         """Return the GitHub Actions workflows directory."""
-        return RemoteVersionController.I.config_dir() / "workflows"
+        return RemoteVersionController.I.ci_cd_dir()
 
     def defaults(self) -> dict[str, Any]:
         """Return the default settings applied to every step in the workflow.
@@ -267,7 +303,9 @@ class WorkflowConfigFile(YMLDictConfigFile):
         job_id = self.job_id_from_method(method)
         job = {"name": self.name_from_id(job_id)}
         if permissions is not None:
-            job["permissions"] = deep_sorted_dict(permissions)
+            job["permissions"] = self.documented_permissions(
+                deep_sorted_dict(permissions),
+            )
         if if_condition is not None:
             job["if"] = if_condition
         if needs is not None:
@@ -350,7 +388,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
             if_condition: GitHub Actions conditional expression controlling
                 whether the step runs.
             uses: GitHub Action reference to use (e.g.
-                `"actions/checkout@main"`).
+                `"actions/checkout@<sha>"`).
             with_: Input parameters passed to the action.
             env: Step-level environment variables.
 
@@ -671,23 +709,55 @@ class WorkflowConfigFile(YMLDictConfigFile):
             self.step_setup_package_manager(python_version=python_version),
         ]
 
+    def checkout_action(self) -> str:
+        """Return the `actions/checkout` action slug.
+
+        Returns:
+            The `"actions/checkout"` action slug.
+        """
+        return "actions/checkout"
+
+    def checkout_action_sha(self) -> str:
+        """Return the pinned commit SHA for `actions/checkout`.
+
+        Returns:
+            Commit SHA `actions/checkout` is pinned to.
+        """
+        return "3d3c42e5aac5ba805825da76410c181273ba90b1"  # pragma: allowlist secret
+
     def step_checkout_repository(self) -> dict[str, Any]:
         """Build a step that checks out the repository.
 
-        Uses `actions/checkout@main`, which authenticates with the automatic
-        `GITHUB_TOKEN`. Credential persistence is disabled since no later
-        step needs the checked-out git credentials. The containing job must
-        grant at least `contents: read` through
-        `permission_contents()`.
+        Uses `checkout_action()`, pinned to `checkout_action_sha()`, which
+        authenticates with the automatic `GITHUB_TOKEN`. Credential
+        persistence is disabled since no later step needs the checked-out
+        git credentials. The containing job must grant at least
+        `contents: read` through `permission_contents()`.
 
         Returns:
-            Step using `actions/checkout@main`.
+            Step using `actions/checkout@<sha>`.
         """
         return self.step(
             self.step_checkout_repository,
-            uses="actions/checkout@main",
+            uses=f"{self.checkout_action()}@{self.checkout_action_sha()}",
             with_={"persist-credentials": False},
         )
+
+    def setup_uv_action(self) -> str:
+        """Return the `astral-sh/setup-uv` action slug.
+
+        Returns:
+            The `"astral-sh/setup-uv"` action slug.
+        """
+        return "astral-sh/setup-uv"
+
+    def setup_uv_action_sha(self) -> str:
+        """Return the pinned commit SHA for `astral-sh/setup-uv`.
+
+        Returns:
+            Commit SHA `astral-sh/setup-uv` is pinned to.
+        """
+        return "20cfd1bf945f4377ade1205e4dbc17946fc9a30d"  # pragma: allowlist secret
 
     def step_setup_package_manager(
         self,
@@ -696,19 +766,20 @@ class WorkflowConfigFile(YMLDictConfigFile):
     ) -> dict[str, Any]:
         """Build a step that installs uv and pins the Python version.
 
-        Uses `astral-sh/setup-uv` to install uv on the runner and configure
-        it to use the given Python version. All subsequent `uv run` and
-        `uv sync` commands will use this version.
+        Uses `setup_uv_action()`, pinned to `setup_uv_action_sha()`, to
+        install uv on the runner and configure it to use the given Python
+        version. All subsequent `uv run` and `uv sync` commands will use
+        this version.
 
         Args:
             python_version: Python version string to pin, e.g. `"3.13"`.
 
         Returns:
-            Step using `astral-sh/setup-uv@main`.
+            Step using `astral-sh/setup-uv@<sha>`.
         """
         return self.step(
             self.step_setup_package_manager,
-            uses="astral-sh/setup-uv@main",
+            uses=f"{self.setup_uv_action()}@{self.setup_uv_action_sha()}",
             with_={"python-version": python_version},
         )
 
@@ -786,7 +857,9 @@ class WorkflowConfigFile(YMLDictConfigFile):
             This syntax only works in shell contexts, not in GitHub Actions
             expressions.
         """
-        return self.shell_insert_expression(str(PackageManager.I.version_short_args()))
+        return self.shell_insert_command_substitution(
+            str(PackageManager.I.version_short_args()),
+        )
 
     def insert_github_token(self) -> str:
         """Return the `${{ secrets.GITHUB_TOKEN }}` expression.
@@ -821,17 +894,17 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return self.insert_expression("github.ref")
 
-    def shell_insert_expression(self, var: str) -> str:
-        """Wrap an expression in shell command substitution `$( ... )` syntax.
+    def shell_insert_command_substitution(self, command: str) -> str:
+        """Wrap a shell command in command substitution syntax "`$(...)"`."""
+        return self.shell_insert_expansion(f"({command})")
 
-        Args:
-            var: The raw expression to wrap (e.g. `"uv version --short"`).
+    def shell_insert_parameter_expansion(self, parameter: str) -> str:
+        """Wrap a shell parameter in parameter expansion syntax `"${...}"`."""
+        return self.shell_insert_expansion(f"{{{parameter}}}")
 
-        Returns:
-            The expression surrounded by `$( )` delimiters, e.g.
-            `"$(uv version --short)"`.
-        """
-        return f"$({var})"
+    def shell_insert_expansion(self, expansion: str) -> str:
+        """Wrap an expansion in basic shell expansion syntax `"$..."`."""
+        return f'"${expansion}"'
 
     def insert_expression(self, var: str) -> str:
         """Wrap an expression in GitHub Actions `${{ ... }}` syntax.

@@ -108,6 +108,7 @@ from .type_defs import (
     RoleTypeDef,
     SAMLPrivateKeyTypeDef,
     ServerCertificateMetadataTypeDef,
+    SourceRoleTemplateTypeDef,
     TagTypeDef,
     UpdateAccessKeyRequestAccessKeyActivateTypeDef,
     UpdateAccessKeyRequestAccessKeyDeactivateTypeDef,
@@ -2995,6 +2996,7 @@ class Role(AIOBoto3ServiceResource):
     permissions_boundary: Awaitable[AttachedPermissionsBoundaryTypeDef]
     tags: Awaitable[list[TagTypeDef]]
     role_last_used: Awaitable[RoleLastUsedTypeDef]
+    source_role_template: Awaitable[SourceRoleTemplateTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

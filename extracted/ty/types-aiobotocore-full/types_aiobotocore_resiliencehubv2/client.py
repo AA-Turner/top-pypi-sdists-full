@@ -37,6 +37,7 @@ from .paginator import (
     ListInputSourcesPaginator,
     ListPoliciesPaginator,
     ListReportsPaginator,
+    ListResolvedTestRunTargetResourcesPaginator,
     ListResourcesPaginator,
     ListServiceEventsPaginator,
     ListServiceFunctionsPaginator,
@@ -44,6 +45,11 @@ from .paginator import (
     ListServiceTopologyEdgesPaginator,
     ListSystemEventsPaginator,
     ListSystemsPaginator,
+    ListTestRunEventsPaginator,
+    ListTestRunSourcesPaginator,
+    ListTestRunsPaginator,
+    ListTestSourcesPaginator,
+    ListTestsPaginator,
     ListUserJourneysPaginator,
 )
 from .type_defs import (
@@ -63,6 +69,8 @@ from .type_defs import (
     CreateServiceResponseTypeDef,
     CreateSystemRequestTypeDef,
     CreateSystemResponseTypeDef,
+    CreateTestRequestTypeDef,
+    CreateTestResponseTypeDef,
     CreateUserJourneyRequestTypeDef,
     CreateUserJourneyResponseTypeDef,
     DeleteAssertionRequestTypeDef,
@@ -79,6 +87,9 @@ from .type_defs import (
     DeleteServiceResponseTypeDef,
     DeleteSystemRequestTypeDef,
     DeleteSystemResponseTypeDef,
+    DeleteTestRequestTypeDef,
+    DeleteTestResponseTypeDef,
+    DeleteTestSourcesRequestTypeDef,
     DeleteUserJourneyRequestTypeDef,
     DeleteUserJourneyResponseTypeDef,
     GetFailureModeFindingRequestTypeDef,
@@ -89,6 +100,12 @@ from .type_defs import (
     GetServiceResponseTypeDef,
     GetSystemRequestTypeDef,
     GetSystemResponseTypeDef,
+    GetTestRequestTypeDef,
+    GetTestResponseTypeDef,
+    GetTestRunRequestTypeDef,
+    GetTestRunResponseTypeDef,
+    GetTestTemplateRequestTypeDef,
+    GetTestTemplateResponseTypeDef,
     GetUserJourneyRequestTypeDef,
     GetUserJourneyResponseTypeDef,
     ImportAppRequestTypeDef,
@@ -109,6 +126,8 @@ from .type_defs import (
     ListPoliciesResponseTypeDef,
     ListReportsRequestTypeDef,
     ListReportsResponseTypeDef,
+    ListResolvedTestRunTargetResourcesRequestTypeDef,
+    ListResolvedTestRunTargetResourcesResponseTypeDef,
     ListResourcesRequestTypeDef,
     ListResourcesResponseTypeDef,
     ListServiceEventsRequestTypeDef,
@@ -125,10 +144,26 @@ from .type_defs import (
     ListSystemsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTestRunEventsRequestTypeDef,
+    ListTestRunEventsResponseTypeDef,
+    ListTestRunSourcesRequestTypeDef,
+    ListTestRunSourcesResponseTypeDef,
+    ListTestRunsRequestTypeDef,
+    ListTestRunsResponseTypeDef,
+    ListTestSourcesRequestTypeDef,
+    ListTestSourcesResponseTypeDef,
+    ListTestsRequestTypeDef,
+    ListTestsResponseTypeDef,
+    ListTestTemplatesResponseTypeDef,
     ListUserJourneysRequestTypeDef,
     ListUserJourneysResponseTypeDef,
+    PutTestSourcesRequestTypeDef,
     StartFailureModeAssessmentRequestTypeDef,
     StartFailureModeAssessmentResponseTypeDef,
+    StartTestRunRequestTypeDef,
+    StartTestRunResponseTypeDef,
+    StopTestRunRequestTypeDef,
+    StopTestRunResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAssertionRequestTypeDef,
@@ -145,6 +180,8 @@ from .type_defs import (
     UpdateServiceResponseTypeDef,
     UpdateSystemRequestTypeDef,
     UpdateSystemResponseTypeDef,
+    UpdateTestRequestTypeDef,
+    UpdateTestResponseTypeDef,
     UpdateUserJourneyRequestTypeDef,
     UpdateUserJourneyResponseTypeDef,
 )
@@ -291,6 +328,16 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#create_system)
         """
 
+    async def create_test(
+        self, **kwargs: Unpack[CreateTestRequestTypeDef]
+    ) -> CreateTestResponseTypeDef:
+        """
+        Creates a test for a service by configuring a test template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/create_test.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#create_test)
+        """
+
     async def create_user_journey(
         self, **kwargs: Unpack[CreateUserJourneyRequestTypeDef]
     ) -> CreateUserJourneyResponseTypeDef:
@@ -371,6 +418,26 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#delete_system)
         """
 
+    async def delete_test(
+        self, **kwargs: Unpack[DeleteTestRequestTypeDef]
+    ) -> DeleteTestResponseTypeDef:
+        """
+        Deletes a test.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/delete_test.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#delete_test)
+        """
+
+    async def delete_test_sources(
+        self, **kwargs: Unpack[DeleteTestSourcesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes monitoring sources from a test.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/delete_test_sources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#delete_test_sources)
+        """
+
     async def delete_user_journey(
         self, **kwargs: Unpack[DeleteUserJourneyRequestTypeDef]
     ) -> DeleteUserJourneyResponseTypeDef:
@@ -419,6 +486,36 @@ class ResilienceHubV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_system.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_system)
+        """
+
+    async def get_test(self, **kwargs: Unpack[GetTestRequestTypeDef]) -> GetTestResponseTypeDef:
+        """
+        Retrieves a test by ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_test.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_test)
+        """
+
+    async def get_test_run(
+        self, **kwargs: Unpack[GetTestRunRequestTypeDef]
+    ) -> GetTestRunResponseTypeDef:
+        """
+        Retrieves a test run by ID, including its status, results, and the
+        configuration snapshotted when the run started.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_test_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_test_run)
+        """
+
+    async def get_test_template(
+        self, **kwargs: Unpack[GetTestTemplateRequestTypeDef]
+    ) -> GetTestTemplateResponseTypeDef:
+        """
+        Retrieves a resilience test template by ARN, including the parameters it
+        accepts and the fault actions it runs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_test_template.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_test_template)
         """
 
     async def get_user_journey(
@@ -523,6 +620,17 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_reports)
         """
 
+    async def list_resolved_test_run_target_resources(
+        self, **kwargs: Unpack[ListResolvedTestRunTargetResourcesRequestTypeDef]
+    ) -> ListResolvedTestRunTargetResourcesResponseTypeDef:
+        """
+        Lists the AWS resources that AWS Fault Injection Service (AWS FIS) resolved as
+        targets for a test run.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_resolved_test_run_target_resources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_resolved_test_run_target_resources)
+        """
+
     async def list_resources(
         self, **kwargs: Unpack[ListResourcesRequestTypeDef]
     ) -> ListResourcesResponseTypeDef:
@@ -603,6 +711,65 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_tags_for_resource)
         """
 
+    async def list_test_run_events(
+        self, **kwargs: Unpack[ListTestRunEventsRequestTypeDef]
+    ) -> ListTestRunEventsResponseTypeDef:
+        """
+        Lists the events in a test run's timeline.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_events.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_run_events)
+        """
+
+    async def list_test_run_sources(
+        self, **kwargs: Unpack[ListTestRunSourcesRequestTypeDef]
+    ) -> ListTestRunSourcesResponseTypeDef:
+        """
+        Lists the monitoring source snapshots captured for a test run, optionally
+        filtered by type.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_sources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_run_sources)
+        """
+
+    async def list_test_runs(
+        self, **kwargs: Unpack[ListTestRunsRequestTypeDef]
+    ) -> ListTestRunsResponseTypeDef:
+        """
+        Lists the runs of a test, or all test runs for a service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_runs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_runs)
+        """
+
+    async def list_test_sources(
+        self, **kwargs: Unpack[ListTestSourcesRequestTypeDef]
+    ) -> ListTestSourcesResponseTypeDef:
+        """
+        Lists the monitoring sources attached to a test, optionally filtered by type.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_sources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_sources)
+        """
+
+    async def list_test_templates(self) -> ListTestTemplatesResponseTypeDef:
+        """
+        Lists the available resilience test templates.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_templates.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_test_templates)
+        """
+
+    async def list_tests(
+        self, **kwargs: Unpack[ListTestsRequestTypeDef]
+    ) -> ListTestsResponseTypeDef:
+        """
+        Lists the tests configured for a service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_tests.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_tests)
+        """
+
     async def list_user_journeys(
         self, **kwargs: Unpack[ListUserJourneysRequestTypeDef]
     ) -> ListUserJourneysResponseTypeDef:
@@ -613,6 +780,16 @@ class ResilienceHubV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#list_user_journeys)
         """
 
+    async def put_test_sources(
+        self, **kwargs: Unpack[PutTestSourcesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Adds or updates the monitoring sources on a test.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/put_test_sources.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#put_test_sources)
+        """
+
     async def start_failure_mode_assessment(
         self, **kwargs: Unpack[StartFailureModeAssessmentRequestTypeDef]
     ) -> StartFailureModeAssessmentResponseTypeDef:
@@ -621,6 +798,26 @@ class ResilienceHubV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/start_failure_mode_assessment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#start_failure_mode_assessment)
+        """
+
+    async def start_test_run(
+        self, **kwargs: Unpack[StartTestRunRequestTypeDef]
+    ) -> StartTestRunResponseTypeDef:
+        """
+        Starts a run of a test.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/start_test_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#start_test_run)
+        """
+
+    async def stop_test_run(
+        self, **kwargs: Unpack[StopTestRunRequestTypeDef]
+    ) -> StopTestRunResponseTypeDef:
+        """
+        Stops an in-progress test run.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/stop_test_run.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#stop_test_run)
         """
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -707,6 +904,16 @@ class ResilienceHubV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/update_system.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#update_system)
+        """
+
+    async def update_test(
+        self, **kwargs: Unpack[UpdateTestRequestTypeDef]
+    ) -> UpdateTestResponseTypeDef:
+        """
+        Updates the configuration of an existing test.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/update_test.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#update_test)
         """
 
     async def update_user_journey(
@@ -798,6 +1005,17 @@ class ResilienceHubV2Client(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_resolved_test_run_target_resources"]
+    ) -> ListResolvedTestRunTargetResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_resources"]
     ) -> ListResourcesPaginator:
         """
@@ -866,6 +1084,61 @@ class ResilienceHubV2Client(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_systems"]
     ) -> ListSystemsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_run_events"]
+    ) -> ListTestRunEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_run_sources"]
+    ) -> ListTestRunSourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_runs"]
+    ) -> ListTestRunsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_sources"]
+    ) -> ListTestSourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_tests"]
+    ) -> ListTestsPaginator:
         """
         Create a paginator for an operation.
 

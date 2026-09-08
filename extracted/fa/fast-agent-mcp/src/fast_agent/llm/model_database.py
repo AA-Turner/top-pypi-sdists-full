@@ -625,7 +625,7 @@ class ModelDatabase:
         tokenizes=OPENAI_MULTIMODAL,
         reasoning="openai",
         reasoning_effort_spec=OPENAI_GPT_6_ASTRA_REASONING,
-        shell_edit_tool="apply_patch",
+        shell_edit_tool="write_text_file",
         text_verbosity_spec=TextVerbositySpec(default="low"),
         response_transports=("sse", "websocket"),
         response_websocket_providers=(Provider.RESPONSES, Provider.CODEX_RESPONSES),

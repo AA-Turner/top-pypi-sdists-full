@@ -56,7 +56,9 @@ def main(verbose, interactive, multiline, serve, batch, test, fname='',
         elif multiline:
             i.multiline(verbose=verbose)
         elif serve:
-            i.start_server(serve)
+            sys.exit(
+                'plac server was removed in 1.4.0 '
+                '(asyncore is unavailable on Python 3.12+)')
     elif batch:
         run((fname,) + extra, 'execute', verbose)
     elif test:

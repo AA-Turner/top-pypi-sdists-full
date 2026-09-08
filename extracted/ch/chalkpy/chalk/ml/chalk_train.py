@@ -1,8 +1,9 @@
 import os
 import warnings
 from typing import Any, Dict, List, Mapping, Optional, Protocol
+from urllib.parse import urlparse
 
-from chalk.client.client_grpc import ChalkGRPCClient
+from chalk.client.client_grpc import MODEL_TRAINING_METRIC_PREFIX, ChalkGRPCClient
 from chalk.client.exc import ChalkAuthException
 from chalk.client.models import RegisterModelArtifactResponse
 from chalk.config.auth_config import load_token
@@ -26,6 +27,62 @@ VALID_MODEL_TRAINING_METRICS = {
     "rmse",
     "f1",
 }
+
+
+def _statsd_tags(tags: Mapping[str, str]) -> list[str]:
+    return [f"{key}:{value}" for key, value in tags.items()]
+
+
+def _training_metrics_statsd_port(default: int) -> int:
+    port = os.environ.get("STATSD_PORT")
+    if port is None:
+        return default
+    try:
+        return int(port)
+    except ValueError:
+        return default
+
+
+def _get_training_metrics_statsd() -> Any | None:
+    try:
+        from datadog.dogstatsd import DogStatsd
+    except ImportError:
+        return None
+
+    dogstatsd_url = os.environ.get("DD_DOGSTATSD_URL")
+    if dogstatsd_url:
+        parsed = urlparse(dogstatsd_url)
+        if parsed.scheme == "unix":
+            return DogStatsd(socket_path=parsed.path)
+        if parsed.scheme in {"udp", "dogstatsd"} and parsed.hostname is not None:
+            return DogStatsd(host=parsed.hostname, port=parsed.port or _training_metrics_statsd_port(8125))
+
+    socket_path = os.environ.get("STATSD_SOCKET_PATH")
+    if socket_path:
+        return DogStatsd(socket_path=socket_path)
+
+    statsd_host = os.environ.get("STATSD_HOST") or os.environ.get("DD_AGENT_HOST")
+    if statsd_host:
+        return DogStatsd(host=statsd_host, port=_training_metrics_statsd_port(8125))
+
+    host_ip = os.environ.get("HOST_IP")
+    if host_ip:
+        return DogStatsd(host=host_ip, port=_training_metrics_statsd_port(8127))
+
+    return None
+
+
+def _emit_training_metrics_to_statsd(metrics: Mapping[str, float | int], tags: Mapping[str, str]) -> None:
+    from chalk.utils.tracing import safe_set_gauge
+
+    metric_tags = _statsd_tags(tags)
+    statsd = _get_training_metrics_statsd()
+    for name, value in metrics.items():
+        metric_name = f"{MODEL_TRAINING_METRIC_PREFIX}{name}"
+        if statsd is None:
+            safe_set_gauge(metric_name, value, tags=metric_tags)
+        else:
+            statsd.gauge(metric_name, value, tags=metric_tags)
 
 
 class Checkpointer(Protocol):
@@ -119,6 +176,7 @@ class ClientCheckpointer:
             metrics=metrics_to_report,
             tags=metric_tags,
         )
+        _emit_training_metrics_to_statsd(metrics_to_report, metric_tags)
 
 
 CheckpointClass: Checkpointer = ClientCheckpointer()

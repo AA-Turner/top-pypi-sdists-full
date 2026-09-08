@@ -25,11 +25,11 @@ from typing_extensions import Self
 
 class BoxOAuthCredentials(BaseModel):
     """
-    Credentials for Box OAuth 2.0 authentication.  Box supports OAuth 2.0 with access and refresh tokens. The refresh token is used to automatically obtain new access tokens without user interaction.  Prerequisites:     - Create a Box application at https://developer.box.com     - Configure OAuth 2.0 with the appropriate scopes     - Complete the OAuth consent flow to obtain tokens  Security:     - client_secret, access_token, and refresh_token encrypted at rest via CSFLE     - Access tokens expire in ~60 minutes; refresh tokens used for renewal     - Token refresh happens automatically during sync execution
+    Credentials for Box OAuth 2.0 authentication.  Box supports OAuth 2.0 with access and refresh tokens. The refresh token is used to automatically obtain new access tokens without user interaction.  Prerequisites:     - Create a Box application at https://developer.box.com     - Configure OAuth 2.0 with the appropriate scopes     - Complete the OAuth consent flow to obtain tokens  Security:     - client_secret, access_token, and refresh_token are secret credentials, redacted on read     - Access tokens expire in ~60 minutes; refresh tokens used for renewal     - Token refresh happens automatically during sync execution
     """ # noqa: E501
     type: Optional[StrictStr] = 'oauth'
     client_id: StrictStr = Field(description="REQUIRED. Box application client ID. Found in: Box Developer Console > Your App > Configuration > OAuth 2.0 Credentials.")
-    client_secret: StrictStr = Field(description="REQUIRED. Box application client secret. SECURITY: Encrypted at rest via CSFLE. Never log or expose. Found in: Box Developer Console > Your App > Configuration.")
+    client_secret: StrictStr = Field(description="REQUIRED. Box application client secret. SECURITY: Secret credential, redacted on read. Never log or expose. Found in: Box Developer Console > Your App > Configuration.")
     access_token: StrictStr = Field(description="REQUIRED. Box OAuth 2.0 access token. SECURITY: Encrypted at rest. Expires in ~60 minutes.")
     refresh_token: StrictStr = Field(description="REQUIRED. Box OAuth 2.0 refresh token for automatic token renewal. SECURITY: Encrypted at rest. Single-use; new one issued on each refresh.")
     __properties: ClassVar[List[str]] = ["type", "client_id", "client_secret", "access_token", "refresh_token"]

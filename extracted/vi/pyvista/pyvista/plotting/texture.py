@@ -6,11 +6,11 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pyvista_validation as _validation
 
 import pyvista as pv
 from pyvista import _vtk
 from pyvista._warn_external import warn_external
-from pyvista.core import _validation
 from pyvista.core.dataobject import DataObject
 from pyvista.core.utilities.fileio import _try_imageio_imread
 from pyvista.core.utilities.misc import AnnotatedIntEnum
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from typing import Literal
 
     from pyvista.core._typing_core import NumpyArray
+    from pyvista.core.utilities.arrays import FieldAssociation
 
 
 class Texture(DataObject, _vtk.vtkTexture):
@@ -109,6 +110,9 @@ class Texture(DataObject, _vtk.vtkTexture):
         * REPEAT (Default in :class:`pyvista.Texture`)
         * MIRRORED_REPEAT
         * CLAMP_TO_BORDER
+
+        Members accept either their ``int`` value or ``str`` annotation, for example
+        ``WrapType.from_any('Repeat')``.
 
         See :attr:`Texture.wrap` for usage.
 
@@ -319,13 +323,16 @@ class Texture(DataObject, _vtk.vtkTexture):
 
         Examples
         --------
-        >>> from pyvista import examples
-        >>> texture = examples.download_puppy_texture()
-        >>> flipped = texture.flip_x()
-        >>> flipped.plot()
+        .. pyvista-plot::
+            :force_static:
+
+            >>> from pyvista import examples
+            >>> texture = examples.download_puppy_texture()
+            >>> flipped = texture.flip_x()
+            >>> flipped.plot()
 
         """
-        return Texture(self.to_image()._flip_uniform(0))  # type: ignore[abstract]
+        return Texture(self.to_image()._flip_uniform(0))
 
     def flip_y(self) -> Texture:
         """Flip the texture in the y direction.
@@ -337,13 +344,16 @@ class Texture(DataObject, _vtk.vtkTexture):
 
         Examples
         --------
-        >>> from pyvista import examples
-        >>> texture = examples.download_puppy_texture()
-        >>> flipped = texture.flip_y()
-        >>> flipped.plot()
+        .. pyvista-plot::
+            :force_static:
+
+            >>> from pyvista import examples
+            >>> texture = examples.download_puppy_texture()
+            >>> flipped = texture.flip_y()
+            >>> flipped.plot()
 
         """
-        return Texture(self.to_image()._flip_uniform(1))  # type: ignore[abstract]
+        return Texture(self.to_image()._flip_uniform(1))
 
     def to_image(self):
         """Return the texture as an image.
@@ -367,7 +377,7 @@ class Texture(DataObject, _vtk.vtkTexture):
         Returns
         -------
         numpy.ndarray
-            Texture as a numpy array.
+            Texture as a NumPy array.
 
         Examples
         --------
@@ -388,6 +398,47 @@ class Texture(DataObject, _vtk.vtkTexture):
             [*list(self.dimensions)[::-1], self.n_components]
         )[::-1]
 
+    @property
+    def is_empty(self) -> bool:  # numpydoc ignore=RT01
+        """Return ``True`` if the texture has no image data.
+
+        Examples
+        --------
+        >>> import pyvista as pv
+        >>> pv.Texture().is_empty
+        True
+
+        """
+        image = self.to_image()
+        return image is None or image.is_empty
+
+    def get_data_range(
+        self, name: str | None = None, preference: FieldAssociation | str = 'point'
+    ) -> tuple[float, float]:
+        """Get the min and max of a named array of the texture's image.
+
+        Parameters
+        ----------
+        name : str, optional
+            The name of the array to get the range. If ``None``, the
+            active scalars is used.
+
+        preference : str, default: "point"
+            When scalars is specified, this is the preferred array type
+            to search for. Must be either ``'point'``, ``'cell'``, or
+            ``'field'``.
+
+        Returns
+        -------
+        tuple
+            ``(min, max)`` of the named array.
+
+        """
+        image = self.to_image()
+        if image is None:
+            return (np.nan, np.nan)
+        return image.get_data_range(name, preference=preference)
+
     def rotate_cw(self) -> Texture:
         """Rotate this texture 90 degrees clockwise.
 
@@ -398,13 +449,16 @@ class Texture(DataObject, _vtk.vtkTexture):
 
         Examples
         --------
-        >>> from pyvista import examples
-        >>> texture = examples.download_puppy_texture()
-        >>> rotated = texture.rotate_cw()
-        >>> rotated.plot()
+        .. pyvista-plot::
+            :force_static:
+
+            >>> from pyvista import examples
+            >>> texture = examples.download_puppy_texture()
+            >>> rotated = texture.rotate_cw()
+            >>> rotated.plot()
 
         """
-        return Texture(np.rot90(self.to_array()))  # type: ignore[abstract]
+        return Texture(np.rot90(self.to_array()))
 
     def rotate_ccw(self) -> Texture:
         """Rotate this texture 90 degrees counter-clockwise.
@@ -416,13 +470,16 @@ class Texture(DataObject, _vtk.vtkTexture):
 
         Examples
         --------
-        >>> from pyvista import examples
-        >>> texture = examples.download_puppy_texture()
-        >>> rotated = texture.rotate_ccw()
-        >>> rotated.plot()
+        .. pyvista-plot::
+            :force_static:
+
+            >>> from pyvista import examples
+            >>> texture = examples.download_puppy_texture()
+            >>> rotated = texture.rotate_ccw()
+            >>> rotated.plot()
 
         """
-        return Texture(np.rot90(self.to_array(), k=3))  # type: ignore[abstract]
+        return Texture(np.rot90(self.to_array(), k=3))
 
     @property
     def cube_map(self) -> bool:  # numpydoc ignore=RT01
@@ -442,7 +499,7 @@ class Texture(DataObject, _vtk.vtkTexture):
             Copied texture.
 
         """
-        return Texture(self.to_image().copy())  # type: ignore[abstract]
+        return Texture(self.to_image().copy())
 
     def to_skybox(
         self,
@@ -505,7 +562,8 @@ class Texture(DataObject, _vtk.vtkTexture):
         if floor_plane is not None:
             valid_floor_plane = _validation.validate_array(
                 floor_plane,
-                must_have_shape=4,
+                must_have_ndim=1,
+                must_have_length=4,
                 dtype_out=float,
                 to_tuple=True,
                 name='floor_plane',
@@ -539,7 +597,7 @@ class Texture(DataObject, _vtk.vtkTexture):
     def n_components(self) -> int:  # numpydoc ignore=RT01
         """Return the number of components in the image.
 
-        In textures, 3 or 4 components are used for representing RGB and RGBA
+        Textures use 3 or 4 components to represent RGB and RGBA
         images.
 
         Examples
@@ -583,7 +641,7 @@ class Texture(DataObject, _vtk.vtkTexture):
         Parameters
         ----------
         **kwargs : dict, optional
-            Optional keyworld arguments. See :func:`pyvista.plot`.
+            Optional keyword arguments. See :func:`pyvista.plot`.
 
         Returns
         -------
@@ -746,7 +804,7 @@ class Texture(DataObject, _vtk.vtkTexture):
         data = self.to_array()
         r, g, b = data[..., 0], data[..., 1], data[..., 2]
         data = (0.299 * r + 0.587 * g + 0.114 * b).round().astype(np.uint8)
-        return Texture(data)  # type: ignore[abstract]
+        return Texture(data)
 
 
 def image_to_texture(image):
@@ -763,7 +821,7 @@ def image_to_texture(image):
         The texture.
 
     """
-    return Texture(image)  # type: ignore[abstract]
+    return Texture(image)
 
 
 def numpy_to_texture(image):
@@ -772,7 +830,7 @@ def numpy_to_texture(image):
     Parameters
     ----------
     image : numpy.ndarray
-        Numpy image array. Texture datatype expected to be ``np.uint8``.
+        NumPy image array. Texture datatype expected to be ``np.uint8``.
 
     Returns
     -------
@@ -797,4 +855,4 @@ def numpy_to_texture(image):
             UserWarning,
         )
 
-    return Texture(image)  # type: ignore[abstract]
+    return Texture(image)

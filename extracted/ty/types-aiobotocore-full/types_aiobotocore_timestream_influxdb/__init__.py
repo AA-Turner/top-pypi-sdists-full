@@ -11,6 +11,7 @@ Usage::
     from aiobotocore.session import get_session
     from types_aiobotocore_timestream_influxdb import (
         Client,
+        ListDbBackupsPaginator,
         ListDbClustersPaginator,
         ListDbInstancesForClusterPaginator,
         ListDbInstancesPaginator,
@@ -24,6 +25,7 @@ Usage::
         ...
 
 
+    list_db_backups_paginator: ListDbBackupsPaginator = client.get_paginator("list_db_backups")
     list_db_clusters_paginator: ListDbClustersPaginator = client.get_paginator("list_db_clusters")
     list_db_instances_for_cluster_paginator: ListDbInstancesForClusterPaginator = client.get_paginator("list_db_instances_for_cluster")
     list_db_instances_paginator: ListDbInstancesPaginator = client.get_paginator("list_db_instances")
@@ -33,6 +35,7 @@ Usage::
 
 from .client import TimestreamInfluxDBClient
 from .paginator import (
+    ListDbBackupsPaginator,
     ListDbClustersPaginator,
     ListDbInstancesForClusterPaginator,
     ListDbInstancesPaginator,
@@ -44,6 +47,7 @@ Client = TimestreamInfluxDBClient
 
 __all__ = (
     "Client",
+    "ListDbBackupsPaginator",
     "ListDbClustersPaginator",
     "ListDbInstancesForClusterPaginator",
     "ListDbInstancesPaginator",

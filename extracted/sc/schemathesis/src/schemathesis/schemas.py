@@ -21,7 +21,7 @@ from schemathesis.core.adapter import OperationParameter, ResponsesContainer
 from schemathesis.core.errors import IncorrectUsage, InvalidSchema
 from schemathesis.core.failures import FailureGroup
 from schemathesis.core.jsonschema.types import JsonSchemaObject
-from schemathesis.core.parameters import LOCATION_TO_CONTAINER
+from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation, SkippedParameter
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.runtime import RuntimeProbeState
 from schemathesis.core.spec import CoverageCapabilities
@@ -29,6 +29,7 @@ from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.transport import HttpMethod, HttpMethodSchema, Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
+from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.hypothesis.given import GivenInput, given_proxy
 from schemathesis.generation.hypothesis.reporting import FilterCaseTracker
 from schemathesis.generation.meta import CaseMetadata
@@ -499,9 +500,6 @@ class BaseSchema(Mapping):
         """Return spec-specific data the coverage phase asks of a schema."""
         return CoverageCapabilities(format_strategies={}, update_pattern=None, validator_cls=None)
 
-    def reset_coverage_state(self) -> None:
-        """Reset spec-specific runtime state held across coverage runs; default is a no-op."""
-
     def record_runtime_observations(
         self,
         *,
@@ -522,6 +520,8 @@ class BaseSchema(Mapping):
         generation_config: GenerationConfig,
         extra_data_source: ResourcePool | None = None,
         error_feedback: ErrorFeedbackStore | None = None,
+        unexpected_methods_seen: set[tuple[str, str]] | None = None,
+        session: GenerationSession | None = None,
     ) -> Iterator[Case]:
         raise NotImplementedError
 
@@ -695,10 +695,7 @@ class ParameterSet(Generic[P]):
         return None
 
     def __contains__(self, name: str) -> bool:
-        for parameter in self.items:
-            if parameter.name == name:
-                return True
-        return False
+        return any(parameter.name == name for parameter in self.items)
 
     def __iter__(self) -> Generator[P, None, None]:
         yield from iter(self.items)
@@ -757,6 +754,8 @@ class APIOperation(Generic[P, R, S, SchemaT]):
     query: ParameterSet[P] = field(default_factory=ParameterSet)
     body: PayloadAlternatives[P] = field(default_factory=PayloadAlternatives)
     filter_case_tracker: FilterCaseTracker | None = field(default=None, repr=False, compare=False)
+    # Optional parameters left out because their schemas could not be parsed.
+    skipped_parameters: list[SkippedParameter] = field(default_factory=list, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -785,6 +784,14 @@ class APIOperation(Generic[P, R, S, SchemaT]):
     @property
     def tags(self) -> list[str] | None:
         return self.schema.get_tags(self)
+
+    @property
+    def has_skipped_required_body(self) -> bool:
+        """The operation declares a required body whose schema could not be parsed."""
+        return any(
+            parameter.location == ParameterLocation.BODY.value and parameter.required
+            for parameter in self.skipped_parameters
+        )
 
     def iter_parameters(self) -> Iterator[P]:
         return chain(self.path_parameters, self.headers, self.cookies, self.query)

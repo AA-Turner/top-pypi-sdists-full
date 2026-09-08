@@ -72,6 +72,7 @@ from .type_defs import (
     UpdateItemInputTableUpdateItemTypeDef,
     UpdateItemOutputTableTypeDef,
     UpdateTableInputTableUpdateTypeDef,
+    VectorIndexDescriptionTypeDef,
 )
 
 try:
@@ -192,6 +193,7 @@ class Table(AIOBoto3ServiceResource):
     on_demand_throughput: Awaitable[OnDemandThroughputTypeDef]
     warm_throughput: Awaitable[TableWarmThroughputDescriptionTypeDef]
     multi_region_consistency: Awaitable[MultiRegionConsistencyType]
+    vector_indexes: Awaitable[list[VectorIndexDescriptionTypeDef]]
     meta: DynamoDBResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

@@ -32,6 +32,7 @@ __all__ = (
     "CRAllocationStrategyType",
     "CRTypeType",
     "CRUpdateAllocationStrategyType",
+    "ContainerInsightsType",
     "DescribeComputeEnvironmentsPaginatorName",
     "DescribeJobDefinitionsPaginatorName",
     "DescribeJobQueuesPaginatorName",
@@ -99,6 +100,7 @@ CRUpdateAllocationStrategyType = Literal[
     "SPOT_CAPACITY_OPTIMIZED_PRIORITIZED",
     "SPOT_PRICE_CAPACITY_OPTIMIZED",
 ]
+ContainerInsightsType = Literal["DISABLED", "ENABLED", "ENHANCED"]
 DescribeComputeEnvironmentsPaginatorName = Literal["describe_compute_environments"]
 DescribeJobDefinitionsPaginatorName = Literal["describe_job_definitions"]
 DescribeJobQueuesPaginatorName = Literal["describe_job_queues"]
@@ -150,8 +152,11 @@ BatchServiceName = Literal["batch"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -456,6 +461,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

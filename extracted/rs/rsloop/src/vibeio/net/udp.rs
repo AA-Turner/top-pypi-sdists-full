@@ -1,4 +1,5 @@
 //! UDP socket types for async I/O.
+#![warn(clippy::undocumented_unsafe_blocks)]
 //!
 //! This module provides:
 //! - [`UdpSocket`]: An async UDP socket that can use either completion-based or poll-based I/O.
@@ -7,15 +8,13 @@
 //!
 //! - On Linux with io_uring support, UDP operations use native async syscalls via the async driver.
 //! - When io_uring completion is available, operations complete directly.
-//! - For platforms without native async support, operations fall back to synchronous std::net calls.
-//! - The runtime must be active when calling these types' methods; otherwise they will panic.
+//! - Poll mode uses nonblocking socket calls and driver readiness notifications.
+//! - Register sockets and drive async I/O inside a runtime. Registration without
+//!   one returns an error; direct address/option queries need no current runtime.
 
 use std::cell::RefCell;
 use std::future::poll_fn;
 use std::io;
-use std::mem::ManuallyDrop;
-#[cfg(unix)]
-use std::mem::MaybeUninit;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket as StdUdpSocket};
 #[cfg(unix)]
 use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
@@ -26,162 +25,23 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use mio::Interest;
-#[cfg(windows)]
-use windows_sys::Win32::Networking::WinSock::{
-    AF_INET, AF_INET6, SOCKADDR, SOCKADDR_IN, SOCKADDR_IN6, SOCKADDR_STORAGE,
-};
 
 use crate::vibeio::driver::RegistrationMode;
 use crate::vibeio::fd_inner::InnerRawHandle;
 use crate::vibeio::io::{
     AsInnerRawHandle, AsyncReadPoll, AsyncWritePoll, IoBuf, IoBufMut, IoBufTemporaryPoll,
 };
-use crate::vibeio::op::{ConnectOp, ReadinessOp, RecvOp, RecvfromOp, SendOp, SendtoOp};
-
 #[cfg(unix)]
-#[inline]
-fn socket_addr_to_raw(address: SocketAddr) -> (libc::sockaddr_storage, libc::socklen_t) {
-    match address {
-        SocketAddr::V4(address) => {
-            let sockaddr = libc::sockaddr_in {
-                sin_family: libc::AF_INET as libc::sa_family_t,
-                sin_port: address.port().to_be(),
-                sin_addr: libc::in_addr {
-                    s_addr: u32::from_ne_bytes(address.ip().octets()),
-                },
-                sin_zero: [0; 8],
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin_len: 0,
-            };
-
-            let mut storage = MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in>()
-                    .write(sockaddr);
-                (
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in>() as libc::socklen_t,
-                )
-            }
-        }
-        SocketAddr::V6(address) => {
-            let sockaddr = libc::sockaddr_in6 {
-                sin6_family: libc::AF_INET6 as libc::sa_family_t,
-                sin6_port: address.port().to_be(),
-                sin6_flowinfo: address.flowinfo(),
-                sin6_addr: libc::in6_addr {
-                    s6_addr: address.ip().octets(),
-                },
-                sin6_scope_id: address.scope_id(),
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin6_len: 0,
-            };
-
-            let mut storage = MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in6>()
-                    .write(sockaddr);
-                (
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in6>() as libc::socklen_t,
-                )
-            }
-        }
-    }
-}
-
-#[cfg(windows)]
-#[inline]
-fn socket_addr_to_raw(address: SocketAddr) -> (SOCKADDR_STORAGE, i32) {
-    match address {
-        SocketAddr::V4(address) => {
-            let mut sockaddr = SOCKADDR_IN::default();
-            sockaddr.sin_family = AF_INET;
-            sockaddr.sin_port = address.port().to_be();
-            sockaddr.sin_addr.S_un.S_addr = u32::from_ne_bytes(address.ip().octets());
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN>(),
-                );
-            }
-            (storage, std::mem::size_of::<SOCKADDR_IN>() as i32)
-        }
-        SocketAddr::V6(address) => {
-            let mut sockaddr = SOCKADDR_IN6::default();
-            sockaddr.sin6_family = AF_INET6;
-            sockaddr.sin6_port = address.port().to_be();
-            sockaddr.sin6_flowinfo = address.flowinfo();
-            sockaddr.sin6_addr.u.Byte = address.ip().octets();
-            sockaddr.Anonymous.sin6_scope_id = address.scope_id() as u32;
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN6 as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN6>(),
-                );
-            }
-            (storage, std::mem::size_of::<SOCKADDR_IN6>() as i32)
-        }
-    }
-}
+use crate::vibeio::op::{ConnectOp, socket_addr_to_raw};
+use crate::vibeio::op::{ReadinessOp, RecvOp, RecvfromOp, SendOp, SendtoOp};
 
 #[cfg(unix)]
 #[inline]
 async fn connect_one(handle: &InnerRawHandle, address: SocketAddr) -> Result<(), io::Error> {
     let (raw_addr, raw_addr_len) = socket_addr_to_raw(address);
-    let raw_addr_ptr = (&raw_addr as *const libc::sockaddr_storage).cast::<libc::sockaddr>();
-    let mut op = ConnectOp::new(handle, raw_addr_ptr, raw_addr_len);
-    poll_fn(move |cx| handle.poll_op(cx, &mut op)).await
-}
 
-#[cfg(windows)]
-#[inline]
-async fn connect_one(
-    handle: &mut InnerRawHandle,
-    socket: &mut StdUdpSocket,
-    address: SocketAddr,
-) -> Result<(), io::Error> {
-    // Since ConnectEx (used by `ConnectOp`) requires the socket to be connection-oriented,
-    // we use poll-based I/O instead of completion-based I/O on Windows.
-    let old_registration_mode = handle.mode();
-    handle.rebind_mode(RegistrationMode::Poll)?;
-    socket.set_nonblocking(true)?;
-    let (raw_addr, raw_addr_len) = socket_addr_to_raw(address);
-    let raw_addr_ptr = (&raw_addr as *const SOCKADDR_STORAGE).cast::<SOCKADDR>();
-    let mut op = ConnectOp::new(handle, raw_addr_ptr, raw_addr_len);
-    let result = poll_fn(|cx| handle.poll_op(cx, &mut op)).await;
-    drop(op);
-    handle.rebind_mode(old_registration_mode)?;
-    socket.set_nonblocking(!handle.uses_completion())?;
-    result
+    let mut op = ConnectOp::new(handle, raw_addr, raw_addr_len)?;
+    poll_fn(move |cx| handle.poll_op(cx, &mut op)).await
 }
 
 /// An async UDP socket that can use either completion-based or poll-based I/O.
@@ -190,23 +50,21 @@ async fn connect_one(
 ///
 /// # Implementation details
 ///
-/// - On Linux with io_uring support, UDP operations use native async syscalls via the async driver.
-/// - When io_uring completion is available, operations complete directly.
-/// - For platforms without native async support, operations fall back to synchronous std::net calls.
-/// - The runtime must be active when calling these methods; otherwise they will panic.
+/// - Completion mode submits operations through the owning runtime driver.
+/// - Poll mode uses nonblocking socket calls and waits for readiness on WouldBlock.
+/// - Bind and from_std need an entered runtime for registration and return an
+///   error if none is available. Not every method requires a current runtime;
+///   for example, local_addr queries the already-owned socket directly.
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::net::UdpSocket;
-///
-/// let socket = UdpSocket::bind("127.0.0.1:0").await?;
-/// socket.connect("127.0.0.1:9000").await?;
-/// socket.send(b"hello").await?;
-/// ```
+/// See "UDP loopback exchange" in `tools/vibeio-check/EXAMPLES.md` for an
+/// executable example. Bind is synchronous; send and receive return a result
+/// together with the owned buffer.
 pub struct UdpSocket {
+    // Deregister before closing the socket (field declaration order).
+    handle: InnerRawHandle,
     inner: StdUdpSocket,
-    handle: ManuallyDrop<InnerRawHandle>,
 }
 
 impl UdpSocket {
@@ -244,17 +102,17 @@ impl UdpSocket {
         mode: RegistrationMode,
     ) -> Result<Self, io::Error> {
         #[cfg(unix)]
-        let handle = ManuallyDrop::new(InnerRawHandle::new_with_mode(
+        let handle = InnerRawHandle::new_with_mode(
             inner.as_raw_fd(),
             Interest::READABLE | Interest::WRITABLE,
             mode,
-        )?);
+        )?;
         #[cfg(windows)]
-        let handle = ManuallyDrop::new(InnerRawHandle::new_with_mode(
+        let handle = InnerRawHandle::new_with_mode(
             crate::vibeio::fd_inner::RawOsHandle::Socket(inner.as_raw_socket()),
             Interest::READABLE | Interest::WRITABLE,
             mode,
-        )?);
+        )?;
 
         inner.set_nonblocking(!handle.uses_completion())?;
         Ok(Self { inner, handle })
@@ -280,14 +138,9 @@ impl UdpSocket {
     /// Converts this `UdpSocket` into the standard library `UdpSocket`.
     #[inline]
     pub fn into_std(self) -> StdUdpSocket {
-        let mut this = ManuallyDrop::new(self);
-
-        // Safety: `this` will not be dropped, so we must drop the registration
-        // handle manually and move out the inner socket.
-        unsafe {
-            ManuallyDrop::drop(&mut this.handle);
-            std::ptr::read(&this.inner)
-        }
+        let Self { handle, inner } = self;
+        drop(handle);
+        inner
     }
 
     /// Returns the local address of this socket.
@@ -328,7 +181,11 @@ impl UdpSocket {
             #[cfg(unix)]
             let connect_one_result = connect_one(&self.handle, address).await;
             #[cfg(windows)]
-            let connect_one_result = connect_one(&mut self.handle, &mut self.inner, address).await;
+            // Winsock datagram connect only sets the default peer; it does not
+            // perform a connection handshake. Keep both registration and socket
+            // mode unchanged, including on error. ConnectEx is stream-only.
+            // https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-connect
+            let connect_one_result = self.inner.connect(address);
             match connect_one_result {
                 Ok(()) => return Ok(()),
                 Err(err) => last_error = Some(err),
@@ -726,16 +583,6 @@ impl IntoRawSocket for UdpSocket {
     }
 }
 
-impl Drop for UdpSocket {
-    #[inline]
-    fn drop(&mut self) {
-        // Safety: The struct is dropped after the handle is dropped.
-        unsafe {
-            ManuallyDrop::drop(&mut self.handle);
-        }
-    }
-}
-
 impl<'a> AsInnerRawHandle<'a> for UdpSocket {
     #[inline]
     fn as_inner_raw_handle(&'a self) -> &'a InnerRawHandle {
@@ -754,12 +601,8 @@ impl<'a> AsInnerRawHandle<'a> for UdpSocket {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::net::UdpSocket;
-///
-/// let socket = UdpSocket::bind("127.0.0.1:0")?;
-/// let poll_socket = socket.into_poll()?;
-/// ```
+/// See "UDP loopback exchange" in `tools/vibeio-check/EXAMPLES.md` for an
+/// executable conversion followed by receiving a reply through the poll socket.
 pub struct PollUdpSocket {
     socket: UdpSocket,
     read_ready: RefCell<bool>,
@@ -1146,6 +989,8 @@ impl PollUdpSocket {
     ) -> Poll<Result<usize, io::Error>> {
         let this = self.get_mut();
         let handle = &this.socket.handle;
+        // SAFETY: buf is exclusively borrowed and initialized for this poll.
+        // The local RecvOp uses poll-only dispatch and cannot retain its pointer.
         let buf_temp = unsafe { IoBufTemporaryPoll::new(buf.as_mut_ptr(), buf.len()) };
         let mut op = RecvOp::new(handle, buf_temp);
         handle.poll_op_poll(cx, &mut op)
@@ -1162,6 +1007,8 @@ impl PollUdpSocket {
     ) -> Poll<Result<(usize, SocketAddr), io::Error>> {
         let this = self.get_mut();
         let handle = &this.socket.handle;
+        // SAFETY: buf stays exclusively borrowed through synchronous recvfrom.
+        // poll_op_poll rejects completion mode; op is dropped even on Pending.
         let buf_temp = unsafe { IoBufTemporaryPoll::new(buf.as_mut_ptr(), buf.len()) };
         let mut op = RecvfromOp::new(handle, buf_temp);
         handle.poll_op_poll(cx, &mut op)
@@ -1178,6 +1025,8 @@ impl PollUdpSocket {
     ) -> Poll<Result<usize, io::Error>> {
         let this = self.get_mut();
         let handle = &this.socket.handle;
+        // SAFETY: buf is initialized and borrowed for this synchronous send.
+        // SendOp only reads it and poll-only dispatch cannot retain the pointer.
         let buf_temp = unsafe { IoBufTemporaryPoll::new(buf.as_ptr() as *mut u8, buf.len()) };
         let mut op = SendOp::new(handle, buf_temp);
         handle.poll_op_poll(cx, &mut op)
@@ -1195,6 +1044,9 @@ impl PollUdpSocket {
     ) -> Poll<Result<usize, io::Error>> {
         let this = self.get_mut();
         let handle = &this.socket.handle;
+        // SAFETY: SendtoOp only reads the borrowed initialized bytes during
+        // this poll. Both op and its owned address metadata are local; poll-only
+        // dispatch cannot retain the caller's buffer after returning.
         let buf_temp = unsafe { IoBufTemporaryPoll::new(buf.as_ptr() as *mut u8, buf.len()) };
         let mut op = SendtoOp::new(handle, buf_temp, target);
         handle.poll_op_poll(cx, &mut op)
@@ -1211,6 +1063,8 @@ impl PollUdpSocket {
     ) -> Poll<Result<usize, io::Error>> {
         let this = self.get_mut();
         let handle = &this.socket.handle;
+        // SAFETY: peek may write buf, which is exclusively borrowed for this
+        // poll. The local operation cannot escape through poll-only dispatch.
         let buf_temp = unsafe { IoBufTemporaryPoll::new(buf.as_mut_ptr(), buf.len()) };
         let mut op = RecvOp::new_peek(handle, buf_temp);
         handle.poll_op_poll(cx, &mut op)
@@ -1228,6 +1082,9 @@ impl PollUdpSocket {
     ) -> Poll<Result<(usize, SocketAddr), io::Error>> {
         let this = self.get_mut();
         let handle = &this.socket.handle;
+        // SAFETY: peek_from writes only within this exclusive buffer borrow.
+        // poll_op_poll excludes completion submission; all pointer-bearing
+        // operation state is dropped before returning, including Pending.
         let buf_temp = unsafe { IoBufTemporaryPoll::new(buf.as_mut_ptr(), buf.len()) };
         let mut op = RecvfromOp::new_peek(handle, buf_temp);
         handle.poll_op_poll(cx, &mut op)
@@ -1239,15 +1096,7 @@ impl PollUdpSocket {
     where
         Io: FnOnce() -> io::Result<IoR>,
     {
-        if *self.read_ready.borrow() {
-            let result = io();
-            if result.is_err() {
-                *self.read_ready.borrow_mut() = false;
-            }
-            result
-        } else {
-            Err(io::Error::new(io::ErrorKind::WouldBlock, "read not ready"))
-        }
+        crate::vibeio::net::try_io_ready(&self.read_ready, "read not ready", io)
     }
 
     /// Tries to perform an I/O operation on the socket, returning an error if it is not ready.
@@ -1256,15 +1105,7 @@ impl PollUdpSocket {
     where
         Io: FnOnce() -> io::Result<IoR>,
     {
-        if *self.write_ready.borrow() {
-            let result = io();
-            if result.is_err() {
-                *self.write_ready.borrow_mut() = false;
-            }
-            result
-        } else {
-            Err(io::Error::new(io::ErrorKind::WouldBlock, "write not ready"))
-        }
+        crate::vibeio::net::try_io_ready(&self.write_ready, "write not ready", io)
     }
 }
 
@@ -1346,6 +1187,59 @@ mod tests {
     use crate::vibeio::driver::AnyDriver;
 
     use super::{PollUdpSocket, UdpSocket};
+
+    #[cfg(windows)]
+    #[test]
+    fn udp_connect_preserves_registration_on_success_and_error() {
+        use crate::vibeio::driver::RegistrationMode;
+        use std::future::Future;
+        use std::task::{Context, Poll, Waker};
+
+        let runtime = crate::vibeio::executor::Runtime::new(AnyDriver::new_iocp().unwrap());
+        runtime.block_on(async {
+            for mode in [RegistrationMode::Poll, RegistrationMode::Completion] {
+                let inner = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+                let mut socket = UdpSocket::from_std_with_mode(inner, mode).unwrap();
+                let token = socket.handle.token;
+                let completion = socket.handle.uses_completion();
+                let peer = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+                let peer_addr = peer.local_addr().unwrap();
+                let mut cx = Context::from_waker(Waker::noop());
+
+                // There must be no pending future with temporarily changed modes.
+                {
+                    let mut connect = std::pin::pin!(socket.connect(peer_addr));
+                    assert!(matches!(
+                        connect.as_mut().poll(&mut cx),
+                        Poll::Ready(Ok(()))
+                    ));
+                }
+                assert_eq!(socket.handle.token, token);
+                assert_eq!(socket.handle.uses_completion(), completion);
+                assert_eq!(socket.peer_addr().unwrap(), peer_addr);
+
+                // An IPv6 peer cannot be assigned to this IPv4 socket.
+                {
+                    let invalid = "[::1]:12345".parse::<SocketAddr>().unwrap();
+                    let mut connect = std::pin::pin!(socket.connect(invalid));
+                    assert!(matches!(
+                        connect.as_mut().poll(&mut cx),
+                        Poll::Ready(Err(_))
+                    ));
+                }
+                assert_eq!(socket.handle.token, token);
+                assert_eq!(socket.handle.uses_completion(), completion);
+
+                socket.connect(peer_addr).await.unwrap();
+                assert_eq!(socket.send(b"ping".to_vec()).await.0.unwrap(), 4);
+                peer.set_read_timeout(Some(crate::vibeio::test_support::WATCHDOG))
+                    .unwrap();
+                let mut buf = [0; 4];
+                assert_eq!(peer.recv(&mut buf).unwrap(), 4);
+                assert_eq!(&buf, b"ping");
+            }
+        });
+    }
 
     #[inline]
     fn try_bind_udp(address: SocketAddr) -> Option<UdpSocket> {
@@ -1436,7 +1330,7 @@ mod tests {
     }
 
     #[test]
-    fn poll_udp_send_recv_and_peek_variants_work() {
+    fn poll_udp_owned_buffer_send_recv_and_peek_variants_work() {
         let runtime = crate::vibeio::executor::Runtime::new(
             #[cfg(unix)]
             AnyDriver::new_mio().expect("mio driver should initialize"),
@@ -1531,6 +1425,100 @@ mod tests {
             };
             let poll_socket = socket.into_poll().expect("into_poll should work");
             let _adaptive = poll_socket.into_adaptive();
+        });
+    }
+
+    #[test]
+    fn borrowed_udp_poll_methods_release_buffers_on_pending() {
+        use std::future::poll_fn;
+        use std::task::{Context, Waker};
+        let runtime = crate::vibeio::Runtime::new(
+            #[cfg(unix)]
+            AnyDriver::new_mio().unwrap(),
+            #[cfg(windows)]
+            AnyDriver::new_iocp().unwrap(),
+        );
+        runtime.block_on(async {
+            let mut server = PollUdpSocket::bind("127.0.0.1:0").unwrap();
+            let mut client = PollUdpSocket::bind("127.0.0.1:0").unwrap();
+            let server_addr = server.local_addr().unwrap();
+            let client_addr = client.local_addr().unwrap();
+            server.connect(client_addr).await.unwrap();
+            let mut cx = Context::from_waker(Waker::noop());
+            let mut buffer = [b'_'; 16];
+            assert!(
+                Pin::new(&mut server)
+                    .poll_recv(&mut cx, &mut buffer)
+                    .is_pending()
+            );
+            assert!(
+                Pin::new(&mut server)
+                    .poll_recv_from(&mut cx, &mut buffer)
+                    .is_pending()
+            );
+            assert!(
+                Pin::new(&mut server)
+                    .poll_peek(&mut cx, &mut buffer)
+                    .is_pending()
+            );
+            assert!(
+                Pin::new(&mut server)
+                    .poll_peek_from(&mut cx, &mut buffer)
+                    .is_pending()
+            );
+            assert_eq!(buffer, [b'_'; 16]);
+            buffer.fill(b'x');
+
+            crate::vibeio::time::timeout(crate::vibeio::test_support::WATCHDOG, async {
+                // macOS rejects an explicit destination on connected UDP
+                // sockets, so exercise send_to before connecting the sender.
+                for payload in [&b"ping"[..], &b""[..]] {
+                    let sent =
+                        poll_fn(|cx| Pin::new(&mut client).poll_send_to(cx, payload, server_addr))
+                            .await
+                            .unwrap();
+                    assert_eq!(sent, payload.len());
+                    let (peeked, source) =
+                        poll_fn(|cx| Pin::new(&mut server).poll_peek_from(cx, &mut buffer))
+                            .await
+                            .unwrap();
+                    assert_eq!(source, client_addr);
+                    assert_eq!(peeked, payload.len());
+                    assert_eq!(&buffer[..peeked], payload);
+                    let peeked = poll_fn(|cx| Pin::new(&mut server).poll_peek(cx, &mut buffer))
+                        .await
+                        .unwrap();
+                    assert_eq!(peeked, payload.len());
+                    let (received, source) =
+                        poll_fn(|cx| Pin::new(&mut server).poll_recv_from(cx, &mut buffer))
+                            .await
+                            .unwrap();
+                    assert_eq!(source, client_addr);
+                    assert_eq!(received, payload.len());
+                    assert_eq!(&buffer[..received], payload);
+                    assert!(
+                        Pin::new(&mut server)
+                            .poll_recv_from(&mut Context::from_waker(Waker::noop()), &mut buffer)
+                            .is_pending()
+                    );
+                    buffer.fill(b'x');
+                }
+                client.connect(server_addr).await.unwrap();
+                assert_eq!(
+                    poll_fn(|cx| Pin::new(&mut client).poll_send(cx, b"fresh"))
+                        .await
+                        .unwrap(),
+                    5
+                );
+                let received = poll_fn(|cx| Pin::new(&mut server).poll_recv(cx, &mut buffer))
+                    .await
+                    .unwrap();
+                assert_eq!(received, 5);
+                assert_eq!(&buffer[..received], b"fresh");
+                assert!(buffer[received..].iter().all(|byte| *byte == b'x'));
+            })
+            .await
+            .unwrap();
         });
     }
 }

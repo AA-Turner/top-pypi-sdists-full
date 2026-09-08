@@ -22,6 +22,27 @@ from .query import build_effective_search_query, normalize_search_input
 
 JSON_DECODE_STATUS = 598
 NETWORK_ERROR_STATUS = 599
+
+# A phrase that proves the session of the account is dead. A 401 costs the account `auth_cooldown_s`, which
+# defaults to 30 days, so each phrase must describe the session and never a single tweet. Not the substring
+# "auth", because the word "author" contains it: X sends "Tweet author restricted who can reply" for a normal
+# restricted reply, and that removed an account of the user for a month.
+#
+# Not "not authorized" and not "authorization: denied". X sends both for one tweet of a protected account, so
+# they describe the tweet and not the session.
+AUTH_FAILURE_MESSAGES = (
+    "invalid or expired token",
+    "could not authenticate you",
+    "bad authentication data",
+    "unauthorized",
+    "authorization failed",
+)
+
+# The numeric codes of X for a dead session. Each one comes from a captured answer of X on 2026-09-04: code 89
+# is "Invalid or expired token" from a self-lookup with expired cookies, and code 32 is "Could not authenticate
+# you" from a request with a bad bearer token. The code is the durable signal, because X can reword a message.
+# Add a code here only with a captured answer, because a wrong code costs the account 30 days.
+AUTH_FAILURE_CODES = frozenset({32, 89})
 HTTP_MODE_AUTO = "auto"
 HTTP_MODE_ASYNC = "async"
 HTTP_MODE_SYNC = "sync"
@@ -720,13 +741,17 @@ class ApiEngine:
             except Exception:
                 max_account_switches = configured_switches
         try:
-            account_requests_per_min = max(1, int(_cfg(self.config, "requests_per_min", 30)))
+            account_window_limit = max(1, int(_cfg(self.config, "window_request_limit", 50)))
         except Exception:
-            account_requests_per_min = 30
+            account_window_limit = 50
         try:
-            account_min_delay_s = max(0.0, float(_cfg(self.config, "min_delay_s", 2.0)))
+            account_window_s = max(1.0, float(_cfg(self.config, "rate_limit_window_s", 900.0)))
         except Exception:
-            account_min_delay_s = 2.0
+            account_window_s = 900.0
+        try:
+            account_min_delay_s = max(0.0, float(_cfg(self.config, "min_delay_s", 0.0)))
+        except Exception:
+            account_min_delay_s = 0.0
 
         if follow_type == "following":
             follows_url = self._resolve_following_url(manifest)
@@ -826,7 +851,8 @@ class ApiEngine:
                             logger.warning("Follows request failed: no eligible account could be leased")
                             break
                         account_limiter = TokenBucketLimiter(
-                            requests_per_min=account_requests_per_min,
+                            capacity=account_window_limit,
+                            refill_window_s=account_window_s,
                             min_delay_s=account_min_delay_s,
                         )
                         heartbeat_stop, heartbeat_task = await self._start_lease_heartbeat(
@@ -1508,8 +1534,10 @@ class ApiEngine:
                 fields_to_set["last_error_code"] = None
             try:
                 await self._maybe_await(self.accounts_repo.release(lease_id, fields_to_set=fields_to_set, fields_to_inc={}))
-            except Exception:
-                pass
+            except Exception as exc:
+                # A failed release leaves the account marked busy until its lease expires, so it drops from
+                # the pool with no record. Log it: an operator who sees the pool shrink needs the cause.
+                logger.warning("Failed to release lease_id=%s: %s", lease_id, exc)
 
     @staticmethod
     def _is_handoff_eligible_status(status_code: int) -> bool:
@@ -1543,6 +1571,42 @@ class ApiEngine:
         if "{query_id}" in endpoint:
             return endpoint.format(query_id=query_id)
         return endpoint
+
+    async def probe_account_alive(self, account, *, session=None) -> Optional[bool]:
+        """Look up the account's own handle to test its credentials.
+
+        A 401 or a 403 from a page of tweets does not prove that the account is dead. X sends it for a tweet
+        that the account cannot read, while the credentials still work. A self-lookup of the account's own
+        handle needs only valid credentials, so it separates a dead account from a page that one account cannot
+        read.
+
+        Returns True when the lookup answers 200 (the credentials work), False when it answers 401 or 403 (the
+        credentials are dead), and None when the result is inconclusive, for example a network error. The caller
+        applies the 30-day block only for False.
+        """
+        username = account.get("username") if isinstance(account, dict) else getattr(account, "username", None)
+        if not username:
+            return None
+        try:
+            manifest = await self.manifest_provider.get_manifest()
+            url = self._resolve_user_lookup_url(manifest)
+            params = self._build_user_lookup_params(username, manifest)
+            timeout_s = int(getattr(manifest, "timeout_s", 20) or 20)
+            data, status, _headers, _snippet = await self._graphql_get(
+                url=url,
+                params=params,
+                timeout_s=timeout_s,
+                session=session,
+                account_context=account,
+            )
+        except Exception as exc:
+            logger.warning("Self-lookup failed for username=%s: %s", username, exc)
+            return None
+        if status in (401, 403):
+            return False
+        if status == 200 and data is not None:
+            return True
+        return None
 
     def _resolve_profile_timeline_url(self, manifest) -> str:
         query_id = (manifest.query_ids or {}).get(PROFILE_TIMELINE_OPERATION) or DEFAULT_PROFILE_TIMELINE_QUERY_ID
@@ -2115,14 +2179,17 @@ class ApiEngine:
             message = str(err.get("message") or "").lower()
             extensions = err.get("extensions") or {}
             code = str(extensions.get("code") or extensions.get("errorType") or "").upper()
+            numeric_code = err.get("code")
+            if not isinstance(numeric_code, int):
+                raw = extensions.get("code")
+                numeric_code = raw if isinstance(raw, int) else None
 
             if "rate limit" in message or "too many requests" in message or code in {"RATE_LIMITED", "RATE_LIMIT"}:
                 return 429
             if (
-                "authorization" in message
-                or "auth" in message
-                or "unauthorized" in message
+                any(phrase in message for phrase in AUTH_FAILURE_MESSAGES)
                 or code in {"UNAUTHORIZED", "AUTHENTICATION_ERROR"}
+                or (numeric_code is not None and numeric_code in AUTH_FAILURE_CODES)
             ):
                 return 401
             if "forbidden" in message or "suspended" in message or code in {"FORBIDDEN", "ACCOUNT_SUSPENDED"}:

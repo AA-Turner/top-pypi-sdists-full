@@ -16,12 +16,39 @@ logger = logging.getLogger(__name__)
 from .utils import as_str as _as_str
 
 
+def _extract_ondemand_url(html: str) -> str | None:
+    marker = '"ondemand.s"'
+    pos = html.find(marker)
+    if pos == -1:
+        return None
+    comma = html.rfind(",", 0, pos)
+    if comma == -1:
+        return None
+    colon = html.find(":", comma)
+    if colon == -1:
+        return None
+    chunk_key = html[comma + 1 : colon].strip().strip('"').strip("'")
+    search_start = pos + len(marker)
+    needle = chunk_key + ':"'
+    hash_start = html.find(needle, search_start)
+    if hash_start == -1:
+        return None
+    hash_start += len(needle)
+    hash_end = html.find('"', hash_start)
+    if hash_end == -1:
+        return None
+    ondemand_hash = html[hash_start:hash_end]
+    if not ondemand_hash or not all(c in "0123456789abcdef" for c in ondemand_hash):
+        return None
+    return f"https://abs.twimg.com/responsive-web/client-web/ondemand.s.{ondemand_hash}a.js"
+
+
 class TransactionIdProvider:
     def __init__(
         self,
         *,
         enabled: bool = True,
-        refresh_ttl_s: int = 15 * 60,
+        refresh_ttl_s: int = 6 * 60 * 60,
         home_url: str = "https://x.com",
         session_factory=None,
         user_agent: Optional[str] = None,
@@ -29,6 +56,7 @@ class TransactionIdProvider:
         prefer_curl_cffi: bool = True,
         impersonate: str = DEFAULT_IMPERSONATE,
         timeout=DEFAULT_HTTP_TIMEOUT,
+        cookies: Optional[dict] = None,
     ):
         self.enabled = bool(enabled)
         self.refresh_ttl_s = max(60, int(refresh_ttl_s))
@@ -38,6 +66,7 @@ class TransactionIdProvider:
         self.timeout = timeout
         self.proxy = proxy
         self._http_proxies = normalize_http_proxies(proxy)
+        self._cookies = cookies
         self.session_factory = session_factory or self._build_default_session_factory()
         self.user_agent_override = _as_str(user_agent)
 
@@ -59,10 +88,13 @@ class TransactionIdProvider:
                     kwargs = {"impersonate": self.impersonate, "timeout": self.timeout}
                     if self._http_proxies:
                         kwargs["proxies"] = self._http_proxies
+                    if self._cookies:
+                        kwargs["cookies"] = self._cookies
                     try:
                         return CurlSession(**kwargs)
                     except TypeError:
                         kwargs.pop("proxies", None)
+                        kwargs.pop("cookies", None)
                         return CurlSession(**kwargs)
 
                 return _factory
@@ -76,7 +108,7 @@ class TransactionIdProvider:
         self._deps_checked = True
         try:
             from x_client_transaction import ClientTransaction  # noqa: F401
-            from x_client_transaction.utils import get_ondemand_file_url, handle_x_migration  # noqa: F401
+            from x_client_transaction.utils import handle_x_migration  # noqa: F401
 
             self._deps_available = True
         except Exception:
@@ -88,7 +120,7 @@ class TransactionIdProvider:
         if not self._ensure_dependencies():
             return None
         from x_client_transaction import ClientTransaction
-        from x_client_transaction.utils import get_ondemand_file_url, handle_x_migration
+        from x_client_transaction.utils import handle_x_migration
 
         session = None
         try:
@@ -112,10 +144,9 @@ class TransactionIdProvider:
             if session_headers is not None and hasattr(session_headers, "update"):
                 session_headers.update(headers)
 
-            # Keep actor parity: run migration handling before extracting ondemand.js URL.
             home_page = handle_x_migration(session=session)
 
-            ondemand_url = get_ondemand_file_url(response=home_page)
+            ondemand_url = _extract_ondemand_url(str(home_page))
             if not ondemand_url:
                 logger.warning("Transaction-id bootstrap failed: ondemand URL not found")
                 return None

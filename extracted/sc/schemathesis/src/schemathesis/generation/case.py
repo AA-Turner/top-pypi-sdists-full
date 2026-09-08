@@ -107,6 +107,8 @@ class Case(Generic[OperationT]):
 
     _auth: requests.auth.AuthBase | None
     _has_explicit_auth: bool
+    # WFC auth entry this case ran under, when several are in play.
+    _auth_identity: str | None
     _components: dict
     _freeze_metadata: bool
 
@@ -125,6 +127,7 @@ class Case(Generic[OperationT]):
         "_meta",
         "_auth",
         "_has_explicit_auth",
+        "_auth_identity",
         "_components",
         "_freeze_metadata",
     )
@@ -162,6 +165,7 @@ class Case(Generic[OperationT]):
         object.__setattr__(self, "_meta", meta)
         object.__setattr__(self, "_auth", _auth)
         object.__setattr__(self, "_has_explicit_auth", _has_explicit_auth)
+        object.__setattr__(self, "_auth_identity", None)
         object.__setattr__(self, "_components", store_components(self))
         object.__setattr__(self, "_freeze_metadata", False)
 
@@ -240,7 +244,7 @@ class Case(Generic[OperationT]):
         """Initialize hash tracking in metadata for generated components only."""
         assert self._meta is not None
         # Only track components that were actually generated
-        for location in self._meta.components.keys():
+        for location in self._meta.components:
             value = self.get_container(location)
             hash_value = self._hash_container(value)
             self._meta.update_validated_hash(location, hash_value)
@@ -258,7 +262,7 @@ class Case(Generic[OperationT]):
             return
 
         # Only check components that were actually generated
-        for location in self._meta.components.keys():
+        for location in self._meta.components:
             last_hash = self._meta._last_validated_hashes[location]
             value = self.get_container(location)
             current_hash = self._hash_container(value)

@@ -107,12 +107,13 @@ class KeyType(IntEnum):
     # from version 3.0
     EC_EDWARDS = 0x00000040
     # from version 3.2
+    ML_KEM = 0x00000049
     ML_DSA = 0x0000004A
 
     _VENDOR_DEFINED = 0x80000000
 
     def __repr__(self) -> str:
-        return "<KeyType.%s>" % self.name
+        return f"<KeyType.{self.name}>"
 
 
 class Mechanism(IntEnum):
@@ -736,6 +737,10 @@ class Mechanism(IntEnum):
     EDDSA = 0x00001057
     EC_EDWARDS_KEY_PAIR_GEN = 0x00001055
 
+    # ML-KEM (v3.2)
+    ML_KEM_KEY_PAIR_GEN = 0x0000000F
+    ML_KEM = 0x00000017
+
     # ML-DSA (v3.2)
     ML_DSA_KEY_PAIR_GEN = 0x0000001C
     ML_DSA = 0x0000001D
@@ -760,7 +765,7 @@ class Mechanism(IntEnum):
     _VENDOR_DEFINED = 0x80000000
 
     def __repr__(self) -> str:
-        return "<Mechanism.%s>" % self.name
+        return f"<Mechanism.{self.name}>"
 
 
 class KDF(IntEnum):
@@ -784,7 +789,7 @@ class KDF(IntEnum):
     SHA3_512_KDF = 0x0000000D
 
     def __repr__(self) -> str:
-        return "<KDF.%s>" % self.name
+        return f"<KDF.{self.name}>"
 
 
 class MGF(IntEnum):
@@ -803,7 +808,18 @@ class MGF(IntEnum):
     SHA3_512 = 0x00000009
 
     def __repr__(self) -> str:
-        return "<MGF.%s>" % self.name
+        return f"<MGF.{self.name}>"
+
+
+class MLKEMParameterSet(IntEnum):
+    """ML-KEM parameter sets as defined in FIPS 203."""
+
+    ML_KEM_512 = 0x00000001
+    ML_KEM_768 = 0x00000002
+    ML_KEM_1024 = 0x00000003
+
+    def __repr__(self) -> str:
+        return f"<MLKEMParameterSet.{self.name}>"
 
 
 class MLDSAParameterSet(IntEnum):
@@ -814,7 +830,7 @@ class MLDSAParameterSet(IntEnum):
     ML_DSA_87 = 0x00000003
 
     def __repr__(self) -> str:
-        return "<MLDSAParameterSet.%s>" % self.name
+        return f"<MLDSAParameterSet.{self.name}>"
 
 
 class GCMParams:

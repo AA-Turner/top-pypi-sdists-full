@@ -24,6 +24,7 @@ from typing import Union
 from .literals import (
     AccessTypeType,
     AdMarkupTypeType,
+    AdSequencingModeType,
     AdsInteractionExcludeEventTypeType,
     AdsInteractionPublishOptInEventTypeType,
     AlertCategoryType,
@@ -44,6 +45,7 @@ from .literals import (
     OriginManifestTypeType,
     PlaybackModeType,
     PrefetchScheduleTypeType,
+    PreRollAdSequencingModeType,
     RelativePositionType,
     ScheduleEntryTypeType,
     StreamingMediaFileConditioningType,
@@ -87,6 +89,9 @@ __all__ = (
     "CdnConfigurationTypeDef",
     "ChannelTypeDef",
     "ClipRangeTypeDef",
+    "ConcurrentExecutorConfigurationOutputTypeDef",
+    "ConcurrentExecutorConfigurationTypeDef",
+    "ConcurrentExecutorConfigurationUnionTypeDef",
     "ConfigureLogsForChannelRequestTypeDef",
     "ConfigureLogsForChannelResponseTypeDef",
     "ConfigureLogsForPlaybackConfigurationRequestTypeDef",
@@ -191,6 +196,8 @@ __all__ = (
     "ManifestServiceInteractionLogUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PlaybackConfigurationTypeDef",
+    "PreRollAdDecisionServerConfigurationTypeDef",
+    "PreRollVastResponseTypeDef",
     "PrefetchConsumptionOutputTypeDef",
     "PrefetchConsumptionTypeDef",
     "PrefetchConsumptionUnionTypeDef",
@@ -249,6 +256,7 @@ __all__ = (
     "UpdateSourceLocationResponseTypeDef",
     "UpdateVodSourceRequestTypeDef",
     "UpdateVodSourceResponseTypeDef",
+    "VastResponseTypeDef",
     "VodSourceTypeDef",
 )
 
@@ -289,6 +297,10 @@ class HttpRequestOutputTypeDef(TypedDict):
     Body: NotRequired[str]
     Headers: NotRequired[dict[str, str]]
     CompressRequest: NotRequired[CompressionMethodType]
+
+
+class VastResponseTypeDef(TypedDict):
+    AdSequencingMode: NotRequired[AdSequencingModeType]
 
 
 class HttpRequestTypeDef(TypedDict):
@@ -362,6 +374,12 @@ class CdnConfigurationTypeDef(TypedDict):
 
 class LogConfigurationForChannelTypeDef(TypedDict):
     LogTypes: NotRequired[list[Literal["AS_RUN"]]]
+
+
+class FunctionRefTypeDef(TypedDict):
+    RunCondition: NotRequired[str]
+    FunctionId: NotRequired[str]
+    Alias: NotRequired[str]
 
 
 class ConfigureLogsForChannelRequestTypeDef(TypedDict):
@@ -501,11 +519,6 @@ class DescribeVodSourceRequestTypeDef(TypedDict):
     VodSourceName: str
 
 
-class FunctionRefTypeDef(TypedDict):
-    RunCondition: NotRequired[str]
-    FunctionId: NotRequired[str]
-
-
 HttpRequestConfigurationOutputTypeDef = TypedDict(
     "HttpRequestConfigurationOutputTypeDef",
     {
@@ -549,11 +562,6 @@ class GetPlaybackConfigurationRequestTypeDef(TypedDict):
 class HlsConfigurationTypeDef(TypedDict):
     ManifestEndpointPrefix: NotRequired[str]
     DualStackManifestEndpointPrefix: NotRequired[str]
-
-
-class LivePreRollConfigurationTypeDef(TypedDict):
-    AdDecisionServerUrl: NotRequired[str]
-    MaxDurationSeconds: NotRequired[int]
 
 
 class GetPrefetchScheduleRequestTypeDef(TypedDict):
@@ -640,6 +648,10 @@ class ManifestServiceInteractionLogTypeDef(TypedDict):
     ExcludeEventTypes: NotRequired[Sequence[ManifestServiceExcludeEventTypeType]]
 
 
+class PreRollVastResponseTypeDef(TypedDict):
+    AdSequencingMode: NotRequired[PreRollAdSequencingModeType]
+
+
 TimestampTypeDef = Union[datetime, str]
 
 
@@ -719,10 +731,12 @@ class AccessConfigurationTypeDef(TypedDict):
 
 class AdDecisionServerConfigurationOutputTypeDef(TypedDict):
     HttpRequest: NotRequired[HttpRequestOutputTypeDef]
+    VastResponse: NotRequired[VastResponseTypeDef]
 
 
 class AdDecisionServerConfigurationTypeDef(TypedDict):
     HttpRequest: NotRequired[HttpRequestTypeDef]
+    VastResponse: NotRequired[VastResponseTypeDef]
 
 
 class ManifestProcessingRulesTypeDef(TypedDict):
@@ -746,6 +760,36 @@ class RecurringConsumptionOutputTypeDef(TypedDict):
 class RecurringConsumptionTypeDef(TypedDict):
     RetrievedAdExpirationSeconds: NotRequired[int]
     AvailMatchingCriteria: NotRequired[Sequence[AvailMatchingCriteriaTypeDef]]
+
+
+class ConcurrentExecutorConfigurationOutputTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    Output: dict[str, str]
+    FunctionList: list[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    MaxConcurrency: int
+
+
+class ConcurrentExecutorConfigurationTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    Output: Mapping[str, str]
+    FunctionList: Sequence[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    MaxConcurrency: int
+
+
+class SequentialExecutorConfigurationOutputTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    FunctionList: list[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    Output: NotRequired[dict[str, str]]
+
+
+class SequentialExecutorConfigurationTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    FunctionList: Sequence[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    Output: NotRequired[Mapping[str, str]]
 
 
 class ConfigureLogsForChannelResponseTypeDef(TypedDict):
@@ -908,20 +952,6 @@ CustomOutputConfigurationUnionTypeDef = Union[
 ]
 
 
-class SequentialExecutorConfigurationOutputTypeDef(TypedDict):
-    Runtime: Literal["JSONATA"]
-    FunctionList: list[FunctionRefTypeDef]
-    TimeoutMilliseconds: int
-    Output: NotRequired[dict[str, str]]
-
-
-class SequentialExecutorConfigurationTypeDef(TypedDict):
-    Runtime: Literal["JSONATA"]
-    FunctionList: Sequence[FunctionRefTypeDef]
-    TimeoutMilliseconds: int
-    Output: NotRequired[Mapping[str, str]]
-
-
 class GetChannelScheduleRequestPaginateTypeDef(TypedDict):
     ChannelName: str
     DurationMinutes: NotRequired[str]
@@ -985,6 +1015,10 @@ HttpRequestConfigurationUnionTypeDef = Union[
 ManifestServiceInteractionLogUnionTypeDef = Union[
     ManifestServiceInteractionLogTypeDef, ManifestServiceInteractionLogOutputTypeDef
 ]
+
+
+class PreRollAdDecisionServerConfigurationTypeDef(TypedDict):
+    VastResponse: NotRequired[PreRollVastResponseTypeDef]
 
 
 class PrefetchConsumptionTypeDef(TypedDict):
@@ -1130,110 +1164,9 @@ class UpdateSourceLocationResponseTypeDef(TypedDict):
 AdDecisionServerConfigurationUnionTypeDef = Union[
     AdDecisionServerConfigurationTypeDef, AdDecisionServerConfigurationOutputTypeDef
 ]
-
-
-class GetPlaybackConfigurationResponseTypeDef(TypedDict):
-    AdDecisionServerUrl: str
-    AvailSuppression: AvailSuppressionTypeDef
-    Bumper: BumperTypeDef
-    CdnConfiguration: CdnConfigurationTypeDef
-    ConfigurationAliases: dict[str, dict[str, str]]
-    DashConfiguration: DashConfigurationTypeDef
-    HlsConfiguration: HlsConfigurationTypeDef
-    InsertionMode: InsertionModeType
-    LivePreRollConfiguration: LivePreRollConfigurationTypeDef
-    LogConfiguration: LogConfigurationTypeDef
-    ManifestProcessingRules: ManifestProcessingRulesTypeDef
-    Name: str
-    PersonalizationThresholdSeconds: int
-    PlaybackConfigurationArn: str
-    PlaybackEndpointPrefix: str
-    DualStackPlaybackEndpointPrefix: str
-    SessionInitializationEndpointPrefix: str
-    DualStackSessionInitializationEndpointPrefix: str
-    SlateAdUrl: str
-    Tags: dict[str, str]
-    TranscodeProfileName: str
-    VideoContentSourceUrl: str
-    AdConditioningConfiguration: AdConditioningConfigurationTypeDef
-    AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
-    FunctionMapping: dict[EventNameType, str]
-    AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
-    AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class PlaybackConfigurationTypeDef(TypedDict):
-    AdDecisionServerUrl: NotRequired[str]
-    AvailSuppression: NotRequired[AvailSuppressionTypeDef]
-    Bumper: NotRequired[BumperTypeDef]
-    CdnConfiguration: NotRequired[CdnConfigurationTypeDef]
-    ConfigurationAliases: NotRequired[dict[str, dict[str, str]]]
-    DashConfiguration: NotRequired[DashConfigurationTypeDef]
-    HlsConfiguration: NotRequired[HlsConfigurationTypeDef]
-    InsertionMode: NotRequired[InsertionModeType]
-    LivePreRollConfiguration: NotRequired[LivePreRollConfigurationTypeDef]
-    LogConfiguration: NotRequired[LogConfigurationTypeDef]
-    ManifestProcessingRules: NotRequired[ManifestProcessingRulesTypeDef]
-    Name: NotRequired[str]
-    PersonalizationThresholdSeconds: NotRequired[int]
-    PlaybackConfigurationArn: NotRequired[str]
-    PlaybackEndpointPrefix: NotRequired[str]
-    DualStackPlaybackEndpointPrefix: NotRequired[str]
-    SessionInitializationEndpointPrefix: NotRequired[str]
-    DualStackSessionInitializationEndpointPrefix: NotRequired[str]
-    SlateAdUrl: NotRequired[str]
-    Tags: NotRequired[dict[str, str]]
-    TranscodeProfileName: NotRequired[str]
-    VideoContentSourceUrl: NotRequired[str]
-    AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
-    AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationOutputTypeDef]
-    FunctionMapping: NotRequired[dict[EventNameType, str]]
-    AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
-    AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
-
-
-class PutPlaybackConfigurationResponseTypeDef(TypedDict):
-    AdDecisionServerUrl: str
-    AvailSuppression: AvailSuppressionTypeDef
-    Bumper: BumperTypeDef
-    CdnConfiguration: CdnConfigurationTypeDef
-    ConfigurationAliases: dict[str, dict[str, str]]
-    DashConfiguration: DashConfigurationTypeDef
-    HlsConfiguration: HlsConfigurationTypeDef
-    InsertionMode: InsertionModeType
-    LivePreRollConfiguration: LivePreRollConfigurationTypeDef
-    LogConfiguration: LogConfigurationTypeDef
-    ManifestProcessingRules: ManifestProcessingRulesTypeDef
-    Name: str
-    PersonalizationThresholdSeconds: int
-    PlaybackConfigurationArn: str
-    PlaybackEndpointPrefix: str
-    DualStackPlaybackEndpointPrefix: str
-    SessionInitializationEndpointPrefix: str
-    DualStackSessionInitializationEndpointPrefix: str
-    SlateAdUrl: str
-    Tags: dict[str, str]
-    TranscodeProfileName: str
-    VideoContentSourceUrl: str
-    AdConditioningConfiguration: AdConditioningConfigurationTypeDef
-    AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
-    FunctionMapping: dict[EventNameType, str]
-    AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
-    AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListLiveSourcesResponseTypeDef(TypedDict):
-    Items: list[LiveSourceTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListVodSourcesResponseTypeDef(TypedDict):
-    Items: list[VodSourceTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+ConcurrentExecutorConfigurationUnionTypeDef = Union[
+    ConcurrentExecutorConfigurationTypeDef, ConcurrentExecutorConfigurationOutputTypeDef
+]
 
 
 class FunctionTypeDef(TypedDict):
@@ -1242,6 +1175,7 @@ class FunctionTypeDef(TypedDict):
     Description: NotRequired[str]
     HttpRequestConfiguration: NotRequired[HttpRequestConfigurationOutputTypeDef]
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
+    ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationOutputTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
     Tags: NotRequired[dict[str, str]]
     Arn: NotRequired[str]
@@ -1253,6 +1187,7 @@ class GetFunctionResponseTypeDef(TypedDict):
     Description: str
     HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
+    ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
@@ -1265,6 +1200,7 @@ class PutFunctionResponseTypeDef(TypedDict):
     Description: str
     HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
     CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
+    ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
     SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
     Tags: dict[str, str]
     Arn: str
@@ -1274,6 +1210,18 @@ class PutFunctionResponseTypeDef(TypedDict):
 SequentialExecutorConfigurationUnionTypeDef = Union[
     SequentialExecutorConfigurationTypeDef, SequentialExecutorConfigurationOutputTypeDef
 ]
+
+
+class ListLiveSourcesResponseTypeDef(TypedDict):
+    Items: list[LiveSourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListVodSourcesResponseTypeDef(TypedDict):
+    Items: list[VodSourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ChannelTypeDef(TypedDict):
@@ -1355,6 +1303,12 @@ class ConfigureLogsForPlaybackConfigurationRequestTypeDef(TypedDict):
     ManifestServiceInteractionLog: NotRequired[ManifestServiceInteractionLogUnionTypeDef]
 
 
+class LivePreRollConfigurationTypeDef(TypedDict):
+    AdDecisionServerUrl: NotRequired[str]
+    MaxDurationSeconds: NotRequired[int]
+    AdDecisionServerConfiguration: NotRequired[PreRollAdDecisionServerConfigurationTypeDef]
+
+
 PrefetchConsumptionUnionTypeDef = Union[
     PrefetchConsumptionTypeDef, PrefetchConsumptionOutputTypeDef
 ]
@@ -1399,35 +1353,6 @@ class ListSourceLocationsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class PutPlaybackConfigurationRequestTypeDef(TypedDict):
-    Name: str
-    AdDecisionServerUrl: NotRequired[str]
-    AvailSuppression: NotRequired[AvailSuppressionTypeDef]
-    Bumper: NotRequired[BumperTypeDef]
-    CdnConfiguration: NotRequired[CdnConfigurationTypeDef]
-    ConfigurationAliases: NotRequired[Mapping[str, Mapping[str, str]]]
-    DashConfiguration: NotRequired[DashConfigurationForPutTypeDef]
-    InsertionMode: NotRequired[InsertionModeType]
-    LivePreRollConfiguration: NotRequired[LivePreRollConfigurationTypeDef]
-    ManifestProcessingRules: NotRequired[ManifestProcessingRulesTypeDef]
-    PersonalizationThresholdSeconds: NotRequired[int]
-    SlateAdUrl: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-    TranscodeProfileName: NotRequired[str]
-    VideoContentSourceUrl: NotRequired[str]
-    AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
-    AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationUnionTypeDef]
-    FunctionMapping: NotRequired[Mapping[EventNameType, str]]
-    AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
-    AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
-
-
-class ListPlaybackConfigurationsResponseTypeDef(TypedDict):
-    Items: list[PlaybackConfigurationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class ListFunctionsResponseTypeDef(TypedDict):
     Items: list[FunctionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1440,6 +1365,7 @@ class PutFunctionRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     HttpRequestConfiguration: NotRequired[HttpRequestConfigurationUnionTypeDef]
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
+    ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationUnionTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]
 
@@ -1467,6 +1393,121 @@ class UpdateChannelRequestTypeDef(TypedDict):
     FillerSlate: NotRequired[SlateSourceTypeDef]
     TimeShiftConfiguration: NotRequired[TimeShiftConfigurationTypeDef]
     Audiences: NotRequired[Sequence[str]]
+
+
+class GetPlaybackConfigurationResponseTypeDef(TypedDict):
+    AdDecisionServerUrl: str
+    AvailSuppression: AvailSuppressionTypeDef
+    Bumper: BumperTypeDef
+    CdnConfiguration: CdnConfigurationTypeDef
+    ConfigurationAliases: dict[str, dict[str, str]]
+    DashConfiguration: DashConfigurationTypeDef
+    HlsConfiguration: HlsConfigurationTypeDef
+    InsertionMode: InsertionModeType
+    LivePreRollConfiguration: LivePreRollConfigurationTypeDef
+    LogConfiguration: LogConfigurationTypeDef
+    ManifestProcessingRules: ManifestProcessingRulesTypeDef
+    Name: str
+    PersonalizationThresholdSeconds: int
+    PlaybackConfigurationArn: str
+    PlaybackEndpointPrefix: str
+    DualStackPlaybackEndpointPrefix: str
+    SessionInitializationEndpointPrefix: str
+    DualStackSessionInitializationEndpointPrefix: str
+    SlateAdUrl: str
+    Tags: dict[str, str]
+    TranscodeProfileName: str
+    VideoContentSourceUrl: str
+    AdConditioningConfiguration: AdConditioningConfigurationTypeDef
+    AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    FunctionMapping: dict[EventNameType, str]
+    AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
+    AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PlaybackConfigurationTypeDef(TypedDict):
+    AdDecisionServerUrl: NotRequired[str]
+    AvailSuppression: NotRequired[AvailSuppressionTypeDef]
+    Bumper: NotRequired[BumperTypeDef]
+    CdnConfiguration: NotRequired[CdnConfigurationTypeDef]
+    ConfigurationAliases: NotRequired[dict[str, dict[str, str]]]
+    DashConfiguration: NotRequired[DashConfigurationTypeDef]
+    HlsConfiguration: NotRequired[HlsConfigurationTypeDef]
+    InsertionMode: NotRequired[InsertionModeType]
+    LivePreRollConfiguration: NotRequired[LivePreRollConfigurationTypeDef]
+    LogConfiguration: NotRequired[LogConfigurationTypeDef]
+    ManifestProcessingRules: NotRequired[ManifestProcessingRulesTypeDef]
+    Name: NotRequired[str]
+    PersonalizationThresholdSeconds: NotRequired[int]
+    PlaybackConfigurationArn: NotRequired[str]
+    PlaybackEndpointPrefix: NotRequired[str]
+    DualStackPlaybackEndpointPrefix: NotRequired[str]
+    SessionInitializationEndpointPrefix: NotRequired[str]
+    DualStackSessionInitializationEndpointPrefix: NotRequired[str]
+    SlateAdUrl: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
+    TranscodeProfileName: NotRequired[str]
+    VideoContentSourceUrl: NotRequired[str]
+    AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
+    AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationOutputTypeDef]
+    FunctionMapping: NotRequired[dict[EventNameType, str]]
+    AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
+    AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
+
+
+class PutPlaybackConfigurationRequestTypeDef(TypedDict):
+    Name: str
+    AdDecisionServerUrl: NotRequired[str]
+    AvailSuppression: NotRequired[AvailSuppressionTypeDef]
+    Bumper: NotRequired[BumperTypeDef]
+    CdnConfiguration: NotRequired[CdnConfigurationTypeDef]
+    ConfigurationAliases: NotRequired[Mapping[str, Mapping[str, str]]]
+    DashConfiguration: NotRequired[DashConfigurationForPutTypeDef]
+    InsertionMode: NotRequired[InsertionModeType]
+    LivePreRollConfiguration: NotRequired[LivePreRollConfigurationTypeDef]
+    ManifestProcessingRules: NotRequired[ManifestProcessingRulesTypeDef]
+    PersonalizationThresholdSeconds: NotRequired[int]
+    SlateAdUrl: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    TranscodeProfileName: NotRequired[str]
+    VideoContentSourceUrl: NotRequired[str]
+    AdConditioningConfiguration: NotRequired[AdConditioningConfigurationTypeDef]
+    AdDecisionServerConfiguration: NotRequired[AdDecisionServerConfigurationUnionTypeDef]
+    FunctionMapping: NotRequired[Mapping[EventNameType, str]]
+    AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
+    AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
+
+
+class PutPlaybackConfigurationResponseTypeDef(TypedDict):
+    AdDecisionServerUrl: str
+    AvailSuppression: AvailSuppressionTypeDef
+    Bumper: BumperTypeDef
+    CdnConfiguration: CdnConfigurationTypeDef
+    ConfigurationAliases: dict[str, dict[str, str]]
+    DashConfiguration: DashConfigurationTypeDef
+    HlsConfiguration: HlsConfigurationTypeDef
+    InsertionMode: InsertionModeType
+    LivePreRollConfiguration: LivePreRollConfigurationTypeDef
+    LogConfiguration: LogConfigurationTypeDef
+    ManifestProcessingRules: ManifestProcessingRulesTypeDef
+    Name: str
+    PersonalizationThresholdSeconds: int
+    PlaybackConfigurationArn: str
+    PlaybackEndpointPrefix: str
+    DualStackPlaybackEndpointPrefix: str
+    SessionInitializationEndpointPrefix: str
+    DualStackSessionInitializationEndpointPrefix: str
+    SlateAdUrl: str
+    Tags: dict[str, str]
+    TranscodeProfileName: str
+    VideoContentSourceUrl: str
+    AdConditioningConfiguration: AdConditioningConfigurationTypeDef
+    AdDecisionServerConfiguration: AdDecisionServerConfigurationOutputTypeDef
+    FunctionMapping: dict[EventNameType, str]
+    AdsPersonalizationTimeouts: AdsPersonalizationTimeoutsTypeDef
+    AdsPersonalizationConcurrency: AdsPersonalizationConcurrencyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreatePrefetchScheduleResponseTypeDef(TypedDict):
@@ -1529,6 +1570,12 @@ class AdBreakTypeDef(TypedDict):
     SpliceInsertMessage: NotRequired[SpliceInsertMessageTypeDef]
     TimeSignalMessage: NotRequired[TimeSignalMessageUnionTypeDef]
     AdBreakMetadata: NotRequired[Sequence[KeyValuePairTypeDef]]
+
+
+class ListPlaybackConfigurationsResponseTypeDef(TypedDict):
+    Items: list[PlaybackConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListPrefetchSchedulesResponseTypeDef(TypedDict):

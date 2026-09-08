@@ -9,31 +9,24 @@
 //!
 //! # Examples
 //!
-//! ```ignore
-//! use vibeio::RuntimeBuilder;
-//!
-//! let runtime = RuntimeBuilder::new().build().unwrap();
-//! let value = runtime.block_on(async {
-//!     // Spawn a task and await its result
-//!     let handle = vibeio::spawn(async { 42 });
-//!     handle.await + 10
-//! });
-//! assert_eq!(value, 52);
-//! ```
+//! See "Spawning and joining tasks" and "Blocking work with an explicit pool"
+//! in `tools/vibeio-check/EXAMPLES.md` for executable examples.
 //!
 //! # Implementation notes
-//! - The runtime is single-threaded and uses a work-stealing queue.
+//! - The runtime is single-threaded, with a local ready queue and a remote wake queue.
 //! - Tasks are polled in batches for better performance.
 //! - The runtime supports timers, blocking pools, and file I/O offloading via features.
 
-use std::cell::{RefCell, UnsafeCell};
+#![deny(unsafe_op_in_unsafe_fn)]
+
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+use std::task::{Context, Poll, Wake, Waker};
 
 use crossbeam_queue::SegQueue;
 use slab::Slab;
@@ -44,7 +37,42 @@ use crate::vibeio::blocking::{BlockingThreadPool, SpawnBlockingError};
 use crate::vibeio::driver::{AnyDriver, AnyInterruptor};
 #[cfg(feature = "process")]
 use crate::vibeio::process::{ZombieReaperMessage, start_zombie_reaper};
-use crate::vibeio::task::{RemoteWakeContext, Task};
+use crate::vibeio::task::{RemoteWakeContext, Task, TaskWake};
+
+pub(crate) fn enqueue_local_wake(wake: &Arc<TaskWake>, remote: &Arc<RemoteWakeContext>) -> bool {
+    CURRENT_RUNTIME.with(|current| {
+        let Ok(current) = current.try_borrow() else {
+            return false;
+        };
+        let Some(runtime) = current.as_ref() else {
+            return false;
+        };
+        if !Arc::ptr_eq(&runtime.remote_wake, remote) {
+            return false;
+        }
+        let task = {
+            let Ok(slab) = runtime.token_to_task.try_borrow() else {
+                return false;
+            };
+            let Some(task) = slab.get(wake.token) else {
+                return true;
+            };
+            if !Arc::ptr_eq(&task.wake, wake) {
+                return true;
+            }
+            task.clone()
+        };
+        let Ok(mut next) = runtime.next_task.try_borrow_mut() else {
+            return false;
+        };
+        if next.is_none() {
+            *next = Some(task);
+        } else {
+            runtime.enqueue(task);
+        }
+        true
+    })
+}
 use crate::vibeio::timer::Timer;
 
 #[cfg(any(target_vendor = "apple", windows))]
@@ -61,22 +89,15 @@ struct JoinState<T> {
     output: Option<T>,
     waker: Option<Waker>,
     canceled: bool,
-    task: std::sync::Weak<Task>,
+    task: std::rc::Weak<Task>,
 }
 
-#[inline]
-fn update_waker_slot(waiter_slot: &mut Option<Waker>, waker: &Waker) {
-    if !waiter_slot
-        .as_ref()
-        .is_some_and(|waiter| waiter.will_wake(waker))
-    {
-        *waiter_slot = Some(waker.clone());
+pin_project_lite::pin_project! {
+    struct SpawnFuture<F, T> {
+        #[pin]
+        future: F,
+        state: Rc<RefCell<JoinState<T>>>,
     }
-}
-
-struct SpawnFuture<F, T> {
-    future: F,
-    state: Rc<RefCell<JoinState<T>>>,
 }
 
 impl<F, T> Future for SpawnFuture<F, T>
@@ -87,24 +108,35 @@ where
 
     #[inline]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // SAFETY: once `self` is pinned we never move `future`.
-        let this = unsafe { self.get_unchecked_mut() };
+        let this = self.project();
 
         if this.state.borrow().canceled {
             return Poll::Ready(());
         }
 
-        // SAFETY: `future` is pinned together with `self`.
-        match unsafe { Pin::new_unchecked(&mut this.future) }.poll(cx) {
+        match this.future.poll(cx) {
             Poll::Ready(output) => {
                 let mut state = this.state.borrow_mut();
-                state.output = Some(output);
-                if let Some(waker) = state.waker.take() {
+                let replaced = state.output.replace(output);
+                let waker = state.waker.take();
+                drop(state);
+                drop(replaced);
+                if let Some(waker) = waker {
                     waker.wake();
                 }
                 Poll::Ready(())
             }
-            Poll::Pending => Poll::Pending,
+            Poll::Pending => {
+                // Cancellation during the inner poll cannot take its future
+                // from the task slot: the executor is currently holding it.
+                // Finish now so its resources are dropped in this task batch,
+                // even if the embedding loop does not run another tick.
+                if this.state.borrow().canceled {
+                    Poll::Ready(())
+                } else {
+                    Poll::Pending
+                }
+            }
         }
     }
 }
@@ -115,10 +147,8 @@ where
 /// It allows you to wait for a spawned task to complete and get its result.
 ///
 /// # Examples
-/// ```ignore
-/// let handle = vibeio::spawn(async { 42 });
-/// let result = handle.await;  // result == 42
-/// ```
+/// See "Spawning and joining tasks" in `tools/vibeio-check/EXAMPLES.md` for
+/// awaiting an output and explicitly canceling an unpolled task.
 pub struct JoinHandle<T> {
     state: Rc<RefCell<JoinState<T>>>,
 }
@@ -133,6 +163,8 @@ impl<T> JoinHandle<T> {
     /// Cancels the task associated with this handle.
     ///
     /// The task will be interrupted and not resumed.
+    /// If called from inside the task's own poll, its future is released when
+    /// that poll returns; otherwise its pending future is released immediately.
     #[inline]
     pub fn cancel(self) {
         let task = {
@@ -146,7 +178,8 @@ impl<T> JoinHandle<T> {
             // runtime, so cancellation can drop the future synchronously. This
             // is important for pending overlapped I/O: dropping the operation
             // initiates cancellation before the caller can reuse the socket.
-            task.future.borrow_mut().take();
+            let future = task.future.borrow_mut().take();
+            drop(future);
             task.waker().wake();
         }
     }
@@ -157,13 +190,32 @@ impl<T> Future for JoinHandle<T> {
 
     #[inline]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut state = self.state.borrow_mut();
-        if let Some(output) = state.output.take() {
-            Poll::Ready(output)
-        } else {
-            update_waker_slot(&mut state.waker, cx.waker());
-            Poll::Pending
+        {
+            let mut state = self.state.borrow_mut();
+            if let Some(output) = state.output.take() {
+                return Poll::Ready(output);
+            }
+            if state
+                .waker
+                .as_ref()
+                .is_some_and(|waker| waker.will_wake(cx.waker()))
+            {
+                return Poll::Pending;
+            }
         }
+        // Clone and destroy custom wakers without holding the join-state borrow.
+        // Keep the unchanged-waker path above free of reference-count traffic.
+        let incoming = cx.waker().clone();
+        let mut state = self.state.borrow_mut();
+        // A custom clone callback may have driven the task to completion.
+        let (result, retired) = if let Some(output) = state.output.take() {
+            (Poll::Ready(output), Some(incoming))
+        } else {
+            (Poll::Pending, state.waker.replace(incoming))
+        };
+        drop(state);
+        drop(retired);
+        result
     }
 }
 
@@ -208,7 +260,7 @@ impl BlockOnNotify {
     }
 
     #[inline]
-    fn wake_by_ref(&self) {
+    fn notify(&self) {
         self.ready.store(true, Ordering::Release);
 
         if std::thread::current().id() != self.thread_id
@@ -221,46 +273,19 @@ impl BlockOnNotify {
 
     #[inline]
     fn waker(self: &Arc<Self>) -> Waker {
-        // SAFETY: the vtable methods correctly clone/drop the Arc reference count.
-        unsafe { Waker::from_raw(Self::raw_waker(Arc::into_raw(Arc::clone(self)) as *const ())) }
+        Waker::from(Arc::clone(self))
+    }
+}
+
+impl Wake for BlockOnNotify {
+    #[inline]
+    fn wake(self: Arc<Self>) {
+        self.notify();
     }
 
     #[inline]
-    unsafe fn raw_waker(ptr: *const ()) -> RawWaker {
-        RawWaker::new(ptr, &Self::VTABLE)
-    }
-
-    const VTABLE: RawWakerVTable = RawWakerVTable::new(
-        Self::raw_waker_clone,
-        Self::raw_waker_wake,
-        Self::raw_waker_wake_by_ref,
-        Self::raw_waker_drop,
-    );
-
-    #[inline]
-    unsafe fn raw_waker_clone(ptr: *const ()) -> RawWaker {
-        let notify = Arc::<Self>::from_raw(ptr as *const Self);
-        let cloned = Arc::clone(&notify);
-        let _ = Arc::into_raw(notify);
-        Self::raw_waker(Arc::into_raw(cloned) as *const ())
-    }
-
-    #[inline]
-    unsafe fn raw_waker_wake(ptr: *const ()) {
-        let notify = Arc::<Self>::from_raw(ptr as *const Self);
-        notify.wake_by_ref();
-    }
-
-    #[inline]
-    unsafe fn raw_waker_wake_by_ref(ptr: *const ()) {
-        let notify = Arc::<Self>::from_raw(ptr as *const Self);
-        notify.wake_by_ref();
-        let _ = Arc::into_raw(notify);
-    }
-
-    #[inline]
-    unsafe fn raw_waker_drop(ptr: *const ()) {
-        drop(Arc::<Self>::from_raw(ptr as *const Self));
+    fn wake_by_ref(self: &Arc<Self>) {
+        self.notify();
     }
 }
 
@@ -329,20 +354,11 @@ pub(crate) async fn current_zombie_reaper() -> Option<async_channel::Sender<Zomb
         let runtime = runtime.borrow();
         runtime.as_ref().map(|runtime_inner| runtime_inner.clone())
     })?;
-    let option = runtime
-        .zombie_reaper
-        .try_borrow()
-        .ok()
-        .and_then(|e| e.as_ref().cloned());
-    if let Some(option) = option {
-        Some(option.clone())
-    } else {
-        let reaper = runtime.spawn(start_zombie_reaper()).await;
-        if let Ok(mut option) = runtime.zombie_reaper.try_borrow_mut() {
-            *option = Some(reaper.clone());
-        }
-        Some(reaper)
-    }
+    // Startup only allocates a channel and queues a task; it never polls user
+    // code or awaits. Publish under this short borrow so concurrent requests
+    // cannot start separate reapers while the first initializer is suspended.
+    let mut reaper = runtime.zombie_reaper.borrow_mut();
+    Some(reaper.get_or_insert_with(start_zombie_reaper).clone())
 }
 
 /// Spawn a task on the current runtime.
@@ -354,10 +370,7 @@ pub(crate) async fn current_zombie_reaper() -> Option<async_channel::Sender<Zomb
 /// Panics if called outside a runtime context.
 ///
 /// # Examples
-/// ```ignore
-/// let handle = vibeio::spawn(async { 42 });
-/// let result = handle.await;
-/// ```
+/// See "Spawning and joining tasks" in `tools/vibeio-check/EXAMPLES.md`.
 pub fn spawn<T>(future: impl Future<Output = T> + 'static) -> JoinHandle<T>
 where
     T: 'static,
@@ -379,29 +392,21 @@ where
 /// This function spawns the given closure on a blocking thread pool and returns
 /// a future that resolves to the result.
 ///
-/// # Panics
-/// Panics if called outside a runtime context.
+/// # Errors
+/// Returns `SpawnBlockingError` if no runtime or blocking pool is available,
+/// or if the pool does not deliver a result.
 ///
 /// # Examples
-/// ```ignore
-/// let result = vibeio::spawn_blocking(|| {
-///     // blocking work
-///     42
-/// }).await?;
-/// ```
+/// See "Blocking work with an explicit pool" in
+/// `tools/vibeio-check/EXAMPLES.md` for a checked result and pool configuration.
 pub async fn spawn_blocking<T, F>(f: F) -> Result<T, SpawnBlockingError>
 where
     T: Send + 'static,
     F: FnOnce() -> T + Send + 'static,
 {
-    let runtime = CURRENT_RUNTIME.with(|runtime| {
-        let runtime = runtime.borrow();
-        if let Some(runtime_inner) = &*runtime {
-            runtime_inner.clone()
-        } else {
-            panic!("can't spawn a blocking task outside runtime");
-        }
-    });
+    let runtime = CURRENT_RUNTIME
+        .with(|runtime| runtime.borrow().as_ref().cloned())
+        .ok_or(SpawnBlockingError)?;
 
     runtime.spawn_blocking(f).await
 }
@@ -423,10 +428,10 @@ pub(crate) fn offload_fs() -> bool {
 }
 
 pub(crate) struct RuntimeInner {
-    queue: Rc<UnsafeCell<VecDeque<Arc<Task>>>>,
-    next_task: Rc<RefCell<Option<Arc<Task>>>>,
+    queue: RefCell<VecDeque<Rc<Task>>>,
+    next_task: Rc<RefCell<Option<Rc<Task>>>>,
     remote_wake: Arc<RemoteWakeContext>,
-    token_to_task: RefCell<Slab<Arc<Task>>>,
+    token_to_task: RefCell<Slab<Rc<Task>>>,
     driver: Rc<AnyDriver>,
     task_batch_size: usize,
     timer_poll_threshold: usize,
@@ -447,11 +452,7 @@ pub(crate) struct RuntimeInner {
 /// - File I/O offloading (when the `fs` feature is enabled).
 ///
 /// # Examples
-/// ```ignore
-/// let runtime = RuntimeBuilder::new().build().unwrap();
-/// let value = runtime.block_on(async { 42 });
-/// assert_eq!(value, 42);
-/// ```
+/// See "Spawning and joining tasks" in `tools/vibeio-check/EXAMPLES.md`.
 pub struct Runtime {
     inner: Option<Rc<RuntimeInner>>,
 }
@@ -467,7 +468,7 @@ impl RuntimeInner {
             output: None,
             waker: None,
             canceled: false,
-            task: std::sync::Weak::new(),
+            task: std::rc::Weak::new(),
         }));
         let future = Box::pin(SpawnFuture {
             future,
@@ -476,17 +477,17 @@ impl RuntimeInner {
 
         let mut slab = self.token_to_task.borrow_mut();
         let vacant_slab_entry = slab.vacant_entry();
-        #[allow(clippy::arc_with_non_send_sync)]
-        let task = Arc::new(Task {
+        let task = Rc::new(Task {
             future: RefCell::new(Some(future)),
-            queue: Rc::downgrade(&self.queue),
-            next_task: Rc::downgrade(&self.next_task),
-            remote_wake: Arc::downgrade(&self.remote_wake),
-            queued: AtomicBool::new(true),
-            thread_id: std::thread::current().id(),
+            wake: Arc::new(TaskWake {
+                remote_wake: Arc::downgrade(&self.remote_wake),
+                queued: AtomicBool::new(true),
+                thread_id: std::thread::current().id(),
+                token: vacant_slab_entry.key(),
+            }),
             token: vacant_slab_entry.key(),
         });
-        state.borrow_mut().task = Arc::downgrade(&task);
+        state.borrow_mut().task = Rc::downgrade(&task);
         vacant_slab_entry.insert(task.clone());
 
         self.enqueue(task);
@@ -500,33 +501,28 @@ impl RuntimeInner {
         T: Send + 'static,
         F: FnOnce() -> T + Send + 'static,
     {
-        let pool = self
-            .blocking_pool
-            .as_ref()
-            .expect("blocking pool not initialized");
+        let pool = self.blocking_pool.as_ref().ok_or(SpawnBlockingError)?;
         crate::vibeio::blocking::spawn_blocking(pool.as_ref(), f).await
     }
 
     /// Enqueue a task for polling.
     #[inline]
-    fn enqueue(&self, task: Arc<Task>) {
-        // SAFETY: this runtime is single-threaded. All ready-queue mutation goes
-        // through runtime/task wake paths on the same thread.
-        unsafe {
-            (&mut *self.queue.get()).push_back(task);
-        }
+    fn enqueue(&self, task: Rc<Task>) {
+        self.queue.borrow_mut().push_back(task);
     }
 
     /// Drain ready tasks into the given batch.
     #[inline]
-    fn drain_ready(&self, batch: &mut Vec<Arc<Task>>, mut budget: usize) {
+    fn drain_ready(&self, batch: &mut Vec<Rc<Task>>, mut budget: usize) {
         if budget != 0 {
             let slab = self.token_to_task.borrow();
             while budget != 0 {
-                let Some(token) = self.remote_wake.queue.pop() else {
+                let Some(wake) = self.remote_wake.queue.pop() else {
                     break;
                 };
-                if let Some(task) = slab.get(token) {
+                if let Some(task) = slab.get(wake.token)
+                    && Arc::ptr_eq(&task.wake, &wake)
+                {
                     task.mark_dequeued();
                     batch.push(task.clone());
                     budget -= 1;
@@ -534,9 +530,8 @@ impl RuntimeInner {
             }
         }
 
-        // SAFETY: this runtime is single-threaded and we only hold this mutable
-        // access while draining the queue before polling any task futures.
-        let queue = unsafe { &mut *self.queue.get() };
+        // Release the queue borrow before polling futures or invoking callbacks.
+        let mut queue = self.queue.borrow_mut();
         while budget != 0 {
             let Some(task) = queue.pop_front() else {
                 break;
@@ -561,13 +556,12 @@ impl RuntimeInner {
             return true;
         }
 
-        // SAFETY: the runtime only mutates the local ready queue on the runtime thread.
-        unsafe { !(&*self.queue.get()).is_empty() }
+        !self.queue.borrow().is_empty()
     }
 
     /// Take the next task to run, if any.
     #[inline]
-    fn take_next_task(&self) -> Option<Arc<Task>> {
+    fn take_next_task(&self) -> Option<Rc<Task>> {
         let task = self.next_task.take();
         if let Some(task) = &task {
             task.mark_dequeued();
@@ -608,9 +602,7 @@ impl Runtime {
         } else {
             (256, 64, 256)
         };
-        let ready_queue = Rc::new(UnsafeCell::new(VecDeque::with_capacity(
-            ready_queue_capacity,
-        )));
+        let ready_queue = RefCell::new(VecDeque::with_capacity(ready_queue_capacity));
         let driver = Rc::new(driver);
         let remote_wake = Arc::new(RemoteWakeContext {
             queue: Arc::new(SegQueue::new()),
@@ -664,6 +656,30 @@ impl Runtime {
     {
         let inner = self.inner.as_ref().expect("runtime has been dropped");
         inner.spawn_blocking(f).await
+    }
+
+    /// Service kernel readiness and one bounded task batch without parking.
+    /// Used when the embedding Python loop still has runnable callbacks.
+    #[allow(
+        dead_code,
+        reason = "Used by the Python embedding, not the standalone public-API harness"
+    )]
+    pub(crate) fn poll_once(&self) {
+        let inner = self.inner.as_ref().expect("runtime has been dropped");
+        inner.driver.wait(Some(std::time::Duration::ZERO));
+        if let Some(timer) = inner.timer.as_ref() {
+            let _ = timer.spin_and_get_deadline();
+        }
+        let mut yielded = false;
+        self.block_on(std::future::poll_fn(move |cx| {
+            if yielded {
+                Poll::Ready(())
+            } else {
+                yielded = true;
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
+        }));
     }
 
     /// Run the runtime and execute the given future to completion.
@@ -766,7 +782,7 @@ impl Runtime {
                 let mut future_slot = task.future.borrow_mut();
                 if let Some(mut future) = future_slot.take() {
                     drop(future_slot);
-                    let waker = task.waker();
+                    let waker = task.waker_ref();
                     let mut context = Context::from_waker(&waker);
 
                     if future.as_mut().poll(&mut context).is_pending() {
@@ -784,7 +800,7 @@ impl Runtime {
                         .token_to_task
                         .borrow()
                         .get(task.token)
-                        .is_some_and(|current| Arc::ptr_eq(current, &task));
+                        .is_some_and(|current| Rc::ptr_eq(current, &task));
                     if should_remove {
                         inner.token_to_task.borrow_mut().remove(task.token);
                     }
@@ -815,14 +831,345 @@ impl Drop for Runtime {
         // task futures while the `RefCell` is mutably borrowed; I/O future
         // destructors calling `current_driver()` would then panic.
         drop(_runtime_guard);
+        // Driver registrations can hold task wakers whose futures own that same
+        // driver. Break this cycle explicitly; dropping RuntimeInner alone cannot
+        // cancel those tasks. Detach the slab before running user destructors.
+        let tasks = std::mem::take(&mut *inner.token_to_task.borrow_mut());
+        for (_, task) in tasks {
+            let future = task.future.borrow_mut().take();
+            drop(future);
+        }
         drop(inner);
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "process")]
+    #[test]
+    fn concurrent_reaper_requests_share_one_channel() {
+        let runtime = super::Runtime::new(crate::vibeio::driver::AnyDriver::new_mock());
+        runtime.block_on(async {
+            let (first, second) = futures_util::future::join(
+                super::current_zombie_reaper(),
+                super::current_zombie_reaper(),
+            )
+            .await;
+            let first = first.unwrap();
+            let second = second.unwrap();
+            assert!(
+                first.same_channel(&second),
+                "duplicate reapers were created"
+            );
+            let cached = super::current_zombie_reaper().await.unwrap();
+            assert!(first.same_channel(&cached));
+        });
+    }
+
     use super::*;
     use std::cell::Cell;
+    use std::task::{RawWaker, RawWakerVTable};
+
+    #[test]
+    fn local_ready_queue_preserves_fifo_and_drain_budget() {
+        let runtime = Runtime::new(AnyDriver::new_mock());
+        let handles: Vec<_> = (0..3)
+            .map(|_| runtime.spawn(std::future::pending::<()>()))
+            .collect();
+        let tasks: Vec<_> = handles
+            .iter()
+            .map(|handle| handle.state.borrow().task.upgrade().unwrap())
+            .collect();
+        let inner = runtime.inner.as_ref().unwrap();
+        let mut batch = Vec::new();
+        inner.drain_ready(&mut batch, 0);
+        assert!(batch.is_empty());
+        assert_eq!(inner.queue.borrow().len(), 3);
+        inner.drain_ready(&mut batch, 2);
+        assert_eq!(batch.len(), 2);
+        for (actual, expected) in batch.iter().zip(&tasks) {
+            assert!(Rc::ptr_eq(actual, expected));
+            assert!(!actual.wake.queued.load(Ordering::Relaxed));
+        }
+        assert!(tasks[2].wake.queued.load(Ordering::Relaxed));
+        assert!(inner.should_skip_wait());
+        batch.clear();
+        inner.drain_ready(&mut batch, 2);
+        assert_eq!(batch.len(), 1);
+        assert!(Rc::ptr_eq(&batch[0], &tasks[2]));
+        assert!(!inner.should_skip_wait());
+    }
+
+    #[test]
+    fn root_waker_preserves_ownership_and_local_notifications() {
+        let driver = AnyDriver::new_mock();
+        let waiting = Arc::new(AtomicBool::new(true));
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let notify = BlockOnNotify::new(driver.get_interruptor(), waiting, interrupted.clone());
+        assert!(notify.take_ready());
+        let waker = notify.waker();
+        let cloned = waker.clone();
+        assert_eq!(Arc::strong_count(&notify), 3);
+        waker.wake_by_ref();
+        assert!(notify.take_ready());
+        assert!(!notify.take_ready());
+        assert_eq!(Arc::strong_count(&notify), 3);
+        cloned.wake();
+        assert!(notify.take_ready());
+        assert_eq!(Arc::strong_count(&notify), 2);
+        assert!(!interrupted.load(Ordering::Acquire));
+        let weak = Arc::downgrade(&notify);
+        drop(notify);
+        assert!(weak.upgrade().is_some());
+        drop(waker);
+        assert!(weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn root_waker_notifies_across_threads_without_consuming_borrowed_ownership() {
+        let driver = AnyDriver::new_mock();
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let notify = BlockOnNotify::new(
+            driver.get_interruptor(),
+            Arc::new(AtomicBool::new(true)),
+            interrupted.clone(),
+        );
+        notify.take_ready();
+        let waker = notify.waker();
+        let waker = std::thread::spawn(move || {
+            waker.wake_by_ref();
+            waker.wake_by_ref();
+            waker
+        })
+        .join()
+        .unwrap();
+        assert!(notify.take_ready());
+        assert!(interrupted.load(Ordering::Acquire));
+        assert_eq!(Arc::strong_count(&notify), 2);
+        let weak = Arc::downgrade(&notify);
+        drop(notify);
+        std::thread::spawn(move || waker.wake()).join().unwrap();
+        assert!(weak.upgrade().is_none());
+    }
+
+    thread_local! {
+        static JOIN_REENTRY: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
+    }
+
+    struct JoinReentryScope;
+    impl Drop for JoinReentryScope {
+        fn drop(&mut self) {
+            let callback = JOIN_REENTRY.with(|slot| slot.borrow_mut().take());
+            drop(callback);
+        }
+    }
+
+    fn reenter_join() {
+        JOIN_REENTRY.with(|slot| {
+            if let Some(callback) = slot.borrow().as_ref() {
+                callback();
+            }
+        });
+    }
+
+    struct JoinWake;
+    impl std::task::Wake for JoinWake {
+        fn wake(self: Arc<Self>) {
+            reenter_join();
+        }
+    }
+    impl Drop for JoinWake {
+        fn drop(&mut self) {
+            reenter_join();
+        }
+    }
+
+    #[test]
+    fn join_waiter_callbacks_can_reenter_on_replacement_and_completion() {
+        for complete in [false, true] {
+            let state = Rc::new(RefCell::new(JoinState {
+                output: None,
+                waker: None,
+                canceled: false,
+                task: std::rc::Weak::new(),
+            }));
+            let observed = state.clone();
+            let calls = Rc::new(Cell::new(0));
+            let called = calls.clone();
+            JOIN_REENTRY.with(|slot| {
+                *slot.borrow_mut() = Some(Box::new(move || {
+                    assert!(
+                        observed.try_borrow_mut().is_ok(),
+                        "join callback ran under state borrow"
+                    );
+                    called.set(called.get() + 1);
+                }));
+            });
+            let _scope = JoinReentryScope;
+            let mut handle = JoinHandle::new(state.clone());
+            let waker = Waker::from(Arc::new(JoinWake));
+            assert!(
+                Pin::new(&mut handle)
+                    .poll(&mut Context::from_waker(&waker))
+                    .is_pending()
+            );
+            drop(waker);
+            let mut cx = Context::from_waker(Waker::noop());
+            if complete {
+                let mut future = std::pin::pin!(SpawnFuture {
+                    future: std::future::ready(42),
+                    state
+                });
+                assert!(future.as_mut().poll(&mut cx).is_ready());
+                assert_eq!(Pin::new(&mut handle).poll(&mut cx), Poll::Ready(42));
+            } else {
+                assert!(Pin::new(&mut handle).poll(&mut cx).is_pending());
+            }
+            assert!(calls.get() > 0);
+        }
+    }
+
+    #[test]
+    fn cancellation_drops_future_outside_its_slot_borrow() {
+        struct CheckDrop {
+            task: Rc<RefCell<std::rc::Weak<Task>>>,
+            dropped: Rc<Cell<bool>>,
+        }
+        impl Drop for CheckDrop {
+            fn drop(&mut self) {
+                let task = self.task.borrow().upgrade().unwrap();
+                assert!(task.future.try_borrow_mut().is_ok());
+                self.dropped.set(true);
+            }
+        }
+        let runtime = Runtime::new(AnyDriver::new_mock());
+        let task = Rc::new(RefCell::new(std::rc::Weak::new()));
+        let dropped = Rc::new(Cell::new(false));
+        let guard = CheckDrop {
+            task: task.clone(),
+            dropped: dropped.clone(),
+        };
+        let handle = runtime.spawn(async move {
+            let _guard = guard;
+            std::future::pending::<()>().await;
+        });
+        *task.borrow_mut() = handle.state.borrow().task.clone();
+        handle.cancel();
+        assert!(dropped.get());
+    }
+
+    #[test]
+    fn join_rechecks_completion_after_reentrant_waker_clone() {
+        // SAFETY: no data pointer is read or owned. The callback accesses only
+        // this thread's test hook and returns another stateless raw waker.
+        unsafe fn clone(_: *const ()) -> RawWaker {
+            reenter_join();
+            RawWaker::new(std::ptr::null(), &VTABLE)
+        }
+        // SAFETY: a stateless waker has no allocation to release or dereference.
+        unsafe fn ignore(_: *const ()) {}
+        const VTABLE: RawWakerVTable = RawWakerVTable::new(clone, ignore, ignore, ignore);
+        let state = Rc::new(RefCell::new(JoinState {
+            output: None,
+            waker: None,
+            canceled: false,
+            task: std::rc::Weak::new(),
+        }));
+        let observed = state.clone();
+        JOIN_REENTRY.with(|slot| {
+            *slot.borrow_mut() = Some(Box::new(move || {
+                observed.borrow_mut().output = Some(42);
+            }));
+        });
+        let _scope = JoinReentryScope;
+        let mut handle = JoinHandle::new(state.clone());
+        // SAFETY: this stateless vtable never dereferences its null data pointer
+        // or owns resources. Only clone invokes the current thread's callback.
+        let waker = unsafe { Waker::from_raw(RawWaker::new(std::ptr::null(), &VTABLE)) };
+        assert_eq!(
+            Pin::new(&mut handle).poll(&mut Context::from_waker(&waker)),
+            Poll::Ready(42)
+        );
+        assert!(state.borrow().waker.is_none());
+    }
+
+    #[test]
+    fn missing_blocking_pool_returns_error() {
+        let runtime = Runtime::with_options(AnyDriver::new_mock(), true, None, false, false);
+        let result = runtime.block_on(async { spawn_blocking(|| 42).await });
+        assert_eq!(result, Err(SpawnBlockingError));
+    }
+
+    #[test]
+    fn blocking_spawn_without_runtime_returns_error_and_drops_closure() {
+        struct Captured(Arc<AtomicBool>);
+        impl Drop for Captured {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::Release);
+            }
+        }
+        let dropped = Arc::new(AtomicBool::new(false));
+        let captured = Captured(dropped.clone());
+        let mut future = Box::pin(spawn_blocking(move || {
+            let _captured = captured;
+            panic!("closure must not run without a runtime");
+        }));
+        assert!(matches!(
+            future
+                .as_mut()
+                .poll(&mut Context::from_waker(Waker::noop())),
+            Poll::Ready(Err(SpawnBlockingError))
+        ));
+        assert!(dropped.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn spawn_without_runtime_panics_and_drops_unpolled_future() {
+        let lifetime = std::sync::Arc::new(());
+        let weak = std::sync::Arc::downgrade(&lifetime);
+        let future = async move {
+            let _lifetime = lifetime;
+            panic!("future must not be polled without a runtime");
+        };
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| spawn(future)));
+        let panic = result
+            .err()
+            .expect("spawn's documented precondition must be enforced");
+        assert_eq!(
+            panic.downcast_ref::<&str>(),
+            Some(&"can't spawn a task outside runtime")
+        );
+        assert!(weak.upgrade().is_none(), "rejected future must be released");
+    }
+
+    #[test]
+    fn stale_remote_wake_cannot_wake_reused_task_slot() {
+        let runtime = Runtime::new(AnyDriver::new_mock());
+        let first = runtime.spawn(std::future::pending::<()>());
+        let task = first.state.borrow().task.upgrade().unwrap();
+        let token = task.token;
+        let stale = task.waker();
+        drop(task);
+        first.cancel();
+        runtime.poll_once();
+
+        let polls = Rc::new(Cell::new(0));
+        let count = polls.clone();
+        let replacement = runtime.spawn(std::future::poll_fn(move |_| {
+            count.set(count.get() + 1);
+            Poll::<()>::Pending
+        }));
+        assert_eq!(
+            replacement.state.borrow().task.upgrade().unwrap().token,
+            token
+        );
+        runtime.poll_once();
+        assert_eq!(polls.get(), 1);
+        std::thread::spawn(move || stale.wake()).join().unwrap();
+        runtime.poll_once();
+        assert_eq!(polls.get(), 1, "stale wake targeted a different task");
+        replacement.cancel();
+    }
 
     struct PendingUntilDropped(Rc<Cell<bool>>);
 
@@ -861,6 +1208,25 @@ mod tests {
         let runtime = crate::vibeio::executor::Runtime::new(AnyDriver::new_mock());
         let value = runtime.block_on(async { 42usize });
         assert_eq!(value, 42);
+    }
+
+    #[test]
+    fn poll_once_services_tasks_without_draining_a_self_waking_task() {
+        let runtime = Runtime::new(AnyDriver::new_mock());
+        runtime.poll_once();
+        let polls = Rc::new(Cell::new(0));
+        let task_polls = Rc::clone(&polls);
+        let handle = runtime.spawn(std::future::poll_fn(move |cx| {
+            task_polls.set(task_polls.get() + 1);
+            cx.waker().wake_by_ref();
+            Poll::<()>::Pending
+        }));
+        runtime.poll_once();
+        assert_eq!(polls.get(), 1);
+        runtime.poll_once();
+        assert_eq!(polls.get(), 2);
+        handle.cancel();
+        runtime.poll_once();
     }
 
     #[test]
@@ -912,6 +1278,83 @@ mod tests {
     }
 
     #[test]
+    fn self_cancellation_releases_future_when_its_current_poll_returns() {
+        struct OnDrop(Rc<Cell<usize>>);
+        impl Drop for OnDrop {
+            fn drop(&mut self) {
+                self.0.set(self.0.get() + 1);
+            }
+        }
+        for ready in [false, true] {
+            let runtime = Runtime::new(AnyDriver::new_mock());
+            let slot = Rc::new(RefCell::new(None::<JoinHandle<()>>));
+            let own_handle = slot.clone();
+            let drops = Rc::new(Cell::new(0));
+            let guard = OnDrop(drops.clone());
+            let polls = Rc::new(Cell::new(0));
+            let polled = polls.clone();
+            let handle = runtime.spawn(std::future::poll_fn(move |_| {
+                let _keep_alive = &guard;
+                polled.set(polled.get() + 1);
+                own_handle.borrow_mut().take().unwrap().cancel();
+                if ready {
+                    Poll::Ready(())
+                } else {
+                    Poll::Pending
+                }
+            }));
+            *slot.borrow_mut() = Some(handle);
+            runtime.poll_once();
+            assert_eq!(polls.get(), 1);
+            assert_eq!(drops.get(), 1, "cancellation must not require another tick");
+            assert!(
+                runtime
+                    .inner
+                    .as_ref()
+                    .unwrap()
+                    .token_to_task
+                    .borrow()
+                    .is_empty()
+            );
+        }
+    }
+
+    #[test]
+    fn spawned_pinned_future_keeps_its_address_until_cancellation_drop() {
+        struct PinnedFuture {
+            address: Cell<usize>,
+            dropped: Rc<Cell<bool>>,
+            _pin: std::marker::PhantomPinned,
+        }
+        impl Future for PinnedFuture {
+            type Output = ();
+            fn poll(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<()> {
+                let this = self.as_ref().get_ref();
+                let address = this as *const Self as usize;
+                let previous = this.address.replace(address);
+                assert!(previous == 0 || previous == address);
+                Poll::Pending
+            }
+        }
+        impl Drop for PinnedFuture {
+            fn drop(&mut self) {
+                assert_eq!(self.address.get(), self as *const Self as usize);
+                self.dropped.set(true);
+            }
+        }
+        let runtime = Runtime::new(AnyDriver::new_mock());
+        let dropped = Rc::new(Cell::new(false));
+        let handle = runtime.spawn(PinnedFuture {
+            address: Cell::new(0),
+            dropped: dropped.clone(),
+            _pin: std::marker::PhantomPinned,
+        });
+        runtime.poll_once();
+        handle.cancel();
+        assert!(dropped.get());
+    }
+
+    #[test]
     fn dropping_runtime_does_not_borrow_tls_reentrantly() {
         let runtime = crate::vibeio::executor::Runtime::new(AnyDriver::new_mock());
         let _handle = runtime.spawn(ChecksDriverOnDrop);
@@ -932,6 +1375,32 @@ mod tests {
             }
         }));
         assert_eq!(value, 11);
+    }
+
+    #[test]
+    fn spawned_task_resumes_after_remote_wake() {
+        let runtime = Runtime::new(AnyDriver::new_mock());
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        let (polled, wait_for_poll) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            wait_for_poll.recv().unwrap();
+            sender.send(42).unwrap();
+        });
+        let handle = runtime.spawn(async move {
+            let mut receiver = std::pin::pin!(receiver);
+            let mut polled = Some(polled);
+            std::future::poll_fn(move |cx| {
+                let result = receiver.as_mut().poll(cx);
+                if let Some(polled) = polled.take() {
+                    polled.send(()).unwrap();
+                }
+                result
+            })
+            .await
+            .unwrap()
+        });
+        assert_eq!(runtime.block_on(handle), 42);
+        worker.join().unwrap();
     }
 
     #[cfg(feature = "blocking-default")]

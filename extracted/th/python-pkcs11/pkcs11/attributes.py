@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from enum import IntEnum
 from struct import Struct
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 from pkcs11.constants import Attribute, CertificateType, MechanismFlag, ObjectClass
 from pkcs11.mechanisms import KeyType, Mechanism
@@ -25,7 +26,7 @@ handle_ulong: Handler = (_ulong_struct.pack, lambda v: _ulong_struct.unpack(v)[0
 handle_str: Handler = (lambda s: s.encode("utf-8"), lambda b: b.decode("utf-8"))
 handle_date: Handler = (
     lambda s: s.strftime("%Y%m%d").encode("ascii"),
-    lambda s: datetime.strptime(s.decode("ascii"), "%Y%m%d").date(),
+    lambda s: datetime.strptime(s.decode("ascii"), "%Y%m%d").date(),  # noqa: DTZ007
 )
 handle_bytes: Handler = (bytes, bytes)
 # The PKCS#11 biginteger type is an array of bytes in network byte order.
@@ -49,10 +50,12 @@ ATTRIBUTE_TYPES: dict[Attribute, Handler] = {
     Attribute.CHECK_VALUE: handle_bytes,
     Attribute.CLASS: _enum(ObjectClass),
     Attribute.COEFFICIENT: handle_biginteger,
+    Attribute.DECAPSULATE: handle_bool,
     Attribute.DECRYPT: handle_bool,
     Attribute.DERIVE: handle_bool,
     Attribute.EC_PARAMS: handle_bytes,
     Attribute.EC_POINT: handle_bytes,
+    Attribute.ENCAPSULATE: handle_bool,
     Attribute.ENCRYPT: handle_bool,
     Attribute.END_DATE: handle_date,
     Attribute.EXPONENT_1: handle_biginteger,
@@ -214,7 +217,9 @@ class AttributeMapper:
     ) -> dict[Attribute, Any]:
         template = dict(self.default_public_key_template)
         _apply_capabilities(
-            template, (Attribute.ENCRYPT, Attribute.WRAP, Attribute.VERIFY), capabilities
+            template,
+            (Attribute.ENCRYPT, Attribute.WRAP, Attribute.VERIFY),
+            capabilities,
         )
         _apply_common(template, id_, label, store)
         return template

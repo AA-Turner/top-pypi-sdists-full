@@ -46,6 +46,7 @@ from .literals import (
     EncryptionKeyProviderInputType,
     EncryptionKeyProviderType,
     ExternalIdTypeType,
+    GridImageTypeType,
     IamRoleStatusType,
     IormLifecycleStateType,
     LicenseModelType,
@@ -65,9 +66,11 @@ from .literals import (
     RefreshableStatusType,
     RepeatCadenceType,
     ResourceStatusType,
+    ShapeAttributeType,
     ShapeTypeType,
     SourceTypeType,
     StandbyAllowlistedIpsSourceType,
+    UpdateActionType,
     WalletPasswordSourceType,
     WalletTypeType,
 )
@@ -84,6 +87,8 @@ __all__ = (
     "AdminPasswordSourceConfigurationTypeDef",
     "AdminPasswordSourceSummaryTypeDef",
     "AssociateIamRoleToResourceInputTypeDef",
+    "AssociateVirtualMachinesToExadbVmClusterInputTypeDef",
+    "AssociateVirtualMachinesToExadbVmClusterOutputTypeDef",
     "AutonomousDatabaseApexTypeDef",
     "AutonomousDatabaseBackupSummaryTypeDef",
     "AutonomousDatabaseBackupTypeDef",
@@ -119,6 +124,10 @@ __all__ = (
     "CreateCloudExadataInfrastructureOutputTypeDef",
     "CreateCloudVmClusterInputTypeDef",
     "CreateCloudVmClusterOutputTypeDef",
+    "CreateExadbVmClusterInputTypeDef",
+    "CreateExadbVmClusterOutputTypeDef",
+    "CreateExascaleDbStorageVaultInputTypeDef",
+    "CreateExascaleDbStorageVaultOutputTypeDef",
     "CreateOdbNetworkInputTypeDef",
     "CreateOdbNetworkOutputTypeDef",
     "CreateOdbPeeringConnectionInputTypeDef",
@@ -147,14 +156,24 @@ __all__ = (
     "DeleteCloudAutonomousVmClusterInputTypeDef",
     "DeleteCloudExadataInfrastructureInputTypeDef",
     "DeleteCloudVmClusterInputTypeDef",
+    "DeleteExadbVmClusterInputTypeDef",
+    "DeleteExascaleDbStorageVaultInputTypeDef",
     "DeleteOdbNetworkInputTypeDef",
     "DeleteOdbPeeringConnectionInputTypeDef",
     "DisassociateIamRoleFromResourceInputTypeDef",
+    "DisassociateVirtualMachinesFromExadbVmClusterInputTypeDef",
+    "DisassociateVirtualMachinesFromExadbVmClusterOutputTypeDef",
     "DisasterRecoveryConfigurationTypeDef",
     "EncryptionKeyConfigurationInputTypeDef",
     "EncryptionKeyConfigurationTypeDef",
     "EncryptionSummaryTypeDef",
     "ExadataIormConfigTypeDef",
+    "ExadbVmClusterStorageDetailsTypeDef",
+    "ExadbVmClusterSummaryTypeDef",
+    "ExadbVmClusterTypeDef",
+    "ExascaleDbStorageDetailsTypeDef",
+    "ExascaleDbStorageVaultSummaryTypeDef",
+    "ExascaleDbStorageVaultTypeDef",
     "FailoverAutonomousDatabaseInputTypeDef",
     "FailoverAutonomousDatabaseOutputTypeDef",
     "GetAutonomousDatabaseBackupInputTypeDef",
@@ -175,11 +194,16 @@ __all__ = (
     "GetDbNodeOutputTypeDef",
     "GetDbServerInputTypeDef",
     "GetDbServerOutputTypeDef",
+    "GetExadbVmClusterInputTypeDef",
+    "GetExadbVmClusterOutputTypeDef",
+    "GetExascaleDbStorageVaultInputTypeDef",
+    "GetExascaleDbStorageVaultOutputTypeDef",
     "GetOciOnboardingStatusOutputTypeDef",
     "GetOdbNetworkInputTypeDef",
     "GetOdbNetworkOutputTypeDef",
     "GetOdbPeeringConnectionInputTypeDef",
     "GetOdbPeeringConnectionOutputTypeDef",
+    "GiMinorVersionSummaryTypeDef",
     "GiVersionSummaryTypeDef",
     "IamRoleTypeDef",
     "InitializeServiceInputTypeDef",
@@ -223,6 +247,15 @@ __all__ = (
     "ListDbSystemShapesInputPaginateTypeDef",
     "ListDbSystemShapesInputTypeDef",
     "ListDbSystemShapesOutputTypeDef",
+    "ListExadbVmClustersInputPaginateTypeDef",
+    "ListExadbVmClustersInputTypeDef",
+    "ListExadbVmClustersOutputTypeDef",
+    "ListExascaleDbStorageVaultsInputPaginateTypeDef",
+    "ListExascaleDbStorageVaultsInputTypeDef",
+    "ListExascaleDbStorageVaultsOutputTypeDef",
+    "ListGiMinorVersionsInputPaginateTypeDef",
+    "ListGiMinorVersionsInputTypeDef",
+    "ListGiMinorVersionsOutputTypeDef",
     "ListGiVersionsInputPaginateTypeDef",
     "ListGiVersionsInputTypeDef",
     "ListGiVersionsOutputTypeDef",
@@ -295,6 +328,10 @@ __all__ = (
     "UpdateAutonomousDatabaseOutputTypeDef",
     "UpdateCloudExadataInfrastructureInputTypeDef",
     "UpdateCloudExadataInfrastructureOutputTypeDef",
+    "UpdateExadbVmClusterInputTypeDef",
+    "UpdateExadbVmClusterOutputTypeDef",
+    "UpdateExascaleDbStorageVaultInputTypeDef",
+    "UpdateExascaleDbStorageVaultOutputTypeDef",
     "UpdateOdbNetworkInputTypeDef",
     "UpdateOdbNetworkOutputTypeDef",
     "UpdateOdbPeeringConnectionInputTypeDef",
@@ -326,6 +363,19 @@ class AssociateIamRoleToResourceInputTypeDef(TypedDict):
     iamRoleArn: str
     awsIntegration: Literal["KmsTde"]
     resourceArn: str
+
+
+class AssociateVirtualMachinesToExadbVmClusterInputTypeDef(TypedDict):
+    exadbVmClusterId: str
+    desiredNodeCount: int
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 
 class AutonomousDatabaseApexTypeDef(TypedDict):
@@ -519,16 +569,22 @@ class CreateAutonomousDatabaseBackupInputTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
 
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-
 class TransportableTablespaceTypeDef(TypedDict):
     ttsBundleUrl: NotRequired[str]
+
+
+class CreateExascaleDbStorageVaultInputTypeDef(TypedDict):
+    displayName: str
+    highCapacityDatabaseStorageTotalSizeInGBs: int
+    additionalFlashCacheInPercent: NotRequired[int]
+    autoscaleLimitInGBs: NotRequired[int]
+    availabilityZoneId: NotRequired[str]
+    availabilityZone: NotRequired[str]
+    description: NotRequired[str]
+    isAutoscaleEnabled: NotRequired[bool]
+    tags: NotRequired[Mapping[str, str]]
+    timeZone: NotRequired[str]
+    clientToken: NotRequired[str]
 
 
 class CreateOdbNetworkInputTypeDef(TypedDict):
@@ -681,6 +737,7 @@ class DbSystemShapeSummaryTypeDef(TypedDict):
     runtimeMinimumCoreCount: NotRequired[int]
     shapeFamily: NotRequired[str]
     shapeType: NotRequired[ShapeTypeType]
+    shapeAttributes: NotRequired[list[ShapeAttributeType]]
     name: NotRequired[str]
     computeModel: NotRequired[ComputeModelType]
     areServerTypesSupported: NotRequired[bool]
@@ -706,6 +763,14 @@ class DeleteCloudVmClusterInputTypeDef(TypedDict):
     cloudVmClusterId: str
 
 
+class DeleteExadbVmClusterInputTypeDef(TypedDict):
+    exadbVmClusterId: str
+
+
+class DeleteExascaleDbStorageVaultInputTypeDef(TypedDict):
+    exascaleDbStorageVaultId: str
+
+
 class DeleteOdbNetworkInputTypeDef(TypedDict):
     odbNetworkId: str
     deleteAssociatedResources: bool
@@ -721,6 +786,11 @@ class DisassociateIamRoleFromResourceInputTypeDef(TypedDict):
     resourceArn: str
 
 
+class DisassociateVirtualMachinesFromExadbVmClusterInputTypeDef(TypedDict):
+    exadbVmClusterId: str
+    dbNodeIds: Sequence[str]
+
+
 class OciEncryptionKeyConfigurationTypeDef(TypedDict):
     kmsKeyId: str
     vaultId: str
@@ -732,6 +802,15 @@ class OkvEncryptionKeyConfigurationTypeDef(TypedDict):
     okvKmsKey: str
     okvUri: str
     certificateId: NotRequired[str]
+
+
+class ExadbVmClusterStorageDetailsTypeDef(TypedDict):
+    totalSizeInGBs: NotRequired[int]
+
+
+class ExascaleDbStorageDetailsTypeDef(TypedDict):
+    availableSizeInGBs: NotRequired[int]
+    totalSizeInGBs: NotRequired[int]
 
 
 class FailoverAutonomousDatabaseInputTypeDef(TypedDict):
@@ -769,13 +848,22 @@ class GetCloudVmClusterInputTypeDef(TypedDict):
 
 
 class GetDbNodeInputTypeDef(TypedDict):
-    cloudVmClusterId: str
     dbNodeId: str
+    cloudVmClusterId: NotRequired[str]
+    exadbVmClusterId: NotRequired[str]
 
 
 class GetDbServerInputTypeDef(TypedDict):
     cloudExadataInfrastructureId: str
     dbServerId: str
+
+
+class GetExadbVmClusterInputTypeDef(TypedDict):
+    exadbVmClusterId: str
+
+
+class GetExascaleDbStorageVaultInputTypeDef(TypedDict):
+    exascaleDbStorageVaultId: str
 
 
 class OciIamRoleTypeDef(TypedDict):
@@ -818,6 +906,11 @@ class OdbPeeringConnectionTypeDef(TypedDict):
     peerNetworkCidrs: NotRequired[list[str]]
     createdAt: NotRequired[datetime]
     percentProgress: NotRequired[float]
+
+
+class GiMinorVersionSummaryTypeDef(TypedDict):
+    version: str
+    gridImageId: NotRequired[str]
 
 
 class GiVersionSummaryTypeDef(TypedDict):
@@ -907,9 +1000,10 @@ class ListCloudVmClustersInputTypeDef(TypedDict):
 
 
 class ListDbNodesInputTypeDef(TypedDict):
-    cloudVmClusterId: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    cloudVmClusterId: NotRequired[str]
+    exadbVmClusterId: NotRequired[str]
 
 
 class ListDbServersInputTypeDef(TypedDict):
@@ -921,6 +1015,27 @@ class ListDbServersInputTypeDef(TypedDict):
 class ListDbSystemShapesInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    availabilityZone: NotRequired[str]
+    availabilityZoneId: NotRequired[str]
+    shapeFamily: NotRequired[str]
+
+
+class ListExadbVmClustersInputTypeDef(TypedDict):
+    exascaleDbStorageVaultId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListExascaleDbStorageVaultsInputTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ListGiMinorVersionsInputTypeDef(TypedDict):
+    giVersion: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    shapeFamily: NotRequired[str]
     availabilityZone: NotRequired[str]
     availabilityZoneId: NotRequired[str]
 
@@ -1017,8 +1132,9 @@ class RebootAutonomousDatabaseInputTypeDef(TypedDict):
 
 
 class RebootDbNodeInputTypeDef(TypedDict):
-    cloudVmClusterId: str
     dbNodeId: str
+    cloudVmClusterId: NotRequired[str]
+    exadbVmClusterId: NotRequired[str]
 
 
 class RestoreFromBackupConfigurationTypeDef(TypedDict):
@@ -1036,8 +1152,9 @@ class StartAutonomousDatabaseInputTypeDef(TypedDict):
 
 
 class StartDbNodeInputTypeDef(TypedDict):
-    cloudVmClusterId: str
     dbNodeId: str
+    cloudVmClusterId: NotRequired[str]
+    exadbVmClusterId: NotRequired[str]
 
 
 class StopAutonomousDatabaseInputTypeDef(TypedDict):
@@ -1045,8 +1162,9 @@ class StopAutonomousDatabaseInputTypeDef(TypedDict):
 
 
 class StopDbNodeInputTypeDef(TypedDict):
-    cloudVmClusterId: str
     dbNodeId: str
+    cloudVmClusterId: NotRequired[str]
+    exadbVmClusterId: NotRequired[str]
 
 
 class SwitchoverAutonomousDatabaseInputTypeDef(TypedDict):
@@ -1067,6 +1185,16 @@ class UntagResourceRequestTypeDef(TypedDict):
 class UpdateAutonomousDatabaseBackupInputTypeDef(TypedDict):
     autonomousDatabaseBackupId: str
     retentionPeriodInDays: NotRequired[int]
+
+
+class UpdateExascaleDbStorageVaultInputTypeDef(TypedDict):
+    exascaleDbStorageVaultId: str
+    additionalFlashCacheInPercent: NotRequired[int]
+    autoscaleLimitInGBs: NotRequired[int]
+    description: NotRequired[str]
+    displayName: NotRequired[str]
+    highCapacityDatabaseStorageTotalSizeInGBs: NotRequired[int]
+    isAutoscaleEnabled: NotRequired[bool]
 
 
 class UpdateOdbNetworkInputTypeDef(TypedDict):
@@ -1108,81 +1236,12 @@ class WalletPasswordSourceConfigurationTypeDef(TypedDict):
     customerManagedAwsSecret: NotRequired[CustomerManagedAwsSecretConfigurationTypeDef]
 
 
-class AutonomousDatabaseConnectionStringsTypeDef(TypedDict):
-    allConnectionStrings: NotRequired[dict[str, str]]
-    dedicated: NotRequired[str]
-    high: NotRequired[str]
-    medium: NotRequired[str]
-    low: NotRequired[str]
-    profiles: NotRequired[list[DatabaseConnectionStringProfileTypeDef]]
-
-
-class EncryptionKeyConfigurationInputTypeDef(TypedDict):
-    awsEncryptionKey: NotRequired[AwsEncryptionKeyConfigurationInputTypeDef]
-
-
-class CloneToRefreshableConfigurationTypeDef(TypedDict):
-    sourceAutonomousDatabaseId: str
-    refreshableMode: NotRequired[RefreshableModeType]
-    autoRefreshFrequencyInSeconds: NotRequired[int]
-    autoRefreshPointLagInSeconds: NotRequired[int]
-    timeOfAutoRefreshStart: NotRequired[TimestampTypeDef]
-    openMode: NotRequired[OpenModeType]
-    cloneType: NotRequired[CloneTypeType]
-
-
-class LongTermBackupScheduleTypeDef(TypedDict):
-    isDisabled: NotRequired[bool]
-    repeatCadence: NotRequired[RepeatCadenceType]
-    retentionPeriodInDays: NotRequired[int]
-    timeOfBackup: NotRequired[TimestampTypeDef]
-
-
-class PointInTimeRestoreConfigurationTypeDef(TypedDict):
-    sourceAutonomousDatabaseId: str
-    cloneType: CloneTypeType
-    timestamp: NotRequired[TimestampTypeDef]
-    useLatestAvailableBackupTimestamp: NotRequired[bool]
-    cloneTableSpaceList: NotRequired[Sequence[int]]
-
-
-class RestoreAutonomousDatabaseInputTypeDef(TypedDict):
-    autonomousDatabaseId: str
-    timestamp: TimestampTypeDef
-
-
-class CloudExadataInfrastructureUnallocatedResourcesTypeDef(TypedDict):
-    cloudAutonomousVmClusters: NotRequired[list[CloudAutonomousVmClusterResourceDetailsTypeDef]]
-    cloudExadataInfrastructureDisplayName: NotRequired[str]
-    exadataStorageInTBs: NotRequired[float]
-    cloudExadataInfrastructureId: NotRequired[str]
-    localStorageInGBs: NotRequired[int]
-    memoryInGBs: NotRequired[int]
-    ocpus: NotRequired[int]
-
-
-class CreateCloudVmClusterInputTypeDef(TypedDict):
-    cloudExadataInfrastructureId: str
-    cpuCoreCount: int
+class AssociateVirtualMachinesToExadbVmClusterOutputTypeDef(TypedDict):
     displayName: str
-    giVersion: str
-    hostname: str
-    sshPublicKeys: Sequence[str]
-    odbNetworkId: str
-    clusterName: NotRequired[str]
-    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
-    dataStorageSizeInTBs: NotRequired[float]
-    dbNodeStorageSizeInGBs: NotRequired[int]
-    dbServers: NotRequired[Sequence[str]]
-    tags: NotRequired[Mapping[str, str]]
-    isLocalBackupEnabled: NotRequired[bool]
-    isSparseDiskgroupEnabled: NotRequired[bool]
-    licenseModel: NotRequired[LicenseModelType]
-    memorySizeInGBs: NotRequired[int]
-    systemVersion: NotRequired[str]
-    timeZone: NotRequired[str]
-    clientToken: NotRequired[str]
-    scanListenerPortTcp: NotRequired[int]
+    status: ResourceStatusType
+    statusReason: str
+    exadbVmClusterId: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateAutonomousDatabaseBackupOutputTypeDef(TypedDict):
@@ -1230,6 +1289,22 @@ class CreateCloudVmClusterOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateExadbVmClusterOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    exadbVmClusterId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateExascaleDbStorageVaultOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    exascaleDbStorageVaultId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateOdbNetworkOutputTypeDef(TypedDict):
     displayName: str
     status: ResourceStatusType
@@ -1246,47 +1321,20 @@ class CreateOdbPeeringConnectionOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DisassociateVirtualMachinesFromExadbVmClusterOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    exadbVmClusterId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class FailoverAutonomousDatabaseOutputTypeDef(TypedDict):
     autonomousDatabaseId: str
     displayName: str
     status: AutonomousDatabaseResourceStatusType
     statusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetAutonomousDatabaseBackupOutputTypeDef(TypedDict):
-    autonomousDatabaseBackup: AutonomousDatabaseBackupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListAutonomousDatabaseBackupsOutputTypeDef(TypedDict):
-    autonomousDatabaseBackups: list[AutonomousDatabaseBackupSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListAutonomousDatabaseCharacterSetsOutputTypeDef(TypedDict):
-    autonomousDatabaseCharacterSets: list[AutonomousDatabaseCharacterSetSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListAutonomousDatabasePeersOutputTypeDef(TypedDict):
-    autonomousDatabasePeers: list[AutonomousDatabasePeerSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListAutonomousDatabaseVersionsOutputTypeDef(TypedDict):
-    autonomousDatabaseVersions: list[AutonomousDatabaseVersionSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class ListAutonomousVirtualMachinesOutputTypeDef(TypedDict):
-    autonomousVirtualMachines: list[AutonomousVirtualMachineSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
@@ -1387,6 +1435,22 @@ class UpdateCloudExadataInfrastructureOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateExadbVmClusterOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    exadbVmClusterId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateExascaleDbStorageVaultOutputTypeDef(TypedDict):
+    displayName: str
+    status: ResourceStatusType
+    statusReason: str
+    exascaleDbStorageVaultId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateOdbNetworkOutputTypeDef(TypedDict):
     displayName: str
     status: ResourceStatusType
@@ -1401,6 +1465,156 @@ class UpdateOdbPeeringConnectionOutputTypeDef(TypedDict):
     statusReason: str
     odbPeeringConnectionId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListAutonomousDatabaseBackupsOutputTypeDef(TypedDict):
+    autonomousDatabaseBackups: list[AutonomousDatabaseBackupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetAutonomousDatabaseBackupOutputTypeDef(TypedDict):
+    autonomousDatabaseBackup: AutonomousDatabaseBackupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListAutonomousDatabaseCharacterSetsOutputTypeDef(TypedDict):
+    autonomousDatabaseCharacterSets: list[AutonomousDatabaseCharacterSetSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class AutonomousDatabaseConnectionStringsTypeDef(TypedDict):
+    allConnectionStrings: NotRequired[dict[str, str]]
+    dedicated: NotRequired[str]
+    high: NotRequired[str]
+    medium: NotRequired[str]
+    low: NotRequired[str]
+    profiles: NotRequired[list[DatabaseConnectionStringProfileTypeDef]]
+
+
+class ListAutonomousDatabasePeersOutputTypeDef(TypedDict):
+    autonomousDatabasePeers: list[AutonomousDatabasePeerSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousDatabaseVersionsOutputTypeDef(TypedDict):
+    autonomousDatabaseVersions: list[AutonomousDatabaseVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListAutonomousVirtualMachinesOutputTypeDef(TypedDict):
+    autonomousVirtualMachines: list[AutonomousVirtualMachineSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class EncryptionKeyConfigurationInputTypeDef(TypedDict):
+    awsEncryptionKey: NotRequired[AwsEncryptionKeyConfigurationInputTypeDef]
+
+
+class CloneToRefreshableConfigurationTypeDef(TypedDict):
+    sourceAutonomousDatabaseId: str
+    refreshableMode: NotRequired[RefreshableModeType]
+    autoRefreshFrequencyInSeconds: NotRequired[int]
+    autoRefreshPointLagInSeconds: NotRequired[int]
+    timeOfAutoRefreshStart: NotRequired[TimestampTypeDef]
+    openMode: NotRequired[OpenModeType]
+    cloneType: NotRequired[CloneTypeType]
+
+
+class LongTermBackupScheduleTypeDef(TypedDict):
+    isDisabled: NotRequired[bool]
+    repeatCadence: NotRequired[RepeatCadenceType]
+    retentionPeriodInDays: NotRequired[int]
+    timeOfBackup: NotRequired[TimestampTypeDef]
+
+
+class PointInTimeRestoreConfigurationTypeDef(TypedDict):
+    sourceAutonomousDatabaseId: str
+    cloneType: CloneTypeType
+    timestamp: NotRequired[TimestampTypeDef]
+    useLatestAvailableBackupTimestamp: NotRequired[bool]
+    cloneTableSpaceList: NotRequired[Sequence[int]]
+
+
+class RestoreAutonomousDatabaseInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    timestamp: TimestampTypeDef
+
+
+class CloudExadataInfrastructureUnallocatedResourcesTypeDef(TypedDict):
+    cloudAutonomousVmClusters: NotRequired[list[CloudAutonomousVmClusterResourceDetailsTypeDef]]
+    cloudExadataInfrastructureDisplayName: NotRequired[str]
+    exadataStorageInTBs: NotRequired[float]
+    cloudExadataInfrastructureId: NotRequired[str]
+    localStorageInGBs: NotRequired[int]
+    memoryInGBs: NotRequired[int]
+    ocpus: NotRequired[int]
+
+
+class CreateCloudVmClusterInputTypeDef(TypedDict):
+    cloudExadataInfrastructureId: str
+    cpuCoreCount: int
+    displayName: str
+    giVersion: str
+    hostname: str
+    sshPublicKeys: Sequence[str]
+    odbNetworkId: str
+    clusterName: NotRequired[str]
+    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
+    dataStorageSizeInTBs: NotRequired[float]
+    dbNodeStorageSizeInGBs: NotRequired[int]
+    dbServers: NotRequired[Sequence[str]]
+    tags: NotRequired[Mapping[str, str]]
+    isLocalBackupEnabled: NotRequired[bool]
+    isSparseDiskgroupEnabled: NotRequired[bool]
+    licenseModel: NotRequired[LicenseModelType]
+    memorySizeInGBs: NotRequired[int]
+    systemVersion: NotRequired[str]
+    timeZone: NotRequired[str]
+    clientToken: NotRequired[str]
+    scanListenerPortTcp: NotRequired[int]
+
+
+class CreateExadbVmClusterInputTypeDef(TypedDict):
+    displayName: str
+    enabledEcpuCount: int
+    exascaleDbStorageVaultId: str
+    gridImageId: str
+    hostname: str
+    nodeCount: int
+    odbNetworkId: str
+    shape: str
+    sshPublicKeys: Sequence[str]
+    totalEcpuCount: int
+    vmFileSystemStorageTotalSizeInGBs: int
+    clusterName: NotRequired[str]
+    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
+    licenseModel: NotRequired[LicenseModelType]
+    scanListenerPortTcp: NotRequired[int]
+    scanListenerPortTcpSsl: NotRequired[int]
+    shapeAttribute: NotRequired[ShapeAttributeType]
+    systemVersion: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    timeZone: NotRequired[str]
+    clientToken: NotRequired[str]
+
+
+class UpdateExadbVmClusterInputTypeDef(TypedDict):
+    exadbVmClusterId: str
+    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
+    displayName: NotRequired[str]
+    enabledEcpuCount: NotRequired[int]
+    gridImageId: NotRequired[str]
+    licenseModel: NotRequired[LicenseModelType]
+    sshPublicKeys: NotRequired[Sequence[str]]
+    systemVersion: NotRequired[str]
+    totalEcpuCount: NotRequired[int]
+    updateAction: NotRequired[UpdateActionType]
+    vmFileSystemStorageTotalSizeInGBs: NotRequired[int]
 
 
 class ScheduledOperationDetailsTypeDef(TypedDict):
@@ -1485,6 +1699,56 @@ class EncryptionKeyConfigurationTypeDef(TypedDict):
     okvEncryptionKey: NotRequired[OkvEncryptionKeyConfigurationTypeDef]
 
 
+class ExascaleDbStorageVaultSummaryTypeDef(TypedDict):
+    exascaleDbStorageVaultId: str
+    additionalFlashCacheInPercent: NotRequired[int]
+    attachedShapeAttributes: NotRequired[list[ShapeAttributeType]]
+    autoscaleLimitInGBs: NotRequired[int]
+    availabilityZone: NotRequired[str]
+    availabilityZoneId: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    description: NotRequired[str]
+    displayName: NotRequired[str]
+    vmClusterArns: NotRequired[list[str]]
+    vmClusterCount: NotRequired[int]
+    vmClusterIds: NotRequired[list[str]]
+    exascaleDbStorageVaultArn: NotRequired[str]
+    highCapacityDatabaseStorage: NotRequired[ExascaleDbStorageDetailsTypeDef]
+    isAutoscaleEnabled: NotRequired[bool]
+    ocid: NotRequired[str]
+    ociResourceAnchorName: NotRequired[str]
+    ociUrl: NotRequired[str]
+    percentProgress: NotRequired[float]
+    status: NotRequired[ResourceStatusType]
+    statusReason: NotRequired[str]
+    timeZone: NotRequired[str]
+
+
+class ExascaleDbStorageVaultTypeDef(TypedDict):
+    exascaleDbStorageVaultId: str
+    additionalFlashCacheInPercent: NotRequired[int]
+    attachedShapeAttributes: NotRequired[list[ShapeAttributeType]]
+    autoscaleLimitInGBs: NotRequired[int]
+    availabilityZone: NotRequired[str]
+    availabilityZoneId: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    description: NotRequired[str]
+    displayName: NotRequired[str]
+    vmClusterArns: NotRequired[list[str]]
+    vmClusterCount: NotRequired[int]
+    vmClusterIds: NotRequired[list[str]]
+    exascaleDbStorageVaultArn: NotRequired[str]
+    highCapacityDatabaseStorage: NotRequired[ExascaleDbStorageDetailsTypeDef]
+    isAutoscaleEnabled: NotRequired[bool]
+    ocid: NotRequired[str]
+    ociResourceAnchorName: NotRequired[str]
+    ociUrl: NotRequired[str]
+    percentProgress: NotRequired[float]
+    status: NotRequired[ResourceStatusType]
+    statusReason: NotRequired[str]
+    timeZone: NotRequired[str]
+
+
 class GetOciOnboardingStatusOutputTypeDef(TypedDict):
     status: OciOnboardingStatusType
     existingTenancyActivationLink: str
@@ -1500,6 +1764,12 @@ class GetOciOnboardingStatusOutputTypeDef(TypedDict):
 class GetOdbPeeringConnectionOutputTypeDef(TypedDict):
     odbPeeringConnection: OdbPeeringConnectionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListGiMinorVersionsOutputTypeDef(TypedDict):
+    giMinorVersions: list[GiMinorVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListGiVersionsOutputTypeDef(TypedDict):
@@ -1563,7 +1833,8 @@ class ListCloudVmClustersInputPaginateTypeDef(TypedDict):
 
 
 class ListDbNodesInputPaginateTypeDef(TypedDict):
-    cloudVmClusterId: str
+    cloudVmClusterId: NotRequired[str]
+    exadbVmClusterId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1573,6 +1844,24 @@ class ListDbServersInputPaginateTypeDef(TypedDict):
 
 
 class ListDbSystemShapesInputPaginateTypeDef(TypedDict):
+    availabilityZone: NotRequired[str]
+    availabilityZoneId: NotRequired[str]
+    shapeFamily: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListExadbVmClustersInputPaginateTypeDef(TypedDict):
+    exascaleDbStorageVaultId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListExascaleDbStorageVaultsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListGiMinorVersionsInputPaginateTypeDef(TypedDict):
+    giVersion: str
+    shapeFamily: NotRequired[str]
     availabilityZone: NotRequired[str]
     availabilityZoneId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1781,6 +2070,100 @@ class CloudVmClusterTypeDef(TypedDict):
     iamRoles: NotRequired[list[IamRoleTypeDef]]
 
 
+class ExadbVmClusterSummaryTypeDef(TypedDict):
+    exadbVmClusterId: str
+    clusterName: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
+    displayName: NotRequired[str]
+    domain: NotRequired[str]
+    enabledEcpuCount: NotRequired[int]
+    exadbVmClusterArn: NotRequired[str]
+    exascaleDbStorageVaultArn: NotRequired[str]
+    exascaleDbStorageVaultId: NotRequired[str]
+    giVersion: NotRequired[str]
+    gridImageId: NotRequired[str]
+    gridImageType: NotRequired[GridImageTypeType]
+    hostname: NotRequired[str]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
+    iormConfigCache: NotRequired[ExadataIormConfigTypeDef]
+    lastUpdateHistoryEntryId: NotRequired[str]
+    licenseModel: NotRequired[LicenseModelType]
+    listenerPort: NotRequired[int]
+    memorySizeInGBs: NotRequired[int]
+    nodeCount: NotRequired[int]
+    ocid: NotRequired[str]
+    ociResourceAnchorName: NotRequired[str]
+    ociUrl: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
+    odbNetworkId: NotRequired[str]
+    percentProgress: NotRequired[float]
+    scanDnsName: NotRequired[str]
+    scanDnsRecordId: NotRequired[str]
+    scanIpIds: NotRequired[list[str]]
+    scanListenerPortTcp: NotRequired[int]
+    scanListenerPortTcpSsl: NotRequired[int]
+    shape: NotRequired[str]
+    shapeAttribute: NotRequired[ShapeAttributeType]
+    snapshotFileSystemStorage: NotRequired[ExadbVmClusterStorageDetailsTypeDef]
+    sshPublicKeys: NotRequired[list[str]]
+    status: NotRequired[ResourceStatusType]
+    statusReason: NotRequired[str]
+    systemVersion: NotRequired[str]
+    timeZone: NotRequired[str]
+    totalEcpuCount: NotRequired[int]
+    totalFileSystemStorage: NotRequired[ExadbVmClusterStorageDetailsTypeDef]
+    vipIds: NotRequired[list[str]]
+    vmFileSystemStorage: NotRequired[ExadbVmClusterStorageDetailsTypeDef]
+
+
+class ExadbVmClusterTypeDef(TypedDict):
+    exadbVmClusterId: str
+    clusterName: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    dataCollectionOptions: NotRequired[DataCollectionOptionsTypeDef]
+    displayName: NotRequired[str]
+    domain: NotRequired[str]
+    enabledEcpuCount: NotRequired[int]
+    exadbVmClusterArn: NotRequired[str]
+    exascaleDbStorageVaultArn: NotRequired[str]
+    exascaleDbStorageVaultId: NotRequired[str]
+    giVersion: NotRequired[str]
+    gridImageId: NotRequired[str]
+    gridImageType: NotRequired[GridImageTypeType]
+    hostname: NotRequired[str]
+    iamRoles: NotRequired[list[IamRoleTypeDef]]
+    iormConfigCache: NotRequired[ExadataIormConfigTypeDef]
+    lastUpdateHistoryEntryId: NotRequired[str]
+    licenseModel: NotRequired[LicenseModelType]
+    listenerPort: NotRequired[int]
+    memorySizeInGBs: NotRequired[int]
+    nodeCount: NotRequired[int]
+    ocid: NotRequired[str]
+    ociResourceAnchorName: NotRequired[str]
+    ociUrl: NotRequired[str]
+    odbNetworkArn: NotRequired[str]
+    odbNetworkId: NotRequired[str]
+    percentProgress: NotRequired[float]
+    scanDnsName: NotRequired[str]
+    scanDnsRecordId: NotRequired[str]
+    scanIpIds: NotRequired[list[str]]
+    scanListenerPortTcp: NotRequired[int]
+    scanListenerPortTcpSsl: NotRequired[int]
+    shape: NotRequired[str]
+    shapeAttribute: NotRequired[ShapeAttributeType]
+    snapshotFileSystemStorage: NotRequired[ExadbVmClusterStorageDetailsTypeDef]
+    sshPublicKeys: NotRequired[list[str]]
+    status: NotRequired[ResourceStatusType]
+    statusReason: NotRequired[str]
+    systemVersion: NotRequired[str]
+    timeZone: NotRequired[str]
+    totalEcpuCount: NotRequired[int]
+    totalFileSystemStorage: NotRequired[ExadbVmClusterStorageDetailsTypeDef]
+    vipIds: NotRequired[list[str]]
+    vmFileSystemStorage: NotRequired[ExadbVmClusterStorageDetailsTypeDef]
+
+
 class ListDbServersOutputTypeDef(TypedDict):
     dbServers: list[DbServerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1795,6 +2178,17 @@ class GetDbServerOutputTypeDef(TypedDict):
 class EncryptionSummaryTypeDef(TypedDict):
     encryptionKeyProvider: NotRequired[EncryptionKeyProviderType]
     encryptionKeyConfiguration: NotRequired[EncryptionKeyConfigurationTypeDef]
+
+
+class ListExascaleDbStorageVaultsOutputTypeDef(TypedDict):
+    exascaleDbStorageVaults: list[ExascaleDbStorageVaultSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetExascaleDbStorageVaultOutputTypeDef(TypedDict):
+    exascaleDbStorageVault: ExascaleDbStorageVaultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CloudAutonomousVmClusterSummaryTypeDef(TypedDict):
@@ -2148,6 +2542,17 @@ class ListCloudVmClustersOutputTypeDef(TypedDict):
 
 class GetCloudVmClusterOutputTypeDef(TypedDict):
     cloudVmCluster: CloudVmClusterTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListExadbVmClustersOutputTypeDef(TypedDict):
+    exadbVmClusters: list[ExadbVmClusterSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class GetExadbVmClusterOutputTypeDef(TypedDict):
+    exadbVmCluster: ExadbVmClusterTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

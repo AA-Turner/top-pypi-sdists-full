@@ -25,9 +25,17 @@ concurrency:
 
 jobs:
   rust-test:
-    name: rust tests
+    name: rust tests (${{ matrix.features }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - features: default
+            test_args: ""
+          - features: all
+            test_args: "--all-features"
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -42,7 +50,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.95.0
+          toolchain: "1.98.1"
 
       - name: Cache Cargo registry
         uses: Swatinem/rust-cache@v2
@@ -51,10 +59,13 @@ jobs:
         run: python3 scripts/generate_test_tls_certs.py
 
       - name: Run Rust tests
-        run: python3 scripts/run_rust_tests.py
+        run: python3 scripts/run_rust_tests.py ${{ matrix.test_args }}
+
+  vibeio-native:
+    uses: ./.github/workflows/vibeio-native.yml
 
   clippy:
-    name: clippy (pedantic)
+    name: clippy (risk-focused)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -71,14 +82,14 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.95.0
+          toolchain: "1.98.1"
           components: clippy
 
       - name: Cache Cargo registry
         uses: Swatinem/rust-cache@v2
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
 
   type-check:
     name: pyright
@@ -135,7 +146,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.95.0
+          toolchain: "1.98.1"
 
       - name: Cache Cargo registry
         uses: Swatinem/rust-cache@v2
@@ -245,7 +256,7 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.95.0
+          toolchain: "1.98.1"
 
       - name: Cache Cargo registry
         uses: Swatinem/rust-cache@v2

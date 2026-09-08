@@ -38,16 +38,6 @@ __all__ = [
 ]
 
 
-__all__ = [
-    "assert_close",
-    "assert_close_nulp",
-    "assert_equal",
-    "assert_less",
-    "lazy_xp_function",
-    "patch_lazy_xp_functions",
-]
-
-
 P = ParamSpec("P")
 T = TypeVar("T")
 
@@ -694,6 +684,9 @@ def _as_numpy_array(  # numpydoc ignore=PR01,RT01
         # Note: only needed if the transfer guard is enabled
         cpu = typing.cast(Device, jax.devices("cpu")[0])
         array = _compat.to_device(array, cpu)
+
+    if _helpers.is_mparray_namespace(xp):
+        return np.asarray(array._data, dtype=array.dtype)  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
 
     if hasattr(array, "__dlpack__"):
         try:

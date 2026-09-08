@@ -25,6 +25,7 @@ from mixpeek.models.clone_retriever_response import CloneRetrieverResponse
 from mixpeek.models.create_retriever_request import CreateRetrieverRequest
 from mixpeek.models.execute_batch_request import ExecuteBatchRequest
 from mixpeek.models.execute_retriever_request import ExecuteRetrieverRequest
+from mixpeek.models.execute_retriever_response import ExecuteRetrieverResponse
 from mixpeek.models.execution_detail import ExecutionDetail
 from mixpeek.models.explain_retriever_request import ExplainRetrieverRequest
 from mixpeek.models.explain_retriever_response import ExplainRetrieverResponse
@@ -1301,7 +1302,7 @@ class RetrieversApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> object:
+    ) -> ExecuteRetrieverResponse:
         """Execute Retriever (Auto-Optimized)
 
         Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
@@ -1357,7 +1358,7 @@ class RetrieversApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
+            '200': "ExecuteRetrieverResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
@@ -1398,7 +1399,7 @@ class RetrieversApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[object]:
+    ) -> ApiResponse[ExecuteRetrieverResponse]:
         """Execute Retriever (Auto-Optimized)
 
         Execute a retriever and return matching documents. The pipeline is automatically optimized before execution for best performance.  **Automatic Optimization:** Your pipeline stages are automatically transformed for optimal performance: - Filters pushed down to reduce expensive operations - Redundant stages merged or eliminated - Grouping operations pushed to database layer (10-100x faster) - Operations reordered for efficiency  **Streaming Support:** Set stream=true in the request body to receive real-time stage updates via SSE: - Response uses text/event-stream content type - Each stage emits stage_start and stage_complete events - Final event contains complete results and pagination - Useful for progress tracking and debugging  **Response Includes (when stream=false):** - documents: Final matching documents - pagination: Pagination metadata - stage_statistics: Per-stage execution metrics - budget: Credit/time consumption - optimization_applied: Whether optimizations were applied - optimization_summary: Details about transformations (when applied)  **Optimization Summary Example:** ```json {   \"optimization_applied\": true,   \"optimization_summary\": {     \"original_stage_count\": 5,     \"optimized_stage_count\": 3,     \"optimization_time_ms\": 8.2,     \"rules_applied\": [\"push_down_filters\", \"group_by_push_down\"],     \"stage_reduction_pct\": 40.0   } } ```  Use the /explain endpoint to see the optimized execution plan before running.
@@ -1454,7 +1455,7 @@ class RetrieversApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
+            '200': "ExecuteRetrieverResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
@@ -1551,7 +1552,7 @@ class RetrieversApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "object",
+            '200': "ExecuteRetrieverResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",

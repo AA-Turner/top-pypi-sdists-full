@@ -26,9 +26,10 @@ def test_definitions_registered():
     assert set(di.soilgrids_col_map.values()) == {
         "soil_sand", "soil_clay", "soil_soc", "soil_bdod"
     }
-    # combined static registry = aridity + soilgrids, col map consistent
-    assert set(di.dict_static_eo) == soil | {"AI"}
-    assert set(di.STATIC_EO_COL_MAP) == soil | {"AI"}
+    # combined static registry = aridity + soilgrids + PI (Productivity
+    # Index, added 2026-09-07), col map consistent
+    assert set(di.dict_static_eo) == soil | {"AI", "PI"}
+    assert set(di.STATIC_EO_COL_MAP) == soil | {"AI", "PI"}
     assert di.STATIC_EO_COL_MAP["AI"] == "aridity"
 
 

@@ -134,13 +134,7 @@ class WFCAuthConfig(DiffBase):
     user: str | None
     refresh_interval: int
 
-    def __init__(
-        self,
-        *,
-        path: str,
-        user: str | None = None,
-        refresh_interval: int = 300,
-    ) -> None:
+    def __init__(self, *, path: str, user: str | None = None, refresh_interval: int = 300) -> None:
         self.path = resolve(path)
         self.user = resolve(user) if user is not None else None
         self.refresh_interval = refresh_interval
@@ -152,6 +146,9 @@ class AuthConfig(DiffBase):
     openapi: OpenAPIAuthConfig
     dynamic: OpenAPIDynamicAuthConfig
     wfc: WFCAuthConfig | None
+    # Set only from the CLI. `wfc` merges as a whole, so values named there would be dropped
+    # when the file itself comes from the config.
+    wfc_user: str | None
 
     def __init__(
         self,
@@ -171,6 +168,7 @@ class AuthConfig(DiffBase):
         else:
             self.basic = None
 
+        self.wfc_user = None
         self.openapi = OpenAPIAuthConfig(schemes=openapi)
 
         self.dynamic = OpenAPIDynamicAuthConfig(schemes=dynamic.get("openapi") if dynamic else None)
@@ -215,7 +213,13 @@ class AuthConfig(DiffBase):
                 "Please choose one authentication method."
             )
 
-    def update(self, *, basic: tuple[str, str] | None = None) -> None:
+    def update(
+        self,
+        *,
+        basic: tuple[str, str] | None = None,
+        wfc_path: str | None = None,
+        wfc_user: str | None = None,
+    ) -> None:
         """Update auth config with explicit override (from CLI or user code).
 
         This method is for explicit overrides, so it does not validate mutual exclusivity.
@@ -224,6 +228,11 @@ class AuthConfig(DiffBase):
         if basic is not None:
             _validate_basic(*basic)
             self.basic = basic
+
+        if wfc_path is not None:
+            self.wfc = WFCAuthConfig(path=wfc_path, user=wfc_user)
+        elif wfc_user is not None:
+            self.wfc_user = wfc_user
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AuthConfig:

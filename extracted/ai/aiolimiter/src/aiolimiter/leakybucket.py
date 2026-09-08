@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2019 Martijn Pieters
+# Copyright (c) 2019-2026 Martijn Pieters
 # Licensed under the MIT license as detailed in LICENSE.txt
+
+from __future__ import annotations
 
 import asyncio
 import os
@@ -11,7 +13,6 @@ from functools import partial
 from heapq import heappop, heappush
 from itertools import count
 from types import TracebackType
-from typing import List, Optional, Tuple, Type
 
 LIMITER_REUSED_ACROSS_LOOPS_WARNING = (
     "This AsyncLimiter instance is being re-used across loops. Please create "
@@ -25,7 +26,7 @@ if sys.version_info >= (3, 12):  # pragma: no cover
         category=RuntimeWarning,
         skip_file_prefixes=(os.path.dirname(__file__),),
     )
-else:
+else:  # pragma: no cover
     # no support for dynamic stack levels, disable stack location
     _warn_reuse = partial(
         warnings.warn,
@@ -35,7 +36,7 @@ else:
     )
 
 
-class AsyncLimiter(AbstractAsyncContextManager):
+class AsyncLimiter(AbstractAsyncContextManager[None]):
     """A leaky bucket rate limiter.
 
     This is an :ref:`asynchronous context manager <async-context-managers>`;
@@ -56,15 +57,15 @@ class AsyncLimiter(AbstractAsyncContextManager):
     """
 
     __slots__ = (
+        "_event_loop",
+        "_last_check",
+        "_level",
+        "_next_count",
+        "_rate_per_sec",
+        "_waiters",
+        "_waker_handle",
         "max_rate",
         "time_period",
-        "_rate_per_sec",
-        "_level",
-        "_last_check",
-        "_event_loop",
-        "_waiters",
-        "_next_count",
-        "_waker_handle",
     )
 
     max_rate: float  #: The configured `max_rate` value for this limiter.
@@ -80,7 +81,7 @@ class AsyncLimiter(AbstractAsyncContextManager):
         # timer until next waiter can resume
         self._waker_handle: asyncio.TimerHandle | None = None
         # min-heap with (amount requested, order, future) for waiting tasks
-        self._waiters: List[Tuple[float, int, "asyncio.Future[None]"]] = []
+        self._waiters: list[tuple[float, int, asyncio.Future[None]]] = []
         # counter used to order waiting tasks
         self._next_count = partial(next, count())
 
@@ -117,7 +118,7 @@ class AsyncLimiter(AbstractAsyncContextManager):
         self._last_check = now
 
     def has_capacity(self, amount: float = 1) -> bool:
-        """Check if there is enough capacity remaining in the limiter
+        """Check if there is enough capacity remaining in the limiter.
 
         :param amount: How much capacity you need to be available.
 
@@ -132,12 +133,14 @@ class AsyncLimiter(AbstractAsyncContextManager):
         freed before returning.
 
         :param amount: How much capacity you need to be available.
-        :exception: Raises :exc:`ValueError` if `amount` is greater than
-           :attr:`max_rate`.
+        :exception: Raises :exc:`ValueError` if `amount` is not a number
+           between zero and :attr:`max_rate`, inclusive.
 
         """
-        if amount > self.max_rate:
-            raise ValueError("Can't acquire more than the maximum capacity")
+        if not 0 <= amount <= self.max_rate:
+            raise ValueError(
+                "Amount must be a number between 0 and the maximum capacity"
+            )
 
         loop = self._loop
         while not self.has_capacity(amount):
@@ -154,10 +157,8 @@ class AsyncLimiter(AbstractAsyncContextManager):
         # reset the waker to account for the new, lower level.
         self._wake_next()
 
-        return None
-
     def _wake_next(self, *_args: object) -> None:
-        """Wake the next waiting future or set a timer"""
+        """Wake the next waiting future or set a timer."""
         # clear timer and any cancelled futures at the top of the heap
         heap, handle, self._waker_handle = self._waiters, self._waker_handle, None
         if handle is not None:
@@ -192,12 +193,11 @@ class AsyncLimiter(AbstractAsyncContextManager):
 
     async def __aenter__(self) -> None:
         await self.acquire()
-        return None
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
     ) -> None:
-        return None
+        pass

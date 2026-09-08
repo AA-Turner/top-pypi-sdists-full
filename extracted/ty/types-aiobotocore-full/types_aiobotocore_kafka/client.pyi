@@ -50,6 +50,8 @@ from .type_defs import (
     BatchAssociateScramSecretResponseTypeDef,
     BatchDisassociateScramSecretRequestTypeDef,
     BatchDisassociateScramSecretResponseTypeDef,
+    CreateChannelRequestTypeDef,
+    CreateChannelResponseTypeDef,
     CreateClusterRequestTypeDef,
     CreateClusterResponseTypeDef,
     CreateClusterV2RequestTypeDef,
@@ -62,6 +64,8 @@ from .type_defs import (
     CreateTopicResponseTypeDef,
     CreateVpcConnectionRequestTypeDef,
     CreateVpcConnectionResponseTypeDef,
+    DeleteChannelRequestTypeDef,
+    DeleteChannelResponseTypeDef,
     DeleteClusterPolicyRequestTypeDef,
     DeleteClusterRequestTypeDef,
     DeleteClusterResponseTypeDef,
@@ -73,6 +77,8 @@ from .type_defs import (
     DeleteTopicResponseTypeDef,
     DeleteVpcConnectionRequestTypeDef,
     DeleteVpcConnectionResponseTypeDef,
+    DescribeChannelRequestTypeDef,
+    DescribeChannelResponseTypeDef,
     DescribeClusterOperationRequestTypeDef,
     DescribeClusterOperationResponseTypeDef,
     DescribeClusterOperationV2RequestTypeDef,
@@ -100,6 +106,8 @@ from .type_defs import (
     GetClusterPolicyResponseTypeDef,
     GetCompatibleKafkaVersionsRequestTypeDef,
     GetCompatibleKafkaVersionsResponseTypeDef,
+    ListChannelsRequestTypeDef,
+    ListChannelsResponseTypeDef,
     ListClientVpcConnectionsRequestTypeDef,
     ListClientVpcConnectionsResponseTypeDef,
     ListClusterOperationsRequestTypeDef,
@@ -141,6 +149,8 @@ from .type_defs import (
     UpdateBrokerStorageResponseTypeDef,
     UpdateBrokerTypeRequestTypeDef,
     UpdateBrokerTypeResponseTypeDef,
+    UpdateChannelRequestTypeDef,
+    UpdateChannelResponseTypeDef,
     UpdateClusterConfigurationRequestTypeDef,
     UpdateClusterConfigurationResponseTypeDef,
     UpdateClusterKafkaVersionRequestTypeDef,
@@ -235,6 +245,17 @@ class KafkaClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#batch_associate_scram_secret)
         """
 
+    async def create_channel(
+        self, **kwargs: Unpack[CreateChannelRequestTypeDef]
+    ) -> CreateChannelResponseTypeDef:
+        """
+        Creates a Channel that streams records from an Amazon MSK Express cluster topic
+        to Amazon S3 or Apache Iceberg.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/create_channel.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#create_channel)
+        """
+
     async def create_cluster(
         self, **kwargs: Unpack[CreateClusterRequestTypeDef]
     ) -> CreateClusterResponseTypeDef:
@@ -304,6 +325,17 @@ class KafkaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_cluster.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#delete_cluster)
+        """
+
+    async def delete_channel(
+        self, **kwargs: Unpack[DeleteChannelRequestTypeDef]
+    ) -> DeleteChannelResponseTypeDef:
+        """
+        Deletes the channel specified by channelArn from the cluster specified by
+        clusterArn.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/delete_channel.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#delete_channel)
         """
 
     async def delete_cluster_policy(
@@ -377,6 +409,16 @@ class KafkaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_cluster_v2.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#describe_cluster_v2)
+        """
+
+    async def describe_channel(
+        self, **kwargs: Unpack[DescribeChannelRequestTypeDef]
+    ) -> DescribeChannelResponseTypeDef:
+        """
+        Returns the current configuration and state of a channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/describe_channel.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#describe_channel)
         """
 
     async def describe_cluster_operation(
@@ -540,6 +582,16 @@ class KafkaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_clusters_v2.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#list_clusters_v2)
+        """
+
+    async def list_channels(
+        self, **kwargs: Unpack[ListChannelsRequestTypeDef]
+    ) -> ListChannelsResponseTypeDef:
+        """
+        Returns the list of channels in a cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/list_channels.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#list_channels)
         """
 
     async def list_configuration_revisions(
@@ -741,6 +793,16 @@ class KafkaClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_connectivity.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#update_connectivity)
+        """
+
+    async def update_channel(
+        self, **kwargs: Unpack[UpdateChannelRequestTypeDef]
+    ) -> UpdateChannelResponseTypeDef:
+        """
+        Updates the destination configuration of an existing channel.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kafka/client/update_channel.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kafka/client/#update_channel)
         """
 
     async def update_cluster_configuration(

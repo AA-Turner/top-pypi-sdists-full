@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm
-Version: 0.34
+Version: 0.35
 Summary: CLI utility and Python library for interacting with Large Language Models from organizations like OpenAI, Anthropic and Gemini plus local models installed on your own machine.
 Author: Simon Willison
 License-Expression: Apache-2.0
@@ -101,7 +101,7 @@ Or with Homebrew (see [warning note](https://llm.datasette.io/en/stable/setup.ht
 brew install llm
 ```
 
-Or with [pipx](https://pypa.github.io/pipx/):
+Or with [pipx](https://pipx.pypa.io/):
 
 ```bash
 pipx install llm

@@ -12,13 +12,16 @@ import subprocess
 from typing import TYPE_CHECKING
 from typing import Callable
 from typing import List
+from typing import NamedTuple
 from typing import Optional
 
+from rich.markup import escape
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.containers import Vertical
 from textual.events import Key
+from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.screen import Screen
 from textual.widgets import Button
@@ -86,7 +89,7 @@ class KeyDialogScreen(ModalScreen[Optional[str]]):
         with Vertical(id="dialog"):
             yield Label(self.dialog_title, id="dialog-title")
             if self._body_text:
-                yield Label(self._body_text, id="dialog-body")
+                yield Label(self._body_text, id="dialog-body", markup=False)
             with Horizontal(id="dialog-buttons"):
                 for key_char, label in self._buttons:
                     yield Button(label, id=f"btn-{key_char}")
@@ -148,9 +151,9 @@ class InputScreen(ModalScreen[Optional[str]]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
-            yield Label(self.dialog_title, id="dialog-title")
+            yield Label(self.dialog_title, id="dialog-title", markup=False)
             if self.info_text:
-                yield Label(self.info_text, id="dialog-info")
+                yield Label(self.info_text, id="dialog-info", markup=False)
             yield Input(value=self.initial_text, id="dialog-input")
 
     def on_mount(self) -> None:
@@ -190,7 +193,7 @@ class InvalidValueScreen(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
             yield Label("Invalid value", id="dialog-title")
-            yield Label(self.error, id="dialog-body")
+            yield Label(self.error, id="dialog-body", markup=False)
             yield Label("Press any key to continue.", id="dialog-hint")
 
     def on_key(self, event: Key) -> None:
@@ -199,32 +202,176 @@ class InvalidValueScreen(ModalScreen[None]):
         self.dismiss(None)
 
 
-class SaveScreen(ModalScreen[Optional[str]]):
-    """Save dialog with filename input."""
+class SaveMinimalResult(NamedTuple):
+    """Result of the minimal-config save dialog."""
+
+    filename: str
+    use_labels: bool
+
+
+class SimpleCheckbox(Static):
+    """A single-line checkbox without Textual's bordered toggle styling."""
+
+    can_focus = True
+    value = reactive(False)
+
+    def __init__(self, label: str, *, value: bool = False, id: Optional[str] = None) -> None:
+        super().__init__(id=id, markup=False)
+        self.label = label
+        self.value = value
+
+    def render(self) -> str:
+        mark = "x" if self.value else " "
+        return f"[{mark}] {self.label}"
+
+    def on_click(self) -> None:
+        self.value = not self.value
+
+    def on_key(self, event: Key) -> None:
+        if event.key in ("space", "enter"):
+            self.value = not self.value
+            event.prevent_default()
+            event.stop()
+
+
+class SaveMinimalConfigScreen(ModalScreen[Optional[SaveMinimalResult]]):
+    """Save dialog for the minimal config: filename plus a menu-labels toggle."""
 
     DEFAULT_CSS = """
-    SaveScreen {
+    SaveMinimalConfigScreen {
         align: center middle;
         background: $background 60%;
+    }
+    SaveMinimalConfigScreen #save-min-filename-label {
+        width: 100%;
+    }
+    SaveMinimalConfigScreen #checkbox-row {
+        width: 100%;
+        height: 1;
+        margin-top: 1;
+        align-horizontal: center;
+    }
+    SaveMinimalConfigScreen #labels-checkbox {
+        width: auto;
+        height: 1;
+    }
+    SaveMinimalConfigScreen #labels-checkbox:focus {
+        color: $block-cursor-foreground;
+        background: $block-cursor-background;
+        text-style: $block-cursor-text-style;
+    }
+    SaveMinimalConfigScreen #dialog-buttons {
+        width: 100%;
+        height: auto;
+        align-horizontal: center;
+        margin-top: 1;
+        border-top: solid $surface;
+        padding-top: 1;
+    }
+    SaveMinimalConfigScreen #dialog-buttons Button {
+        margin: 0 1;
     }
     """
     BINDINGS = [Binding("escape", "cancel", "Cancel", show=False)]
 
-    def __init__(self, default_filename: str, description: str) -> None:
+    def __init__(self, default_filename: str, default_labels: bool) -> None:
         super().__init__()
         self.default_filename = default_filename
-        self.description = description
+        self.default_labels = default_labels
 
     def compose(self) -> ComposeResult:
         with Vertical(id="dialog"):
-            yield Label(f"Save {self.description} to", id="dialog-title")
+            yield Label("Save minimal configuration", id="dialog-title")
+            yield Label("Filename:", id="save-min-filename-label")
             yield Input(value=self.default_filename, id="dialog-input")
+            with Horizontal(id="checkbox-row"):
+                yield SimpleCheckbox(
+                    "Include menu labels",
+                    value=self.default_labels,
+                    id="labels-checkbox",
+                )
+            with Horizontal(id="dialog-buttons"):
+                yield Button("Save", variant="primary", id="btn-save")
+                yield Button("Cancel", id="btn-cancel")
 
     def on_mount(self) -> None:
-        self.query_one("#dialog-input", Input).focus()
+        # Pre-select the whole path so it can be overwritten immediately.
+        inp = self.query_one("#dialog-input", Input)
+        inp.focus()
+        inp.select_all()
+
+    def _current_row(self) -> int:
+        """
+        Return the focused row index: 0=filename, 1=labels checkbox, 2=buttons.
+        """
+        focused = self.focused
+        if focused is None:
+            return 0
+        if focused.id == "dialog-input":
+            return 0
+        if focused.id == "labels-checkbox":
+            return 1
+        if focused.id in ("btn-save", "btn-cancel"):
+            return 2
+        return 0
+
+    def _focus_row(self, row: int) -> None:
+        if row == 0:
+            self.query_one("#dialog-input", Input).focus()
+        elif row == 1:
+            self.query_one("#labels-checkbox", SimpleCheckbox).focus()
+        else:
+            self.query_one("#btn-save", Button).focus()
+
+    def on_key(self, event: Key) -> None:
+        if event.key in ("up", "down"):
+            row = self._current_row()
+            row = (row + 1) % 3 if event.key == "down" else (row - 1) % 3
+            self._focus_row(row)
+            event.prevent_default()
+            event.stop()
+            return
+
+        if event.key not in ("left", "right"):
+            return
+
+        focused = self.focused
+        if focused is None or focused.id == "dialog-input":
+            # Leave ←/→ to the Input cursor.
+            return
+
+        if focused.id == "labels-checkbox":
+            # Right checks, left unchecks.
+            self.query_one("#labels-checkbox", SimpleCheckbox).value = event.key == "right"
+            event.prevent_default()
+            event.stop()
+            return
+
+        if focused.id in ("btn-save", "btn-cancel"):
+            buttons = list(self.query("#dialog-buttons Button"))
+            if buttons:
+                current = next((i for i, b in enumerate(buttons) if b is focused), 0)
+                nxt = (current + 1) % len(buttons) if event.key == "right" else (current - 1) % len(buttons)
+                buttons[nxt].focus()
+            event.prevent_default()
+            event.stop()
+
+    def _submit(self) -> None:
+        filename = self.query_one("#dialog-input", Input).value.strip()
+        if not filename:
+            self.app.push_screen(InvalidValueScreen("Filename must not be empty."))
+            return
+        use_labels = bool(self.query_one("#labels-checkbox", SimpleCheckbox).value)
+        self.dismiss(SaveMinimalResult(filename, use_labels))
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        self.dismiss(event.value)
+        self._submit()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-save":
+            self._submit()
+        elif event.button.id == "btn-cancel":
+            self.dismiss(None)
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -258,6 +405,36 @@ class LoadScreen(ModalScreen[Optional[str]]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+def _page(ol: OptionList, direction: int) -> None:
+    """
+    Scroll ``ol`` by a full page, keeping the highlight on the same row.
+
+    ``OptionList.action_page_down``/``action_page_up`` move the highlight by a
+    page but then scroll only the minimal distance needed to reveal it, which
+    can leave the new highlight right at the edge of the view after just one
+    line of scrolling. Scrolling the viewport by a full page first, then
+    re-highlighting the option at the same row, matches the behavior of e.g.
+    terminal pagers.
+    """
+    option_count = ol.option_count
+    if not option_count:
+        return
+    page = ol.scrollable_content_region.height
+    if page <= 0:
+        return
+    if option_count <= page:
+        # Everything already fits in the view, so there is nothing to scroll:
+        # jump to the start/end, like the equivalent Home/End move.
+        ol.highlighted = 0 if direction < 0 else option_count - 1
+        return
+    scroll = int(ol.scroll_y)
+    row = (ol.highlighted or 0) - scroll
+    max_scroll = option_count - page
+    new_scroll = min(max(scroll + direction * page, 0), max_scroll)
+    ol.scroll_to(y=new_scroll, animate=False, immediate=True)
+    ol.highlighted = min(max(new_scroll + row, 0), option_count - 1)
 
 
 def _copy_via_system_tool(text: str) -> bool:
@@ -395,6 +572,21 @@ class InfoScreen(ModalScreen[None]):
 class JumpToScreen(Screen[Optional["MenuNode"]]):
     """Fullscreen search dialog using OptionList for results."""
 
+    DEFAULT_CSS = """
+    JumpToScreen {
+        #search-input {
+            dock: top;
+        }
+        #matches-list {
+            height: 1fr;
+            max-height: 100%;
+        }
+        #jump-help {
+            dock: bottom;
+        }
+    }
+    """
+
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=False),
     ]
@@ -405,9 +597,9 @@ class JumpToScreen(Screen[Optional["MenuNode"]]):
         self._matches: list[MenuNode] = []
 
     def compose(self) -> ComposeResult:
-        yield Input(placeholder="Search symbols...", id="search-input")
+        yield Input(placeholder="Search symbols by substring or regex...", id="search-input")
         yield OptionList(id="matches-list")
-        yield Static("\n".join(JUMP_TO_HELP_LINES), id="jump-help")
+        yield Static(JUMP_TO_HELP_LINES, id="jump-help", markup=False)
 
     def on_mount(self) -> None:
         self.query_one("#search-input", Input).focus()
@@ -417,10 +609,10 @@ class JumpToScreen(Screen[Optional["MenuNode"]]):
         ol = self.query_one("#matches-list", OptionList)
         ol.clear_options()
         if error:
-            ol.add_option(error)
+            ol.add_option(escape(error))
             return
         for node in self._matches:
-            ol.add_option(jump_to_match_str(node))
+            ol.add_option(escape(jump_to_match_str(node)))
         if self._matches:
             ol.highlighted = 0
 
@@ -432,6 +624,14 @@ class JumpToScreen(Screen[Optional["MenuNode"]]):
             event.stop()
         elif event.key == "up":
             ol.action_cursor_up()
+            event.prevent_default()
+            event.stop()
+        elif event.key == "pagedown":
+            _page(ol, 1)
+            event.prevent_default()
+            event.stop()
+        elif event.key == "pageup":
+            _page(ol, -1)
             event.prevent_default()
             event.stop()
         elif event.key == "enter":

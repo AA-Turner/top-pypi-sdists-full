@@ -13,8 +13,6 @@ use crate::vibeio::op::OpenOp;
 #[cfg(target_os = "linux")]
 use std::ffi::CString;
 #[cfg(target_os = "linux")]
-use std::os::fd::FromRawFd;
-#[cfg(target_os = "linux")]
 use std::os::unix::ffi::OsStrExt;
 
 use crate::vibeio::fs::file::File;
@@ -28,24 +26,8 @@ use crate::vibeio::fs::file::File;
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use vibeio::fs::OpenOptions;
-///
-/// // Open a file for reading
-/// let file = OpenOptions::new()
-///     .read(true)
-///     .open("hello.txt")
-///     .await?;
-///
-/// // Create a new file for writing (truncate if exists)
-/// let file = OpenOptions::new()
-///     .write(true)
-///     .create(true)
-///     .truncate(true)
-///     .open("output.txt")
-///     .await?;
-///
-/// ```
+/// See "Filesystem offload" in `tools/vibeio-check/EXAMPLES.md` for an executable
+/// example of opening for reading and truncating a scratch file for writing.
 #[derive(Clone, Debug)]
 pub struct OpenOptions {
     read: bool,
@@ -133,6 +115,12 @@ impl OpenOptions {
                 "truncate/create options require write or append access",
             ));
         }
+        if self.append && self.truncate && !self.create_new {
+            return Err(io::Error::new(
+                ErrorKind::InvalidInput,
+                "append and truncate cannot be combined without create_new",
+            ));
+        }
 
         Ok(())
     }
@@ -167,14 +155,9 @@ impl OpenOptions {
     ///
     /// # Examples
     ///
-    /// ```ignore
-    /// use vibeio::fs::OpenOptions;
-    ///
-    /// let file = OpenOptions::new()
-    ///     .read(true)
-    ///     .open("hello.txt")
-    ///     .await?;
-    /// ```
+    /// See the executable "Filesystem offload" example in
+    /// `tools/vibeio-check/EXAMPLES.md`; all modified paths belong to its scratch
+    /// directory rather than the current working directory.
     #[inline]
     pub async fn open(&self, path: impl AsRef<Path>) -> io::Result<File> {
         self.validate()?;
@@ -184,9 +167,9 @@ impl OpenOptions {
             #[cfg(target_os = "linux")]
             {
                 if driver.supports_completion() {
-                    let mut op = self.build_open_op(path)?;
-                    let raw = poll_fn(move |cx| op.poll(cx, &driver)).await?;
-                    unsafe { std::fs::File::from_raw_fd(raw) }
+                    let mut op = self.build_open_op(driver.clone(), path)?;
+                    let fd = poll_fn(move |cx| op.poll(cx, &driver)).await?;
+                    std::fs::File::from(fd)
                 } else if crate::vibeio::offload_fs() {
                     self.open_in_blocking_pool(path).await?
                 } else {
@@ -274,7 +257,11 @@ impl OpenOptions {
     /// This is an internal method used on Linux with io_uring support.
     #[cfg(target_os = "linux")]
     #[inline]
-    fn build_open_op(&self, path: &Path) -> io::Result<OpenOp> {
+    fn build_open_op(
+        &self,
+        driver: std::rc::Rc<crate::vibeio::driver::AnyDriver>,
+        path: &Path,
+    ) -> io::Result<OpenOp> {
         let writing = self.write || self.append;
         let mut flags = match (self.read, writing) {
             (true, false) => libc::O_RDONLY,
@@ -313,7 +300,7 @@ impl OpenOptions {
             io::Error::new(ErrorKind::InvalidInput, "path contains interior NUL byte")
         })?;
 
-        Ok(OpenOp::new(path, flags, 0o666))
+        Ok(OpenOp::new(driver, path, flags, 0o666))
     }
 }
 

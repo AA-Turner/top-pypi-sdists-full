@@ -26,6 +26,7 @@ __all__ = (
     "AccessAdvisorUsageGranularityTypeType",
     "AssertionEncryptionModeTypeType",
     "AssignmentStatusTypeType",
+    "AttachmentTypeType",
     "ContextKeyTypeEnumType",
     "DeletionTaskStatusTypeType",
     "EncodingTypeType",
@@ -67,12 +68,15 @@ __all__ = (
     "ListUserTagsPaginatorName",
     "ListUsersPaginatorName",
     "ListVirtualMFADevicesPaginatorName",
+    "ManagedByTypeTypeType",
     "PaginatorName",
+    "ParameterTypeTypeType",
     "PermissionCheckResultTypeType",
     "PermissionCheckStatusTypeType",
     "PermissionsBoundaryAttachmentTypeType",
     "PolicyEvaluationDecisionTypeType",
     "PolicyExistsWaiterName",
+    "PolicyIdentifierPolicyTypeType",
     "PolicyOwnerEntityTypeType",
     "PolicyParameterTypeEnumType",
     "PolicyScopeTypeType",
@@ -99,6 +103,7 @@ __all__ = (
 AccessAdvisorUsageGranularityTypeType = Literal["ACTION_LEVEL", "SERVICE_LEVEL"]
 AssertionEncryptionModeTypeType = Literal["Allowed", "Required"]
 AssignmentStatusTypeType = Literal["Any", "Assigned", "Unassigned"]
+AttachmentTypeType = Literal["group", "role", "user"]
 ContextKeyTypeEnumType = Literal[
     "binary",
     "binaryList",
@@ -152,11 +157,16 @@ ListUserPoliciesPaginatorName = Literal["list_user_policies"]
 ListUserTagsPaginatorName = Literal["list_user_tags"]
 ListUsersPaginatorName = Literal["list_users"]
 ListVirtualMFADevicesPaginatorName = Literal["list_virtual_mfa_devices"]
+ManagedByTypeTypeType = Literal["Service"]
+ParameterTypeTypeType = Literal["Arn", "ArnList", "Number", "NumberList", "String", "StringList"]
 PermissionCheckResultTypeType = Literal["ALLOWED", "DENIED", "UNSURE"]
 PermissionCheckStatusTypeType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 PermissionsBoundaryAttachmentTypeType = Literal["PermissionsBoundaryPolicy"]
 PolicyEvaluationDecisionTypeType = Literal["allowed", "explicitDeny", "implicitDeny"]
 PolicyExistsWaiterName = Literal["policy_exists"]
+PolicyIdentifierPolicyTypeType = Literal[
+    "aws-managed", "inline", "permission-boundary", "rcp", "scp", "user-managed"
+]
 PolicyOwnerEntityTypeType = Literal["GROUP", "ROLE", "USER"]
 PolicyParameterTypeEnumType = Literal["string", "stringList"]
 PolicyScopeTypeType = Literal["AWS", "All", "Local"]
@@ -222,8 +232,11 @@ IAMServiceName = Literal["iam"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -528,6 +541,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

@@ -13,10 +13,12 @@ from hypothesis import given, settings
 from hypothesis.errors import Unsatisfiable
 
 from schemathesis.core import MAX_GENERATED_PATTERN_LENGTH
+from schemathesis.core.cache import MISSING
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator_for
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone, transform
 from schemathesis.generation import GenerationMode
+from schemathesis.generation.coverage import MAX_PINNED_REGISTRIES, GenerationSession
 from schemathesis.openapi.generation.filters import is_invalid_path_parameter
 from schemathesis.specs.openapi.converter import to_json_schema
 from schemathesis.specs.openapi.coverage import _schema
@@ -1259,6 +1261,23 @@ def test_negative_pattern(nctx, schema, expected):
     assert_unique(covered)
 
 
+# Nothing satisfies `{"not": {}}`, so the values covering it are described by what they are not, not by their type.
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        ({"not": {}}, "Value is not allowed"),
+        (
+            {"type": "object", "properties": {"a": {"not": {}}}},
+            "a: Value is not allowed",
+        ),
+    ],
+    ids=["root", "property"],
+)
+def test_negative_forbidden_schema_description(nctx, schema, expected):
+    descriptions = {value.description for value in cover_schema_iter(nctx, schema)}
+    assert expected in descriptions, descriptions
+
+
 @pytest.mark.parametrize(
     ("schema", "expected"),
     [
@@ -1280,6 +1299,43 @@ def test_negative_property_names(ctx_factory, schema, expected):
     # `propertyNames` arrived in Draft 6; only dialects whose validator enforces it get the negation.
     nctx = ctx_factory(generation_modes=[GenerationMode.NEGATIVE], validator_cls=jsonschema_rs.Draft202012Validator)
     assert_covers_negative(nctx, schema, expected)
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "object", "properties": {"a": {"type": "null"}}, "propertyNames": {"pattern": "^[0-9]{3}$"}},
+        {"type": "object", "properties": {"abc": {"type": "null"}}, "propertyNames": {"maxLength": 2}},
+        {
+            "type": "object",
+            "properties": {"a": {"type": "null"}, "bbb": {"type": "boolean"}},
+            "propertyNames": {"minLength": 3},
+        },
+    ],
+    ids=["pattern", "max-length", "one-name-admitted"],
+)
+def test_positive_object_respects_property_names(ctx_factory, schema):
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    values = cover_schema(ctx, schema)
+    assert values
+    for value in values:
+        assert validator.is_valid(value), value
+
+
+# Draft 4 validators ignore `propertyNames`, so the properties beside it stay coverable.
+def test_positive_object_covers_properties_beside_ignored_property_names(ctx_factory):
+    schema = {"type": "object", "properties": {"a": {"type": "null"}}, "propertyNames": {"pattern": "^[0-9]{3}$"}}
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft4Validator,
+    )
+    assert {"a": None} in cover_schema(ctx, schema)
 
 
 def test_positive_pattern(pctx):
@@ -3420,6 +3476,30 @@ def test_integer_steps_past_float_bounds_follow_the_decimal_text(ctx_factory, sc
         assert validator.is_valid(value) == (mode == GenerationMode.POSITIVE), value
 
 
+# A multiple sits inside a pinned float bound only when both are read as the decimal text spells them.
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        (
+            {"type": "number", "minimum": -5.151020255852562e16, "maximum": -5.151020255852562e16, "multipleOf": 2},
+            [-51510202558525620],
+        ),
+        (
+            {"type": "number", "minimum": 5.151020255852562e16, "maximum": 5.151020255852562e16, "multipleOf": 2},
+            [51510202558525620],
+        ),
+        (
+            {"type": "number", "minimum": -5.151020255852562e16, "maximum": -5.151020255852562e16, "multipleOf": 100},
+            [],
+        ),
+    ],
+    ids=["negative", "positive", "no-multiple-fits"],
+)
+def test_positive_number_multiple_within_pinned_float_bounds(ctx_factory, schema, expected):
+    ctx = ctx_factory(validator_cls=jsonschema_rs.Draft202012Validator, generation_modes=[GenerationMode.POSITIVE])
+    assert cover_schema(ctx, schema) == expected
+
+
 # A property's bound is read the same way whether the template or the boundary sweep builds the value.
 def test_positive_object_template_steps_float_bounds_in_decimal(pctx):
     schema = {"type": "object", "properties": {"a": {"type": "integer", "maximum": -5.151020255852562e16}}}
@@ -3669,6 +3749,7 @@ def test_float_format_representable_example_still_emitted(pctx):
     "schema",
     [
         {"allOf": [{"type": "string", "pattern": "^a"}, {"type": "string", "pattern": "b$"}]},
+        {"allOf": [{"type": "string", "pattern": "^a"}, {"pattern": "b$"}, {"pattern": "c"}]},
         {
             "type": "object",
             "properties": {"a": {"type": "string"}},
@@ -3676,7 +3757,7 @@ def test_float_format_representable_example_still_emitted(pctx):
             "allOf": [{"properties": {"a": {"pattern": "^x"}}}, {"properties": {"a": {"pattern": "y$"}}}],
         },
     ],
-    ids=["two-patterns", "outer-properties"],
+    ids=["two-patterns", "three-patterns", "outer-properties"],
 )
 def test_satisfiable_allof_without_a_flat_form_still_emits_positive_values(pctx, schema):
     # Two `pattern`s have no single spelling, which used to drop the whole schema from coverage.
@@ -3738,9 +3819,33 @@ def test_nested_all_of_without_a_flat_form_emits_a_conforming_value(pctx, schema
     assert values and all(value.startswith("a") and value.endswith("b") for value in values), values
 
 
+def test_all_of_patterns_no_string_matches_at_once_emits_nothing(pctx):
+    assert cover_schema(pctx, {"allOf": [{"type": "string", "pattern": "^a"}, {"pattern": "^b"}]}) == []
+
+
 def test_all_of_with_a_boolean_branch_emits_a_conforming_value(pctx):
     values = cover_schema(pctx, {"allOf": [{"type": "string"}, True]})
     assert values and all(isinstance(value, str) for value in values), values
+
+
+# `integer` and `number` overlap, so a branch pair naming them still admits every integer.
+@pytest.mark.parametrize(
+    "branches",
+    [
+        [{"type": "integer"}, {"type": "number"}],
+        [{"type": "number"}, {"type": "integer"}],
+        [{"type": "integer"}, {"type": ["number", "string"]}],
+    ],
+    ids=["integer-number", "number-integer", "integer-number-union"],
+)
+def test_all_of_narrows_number_to_integer(pctx, nctx, branches):
+    schema = {"allOf": branches}
+    positive = cover_schema(pctx, schema)
+    assert positive
+    assert_conform(positive, schema)
+    negative = cover_schema(nctx, schema)
+    assert negative
+    assert_not_conform(negative, schema)
 
 
 # Keywords beside a property's `$ref` constrain its value in the object template too.
@@ -4106,3 +4211,143 @@ def test_positive_declared_property_meets_matching_pattern_properties(ctx_factor
     validator = jsonschema_rs.Draft202012Validator(schema)
     for value in cover_schema(ctx, schema):
         assert validator.is_valid(value), value
+
+
+# Under Draft 2020-12 the first positions belong to `prefixItems`; `items` values must not land there.
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"items": {}, "prefixItems": [False]},
+        {"type": "array", "items": {"type": "integer"}, "prefixItems": [{"type": "string"}]},
+    ],
+    ids=["forbidden-first", "typed-first"],
+)
+def test_positive_array_items_covering_respects_prefix_items(ctx_factory, schema):
+    ctx = ctx_factory(
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert validator.is_valid(value), value
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "array", "items": {"type": "null"}, "prefixItems": [{"type": "boolean"}]},
+        {"type": "array", "items": {"type": "integer"}, "prefixItems": [{"type": "string"}], "minItems": 3},
+    ],
+    ids=["single-prefix", "padded"],
+)
+def test_negative_array_items_covering_respects_prefix_items(ctx_factory, schema):
+    ctx = ctx_factory(
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    values = cover_schema(ctx, schema)
+    assert any(isinstance(value, list) and value for value in values), values
+    for value in values:
+        assert not validator.is_valid(value), value
+
+
+def test_negative_prefix_items_covered_for_raw_keyword(ctx_factory):
+    schema = {"type": "array", "prefixItems": [{"type": "integer"}], "minItems": 1}
+    ctx = ctx_factory(
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    values = cover_schema(ctx, schema)
+    assert any(isinstance(value, list) and value for value in values), values
+    for value in values:
+        assert not validator.is_valid(value), value
+
+
+# A branch's `$ref` siblings narrow what it admits; ignoring them lets a value matching exactly
+# one branch ship as a `oneOf` violation.
+def test_negative_one_of_judges_branches_with_ref_sibling_keywords(ctx_factory):
+    schema = {
+        "oneOf": [
+            {"type": "null"},
+            {"$ref": f"#/{BUNDLE_STORAGE_KEY}/A", "anyOf": [{"type": "null"}]},
+            {"type": "array", "items": {"type": "null"}},
+        ],
+        BUNDLE_STORAGE_KEY: {"A": {}},
+    }
+    ctx = ctx_factory(
+        root_schema=schema,
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert not validator.is_valid(value), value
+
+
+# Merged property halves conflict and one half requires a name, so the property itself admits no object.
+def test_positive_all_of_merged_property_keeps_nested_required(ctx_factory):
+    schema = {
+        "allOf": [
+            {
+                "type": "object",
+                "properties": {"c": {"type": "object", "properties": {"a": {"type": "null"}}, "required": ["a"]}},
+            },
+            {"type": "object", "properties": {"c": {"type": "object", "properties": {"a": {"type": "boolean"}}}}},
+        ]
+    }
+    ctx = ctx_factory(root_schema=schema, location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    validator = jsonschema_rs.Draft4Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert validator.is_valid(value), value
+
+
+# Registry churn past the pin bound frees old ids; values keyed with their tokens must not survive.
+def test_generation_session_bounds_pins_and_drops_dependent_values():
+    session = GenerationSession()
+    registries = [object() for _ in range(MAX_PINNED_REGISTRIES + 1)]
+    first_token = session.token_for(registries[0])
+    session.values[("k", first_token)] = "cached"
+    for registry in registries[1:]:
+        session.token_for(registry)
+    assert len(session._pinned) == MAX_PINNED_REGISTRIES
+    assert session.values.get(("k", first_token)) is MISSING
+
+
+# An array item must keep the names its schema requires, declared under `properties` or not.
+def test_positive_array_items_covering_keeps_item_required(ctx_factory):
+    schema = {
+        "type": "array",
+        "items": {"type": "object", "properties": {"a": {"type": "null"}}, "required": ["b"]},
+        "minItems": 1,
+    }
+    ctx = ctx_factory(root_schema=schema, location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    validator = jsonschema_rs.Draft4Validator(schema)
+    for value in cover_schema(ctx, schema):
+        assert validator.is_valid(value), value
+
+
+def test_negative_one_of_ref_with_siblings_under_draft4(ctx_factory):
+    # Draft 4 ignores keywords beside `$ref`, so the second branch admits any boolean and a
+    # boolean is not a valid negative for the whole schema.
+    schema = {
+        "oneOf": [{"type": "null"}, {"$ref": "#/x-bundled/A", "anyOf": [{"type": "null"}]}],
+        "x-bundled": {"A": {"type": "boolean"}},
+    }
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.NEGATIVE],
+        validator_cls=jsonschema_rs.Draft4Validator,
+        root_schema=schema,
+    )
+    validator = jsonschema_rs.Draft4Validator(schema)
+    for value in cover_schema_iter(ctx, schema):
+        assert not validator.is_valid(value.value), f"False negative-mode value: {value.value!r}"

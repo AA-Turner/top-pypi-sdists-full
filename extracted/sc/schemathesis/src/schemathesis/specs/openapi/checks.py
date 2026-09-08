@@ -13,7 +13,7 @@ import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import media_types, string_to_boolean
 from schemathesis.core.failures import AcceptedNegativeData, Failure
-from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, FANCY_REGEX_OPTIONS, get_type, make_validator
+from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.mutations import OperatorKind
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
@@ -48,7 +48,7 @@ from schemathesis.transport.serialization import contains_binary
 if TYPE_CHECKING:
     from schemathesis.engine.recorder import RecordedScenario
     from schemathesis.schemas import APIOperation
-    from schemathesis.specs.openapi.adapter.parameters import OpenApiParameterSet
+    from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter, OpenApiParameterSet
     from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 
@@ -196,22 +196,25 @@ def response_headers_conformance(ctx: CheckContext, response: Response, case: Ca
 
     for name, header in headers.items():
         values = response.headers.get(name.lower())
-        if values is not None:
-            value = values[0]
-            coerced = _coerce_header_value(value, header.schema)
-            for exc in header.validator.iter_errors(coerced):
-                errors.append(
-                    JsonSchemaError.from_exception(
-                        title="Response header does not conform to the schema",
-                        operation=case.operation.label,
-                        exc=exc,
-                        root_schema=header.schema,
-                        config=case.operation.schema.config.output,
-                        name_to_uri=header.name_to_uri,
-                    )
+        if values is None:
+            if header.is_required:
+                missing_headers.append(name)
+            continue
+        # A header whose schema names a missing component has nothing to validate against.
+        if header.unresolvable_reference is not None:
+            continue
+        coerced = _coerce_header_value(values[0], header.schema)
+        for exc in header.validator.iter_errors(coerced):
+            errors.append(
+                JsonSchemaError.from_exception(
+                    title="Response header does not conform to the schema",
+                    operation=case.operation.label,
+                    exc=exc,
+                    root_schema=header.schema,
+                    config=case.operation.schema.config.output,
+                    name_to_uri=header.name_to_uri,
                 )
-        elif header.is_required:
-            missing_headers.append(name)
+            )
 
     if missing_headers:
         formatted_headers = [f"\n- `{header}`" for header in missing_headers]
@@ -411,7 +414,7 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
             # for the full original schema (including enum, minimum, pattern, etc.),
             # some frameworks may accept the request by picking that element.
             try:
-                validator = param.adapter.jsonschema_validator_cls(schema, pattern_options=FANCY_REGEX_OPTIONS)
+                validator = make_validator(schema, param.adapter.jsonschema_validator_cls)
             except Exception:
                 return True
             for element in param_value:
@@ -426,6 +429,18 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
                         return True
 
     return False
+
+
+def _wire_value_matches_parameter(parameter: OpenApiParameter, expected_types: list[str], wire_value: str) -> bool:
+    """Check whether the text actually sent for `parameter` satisfies its original schema."""
+    if _coerce_string_to_numeric(wire_value, expected_types) is not None:
+        return True
+    try:
+        validator = make_validator(parameter.validation_schema, parameter.adapter.jsonschema_validator_cls)
+    except Exception:
+        # Schema rejected by jsonschema_rs - validity is unknown, so don't report a failure.
+        return True
+    return validator.is_valid(wire_value)
 
 
 def _string_type_mutation_becomes_valid_after_serialization(case: Case, location: ParameterLocation) -> bool:
@@ -488,15 +503,18 @@ def _string_type_mutation_becomes_valid_after_serialization(case: Case, location
             continue
         expected_types = get_type(parameter.definition.get("schema", {}))
 
-        if isinstance(value, str):
+        if isinstance(value, (str, int, float)):
+            # `str` subclasses like already-encoded path values are rejected by the validator.
+            wire_value = str(value)
             # Path parameters are URL-encoded; decode before parsing.
-            parsed_value = unquote(value) if location == ParameterLocation.PATH else value
-            if _coerce_string_to_numeric(parsed_value, expected_types) is not None:
+            if location == ParameterLocation.PATH:
+                wire_value = unquote(wire_value)
+            if _wire_value_matches_parameter(parameter, expected_types, wire_value):
                 return True
         elif location == ParameterLocation.QUERY and isinstance(value, dict):
             # urlencode(doseq=True) iterates over dict keys, producing one query value per key.
-            # e.g. {"5": "x"} becomes ?page_size=5, which is integer-parseable.
-            if any(_coerce_string_to_numeric(str(key), expected_types) is not None for key in value):
+            # e.g. {"5": "x"} becomes ?page_size=5, which the server sees as a valid integer.
+            if any(_wire_value_matches_parameter(parameter, expected_types, str(key)) for key in value):
                 return True
 
     return False
@@ -567,10 +585,7 @@ def _has_unverifiable_mutations(case: Case) -> bool:
         return False
 
     phase_data = meta.phase.data
-    if isinstance(phase_data, FuzzingPhaseData) and phase_data.description is None:
-        return True
-
-    return False
+    return isinstance(phase_data, FuzzingPhaseData) and phase_data.description is None
 
 
 def _non_body_negative_values_match_schema(case: Case) -> bool:
@@ -658,8 +673,16 @@ def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -
                 # Build structured message: parameter `name` in location - description
                 # For body, don't show parameter name (it's the media type, not useful)
                 location = phase.data.parameter_location
-                if phase.data.parameter and location != ParameterLocation.BODY:
-                    parts.append(f"parameter `{phase.data.parameter}`")
+                if location != ParameterLocation.BODY:
+                    # A case mutating several parameters carries no single name, but each mutation knows its own.
+                    names = (
+                        [phase.data.parameter]
+                        if phase.data.parameter
+                        else list(dict.fromkeys(m.parameter for m in phase.data.mutations if m.parameter))
+                    )
+                    if names:
+                        label = "parameter" if len(names) == 1 else "parameters"
+                        parts.append(f"{label} " + ", ".join(f"`{name}`" for name in names))
                 if location:
                     parts.append(f"in {location.name.lower()}")
                 # Lowercase first letter of description for consistency
@@ -713,7 +736,19 @@ def _collect_declared_properties(
     return declared, forbids_extras
 
 
-def _additional_properties_hint(case: Case) -> str | None:
+def _blamed_body_properties(case: Case, response: Response) -> set[str]:
+    """Top-level body property names the server's own error message pinned the rejection on."""
+    from schemathesis.core.error_feedback.collector import parse_observations
+
+    names: set[str] = set()
+    for observation in parse_observations(operation=case.operation, case=case, response=response):
+        path = observation.parameter_path
+        if observation.location is ParameterLocation.BODY and path and isinstance(path[0], str):
+            names.add(path[0])
+    return names
+
+
+def _additional_properties_hint(case: Case, response: Response) -> str | None:
     """Return a hint if extra body properties are the likely cause of server rejection."""
     if not isinstance(case.body, dict):
         return None
@@ -743,7 +778,12 @@ def _additional_properties_hint(case: Case) -> str | None:
         # `format: binary` fields hold raw bytes the JSON Schema validator cannot accept.
         if contains_binary(stripped):
             return None
-        if not validator_cls(alternative.optimized_schema, pattern_options=FANCY_REGEX_OPTIONS).is_valid(stripped):
+        if not make_validator(alternative.optimized_schema, validator_cls).is_valid(stripped):
+            return None
+
+        # The server named a declared field and none of the extras, so the extras did not cause the rejection.
+        blamed = _blamed_body_properties(case, response)
+        if blamed & declared and not blamed & extra:
             return None
 
         count = len(extra)
@@ -810,7 +850,7 @@ def positive_data_acceptance(ctx: CheckContext, response: Response, case: Case) 
         if response.status_code in CREDENTIAL_REJECTION_STATUSES and _grants_credentials(case.operation):
             return None
         message = f"Valid data should have been accepted\nExpected: {', '.join(config.expected_statuses)}"
-        hint = _additional_properties_hint(case)
+        hint = _additional_properties_hint(case, response)
         if hint:
             message += hint
         raise RejectedPositiveData(
@@ -853,6 +893,28 @@ def missing_required_header(ctx: CheckContext, response: Response, case: Case) -
     return None
 
 
+# Statuses that mean the server rejected the request at the authentication layer.
+AUTH_REJECTION_STATUSES = frozenset({401, 403})
+
+
+def _requires_authentication(operation: APIOperation) -> bool:
+    from schemathesis.specs.openapi.adapter.security import get_effective_security_scheme_names
+
+    return bool(get_effective_security_scheme_names(operation, operation.schema.raw_schema))
+
+
+def _targets_generated_resource(ctx: CheckContext, operation: APIOperation) -> bool:
+    """Whether the resource this request targets was drawn rather than supplied by the user."""
+    if "{" not in operation.path:
+        return False
+    pinned = ctx._override.path_parameters if ctx._override is not None else {}
+    return any(
+        parameter.name not in pinned
+        for parameter in operation.iter_parameters()
+        if parameter.location == ParameterLocation.PATH
+    )
+
+
 @schemathesis.check
 @requires_openapi_schema
 @requires_case_meta
@@ -866,7 +928,11 @@ def unsupported_method(ctx: CheckContext, response: Response, case: Case) -> boo
         if response.status_code != 405:
             # Generated path parameters rarely point at an existing resource, and routing 404s before
             # method dispatch. 405 is only guaranteed when the target resource exists.
-            if response.status_code == 404 and "{" in case.operation.path:
+            if response.status_code == 404 and _targets_generated_resource(ctx, case.operation):
+                return None
+            # Most frameworks authenticate before method dispatch, so a protected operation rejects an
+            # undeclared method with 401/403 without ever reaching routing.
+            if response.status_code in AUTH_REJECTION_STATUSES and _requires_authentication(case.operation):
                 return None
             raise UnsupportedMethodResponse(
                 operation=case.operation.label,
@@ -964,9 +1030,7 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
 
             value_without_additional_properties = {k: v for k, v in value.items() if k in container}
             try:
-                is_valid = validator_cls(schema, pattern_options=FANCY_REGEX_OPTIONS).is_valid(
-                    value_without_additional_properties
-                )
+                is_valid = make_validator(schema, validator_cls).is_valid(value_without_additional_properties)
             except Exception:
                 # Schema has an invalid pattern (e.g., valid Python regex but invalid ECMA 262)
                 # — can't determine validity, so skip this location
@@ -1187,6 +1251,11 @@ class AuthKind(str, enum.Enum):
     GENERATED = "generated"
 
 
+# Statuses that mean the API refused an unauthenticated or badly authenticated request. Frameworks whose
+# first authentication scheme offers no challenge answer 403 instead of 401, and gateways do the same.
+AUTH_ENFORCED_STATUSES = frozenset({401, 403})
+
+
 @schemathesis.check
 @requires_openapi_schema
 @skips_on_unexpected_http_status
@@ -1211,7 +1280,7 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
             ctx._record_case(parent_id=case.id, case=no_auth_case)
             no_auth_response = case.operation.schema.transport.send(no_auth_case, **kwargs)
             ctx._record_response(case_id=no_auth_case.id, response=no_auth_response)
-            if no_auth_response.status_code != 401:
+            if no_auth_response.status_code not in AUTH_ENFORCED_STATUSES:
                 _raise_no_auth_error(no_auth_response, no_auth_case, AuthScenario.NO_AUTH)
             # Try to set invalid auth and check if it succeeds
             for parameter in security_parameters:
@@ -1220,7 +1289,7 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
                 ctx._record_case(parent_id=case.id, case=invalid_auth_case)
                 invalid_auth_response = case.operation.schema.transport.send(invalid_auth_case, **kwargs)
                 ctx._record_response(case_id=invalid_auth_case.id, response=invalid_auth_response)
-                if invalid_auth_response.status_code != 401:
+                if invalid_auth_response.status_code not in AUTH_ENFORCED_STATUSES:
                     _raise_no_auth_error(invalid_auth_response, invalid_auth_case, AuthScenario.INVALID_AUTH)
         elif auth == AuthKind.GENERATED:
             # If this auth is generated which means it is likely invalid, then
@@ -1234,18 +1303,23 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
 
 def _raise_no_auth_error(response: Response, case: Case, auth: AuthScenario) -> NoReturn:
     reason = http.client.responses.get(response.status_code, "Unknown")
+    accepted = 200 <= response.status_code < 300
 
     if auth == AuthScenario.NO_AUTH:
-        title = "API accepts requests without authentication"
+        title = (
+            "API accepts requests without authentication"
+            if accepted
+            else "Unexpected response to a request without authentication"
+        )
         detail = None
     elif auth == AuthScenario.INVALID_AUTH:
-        title = "API accepts invalid authentication"
+        title = "API accepts invalid authentication" if accepted else "Unexpected response to invalid authentication"
         detail = "invalid credentials provided"
     else:
         title = "API accepts invalid authentication"
         detail = "generated auth likely invalid"
 
-    message = f"Expected 401, got `{response.status_code} {reason}` for `{case.operation.label}`"
+    message = f"Expected 401 or 403, got `{response.status_code} {reason}` for `{case.operation.label}`"
     if detail is not None:
         message = f"{message} ({detail})"
 

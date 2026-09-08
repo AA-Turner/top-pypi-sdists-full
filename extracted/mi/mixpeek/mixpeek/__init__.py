@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.607"
+__version__ = "1.3.620"
 
 # Define package exports
 __all__ = [
@@ -362,6 +362,7 @@ __all__ = [
     "CollectionReconciliationResponse",
     "CollectionResponse",
     "CollectionScheduleConfig",
+    "CollectionVectorIndex",
     "ColumnSource",
     "ComponentsConfig",
     "CompoundIndexPattern",
@@ -530,6 +531,7 @@ __all__ = [
     "ExecuteBatchRequest",
     "ExecuteClusterByIdRequest",
     "ExecuteRetrieverRequest",
+    "ExecuteRetrieverResponse",
     "ExecuteTaxonomyRequest",
     "ExecutionDetail",
     "ExecutionHistoryResponse",
@@ -1760,6 +1762,7 @@ from mixpeek.models.collection_overview_response import CollectionOverviewRespon
 from mixpeek.models.collection_reconciliation_response import CollectionReconciliationResponse as CollectionReconciliationResponse
 from mixpeek.models.collection_response import CollectionResponse as CollectionResponse
 from mixpeek.models.collection_schedule_config import CollectionScheduleConfig as CollectionScheduleConfig
+from mixpeek.models.collection_vector_index import CollectionVectorIndex as CollectionVectorIndex
 from mixpeek.models.column_source import ColumnSource as ColumnSource
 from mixpeek.models.components_config import ComponentsConfig as ComponentsConfig
 from mixpeek.models.compound_index_pattern import CompoundIndexPattern as CompoundIndexPattern
@@ -1928,6 +1931,7 @@ from mixpeek.models.event_filter import EventFilter as EventFilter
 from mixpeek.models.execute_batch_request import ExecuteBatchRequest as ExecuteBatchRequest
 from mixpeek.models.execute_cluster_by_id_request import ExecuteClusterByIdRequest as ExecuteClusterByIdRequest
 from mixpeek.models.execute_retriever_request import ExecuteRetrieverRequest as ExecuteRetrieverRequest
+from mixpeek.models.execute_retriever_response import ExecuteRetrieverResponse as ExecuteRetrieverResponse
 from mixpeek.models.execute_taxonomy_request import ExecuteTaxonomyRequest as ExecuteTaxonomyRequest
 from mixpeek.models.execution_detail import ExecutionDetail as ExecutionDetail
 from mixpeek.models.execution_history_response import ExecutionHistoryResponse as ExecutionHistoryResponse

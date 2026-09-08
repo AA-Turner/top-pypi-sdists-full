@@ -25,13 +25,17 @@ from .literals import (
     ApplicationStatusType,
     ExportFilesStatusType,
     ReplicationStatusTypeType,
+    RevocationModeType,
     RuntimeEnvironmentTypeType,
+    ShaderCacheStatusType,
     StreamClassType,
     StreamGroupLocationStatusType,
     StreamGroupStatusReasonType,
     StreamGroupStatusType,
     StreamSessionStatusReasonType,
     StreamSessionStatusType,
+    StreamUrlStatusReasonType,
+    StreamUrlStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -53,6 +57,8 @@ __all__ = (
     "CreateStreamSessionAdminShellOutputTypeDef",
     "CreateStreamSessionConnectionInputTypeDef",
     "CreateStreamSessionConnectionOutputTypeDef",
+    "CreateStreamUrlInputTypeDef",
+    "CreateStreamUrlOutputTypeDef",
     "DefaultApplicationTypeDef",
     "DeleteApplicationInputTypeDef",
     "DeleteStreamGroupInputTypeDef",
@@ -73,6 +79,10 @@ __all__ = (
     "GetStreamSessionInputTypeDef",
     "GetStreamSessionInputWaitTypeDef",
     "GetStreamSessionOutputTypeDef",
+    "GetStreamUrlInputTypeDef",
+    "GetStreamUrlOutputTypeDef",
+    "ListApplicationShaderCachesInputTypeDef",
+    "ListApplicationShaderCachesOutputTypeDef",
     "ListApplicationsInputPaginateTypeDef",
     "ListApplicationsInputTypeDef",
     "ListApplicationsOutputTypeDef",
@@ -85,6 +95,9 @@ __all__ = (
     "ListStreamSessionsInputPaginateTypeDef",
     "ListStreamSessionsInputTypeDef",
     "ListStreamSessionsOutputTypeDef",
+    "ListStreamUrlsInputPaginateTypeDef",
+    "ListStreamUrlsInputTypeDef",
+    "ListStreamUrlsOutputTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "LocationConfigurationTypeDef",
@@ -95,11 +108,14 @@ __all__ = (
     "ReplicationStatusTypeDef",
     "ResolutionTypeDef",
     "ResponseMetadataTypeDef",
+    "RevokeStreamUrlInputTypeDef",
     "RuntimeEnvironmentTypeDef",
+    "ShaderCacheSummaryTypeDef",
     "StartStreamSessionInputTypeDef",
     "StartStreamSessionOutputTypeDef",
     "StreamGroupSummaryTypeDef",
     "StreamSessionSummaryTypeDef",
+    "StreamUrlSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "TerminateStreamSessionInputTypeDef",
     "UntagResourceRequestTypeDef",
@@ -190,6 +206,21 @@ class GetStreamSessionInputTypeDef(TypedDict):
 class PerformanceStatsConfigurationTypeDef(TypedDict):
     SharedWithClient: NotRequired[bool]
 
+class GetStreamUrlInputTypeDef(TypedDict):
+    Identifier: str
+    StreamUrlIdentifier: str
+
+class ListApplicationShaderCachesInputTypeDef(TypedDict):
+    Identifier: str
+
+class ShaderCacheSummaryTypeDef(TypedDict):
+    Identifier: str
+    ApplicationArn: str
+    Status: NotRequired[ShaderCacheStatusType]
+    LastUpdatedAt: NotRequired[datetime]
+    StorageBytes: NotRequired[int]
+    AssociatedStreamGroups: NotRequired[list[str]]
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -216,6 +247,27 @@ class ListStreamSessionsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListStreamUrlsInputTypeDef(TypedDict):
+    Status: NotRequired[StreamUrlStatusType]
+    StreamGroupIdentifier: NotRequired[str]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class StreamUrlSummaryTypeDef(TypedDict):
+    Arn: str
+    StreamUrlId: NotRequired[str]
+    StreamUrl: NotRequired[str]
+    Status: NotRequired[StreamUrlStatusType]
+    StatusReason: NotRequired[StreamUrlStatusReasonType]
+    ExpiresAt: NotRequired[datetime]
+    CreatedAt: NotRequired[datetime]
+    UsageLimit: NotRequired[int]
+    RemainingUses: NotRequired[int]
+    StreamGroupArn: NotRequired[str]
+    ApplicationArn: NotRequired[str]
+    SessionLengthSeconds: NotRequired[int]
+    Description: NotRequired[str]
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
@@ -232,6 +284,11 @@ class VpcTransitConfigurationResponseTypeDef(TypedDict):
 class RemoveStreamGroupLocationsInputTypeDef(TypedDict):
     Identifier: str
     Locations: Sequence[str]
+
+class RevokeStreamUrlInputTypeDef(TypedDict):
+    Identifier: str
+    StreamUrlIdentifier: str
+    RevocationMode: NotRequired[RevocationModeType]
 
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -400,6 +457,10 @@ class GetStreamSessionInputWaitTypeDef(TypedDict):
     StreamSessionIdentifier: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
+class ListApplicationShaderCachesOutputTypeDef(TypedDict):
+    Items: list[ShaderCacheSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListApplicationsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -416,6 +477,16 @@ class ListStreamSessionsInputPaginateTypeDef(TypedDict):
     Status: NotRequired[StreamSessionStatusType]
     ExportFilesStatus: NotRequired[ExportFilesStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListStreamUrlsInputPaginateTypeDef(TypedDict):
+    Status: NotRequired[StreamUrlStatusType]
+    StreamGroupIdentifier: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListStreamUrlsOutputTypeDef(TypedDict):
+    Items: list[StreamUrlSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class LocationConfigurationTypeDef(TypedDict):
     LocationName: str
@@ -448,6 +519,49 @@ class ListStreamGroupsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+CreateStreamUrlInputTypeDef = TypedDict(
+    "CreateStreamUrlInputTypeDef",
+    {
+        "Identifier": str,
+        "ApplicationIdentifier": str,
+        "Protocol": Literal["WebRTC"],
+        "UrlExpiresAfterMinutes": int,
+        "Locations": Sequence[str],
+        "UsageLimit": NotRequired[int],
+        "Description": NotRequired[str],
+        "SessionLengthSeconds": NotRequired[int],
+        "AdditionalLaunchArgs": NotRequired[Sequence[str]],
+        "AdditionalEnvironmentVariables": NotRequired[Mapping[str, str]],
+        "RoleArn": NotRequired[str],
+        "DisplayConfiguration": NotRequired[DisplayConfigurationTypeDef],
+        "ClientToken": NotRequired[str],
+    },
+)
+CreateStreamUrlOutputTypeDef = TypedDict(
+    "CreateStreamUrlOutputTypeDef",
+    {
+        "Arn": str,
+        "StreamUrlId": str,
+        "StreamUrl": str,
+        "Status": StreamUrlStatusType,
+        "StatusReason": StreamUrlStatusReasonType,
+        "ExpiresAt": datetime,
+        "CreatedAt": datetime,
+        "UsageLimit": int,
+        "RemainingUses": int,
+        "StreamGroupArn": str,
+        "ApplicationArn": str,
+        "Protocol": Literal["WebRTC"],
+        "Locations": list[str],
+        "SessionLengthSeconds": int,
+        "Description": str,
+        "AdditionalLaunchArgs": list[str],
+        "AdditionalEnvironmentVariables": dict[str, str],
+        "RoleArn": str,
+        "DisplayConfiguration": DisplayConfigurationTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 GetStreamSessionOutputTypeDef = TypedDict(
     "GetStreamSessionOutputTypeDef",
     {
@@ -523,6 +637,32 @@ StartStreamSessionOutputTypeDef = TypedDict(
         "ExportFilesMetadata": ExportFilesMetadataTypeDef,
         "RoleArn": str,
         "DisplayConfiguration": DisplayConfigurationTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetStreamUrlOutputTypeDef = TypedDict(
+    "GetStreamUrlOutputTypeDef",
+    {
+        "Arn": str,
+        "StreamUrlId": str,
+        "StreamUrl": str,
+        "Status": StreamUrlStatusType,
+        "StatusReason": StreamUrlStatusReasonType,
+        "ExpiresAt": datetime,
+        "CreatedAt": datetime,
+        "UsageLimit": int,
+        "RemainingUses": int,
+        "StreamGroupArn": str,
+        "ApplicationArn": str,
+        "Protocol": Literal["WebRTC"],
+        "Locations": list[str],
+        "SessionLengthSeconds": int,
+        "Description": str,
+        "AdditionalLaunchArgs": list[str],
+        "AdditionalEnvironmentVariables": dict[str, str],
+        "RoleArn": str,
+        "DisplayConfiguration": DisplayConfigurationTypeDef,
+        "StreamSessions": list[StreamSessionSummaryTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

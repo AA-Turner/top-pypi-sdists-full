@@ -33,6 +33,7 @@ from .literals import (
     BrowserActionStatusType,
     BrowserEnterprisePolicyTypeType,
     BrowserSessionStatusType,
+    CapacityProviderSessionStatusType,
     CloudWatchLogsFilterOperatorType,
     CodeInterpreterSessionStatusType,
     CommandExecutionStatusType,
@@ -57,6 +58,7 @@ from .literals import (
     PaymentHttpMethodTypeType,
     PaymentInstrumentStatusType,
     PaymentSessionStatusType,
+    PaymentTypeType,
     ProgrammingLanguageType,
     RecommendationStatusType,
     RecommendationTypeType,
@@ -159,6 +161,8 @@ __all__ = (
     "DeleteABTestResponseTypeDef",
     "DeleteBatchEvaluationRequestTypeDef",
     "DeleteBatchEvaluationResponseTypeDef",
+    "DeleteCapacityProviderSessionRequestTypeDef",
+    "DeleteCapacityProviderSessionResponseTypeDef",
     "DeleteEventInputTypeDef",
     "DeleteEventOutputTypeDef",
     "DeleteMemoryRecordInputTypeDef",
@@ -194,6 +198,7 @@ __all__ = (
     "ExecutionSummaryClusteringResultContentTypeDef",
     "ExternalProxyOutputTypeDef",
     "ExternalProxyTypeDef",
+    "ExtractionConfigTypeDef",
     "ExtractionJobFilterInputTypeDef",
     "ExtractionJobMessagesTypeDef",
     "ExtractionJobMetadataTypeDef",
@@ -353,6 +358,9 @@ __all__ = (
     "LiveViewStreamTypeDef",
     "McpDescriptorTypeDef",
     "MemoryContentTypeDef",
+    "MemoryJsonDataOutputTypeDef",
+    "MemoryJsonDataTypeDef",
+    "MemoryJsonDataUnionTypeDef",
     "MemoryMetadataFilterExpressionTypeDef",
     "MemoryRecordCreateInputTypeDef",
     "MemoryRecordDeleteInputTypeDef",
@@ -375,10 +383,14 @@ __all__ = (
     "MouseMoveResultTypeDef",
     "MouseScrollArgumentsTypeDef",
     "MouseScrollResultTypeDef",
+    "MppPaymentInputTypeDef",
+    "MppPaymentOutputTypeDef",
     "OAuth2AuthenticationTypeDef",
     "OAuthCredentialProviderTypeDef",
     "OnlineEvaluationConfigSourceOutputTypeDef",
     "OnlineEvaluationConfigSourceTypeDef",
+    "OnlineEvaluationTraceConfigOutputTypeDef",
+    "OnlineEvaluationTraceConfigTypeDef",
     "OutputConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
@@ -555,6 +567,12 @@ class BatchEvaluationTraceConfigTypeDef(TypedDict):
     batchEvaluationArn: str
 
 
+class OnlineEvaluationTraceConfigOutputTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    startTime: datetime
+    endTime: datetime
+
+
 class AmountTypeDef(TypedDict):
     value: str
     currency: Literal["USD"]
@@ -591,6 +609,7 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class MemoryRecordDeleteInputTypeDef(TypedDict):
     memoryRecordId: str
+    namespace: NotRequired[str]
 
 
 class EvaluatorTypeDef(TypedDict):
@@ -852,6 +871,10 @@ class ControlStatsTypeDef(TypedDict):
     mean: float
 
 
+class ExtractionConfigTypeDef(TypedDict):
+    namespaceVariables: NotRequired[Mapping[str, str]]
+
+
 class MetadataValueTypeDef(TypedDict):
     stringValue: NotRequired[str]
 
@@ -859,6 +882,7 @@ class MetadataValueTypeDef(TypedDict):
 class CryptoX402PaymentInputTypeDef(TypedDict):
     version: str
     payload: Mapping[str, Any]
+    permit2AllowanceLimit: NotRequired[str]
 
 
 class CryptoX402PaymentOutputTypeDef(TypedDict):
@@ -878,6 +902,11 @@ class DeleteBatchEvaluationRequestTypeDef(TypedDict):
     batchEvaluationId: str
 
 
+class DeleteCapacityProviderSessionRequestTypeDef(TypedDict):
+    capacityProviderId: str
+    sessionId: str
+
+
 class DeleteEventInputTypeDef(TypedDict):
     memoryId: str
     sessionId: str
@@ -888,6 +917,7 @@ class DeleteEventInputTypeDef(TypedDict):
 class DeleteMemoryRecordInputTypeDef(TypedDict):
     memoryId: str
     memoryRecordId: str
+    namespace: NotRequired[str]
 
 
 class DeletePaymentInstrumentRequestTypeDef(TypedDict):
@@ -1019,6 +1049,7 @@ class GetEventInputTypeDef(TypedDict):
 class GetMemoryRecordInputTypeDef(TypedDict):
     memoryId: str
     memoryRecordId: str
+    namespace: NotRequired[str]
 
 
 class GetPaymentInstrumentBalanceRequestTypeDef(TypedDict):
@@ -1409,6 +1440,14 @@ class MemoryContentTypeDef(TypedDict):
     text: NotRequired[str]
 
 
+class MemoryJsonDataOutputTypeDef(TypedDict):
+    content: dict[str, Any]
+
+
+class MemoryJsonDataTypeDef(TypedDict):
+    content: Mapping[str, Any]
+
+
 class MemoryRecordLeftExpressionTypeDef(TypedDict):
     metadataKey: NotRequired[str]
 
@@ -1418,6 +1457,18 @@ class MemoryRecordMetadataValueOutputTypeDef(TypedDict):
     stringListValue: NotRequired[list[str]]
     numberValue: NotRequired[float]
     dateTimeValue: NotRequired[datetime]
+
+
+class MppPaymentInputTypeDef(TypedDict):
+    version: str
+    wwwAuthenticateHeaders: Sequence[str]
+    buyerPaysGasFees: NotRequired[bool]
+
+
+class MppPaymentOutputTypeDef(TypedDict):
+    version: str
+    selectedPaymentId: str
+    paymentCredential: str
 
 
 class StripePrivyTokenRequestInputTypeDef(TypedDict):
@@ -1611,6 +1662,13 @@ class DeleteBatchEvaluationResponseTypeDef(TypedDict):
     batchEvaluationId: str
     batchEvaluationArn: str
     status: BatchEvaluationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteCapacityProviderSessionResponseTypeDef(TypedDict):
+    capacityProviderArn: str
+    sessionId: str
+    status: CapacityProviderSessionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1852,6 +1910,12 @@ class MemoryRecordMetadataValueTypeDef(TypedDict):
     dateTimeValue: NotRequired[TimestampTypeDef]
 
 
+class OnlineEvaluationTraceConfigTypeDef(TypedDict):
+    onlineEvaluationConfigArn: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+
+
 class SessionFilterConfigTypeDef(TypedDict):
     startTime: NotRequired[TimestampTypeDef]
     endTime: NotRequired[TimestampTypeDef]
@@ -1928,14 +1992,6 @@ class ContextTypeDef(TypedDict):
 
 class RightExpressionTypeDef(TypedDict):
     metadataValue: NotRequired[MetadataValueTypeDef]
-
-
-class PaymentInputTypeDef(TypedDict):
-    cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
-
-
-class PaymentOutputTypeDef(TypedDict):
-    cryptoX402: NotRequired[CryptoX402PaymentOutputTypeDef]
 
 
 class EvaluatorSummaryTypeDef(TypedDict):
@@ -2166,6 +2222,9 @@ class McpDescriptorTypeDef(TypedDict):
     tools: ToolsDefinitionTypeDef
 
 
+MemoryJsonDataUnionTypeDef = Union[MemoryJsonDataTypeDef, MemoryJsonDataOutputTypeDef]
+
+
 class MemoryRecordSummaryTypeDef(TypedDict):
     memoryRecordId: str
     content: MemoryContentTypeDef
@@ -2183,6 +2242,16 @@ class MemoryRecordTypeDef(TypedDict):
     namespaces: list[str]
     createdAt: datetime
     metadata: NotRequired[dict[str, MemoryRecordMetadataValueOutputTypeDef]]
+
+
+class PaymentInputTypeDef(TypedDict):
+    cryptoX402: NotRequired[CryptoX402PaymentInputTypeDef]
+    mpp: NotRequired[MppPaymentInputTypeDef]
+
+
+class PaymentOutputTypeDef(TypedDict):
+    cryptoX402: NotRequired[CryptoX402PaymentOutputTypeDef]
+    mpp: NotRequired[MppPaymentOutputTypeDef]
 
 
 class PaymentTokenRequestInputTypeDef(TypedDict):
@@ -2406,11 +2475,7 @@ class CodeInterpreterResultTypeDef(TypedDict):
 class PayloadTypeOutputTypeDef(TypedDict):
     conversational: NotRequired[ConversationalTypeDef]
     blob: NotRequired[dict[str, Any]]
-
-
-class PayloadTypeTypeDef(TypedDict):
-    conversational: NotRequired[ConversationalTypeDef]
-    blob: NotRequired[Mapping[str, Any]]
+    json: NotRequired[MemoryJsonDataOutputTypeDef]
 
 
 class EvaluationReferenceInputTypeDef(TypedDict):
@@ -2442,30 +2507,6 @@ EventMetadataFilterExpressionTypeDef = TypedDict(
         "right": NotRequired[RightExpressionTypeDef],
     },
 )
-
-
-class ProcessPaymentRequestTypeDef(TypedDict):
-    paymentManagerArn: str
-    paymentSessionId: str
-    paymentInstrumentId: str
-    paymentType: Literal["CRYPTO_X402"]
-    paymentInput: PaymentInputTypeDef
-    userId: NotRequired[str]
-    agentName: NotRequired[str]
-    clientToken: NotRequired[str]
-
-
-class ProcessPaymentResponseTypeDef(TypedDict):
-    processPaymentId: str
-    paymentManagerArn: str
-    paymentSessionId: str
-    paymentInstrumentId: str
-    paymentType: Literal["CRYPTO_X402"]
-    status: Literal["PROOF_GENERATED"]
-    paymentOutput: PaymentOutputTypeDef
-    createdAt: datetime
-    updatedAt: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class EvaluationJobResultsTypeDef(TypedDict):
@@ -2548,6 +2589,12 @@ class DescriptorsTypeDef(TypedDict):
     agentSkills: NotRequired[AgentSkillsDescriptorTypeDef]
 
 
+class PayloadTypeTypeDef(TypedDict):
+    conversational: NotRequired[ConversationalTypeDef]
+    blob: NotRequired[Mapping[str, Any]]
+    json: NotRequired[MemoryJsonDataUnionTypeDef]
+
+
 class ListMemoryRecordsOutputTypeDef(TypedDict):
     memoryRecordSummaries: list[MemoryRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2562,6 +2609,30 @@ class RetrieveMemoryRecordsOutputTypeDef(TypedDict):
 
 class GetMemoryRecordOutputTypeDef(TypedDict):
     memoryRecord: MemoryRecordTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ProcessPaymentRequestTypeDef(TypedDict):
+    paymentManagerArn: str
+    paymentSessionId: str
+    paymentInstrumentId: str
+    paymentType: PaymentTypeType
+    paymentInput: PaymentInputTypeDef
+    userId: NotRequired[str]
+    agentName: NotRequired[str]
+    clientToken: NotRequired[str]
+
+
+class ProcessPaymentResponseTypeDef(TypedDict):
+    processPaymentId: str
+    paymentManagerArn: str
+    paymentSessionId: str
+    paymentInstrumentId: str
+    paymentType: PaymentTypeType
+    status: Literal["PROOF_GENERATED"]
+    paymentOutput: PaymentOutputTypeDef
+    createdAt: datetime
+    updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2712,6 +2783,7 @@ class MemoryRecordUpdateInputTypeDef(TypedDict):
     timestamp: TimestampTypeDef
     content: NotRequired[MemoryContentTypeDef]
     namespaces: NotRequired[Sequence[str]]
+    sourceNamespaces: NotRequired[Sequence[str]]
     memoryStrategyId: NotRequired[str]
     metadata: NotRequired[Mapping[str, MemoryRecordMetadataValueUnionTypeDef]]
 
@@ -2747,9 +2819,6 @@ class EventTypeDef(TypedDict):
     payload: list[PayloadTypeOutputTypeDef]
     branch: NotRequired[BranchTypeDef]
     metadata: NotRequired[dict[str, MetadataValueTypeDef]]
-
-
-PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
 
 
 class EvaluateRequestTypeDef(TypedDict):
@@ -2856,6 +2925,9 @@ class RegistryRecordSummaryTypeDef(TypedDict):
     description: NotRequired[str]
 
 
+PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
+
+
 class CreateABTestRequestTypeDef(TypedDict):
     name: str
     gatewayArn: str
@@ -2917,12 +2989,14 @@ class AgentTracesConfigOutputTypeDef(TypedDict):
     sessionSpans: NotRequired[list[dict[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigOutputTypeDef]
     batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
+    onlineEvaluation: NotRequired[OnlineEvaluationTraceConfigOutputTypeDef]
 
 
 class AgentTracesConfigTypeDef(TypedDict):
     sessionSpans: NotRequired[Sequence[Mapping[str, Any]]]
     cloudwatchLogs: NotRequired[CloudWatchLogsTraceConfigTypeDef]
     batchEvaluation: NotRequired[BatchEvaluationTraceConfigTypeDef]
+    onlineEvaluation: NotRequired[OnlineEvaluationTraceConfigTypeDef]
 
 
 class BatchCreateMemoryRecordsInputTypeDef(TypedDict):
@@ -2994,18 +3068,6 @@ class ListEventsOutputTypeDef(TypedDict):
     events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-
-class CreateEventInputTypeDef(TypedDict):
-    memoryId: str
-    actorId: str
-    eventTimestamp: TimestampTypeDef
-    payload: Sequence[PayloadTypeUnionTypeDef]
-    sessionId: NotRequired[str]
-    branch: NotRequired[BranchTypeDef]
-    clientToken: NotRequired[str]
-    metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
-    extractionMode: NotRequired[Literal["SKIP"]]
 
 
 ListEventsInputPaginateTypeDef = TypedDict(
@@ -3080,6 +3142,19 @@ class PaymentInstrumentDetailsTypeDef(TypedDict):
 class SearchRegistryRecordsResponseTypeDef(TypedDict):
     registryRecords: list[RegistryRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateEventInputTypeDef(TypedDict):
+    memoryId: str
+    actorId: str
+    eventTimestamp: TimestampTypeDef
+    payload: Sequence[PayloadTypeUnionTypeDef]
+    sessionId: NotRequired[str]
+    branch: NotRequired[BranchTypeDef]
+    clientToken: NotRequired[str]
+    metadata: NotRequired[Mapping[str, MetadataValueTypeDef]]
+    extractionMode: NotRequired[Literal["SKIP"]]
+    extractionConfig: NotRequired[ExtractionConfigTypeDef]
 
 
 class GetBrowserSessionResponseTypeDef(TypedDict):

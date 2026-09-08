@@ -87,19 +87,29 @@ class SMatrix_DENSE(SMatrix):
             self.compute_norm_factor()
 
     def _allocate_cpu(self):
-        """Allocate and fill the DENSE matrix on CPU."""
+        """Allocate and fill the DENSE matrix on CPU with vectorized block processing."""
         dtype = self._get_dtype()
         self.dense_matrix = np.zeros((self.T, self.N, self.Z, self.X), dtype=dtype)
+        num_cols = self.Z * self.X
+        br = getattr(self, 'block_rows', 128)
 
-        for n in trange(self.N, desc=f'[AOT-biomaps] Filling DENSE ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
-            if self.isComplexSMatrix:
-                key = list(self.experiment.AcousticFields_demodulated.keys())[n]
-                for t in range(self.T):
-                    self.dense_matrix[t, n] = self.experiment.AcousticFields_demodulated[key][t]
-            else:
-                field = self.experiment.AcousticFields[n].field
-                for t in range(self.T):
-                    self.dense_matrix[t, n] = field[t].astype(dtype)
+        sorted_keys = sorted(list(self.experiment.AcousticFields_demodulated.keys())) if self.isComplexSMatrix else None
+
+        for n in trange(0, self.N, br, desc=f'[AOT-biomaps] Filling DENSE ({"Complex" if self.isComplexSMatrix else "Real"}) --- device: CPU'):
+            current_n = min(br, self.N - n)
+            for t in range(self.T):
+                # Chargement par bloc de dimensions (current_n, num_cols)
+                block = np.empty((current_n, num_cols), dtype=dtype)
+                for i in range(current_n):
+                    ni = n + i
+                    if self.isComplexSMatrix:
+                        key = sorted_keys[ni]
+                        block[i] = self.experiment.AcousticFields_demodulated[key][t].flatten()
+                    else:
+                        block[i] = self.experiment.AcousticFields[ni].field[t].flatten()
+                
+                # Réinjection directe et vectorisée dans le tenseur 4D
+                self.dense_matrix[t, n:n+current_n] = block.reshape((current_n, self.Z, self.X))
 
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """
@@ -133,22 +143,11 @@ class SMatrix_DENSE(SMatrix):
                 return q_gpu
         else:
             theta_cpu = np.asarray(theta, dtype=dtype) if not isinstance(theta, np.ndarray) else theta
-            if isinstance(theta_cpu, cp.ndarray):
-                theta_cpu = cp.asnumpy(theta_cpu)
             if theta_cpu.dtype != dtype:
                 theta_cpu = theta_cpu.astype(dtype)
 
-            q = np.zeros(self.N * self.T, dtype=dtype)
-            for n in range(self.N):
-                for t in range(self.T):
-                    row_idx = n * self.T + t
-                    acc = 0.0 if not self.isComplexSMatrix else 0.0 + 0.0j
-                    for z in range(self.Z):
-                        for x in range(self.X):
-                            col_idx = z * self.X + x
-                            acc += self.dense_matrix[t, n, z, x] * theta_cpu[col_idx]
-                    q[row_idx] = acc
-            return q
+            dense_2d = self.dense_matrix.transpose(1, 0, 2, 3).reshape(self.N * self.T, self.Z * self.X)
+            return dense_2d @ theta_cpu
 
     def backward_projection(self, e: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """
@@ -182,23 +181,11 @@ class SMatrix_DENSE(SMatrix):
                 return c_gpu
         else:
             e_cpu = np.asarray(e, dtype=dtype) if not isinstance(e, np.ndarray) else e
-            if isinstance(e_cpu, cp.ndarray):
-                e_cpu = cp.asnumpy(e_cpu)
             if e_cpu.dtype != dtype:
                 e_cpu = e_cpu.astype(dtype)
 
-            c = np.zeros(self.Z * self.X, dtype=dtype)
-            for n in range(self.N):
-                for t in range(self.T):
-                    row_idx = n * self.T + t
-                    e_val = e_cpu[row_idx]
-                    if e_val == (0.0 if not self.isComplexSMatrix else 0.0 + 0.0j):
-                        continue
-                    for z in range(self.Z):
-                        for x in range(self.X):
-                            col_idx = z * self.X + x
-                            c[col_idx] += self.dense_matrix[t, n, z, x] * e_val
-            return c
+            dense_2d = self.dense_matrix.transpose(1, 0, 2, 3).reshape(self.N * self.T, self.Z * self.X)
+            return dense_2d.T @ e_cpu
 
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
         raise NotImplementedError("Apodization not implemented for DENSE matrix.")

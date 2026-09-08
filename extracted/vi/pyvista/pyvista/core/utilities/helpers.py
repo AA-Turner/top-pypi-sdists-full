@@ -11,12 +11,12 @@ from typing import cast
 from typing import overload
 
 import numpy as np
+import pyvista_validation as _validation
 from typing_extensions import TypeIs
 
 import pyvista as pv
 from pyvista import _vtk
 from pyvista._deprecate_positional_args import _deprecate_positional_args
-from pyvista.core import _validation
 
 from . import transformations
 from .fileio import from_meshio
@@ -96,16 +96,29 @@ def _dataset_array_lengths_match(obj: DataSet) -> bool:
     return ok
 
 
+def _composite_array_lengths_match(obj: MultiBlock | PartitionedDataSet) -> bool:
+    """Recursively apply :func:`_dataset_array_lengths_match` to every leaf DataSet."""
+    for i in range(len(obj)):
+        block = obj[i]
+        if block is None:
+            continue
+        if isinstance(block, pv.MultiBlock):
+            if not _composite_array_lengths_match(block):
+                return False
+        elif not _dataset_array_lengths_match(block):
+            return False
+    return True
+
+
 def _warn_if_invalid_data(obj: DataObject) -> None:
-    if pv.vtk_version_info < (9, 3, 0) or not hasattr(obj, 'validate_mesh'):
+    if not hasattr(obj, 'validate_mesh'):
         return
-    # Fast path: for a plain DataSet, a direct Python-side array-length check
-    # avoids the ~600us setup cost of the validate_mesh machinery on the
-    # common valid case. Composite and table types fall through to
-    # validate_mesh so their warning behavior is unchanged. When the fast
-    # path detects a mismatch we still call validate_mesh to produce the
-    # detailed warning message.
+    # Fast path avoiding the slow validate_mesh machinery on the common valid case.
     if isinstance(obj, pv.DataSet) and _dataset_array_lengths_match(obj):
+        return
+    if isinstance(obj, (pv.MultiBlock, pv.PartitionedDataSet)) and _composite_array_lengths_match(
+        obj,
+    ):
         return
     obj.validate_mesh('data', action='warn')
 
@@ -160,7 +173,7 @@ def wrap(dataset: _vtk.vtkDataObject, *, validate: bool | None = ...) -> DataObj
 @overload
 def wrap(dataset: NumpyArray[float], *, validate: bool | None = ...) -> PolyData | ImageData: ...
 @overload
-def wrap(dataset: _vtk.vtkAbstractArray, *, validate: bool | None = ...) -> pyvista_ndarray: ...
+def wrap(dataset: _vtk.vtkDataArray, *, validate: bool | None = ...) -> pyvista_ndarray: ...
 @overload
 def wrap(dataset: None, *, validate: bool | None = ...) -> None: ...
 
@@ -228,13 +241,9 @@ def wrap(  # noqa: PLR0911
     pyvista.DataSet
         The PyVista wrapped dataset.
 
-    See Also
-    --------
-    :ref:`wrap_trimesh_example`
-
     Examples
     --------
-    Wrap a numpy array representing a random point cloud.
+    Wrap a NumPy array representing a random point cloud.
 
     >>> import numpy as np
     >>> import pyvista as pv
@@ -432,6 +441,9 @@ def _validate_plane_origin_and_normal(  # noqa: PLR0917
         # find center of data if origin not specified
         origin = mesh.center if origin is None else origin
         origin_ = _validation.validate_array3(origin, dtype_out=float, name='origin')
+    if not np.any(normal_):
+        msg = '`normal` must be a non-zero vector.'
+        raise ValueError(msg)
     return origin_, normal_
 
 
@@ -503,7 +515,7 @@ def is_inside_bounds(point, bounds):
     Parameters
     ----------
     point : sequence[float]
-        Three item cartesian point (i.e. ``[x, y, z]``).
+        Three item Cartesian point (that is, ``[x, y, z]``).
 
     bounds : sequence[float]
         Six item bounds in the form of ``(x_min, x_max, y_min, y_max, z_min, z_max)``.

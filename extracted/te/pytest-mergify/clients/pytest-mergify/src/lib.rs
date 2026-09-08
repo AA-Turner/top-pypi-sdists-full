@@ -114,8 +114,12 @@ impl CiApiClient {
         }
     }
 
-    /// The test selection as a dict (`selection`, `reason`, `tests`), or `None`
-    /// when test selection is not enabled for the repository.
+    /// The test selection as a dict (`selection`, `reason`, `tests`, `message`),
+    /// or `None` when test selection is not enabled for the repository.
+    ///
+    /// `collection_fingerprint` is what [`compute_test_collection_fingerprint`]
+    /// returned for the tests this run collected — which is why the plugin asks
+    /// after collection rather than at configure time.
     fn fetch_test_selection(
         &self,
         py: Python<'_>,
@@ -123,6 +127,7 @@ impl CiApiClient {
         head_sha: &str,
         pipeline_name: &str,
         job_name: &str,
+        collection_fingerprint: &str,
     ) -> PyResult<Option<Py<PyDict>>> {
         let outcome = py.detach(|| {
             self.runtime.block_on(self.client.fetch_test_selection(
@@ -130,6 +135,7 @@ impl CiApiClient {
                 head_sha,
                 pipeline_name,
                 job_name,
+                Some(collection_fingerprint),
             ))
         });
         match outcome {
@@ -195,14 +201,32 @@ fn test_selection_dict(py: Python<'_>, selection: &TestSelection) -> PyResult<Py
     let dict = PyDict::new(py);
     dict.set_item("selection", &selection.selection)?;
     dict.set_item("reason", &selection.reason)?;
-    // `tests` is `None` for any answer that carries no subset -- `full`, and
-    // any variant this client predates -- since a `subset` without it is
-    // rejected upstream. An empty list is the right value for the plugin: it
-    // keeps the key present, so `TestSelection(**dict)` never raises, and the
-    // Python-side normalisation reads it as "nothing to select" and runs
-    // everything.
+    // `tests` is `None` for every answer that carries no subset -- `full`,
+    // `empty`, `refused`, and any variant this client predates -- since a
+    // `subset` without it is rejected upstream. An empty list is the right
+    // value for the plugin: it keeps the key present, so `TestSelection(**dict)`
+    // never raises, and what the answer then means is decided on the Python
+    // side from `selection` alone, never from the emptiness of this list.
     dict.set_item("tests", selection.tests.clone().unwrap_or_default())?;
+    // Unlike `tests`, this one is handed over as-is rather than defaulted: the
+    // dict then mirrors the wire, where the key is simply absent from every
+    // answer carrying no copy. Nothing downstream distinguishes `None` from an
+    // empty string -- both fall to the plugin's own wording -- so this is about
+    // the dict describing the answer honestly, not about a signal being read.
+    dict.set_item("message", selection.message.clone())?;
     Ok(dict.into())
+}
+
+/// The fingerprint of the tests this run collected, as lowercase hex SHA-256.
+///
+/// Order-independent, so a rerun that collects the same tests in a different
+/// order agrees with its predecessor. The recipe lives in `mergify-ci-core` so
+/// every client computes the same value for the same collection.
+// pyo3 extracts the id list by value; the recipe only borrows it.
+#[allow(clippy::needless_pass_by_value)]
+#[pyfunction]
+fn compute_test_collection_fingerprint(test_ids: Vec<String>) -> String {
+    mergify_ci_core::test_collection_fingerprint(&test_ids)
 }
 
 /// Select the tests to rerun and compute the session's rerun budget.
@@ -369,6 +393,7 @@ fn _mergify_ci(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(detect_repository_name, m)?)?;
     m.add_function(wrap_pyfunction!(detect_attributes, m)?)?;
     m.add_function(wrap_pyfunction!(compute_budget, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_test_collection_fingerprint, m)?)?;
     m.add_function(wrap_pyfunction!(should_run, m)?)?;
     m.add_function(wrap_pyfunction!(static_share_ms, m)?)?;
     m.add_function(wrap_pyfunction!(dynamic_share_ms, m)?)?;

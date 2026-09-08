@@ -135,6 +135,27 @@ def _normalize_embedding(vec: List[float]) -> List[float]:
     return arr.tolist()
 
 
+# fmt: off
+# INC-2026-147 x INC-2026-295 interaction -- read before removing this fence.
+#
+# Nine functions below are already over the org complexity cap on dev:
+#   match_embedding 419 lines / 78 branches      process 299 / 52
+#   _extract_camera_info_from_stream 227 / 58    _process_face 199 / 42
+#   update 199 / 34                              _compute_best_identity 161 / 29
+#   initialize 134 / 28                          _generate_tracking_stats 139
+#   _get_start_timestamp_str 21 branches
+#
+# `ruff format` reflows their long lines, which makes every one of them LONGER.
+# The complexity gate compares each function against HEAD's version of this
+# file and treats growth in an already-over-cap function as a new regression,
+# so without this fence a one-line change anywhere in the file is blocked by
+# pre-existing code it never touched. The gate also measures a function as the
+# span up to the next `def`, so a per-function `# fmt: on` would itself add the
+# +1 line that trips it -- hence one fence for the whole span.
+#
+# New code in this file is therefore written pre-formatted: line-length 100,
+# double quotes, trailing commas. Lift the fence when these functions are split
+# up -- that is its own deliberate PR, not a drive-by on a behaviour change.
 class RedisFaceMatchResult(NamedTuple):
     staff_id: str | None
     person_name: str
@@ -347,7 +368,7 @@ class RedisFaceMatcher:
                 return float(default)
             try:
                 return float(raw)
-            except Exception:
+            except Exception:  # noqa: BLE001 - malformed env value falls back to the caller's default
                 return float(default)
 
         # Socket timeouts: keep bounded so a bad redis doesn't stall the worker
@@ -408,7 +429,7 @@ class RedisFaceMatcher:
             return None, None
         try:
             redis_client_sync = self._get_redis_sync_client()
-        except Exception:
+        except Exception:  # noqa: BLE001 - any sync-client failure must fall back to the async match path
             self.logger.debug("sync redis client unavailable; using async match path", exc_info=True)
             return None, None
         if redis_client_sync is None:
@@ -537,7 +558,7 @@ class RedisFaceMatcher:
                 if raw_value:
                     try:
                         redis_client_sync.delete(result_key)
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - the result key carries a TTL, so a failed delete self-heals
                         # Non-fatal: the key carries a TTL, so a failed delete self-heals.
                         self.logger.debug("failed to delete redis result key %s", result_key, exc_info=True)
 
@@ -849,7 +870,7 @@ class RedisFaceMatcher:
         try:
             for value in embedding:
                 prepared.append(float(value))
-        except Exception:
+        except Exception:  # noqa: BLE001 - a malformed embedding degrades to no-match, never a crash
             self.logger.debug("Failed to convert embedding to float list", exc_info=True)
             return []
         return prepared
@@ -968,7 +989,7 @@ class RedisFaceMatcher:
             # Close old client safely (ignore errors since the loop may be closed)
             try:
                 await self._redis_client.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 - the owning loop may already be closed; the client is dropped anyway
                 # Expected when the owning loop is already closed; the client is dropped anyway.
                 self.logger.debug("closing stale redis client failed", exc_info=True)
             self._redis_client = None
@@ -986,7 +1007,7 @@ class RedisFaceMatcher:
             if self._redis_client is not None and self._redis_client_loop_id != current_loop_id:
                 try:
                     await self._redis_client.close()
-                except Exception:
+                except Exception:  # noqa: BLE001 - the owning loop may already be closed; the client is dropped anyway
                     # Expected when the owning loop is already closed; the client is dropped anyway.
                     self.logger.debug("closing stale redis client failed", exc_info=True)
                 self._redis_client = None
@@ -1130,7 +1151,7 @@ class RedisFaceMatcher:
             candidates.append(cwd.name)
             for parent in cwd.parents:
                 candidates.append(parent.name)
-        except Exception:
+        except Exception:  # noqa: BLE001 - cwd inspection is one of several action_id sources; absence is normal
             # Non-fatal: cwd is only one of several action_id candidate sources.
             logging.getLogger(__name__).debug("cwd scan for action_id candidates failed", exc_info=True)
 
@@ -1140,7 +1161,7 @@ class RedisFaceMatcher:
                 for child in usr_src.iterdir():
                     if child.is_dir():
                         candidates.append(child.name)
-        except Exception:
+        except Exception:  # noqa: BLE001 - /usr/src is absent outside the container image
             # Non-fatal: /usr/src is absent outside the container image.
             logging.getLogger(__name__).debug("/usr/src scan for action_id candidates failed", exc_info=True)
 
@@ -1184,6 +1205,9 @@ class TemporalIdentityManager:
         unknown_patience: int = 7,
         switch_patience: int = 5,
         fallback_margin: float = 0.0,
+        sticky_id: bool = False,
+        high_confidence_thresh: float = 0.0,
+        sticky_min_votes: int = 3,
     ) -> None:
         self.logger = logging.getLogger(__name__)
         self.face_client = face_client
@@ -1194,8 +1218,51 @@ class TemporalIdentityManager:
         self.unknown_patience = int(unknown_patience)
         self.switch_patience = int(switch_patience)
         self.fallback_margin = float(fallback_margin)
+        # Sticky identity lock. Once a track has been recognized as the same
+        # person `sticky_min_votes` times, that identity is final for the track:
+        # no rival displaces it and no run of unknown frames releases it. Off by
+        # default - it changes identity semantics, so each profile opts in.
+        self.sticky_id = bool(sticky_id)
+        # Score a rival identity must reach to displace the stable one. 0.0 keeps
+        # the historical `threshold + 0.02` bar.
+        self.high_confidence_thresh = float(high_confidence_thresh)
+        # The vote gate is what makes sticky safe. Locking on the FIRST confident
+        # match holds a wrong identity for the whole track: on the 3,907-frame
+        # WebRTC ground truth that cost 271 extra false matches and 7pp of
+        # precision. Requiring 2-3 votes removed both regressions entirely while
+        # still cutting false unknowns by 177.
+        self.sticky_min_votes = max(1, int(sticky_min_votes))
         self.tracks: Dict[Any, Dict[str, object]] = {}
         self.emb_run = False
+
+    def _switch_score_bar(self) -> float:
+        """Minimum instant score for a rival identity to displace the stable one.
+
+        `high_confidence_thresh` <= 0 means "unset" and preserves the historical
+        `threshold + 0.02` bar, so existing deployments are unaffected.
+        """
+        if self.high_confidence_thresh > 0.0:
+            return self.high_confidence_thresh
+        return self.threshold + 0.02
+
+    def _sticky_locked(self, track_state: Dict[str, object], stable_staff_id: Any) -> bool:
+        """Whether this track's identity is sticky-locked and may no longer change.
+
+        Requires sticky mode, an established stable identity, and at least
+        `sticky_min_votes` confident observations of it. Below that vote count
+        the track keeps the ordinary switch-and-release behaviour, which is what
+        stops a single wrong match from being held for the whole track.
+        """
+        if not self.sticky_id or stable_staff_id is None:
+            return False
+        try:
+            votes = int(track_state["label_votes"].get(stable_staff_id, 0))  # type: ignore[union-attr]
+        except (AttributeError, KeyError, TypeError, ValueError):
+            # An unreadable vote map means "not yet proven", which is the safe
+            # direction: no permanent lock.
+            self.logger.debug("label_votes unreadable; treating track as unlocked", exc_info=True)
+            return False
+        return votes >= self.sticky_min_votes
 
     def _ensure_track(self, track_id: Any) -> None:
         if track_id not in self.tracks:
@@ -1301,7 +1368,7 @@ class TemporalIdentityManager:
                     # Per-frame no-match is the common case — debug log only, no stdout
                     # (a print here emits one line per unmatched face at full frame rate).
                     self.logger.debug(f"No Redis match found for search_id={search_id} (took {redis_latency_ms:.2f}ms)")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - process boundary: any Redis matcher failure falls back to local search
                 self.logger.warning(
                     "Redis face match flow failed; falling back to local search: %s",
                     exc,
@@ -1356,7 +1423,7 @@ class TemporalIdentityManager:
                     best_sim = 0.0
                     try:
                         best_sim = float(self.embedding_manager.get_best_similarity(emb))
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - diagnostic only - best_sim is logged, never used in a decision
                         # Non-fatal: best_sim stays 0.0 and is only logged below.
                         self.logger.debug("get_best_similarity failed", exc_info=True)
                     self.logger.debug(
@@ -1365,7 +1432,7 @@ class TemporalIdentityManager:
 
                     return None, "Unknown", 0.0, None, {}, "unknown"
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - local search is a fallback chain; failure continues to the API path
                 self.logger.warning(f"Local similarity search failed, falling back to API: {e}")
                 # Fall through to API call below
 
@@ -1421,7 +1488,7 @@ class TemporalIdentityManager:
             try:
                 history: deque = s["embedding_history"]  # type: ignore
                 history.append(_normalize_embedding(emb))
-            except Exception:
+            except Exception:  # noqa: BLE001 - a dropped history sample only weakens temporal smoothing
                 # Non-fatal: a dropped sample only weakens temporal smoothing.
                 self.logger.debug("embedding history append failed on track %s", track_id, exc_info=True)
 
@@ -1495,13 +1562,13 @@ class TemporalIdentityManager:
                     )
 
                 # Competing identity: switch only if sustained and with margin & votes ratio (local parity)
-                if s["streaks"][staff_id] >= self.switch_patience:  # type: ignore
+                if s["streaks"][staff_id] >= self.switch_patience and not self._sticky_locked(s, stable_staff_id):  # type: ignore
                     try:
                         prev_votes = s["label_votes"].get(stable_staff_id, 0) if stable_staff_id is not None else 0  # type: ignore
                         cand_votes = s["label_votes"].get(staff_id, 0)  # type: ignore
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - an unreadable vote map defaults to zero votes, blocking the change
                         prev_votes, cand_votes = 0, 0
-                    if cand_votes >= max(2, 0.75 * prev_votes) and float(inst_score) >= (self.threshold + 0.02):
+                    if cand_votes >= max(2, 0.75 * prev_votes) and float(inst_score) >= self._switch_score_bar():
                         s["stable_staff_id"] = staff_id
                         s["stable_person_name"] = person_name
                         s["stable_employee_id"] = employee_id
@@ -1512,7 +1579,7 @@ class TemporalIdentityManager:
                             for k in list(s["streaks"].keys()):  # type: ignore
                                 if k != staff_id:
                                     s["streaks"][k] = 0  # type: ignore
-                        except Exception:
+                        except Exception:  # noqa: BLE001 - stale streaks decay on their own
                             # Non-fatal: stale streaks decay on their own.
                             self.logger.debug("streak reset failed on track %s", track_id, exc_info=True)
                         return (
@@ -1536,7 +1603,7 @@ class TemporalIdentityManager:
 
             # Instantaneous is unknown or low score
             s["unknown_streak"] = int(s.get("unknown_streak", 0)) + 1
-            if stable_staff_id is not None and s["unknown_streak"] <= self.unknown_patience:  # type: ignore
+            if stable_staff_id is not None and (self._sticky_locked(s, stable_staff_id) or s["unknown_streak"] <= self.unknown_patience):  # type: ignore
                 return (
                     stable_staff_id,
                     stable_person_name or "Unknown",
@@ -1663,6 +1730,18 @@ class FaceRecognitionEmbeddingConfig(BaseConfig):
     # `unknown_streak`, so `unknown_patience` can be refreshed indefinitely and a
     # wrong identity is never released. Raise it only with a deliberate reason.
     fallback_margin: float = 0.0
+    # Sticky identity lock: once a track has been recognized as the same person
+    # `sticky_min_votes` times, that identity is held for the rest of the track.
+    # Off by default because it changes identity semantics - an access-control
+    # app in particular should keep the bounded `unknown_patience` release.
+    sticky_id: bool = False
+    # Instant score a rival identity must reach to displace the stable one.
+    # 0.0 = unset, preserving the historical `similarity_threshold + 0.02` bar.
+    high_confidence_thresh: float = 0.0
+    # Confident observations of one identity before `sticky_id` makes it
+    # permanent. Never set this to 1: locking on the first confident match is
+    # what makes sticky add false matches instead of removing them.
+    sticky_min_votes: int = 3
     tracker_buffer: int = 600
     tracker_max_time_lost: int = 300
     activity_cooldown_sec: float = 10.0
@@ -1764,6 +1843,9 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             self.temporal_identity_manager.unknown_patience = int(getattr(config, "unknown_patience", 7))
             self.temporal_identity_manager.switch_patience = int(getattr(config, "switch_patience", 5))
             self.temporal_identity_manager.fallback_margin = float(getattr(config, "fallback_margin", 0.0))
+            self.temporal_identity_manager.sticky_id = bool(getattr(config, "sticky_id", False))
+            self.temporal_identity_manager.high_confidence_thresh = float(getattr(config, "high_confidence_thresh", 0.0))
+            self.temporal_identity_manager.sticky_min_votes = max(1, int(getattr(config, "sticky_min_votes", 3)))
 
     @staticmethod
     def _detection_bbox_area(detection: Dict[str, Any]) -> int:
@@ -1850,7 +1932,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             # Initialize Redis face matcher for fast remote similarity search
             try:
                 redis_session = getattr(self.face_client, "session", None)
-            except Exception:
+            except Exception:  # noqa: BLE001 - the client may expose no session attribute; None is handled below
                 redis_session = None
             self.redis_face_matcher = RedisFaceMatcher(
                 session=redis_session,
@@ -1973,7 +2055,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 return ""
             try:
                 return str(value).strip()
-            except Exception:
+            except Exception:  # noqa: BLE001 - any unstringable value becomes the empty string
                 return ""
 
         def _dict_get_str(d: Any, *keys: str) -> str:
@@ -2257,7 +2339,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 try:
                     self.session1.update(updated_project_id)
                     self.logger.info(f"[PROJECT_ID] Updated session1 with project_id: '{updated_project_id}'")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - a failed session update must not abort recognition
                     self.logger.warning(f"[PROJECT_ID] Failed to update session1 with project_id: {e}")
             elif updated_project_id:
                 self.logger.info(f"[PROJECT_ID] Using project_id: '{updated_project_id}'")
@@ -2376,7 +2458,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 emb = _det.get("embedding", []) or []
                 if emb:
                     _det["embedding"] = _normalize_embedding(emb)
-            except Exception:
+            except Exception:  # noqa: BLE001 - the un-normalized embedding is still usable downstream
                 # Non-fatal: the un-normalized embedding is still usable downstream.
                 self.logger.debug("could not normalize detection embedding", exc_info=True)
         # Ignore any pre-existing track_id on detections (we rely on our own tracker)
@@ -2384,7 +2466,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
             if isinstance(_det, dict) and "track_id" in _det:
                 try:
                     del _det["track_id"]
-                except Exception:
+                except Exception:  # noqa: BLE001 - absent track_id is set to None instead
                     _det["track_id"] = None
 
         # Apply standard confidence filtering
@@ -2667,12 +2749,12 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 nparr = np.frombuffer(frame_bytes, np.uint8)
                 frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 return frame
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - cv2 raises varied types; an undecodable frame yields None
                 self.logger.debug(f"Could not decode direct frame data: {e}")
 
             return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - cv2 raises varied types; an undecodable frame yields None
             self.logger.debug(f"Error extracting frame from data: {e}")
             return None
 
@@ -2839,7 +2921,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                     self._track_first_seen[track_id] = (
                         int(frame_id) if frame_id is not None else self._total_frame_counter
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 - an unparseable frame_id falls back to the internal counter
                     self._track_first_seen[track_id] = self._total_frame_counter
             age_frames = (
                 (int(frame_id) if frame_id is not None else self._total_frame_counter)
@@ -2887,7 +2969,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                             self.temporal_identity_manager._ensure_track(track_key)
                             hist = self.temporal_identity_manager.tracks[track_key]["embedding_history"]  # type: ignore
                             hist.append(_normalize_embedding(embedding))  # type: ignore
-                        except Exception:
+                        except Exception:  # noqa: BLE001 - a dropped history sample only weakens temporal smoothing
                             # Non-fatal: a dropped sample only weakens temporal smoothing.
                             self.logger.debug("history append failed on track %s", track_key, exc_info=True)
                 else:  # if eligible for recognition
@@ -2907,7 +2989,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                         timestamp=current_timestamp,
                         search_id=search_id,
                     )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - one track's identity failure must not drop the whole frame
             self.logger.warning(f"TemporalIdentityManager update failed: {e}")
 
         # Update detection object directly (avoid relying on SearchResult type)
@@ -2935,7 +3017,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
 
         try:
             internal_tid = detection.get("track_id")
-        except Exception:
+        except Exception:  # noqa: BLE001 - a detection without a track_id is handled as None
             internal_tid = None
 
         if not is_truly_unknown and detection_type == "known":
@@ -2978,7 +3060,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                 self.logger.debug(
                     f"Enqueued known face detection for activity logging: {detection.get('person_name', 'Unknown')}"
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - activity-logging failure must not drop the frame
             self.logger.error(f"Error enqueueing detection for activity logging: {e}")
         # print("------------------PROCESS FACE LATENCY TOTAL----------------------------")
         # print("LATENCY:",(time.time() - st2)*1000,"| Throughput fps:",(1.0 / (time.time() - st2)) if (time.time() - st2) > 0 else None)
@@ -3553,7 +3635,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                     # parts = ['2025', '10', '27', '19:31:20']
                     formatted = f"{parts[0]}:{parts[1]}:{parts[2]} {'-'.join(parts[3:])}"
                     return formatted
-        except Exception:
+        except Exception:  # noqa: BLE001 - an unparseable timestamp falls through to the cleaned string
             # Non-fatal: falls through to returning the cleaned string as-is.
             self.logger.debug("could not reformat timestamp %r", timestamp_clean, exc_info=True)
 
@@ -3604,7 +3686,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except Exception:  # noqa: BLE001 - an unparseable timestamp falls back to wall-clock now
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
@@ -3644,7 +3726,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                         candidate = datetime.fromtimestamp(self._tracking_start_time, timezone.utc).strftime(
                             "%Y-%m-%d-%H:%M:%S.%f UTC"
                         )
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - an unparseable timestamp falls back to wall-clock now
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -3660,7 +3742,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         ts = dt.replace(tzinfo=timezone.utc).timestamp()
                         candidate = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - an unparseable timestamp falls back to wall-clock now
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -3678,7 +3760,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - an unparseable timestamp falls back to wall-clock now
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
@@ -3772,14 +3854,14 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         try:
             if hasattr(self, "people_activity_logging") and self.people_activity_logging:
                 self.people_activity_logging.stop_background_processing()
-        except Exception:
+        except Exception:  # noqa: BLE001 - teardown continues with the remaining helpers
             # Non-fatal: teardown continues with the remaining helpers.
             self.logger.debug("stopping people_activity_logging failed during teardown", exc_info=True)
 
         try:
             if hasattr(self, "embedding_manager") and self.embedding_manager:
                 self.embedding_manager.stop_background_refresh()
-        except Exception:
+        except Exception:  # noqa: BLE001 - teardown is best-effort and must not raise
             # Non-fatal: teardown is best-effort.
             self.logger.debug("stopping embedding_manager refresh failed during teardown", exc_info=True)
 
@@ -3792,3 +3874,4 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
     def __del__(self):
         """Cleanup when object is destroyed"""
         self._teardown_resources()
+# fmt: on

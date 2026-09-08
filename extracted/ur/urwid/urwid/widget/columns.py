@@ -251,6 +251,7 @@ class Columns(
         :param box_columns: a list of column indexes containing box widgets
             whose height is set to the maximum of the rows
             required by columns not listed in *box_columns*.
+        :raises ColumnsError: an item of *widget_list* is not a widget or a valid ``(width, widget)`` pair.
 
         *widget_list* may also contain tuples such as:
 
@@ -417,6 +418,11 @@ class Columns(
             ]
         ],
     ) -> None:
+        """
+        Reject contents changes that would put an invalid item into the Columns.
+
+        :raises ColumnsError: an added item is not a valid ``(widget, options)`` pair.
+        """
         invalid_items: list[tuple[AbstractWidget, tuple[typing.Any, typing.Any, typing.Any]]] = []
         try:
             for item in new_items:
@@ -438,10 +444,11 @@ class Columns(
     @property
     def widget_list(self) -> MonitoredList[AbstractWidget]:
         """
-        A list of the widgets in this Columns
+        A list of the widgets in this Columns.
 
-        .. note:: only for backwards compatibility. You should use the new
-            standard container property :attr:`contents`.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility. You should use the new standard container `contents`."
@@ -459,6 +466,13 @@ class Columns(
 
     @widget_list.setter
     def widget_list(self, widgets: MonitoredList[AbstractWidget]) -> None:
+        """
+        Replace the widgets in this Columns, keeping the old options where possible.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "only for backwards compatibility. You should use the new standard container `contents`."
             "API will be removed in version 5.0.",
@@ -486,9 +500,11 @@ class Columns(
         | tuple[Literal[WHSettings.WEIGHT], int | float],
     ]:
         """
-        A list of the old partial options values for widgets in this Pile,
-        for backwards compatibility only.  You should use the new standard
-        container property .contents to modify Pile contents.
+        A list of the old partial options values for the widgets in this Columns.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "for backwards compatibility only."
@@ -524,6 +540,13 @@ class Columns(
             | tuple[Literal[WHSettings.WEIGHT], int | float],
         ],
     ) -> None:
+        """
+        Replace the width settings of the widgets in this Columns.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "for backwards compatibility only."
             "You should use the new standard container property .contents to modify Pile contents."
@@ -552,11 +575,12 @@ class Columns(
     @property
     def box_columns(self) -> MonitoredList[int]:
         """
-        A list of the indexes of the columns that are to be treated as
-        box widgets when the Columns is treated as a flow widget.
+        A list of the indexes of the columns that are to be treated as box widgets
+        when the Columns is treated as a flow widget.
 
-        .. note:: only for backwards compatibility. You should use the new
-            standard container property :attr:`contents`.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility.You should use the new standard container property `contents`."
@@ -574,6 +598,13 @@ class Columns(
 
     @box_columns.setter
     def box_columns(self, box_columns: MonitoredList[int]) -> None:
+        """
+        Mark the columns at the given indexes as box widgets.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`contents` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "only for backwards compatibility.You should use the new standard container property `contents`."
             "API will be removed in version 5.0.",
@@ -653,6 +684,7 @@ class Columns(
         :param box_widget: set to `True` if this widget is to be treated as a box
             widget when the Columns widget itself is treated as a flow widget.
         :type box_widget: bool
+        :raises ColumnsError: *width_type* and *width_amount* are not a valid combination.
         """
         if width_type == WHSettings.PACK:
             return (WHSettings.PACK, None, box_widget)
@@ -671,8 +703,9 @@ class Columns(
         :param num: index of focus-to-be entry
         :type num: int
 
-        .. note:: only for backwards compatibility. You may also use the new
-            standard container property :attr:`focus_position` to set the focus.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility.You may also use the new standard container property `focus_position`."
@@ -686,8 +719,9 @@ class Columns(
         """
         Return the focus column index.
 
-        .. note:: only for backwards compatibility. You may also use the new
-            standard container property :attr:`focus_position` to get the focus.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility.You may also use the new standard container property `focus_position`."
@@ -699,12 +733,15 @@ class Columns(
 
     def set_focus(self, item: AbstractWidget | int) -> None:
         """
-        Set the item in focus
+        Set the item in focus.
 
-        .. note:: only for backwards compatibility. You may also use the new
-            standard container property :attr:`focus_position` to get the focus.
+        :param item: widget or integer index
+        :raises ValueError: *item* is a widget that is not in the contents.
 
-        :param item: widget or integer index"""
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "only for backwards compatibility."
             "You may also use the new standard container property `focus_position` to get the focus."
@@ -723,23 +760,18 @@ class Columns(
 
     @property
     def focus(self) -> AbstractWidget | None:
-        """
-        the child widget in focus or None when Columns is empty
-
-        Return the widget in focus, for backwards compatibility.  You may
-        also use the new standard container property .focus to get the
-        child widget in focus.
-        """
+        """the child widget in focus or None when Columns is empty"""
         if not self.contents:
             return None
         return self.contents[self.focus_position][0]
 
     def get_focus(self) -> AbstractWidget | None:
         """
-        Return the widget in focus, for backwards compatibility.
+        Return the widget in focus.
 
-        .. note:: only for backwards compatibility. You may also use the new
-            standard container property :attr:`focus` to get the focus.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility."
@@ -757,6 +789,8 @@ class Columns(
         """
         index of child widget in focus.
         Raises :exc:`IndexError` if read when Columns is empty, or when set to an invalid index.
+
+        :raises IndexError: the Columns is empty.
         """
         if (focus := self.contents.focus) is not None:
             return focus
@@ -768,7 +802,8 @@ class Columns(
         """
         Set the widget in focus.
 
-        position -- index of child widget to be made focus
+        :param position: index of child widget to be made focus
+        :raises IndexError: *position* is not an index of a child widget.
         """
         try:
             if position < 0 or position >= len(self.contents):
@@ -782,11 +817,11 @@ class Columns(
     @property
     def focus_col(self) -> int:
         """
-        A property for reading and setting the index of the column in
-        focus.
+        A property for reading and setting the index of the column in focus.
 
-        .. note:: only for backwards compatibility. You may also use the new
-            standard container property :attr:`focus_position` to get the focus.
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
         """
         warnings.warn(
             "only for backwards compatibility."
@@ -799,6 +834,13 @@ class Columns(
 
     @focus_col.setter
     def focus_col(self, new_position: int) -> None:
+        """
+        Set the index of the column in focus.
+
+        .. deprecated:: 1.1.0
+            Use the standard container property :attr:`focus_position` instead.
+            This API will be removed in version 5.0.
+        """
         warnings.warn(
             "only for backwards compatibility."
             "You may also use the new standard container property `focus_position` to get the focus."
@@ -915,7 +957,11 @@ class Columns(
         self,
         focus: bool = False,
     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[tuple[int, int] | tuple[int] | tuple[()], ...]]:
-        """Get column widths, heights and render size parameters"""
+        """Get column widths, heights and render size parameters
+
+        :raises ColumnsError: a child widget does not support a sizing mode this Columns needs, or no child can provide
+            a height.
+        """
         widths: dict[int, int] = {}
         heights: dict[int, int] = {}
         w_h_args: dict[int, tuple[int, int] | tuple[int] | tuple[()]] = {}
@@ -1097,6 +1143,7 @@ class Columns(
         :param size: see :meth:`Widget.render` for details
         :param focus: ``True`` if this widget is in focus
         :type focus: bool
+        :raises ColumnsError: the Columns has no visible column to render.
         """
         widths, _, size_args = self.get_column_sizes(size, focus)
 
@@ -1158,6 +1205,8 @@ class Columns(
         Choose a selectable column to focus based on the coords.
 
         see :meth:`Widget.move_cursor_coords` for details
+
+        :raises ValueError: no column accepts the cursor at the given coordinates.
         """
         try:
             widths, _, size_args = self.get_column_sizes(size, focus=True)

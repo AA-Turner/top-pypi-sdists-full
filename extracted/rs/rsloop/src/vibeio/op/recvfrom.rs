@@ -1,3 +1,6 @@
+#![deny(unsafe_op_in_unsafe_fn)]
+#![warn(clippy::undocumented_unsafe_blocks)]
+
 use std::io;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
@@ -8,8 +11,7 @@ use mio::Interest;
 #[cfg(windows)]
 use windows_sys::Win32::{
     Networking::WinSock::{
-        self as WinSock, AF_INET, AF_INET6, MSG_PEEK, SOCKADDR, SOCKADDR_IN, SOCKADDR_IN6,
-        SOCKADDR_STORAGE, SOCKET, WSA_IO_PENDING, WSABUF,
+        self as WinSock, MSG_PEEK, SOCKADDR, SOCKADDR_STORAGE, SOCKET, WSA_IO_PENDING, WSABUF,
     },
     System::IO::OVERLAPPED,
 };
@@ -22,77 +24,20 @@ use crate::vibeio::fd_inner::RawOsHandle;
 use crate::vibeio::io::IoBufMut;
 use crate::vibeio::op::Op;
 use crate::vibeio::op::io_util::CompletionBuffer;
-
-#[cfg(unix)]
-#[inline]
-fn sockaddr_storage_to_socketaddr(
-    storage: &libc::sockaddr_storage,
-) -> Result<SocketAddr, io::Error> {
-    let family = storage.ss_family as libc::c_int;
-
-    if family == libc::AF_INET {
-        let addr_in: &libc::sockaddr_in =
-            unsafe { &*(storage as *const _ as *const libc::sockaddr_in) };
-        let port = u16::from_be(addr_in.sin_port);
-        let ip_u32 = u32::from_be(addr_in.sin_addr.s_addr);
-        let ip = std::net::Ipv4Addr::from(ip_u32);
-        Ok(SocketAddr::V4(std::net::SocketAddrV4::new(ip, port)))
-    } else if family == libc::AF_INET6 {
-        let addr_in6: &libc::sockaddr_in6 =
-            unsafe { &*(storage as *const _ as *const libc::sockaddr_in6) };
-        let port = u16::from_be(addr_in6.sin6_port);
-        let ip = std::net::Ipv6Addr::from(addr_in6.sin6_addr.s6_addr);
-        Ok(SocketAddr::V6(std::net::SocketAddrV6::new(
-            ip,
-            port,
-            addr_in6.sin6_flowinfo,
-            addr_in6.sin6_scope_id,
-        )))
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "unsupported socket family",
-        ))
-    }
-}
+use crate::vibeio::op::socket_addr::sockaddr_storage_to_socketaddr;
 
 #[cfg(windows)]
 #[inline]
-fn sockaddr_storage_to_socketaddr(storage: &SOCKADDR_STORAGE) -> Result<SocketAddr, io::Error> {
-    let family = storage.ss_family;
-
-    if family == AF_INET {
-        let addr_in: &SOCKADDR_IN = unsafe { &*(storage as *const _ as *const SOCKADDR_IN) };
-        let port = u16::from_be(addr_in.sin_port);
-        let ip_u32 = u32::from_be(unsafe { addr_in.sin_addr.S_un.S_addr });
-        let ip = std::net::Ipv4Addr::from(ip_u32);
-        Ok(SocketAddr::V4(std::net::SocketAddrV4::new(ip, port)))
-    } else if family == AF_INET6 {
-        let addr_in6: &SOCKADDR_IN6 = unsafe { &*(storage as *const _ as *const SOCKADDR_IN6) };
-        let port = u16::from_be(addr_in6.sin6_port);
-        let ip = std::net::Ipv6Addr::from(unsafe { addr_in6.sin6_addr.u.Byte });
-        Ok(SocketAddr::V6(std::net::SocketAddrV6::new(
-            ip,
-            port,
-            addr_in6.sin6_flowinfo,
-            unsafe { addr_in6.Anonymous.sin6_scope_id },
-        )))
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "unsupported socket family",
-        ))
-    }
-}
-
-#[cfg(windows)]
-#[inline]
-fn socket_recvfrom(socket: SOCKET, buf: &mut [u8], peek: bool) -> io::Result<(usize, SocketAddr)> {
+fn socket_recvfrom(
+    socket: SOCKET,
+    buf: &mut impl IoBufMut,
+    peek: bool,
+) -> io::Result<(usize, SocketAddr)> {
     use windows_sys::Win32::Networking::WinSock::{
         self as WinSock, MSG_PEEK, SOCKADDR, SOCKADDR_STORAGE, SOCKET_ERROR, WSABUF,
     };
 
-    let len = u32::try_from(buf.len()).map_err(|_| {
+    let len = crate::vibeio::op::io_util::completion_len(buf.buf_capacity()).map_err(|_| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
             "read buffer is too large for Windows socket I/O",
@@ -101,13 +46,16 @@ fn socket_recvfrom(socket: SOCKET, buf: &mut [u8], peek: bool) -> io::Result<(us
 
     let mut wsabuf = WSABUF {
         len,
-        buf: buf.as_mut_ptr().cast(),
+        buf: buf.as_buf_mut_ptr().cast(),
     };
     let mut bytes: u32 = 0;
     let mut flags: u32 = if peek { MSG_PEEK as u32 } else { 0 };
     let mut addr = SOCKADDR_STORAGE::default();
     let mut addr_len = std::mem::size_of::<SOCKADDR_STORAGE>() as i32;
 
+    // SAFETY: IoBufMut grants exclusively borrowed writable capacity. All
+    // output fields are live initialized stack storage; null OVERLAPPED makes
+    // this synchronous, so no pointers survive the call.
     let recv_result = unsafe {
         WinSock::WSARecvFrom(
             socket,
@@ -122,12 +70,13 @@ fn socket_recvfrom(socket: SOCKET, buf: &mut [u8], peek: bool) -> io::Result<(us
         )
     };
     if recv_result == SOCKET_ERROR {
+        // SAFETY: retrieves the calling thread's Winsock error; takes no pointers.
         return Err(io::Error::from_raw_os_error(unsafe {
             WinSock::WSAGetLastError()
         }));
     }
 
-    let address = sockaddr_storage_to_socketaddr(&addr)?;
+    let address = sockaddr_storage_to_socketaddr(&addr, addr_len as usize)?;
     Ok((bytes as usize, address))
 }
 
@@ -188,6 +137,10 @@ impl<'a, B: IoBufMut> RecvfromOp<'a, B> {
 
     #[inline]
     pub fn take_bufs(mut self) -> B {
+        assert!(
+            self.completion_token.is_none(),
+            "cannot reclaim a buffer while I/O is pending"
+        );
         self.buf.take().unwrap().into_inner()
     }
 }
@@ -208,6 +161,9 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
         let result = {
             let mut addr = MaybeUninit::<libc::sockaddr_storage>::zeroed();
             let mut addr_len = std::mem::size_of::<libc::sockaddr_storage>() as libc::socklen_t;
+            // SAFETY: IoBufMut provides exclusive writable capacity, and addr
+            // and addr_len are live output storage of the supplied sizes. This
+            // synchronous call retains no pointers and does not request MSG_TRUNC.
             let read = unsafe {
                 libc::recvfrom(
                     self.handle.handle,
@@ -222,20 +178,17 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
             if read == -1 {
                 Err(io::Error::last_os_error())
             } else {
+                // SAFETY: storage was fully zero-initialized (all-zero integer
+                // fields are valid); recvfrom only overwrites bytes within it.
                 let addr = unsafe { addr.assume_init() };
-                let address = sockaddr_storage_to_socketaddr(&addr)?;
+                let address = sockaddr_storage_to_socketaddr(&addr, addr_len as usize)?;
                 Ok((read as usize, address))
             }
         };
 
         #[cfg(windows)]
         let result = match self.handle.handle {
-            RawOsHandle::Socket(socket) => {
-                let slice = unsafe {
-                    std::slice::from_raw_parts_mut(buf.as_buf_mut_ptr(), buf.buf_capacity())
-                };
-                socket_recvfrom(socket as SOCKET, slice, self.peek)
-            }
+            RawOsHandle::Socket(socket) => socket_recvfrom(socket as SOCKET, buf, self.peek),
             RawOsHandle::Handle(_) => Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "poll-based recvfrom currently supports sockets only on Windows",
@@ -244,6 +197,8 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
 
         match result {
             Ok((read, address)) => {
+                // SAFETY: successful recvfrom initialized exactly the reported
+                // prefix of the supplied capacity; MSG_TRUNC was not requested.
                 unsafe { buf.set_buf_init(read) };
                 Poll::Ready(Ok((read, address)))
             }
@@ -286,7 +241,7 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
             }
         };
         if result < 0 {
-            return Poll::Ready(Err(io::Error::from_raw_os_error(-result)));
+            return Poll::Ready(Err(crate::vibeio::op::io_util::completion_error(result)));
         }
         #[cfg(any(target_os = "linux", windows))]
         let read = result as usize;
@@ -297,8 +252,12 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
                 .completion_state
                 .as_ref()
                 .ok_or_else(|| io::Error::other("recvfrom completion missing source address"))
-                .and_then(|state| sockaddr_storage_to_socketaddr(&state.addr));
+                .and_then(|state| {
+                    sockaddr_storage_to_socketaddr(&state.addr, state.msghdr.msg_namelen as usize)
+                });
             let buf = self.buf.as_mut().unwrap().as_mut();
+            // SAFETY: the successful CQE acknowledges initialization of this
+            // many bytes in the retained stable buffer. No MSG_TRUNC was requested.
             unsafe { buf.set_buf_init(read) };
             Poll::Ready(address.map(|address| (read, address)))
         }
@@ -322,8 +281,12 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
                         "recvfrom completion missing source address",
                     )
                 })
-                .and_then(|state| sockaddr_storage_to_socketaddr(&state.addr));
+                .and_then(|state| {
+                    sockaddr_storage_to_socketaddr(&state.addr, state.addr_len as usize)
+                });
             let buf = self.buf.as_mut().unwrap().as_mut();
+            // SAFETY: the successful overlapped completion reports initialized
+            // bytes within the WSABUF capacity retained through its acknowledgement.
             unsafe { buf.set_buf_init(read) };
             Poll::Ready(address.map(|address| (read, address)))
         }
@@ -340,12 +303,13 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
             ));
         };
 
-        let read_len = u32::try_from(buf.buf_capacity()).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "read buffer is too large for Windows socket I/O",
-            )
-        })?;
+        let read_len =
+            crate::vibeio::op::io_util::completion_len(buf.buf_capacity()).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "read buffer is too large for Windows socket I/O",
+                )
+            })?;
 
         let completion = self.completion_state.get_or_insert_with(|| {
             Box::new(RecvfromWindowsCompletion {
@@ -363,6 +327,10 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
         completion.addr_len = std::mem::size_of::<SOCKADDR_STORAGE>() as i32;
         completion.flags = if self.peek { MSG_PEEK as u32 } else { 0 };
 
+        // SAFETY: the boxed completion state and CompletionBuffer have stable
+        // addresses and retain all writable regions through completion. The
+        // driver supplies live OVERLAPPED storage; Drop transfers operation
+        // storage to that driver if cancellation precedes acknowledgement.
         let recv_result = unsafe {
             WinSock::WSARecvFrom(
                 socket as SOCKET,
@@ -381,6 +349,7 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
             return Ok(());
         }
 
+        // SAFETY: reads this thread's last Winsock error without pointers.
         let err = unsafe { WinSock::WSAGetLastError() };
         if err == WSA_IO_PENDING {
             Ok(())
@@ -401,20 +370,24 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
         let buf = self.buf.as_mut().unwrap().as_mut();
         let completion = self.completion_state.get_or_insert_with(|| {
             Box::new(RecvfromLinuxCompletion {
+                // SAFETY: sockaddr_storage consists of integer and byte fields,
+                // for which all-zero initialization is valid.
                 addr: unsafe { std::mem::zeroed() },
                 iovec: libc::iovec {
                     iov_base: std::ptr::null_mut(),
                     iov_len: 0,
                 },
+                // SAFETY: msghdr contains integers and raw pointers, all valid
+                // when zeroed. Its live pointers are installed after boxing.
                 msghdr: unsafe { std::mem::zeroed() },
             })
         });
-        completion.addr = unsafe { std::mem::zeroed() };
+        // Reuse initialized address storage. The decoder checks the returned
+        // length, and every input/output msghdr field is reset below.
         completion.iovec = libc::iovec {
             iov_base: buf.as_buf_mut_ptr().cast::<libc::c_void>(),
             iov_len: buf.buf_capacity(),
         };
-        completion.msghdr = unsafe { std::mem::zeroed::<libc::msghdr>() };
         completion.msghdr.msg_name =
             &mut completion.addr as *mut libc::sockaddr_storage as *mut libc::c_void;
         completion.msghdr.msg_namelen =
@@ -440,21 +413,203 @@ impl<B: IoBufMut> Op for RecvfromOp<'_, B> {
 impl<B: IoBufMut> Drop for RecvfromOp<'_, B> {
     #[inline]
     fn drop(&mut self) {
-        if let Some(completion_token) = self.completion_token {
-            if let Some(driver) = crate::vibeio::current_driver() {
-                #[cfg(any(windows, target_os = "linux"))]
-                let completion_state = self.completion_state.take();
-                #[cfg(not(any(windows, target_os = "linux")))]
-                let completion_state = ();
+        if let Some(token) = self.completion_token.take() {
+            #[cfg(any(windows, target_os = "linux"))]
+            let completion_state = self.completion_state.take();
+            #[cfg(not(any(windows, target_os = "linux")))]
+            let completion_state = ();
+            // The owning driver, not the currently entered runtime, must retain
+            // every kernel-visible allocation until completion is acknowledged.
+            self.handle.cancel_completion(
+                token,
+                Box::new((
+                    completion_state,
+                    self.buf.take().map(CompletionBuffer::into_stable_box),
+                )),
+            );
+        }
+    }
+}
 
-                driver.ignore_completion(
-                    completion_token,
-                    Box::new((
-                        completion_state,
-                        self.buf.take().map(CompletionBuffer::into_stable_box),
-                    )),
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn recvmsg_completion_truncates_to_capacity_and_preserves_peek() {
+        use std::os::fd::AsRawFd;
+        use std::rc::Rc;
+        use std::time::{Duration, Instant};
+        let driver = match AnyDriver::new_uring_custom(io_uring::IoUring::builder()) {
+            Ok(driver) => Rc::new(driver),
+            Err(error)
+                if matches!(
+                    error.raw_os_error(),
+                    Some(libc::EPERM | libc::ENOSYS | libc::EOPNOTSUPP)
+                ) =>
+            {
+                eprintln!("io_uring unavailable: {error}");
+                return;
+            }
+            Err(error) => panic!("io_uring initialization failed: {error}"),
+        };
+        for bind in ["127.0.0.1:0", "[::1]:0"] {
+            let reader = std::net::UdpSocket::bind(bind).unwrap();
+            let writer = std::net::UdpSocket::bind(bind).unwrap();
+            reader.set_nonblocking(true).unwrap();
+            let handle = InnerRawHandle::new_with_driver_and_mode(
+                &driver,
+                reader.as_raw_fd(),
+                Interest::READABLE,
+                crate::vibeio::driver::RegistrationMode::Completion,
+            )
+            .unwrap();
+            let source = writer.local_addr().unwrap();
+            let payload = [0x5a; 64];
+            for capacity in [0, 8] {
+                writer
+                    .send_to(&payload, reader.local_addr().unwrap())
+                    .unwrap();
+                for peek in [true, false] {
+                    let buffer = Vec::<u8>::with_capacity(capacity);
+                    let expected = buffer.capacity().min(payload.len());
+                    let mut op = if peek {
+                        RecvfromOp::new_peek(&handle, buffer)
+                    } else {
+                        RecvfromOp::new(&handle, buffer)
+                    };
+                    let deadline = Instant::now() + crate::vibeio::test_support::WATCHDOG;
+                    let mut cx = Context::from_waker(std::task::Waker::noop());
+                    let result = loop {
+                        if let Poll::Ready(result) = op.poll_completion(&mut cx, &driver) {
+                            break result.unwrap();
+                        }
+                        assert!(Instant::now() < deadline, "recvmsg completion timed out");
+                        driver.wait(Some(Duration::from_millis(10)));
+                    };
+                    assert_eq!(result, (expected, source));
+                    assert_eq!(op.take_bufs(), payload[..expected]);
+                }
+                assert_eq!(
+                    reader.recv_from(&mut [0; 64]).unwrap_err().kind(),
+                    io::ErrorKind::WouldBlock
                 );
             }
         }
+    }
+
+    #[cfg(any(unix, windows))]
+    #[test]
+    fn polling_datagrams_preserve_peek_address_and_empty_packet() {
+        use std::net::UdpSocket;
+        #[cfg(unix)]
+        use std::os::fd::AsRawFd;
+        #[cfg(windows)]
+        use std::os::windows::io::AsRawSocket;
+
+        let reader = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let writer = UdpSocket::bind("127.0.0.1:0").unwrap();
+        reader.set_nonblocking(true).unwrap();
+        let destination = reader.local_addr().unwrap();
+        let source = writer.local_addr().unwrap();
+        let driver = crate::vibeio::test_support::polling_driver();
+        let handle = InnerRawHandle::new_with_driver_and_mode(
+            &driver,
+            #[cfg(unix)]
+            reader.as_raw_fd(),
+            #[cfg(windows)]
+            RawOsHandle::Socket(reader.as_raw_socket()),
+            Interest::READABLE,
+            crate::vibeio::driver::RegistrationMode::Poll,
+        )
+        .unwrap();
+        let mut cx = Context::from_waker(std::task::Waker::noop());
+        let mut buffer = Vec::<u8>::with_capacity(32);
+
+        for payload in [b"abc".as_slice(), b"", b"after empty"] {
+            for peek in [true, false] {
+                let mut op = if peek {
+                    RecvfromOp::new_peek(&handle, buffer)
+                } else {
+                    RecvfromOp::new(&handle, buffer)
+                };
+                if peek {
+                    assert!(op.poll_poll(&mut cx, &driver).is_pending());
+                    assert_eq!(writer.send_to(payload, destination).unwrap(), payload.len());
+                }
+                let (count, addr) = crate::vibeio::test_support::poll_io(
+                    || op.poll_poll(&mut cx, &driver),
+                    || driver.wait(Some(std::time::Duration::from_millis(10))),
+                )
+                .expect("datagram receive/peek should complete");
+                assert_eq!((count, addr), (payload.len(), source));
+                buffer = op.take_bufs();
+                assert_eq!(buffer, payload);
+            }
+        }
+        reader.set_nonblocking(true).unwrap();
+        assert_eq!(
+            reader.recv_from(&mut [0; 32]).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn reused_recvmsg_state_resets_metadata_and_keeps_stable_addresses() {
+        let driver = std::rc::Rc::new(AnyDriver::new_mock());
+        let handle = InnerRawHandle::for_mock_completion(driver);
+        let mut op = RecvfromOp::new(&handle, Vec::<u8>::with_capacity(32));
+        op.build_completion_entry(1).unwrap();
+        let state = op.completion_state.as_mut().unwrap();
+        let state_address = std::ptr::from_ref(state.as_ref());
+        let buffer_address = state.iovec.iov_base;
+        let capacity = state.iovec.iov_len;
+        // Model output fields changed by a completed receive. Rebuilding must
+        // restore the supplied sizes and remove obsolete ancillary-data state.
+        state.msghdr.msg_namelen = 0;
+        state.msghdr.msg_iovlen = 0;
+        state.msghdr.msg_flags = libc::MSG_TRUNC;
+        state.msghdr.msg_control = std::ptr::addr_of_mut!(state.addr).cast();
+        state.msghdr.msg_controllen = 1;
+        op.build_completion_entry(2).unwrap();
+        let state = op.completion_state.as_ref().unwrap();
+        assert_eq!(std::ptr::from_ref(state.as_ref()), state_address);
+        assert_eq!(state.iovec.iov_base, buffer_address);
+        assert_eq!(state.iovec.iov_len, capacity);
+        assert_eq!(
+            state.msghdr.msg_namelen as usize,
+            std::mem::size_of_val(&state.addr)
+        );
+        assert_eq!(
+            state.msghdr.msg_name,
+            std::ptr::addr_of!(state.addr).cast_mut().cast()
+        );
+        assert_eq!(
+            state.msghdr.msg_iov,
+            std::ptr::addr_of!(state.iovec).cast_mut()
+        );
+        assert_eq!(state.msghdr.msg_iovlen, 1);
+        assert_eq!(state.msghdr.msg_flags, 0);
+        assert!(state.msghdr.msg_control.is_null());
+        assert_eq!(state.msghdr.msg_controllen, 0);
+    }
+
+    #[test]
+    fn pending_buffer_is_retained_by_owning_driver() {
+        crate::vibeio::op::io_util::cancellation_tests::check_cancellation(
+            |handle, buffer, reclaim| {
+                let mut op = RecvfromOp::new(handle, buffer);
+                op.completion_token = Some(41);
+                if reclaim {
+                    let result =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| op.take_bufs()));
+                    assert!(result.is_err(), "pending storage must not be reclaimed");
+                } else {
+                    drop(op);
+                }
+            },
+        );
     }
 }

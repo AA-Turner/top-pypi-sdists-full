@@ -145,6 +145,54 @@ class TestPickS2sDir(unittest.TestCase):
         self.assertIsNone(pick_s2s_dir(root, {"balaka", "dedza"}))
 
 
+class TestSkipExperimentsPreservesBest(unittest.TestCase):
+    """skip_experiments must keep the reused experiments and best variants.
+
+    Rebuilding `exp` from the empty exp_rows wiped them, so every target
+    silently fell back to own-country training in the forecast step.
+    """
+
+    def test_reused_experiments_are_not_clobbered(self):
+        import inspect
+        from geocif.experiments import s2s_pooled_model as spm
+
+        src = inspect.getsource(spm.run)
+        i_guard = src.find("if not skip_experiments:")
+        i_build = src.find("exp = pd.DataFrame(exp_rows)")
+        self.assertGreater(i_guard, -1, "missing skip_experiments guard")
+        self.assertGreater(i_build, i_guard,
+                           "exp is rebuilt outside the skip guard — reused "
+                           "experiments would be clobbered")
+
+
+class TestTransferVariantPredicts(unittest.TestCase):
+    """The transfer variant trains WITHOUT the target but must still predict
+    the target's rows: pooled_loyo needs them present in the pooled frame."""
+
+    def test_pooled_loyo_predicts_target_excluded_from_training(self):
+        from geocif.experiments.s2s_pooled_model import pooled_loyo
+        from geocif.experiments.s2s_simple_model import FEATURES
+
+        rng = np.random.default_rng(4)
+        rows = []
+        for ctry in ("tgt", "n1", "n2"):
+            for y in range(2000, 2016):
+                for r in ("r1", "r2", "r3", "r4", "r5"):
+                    zp, zt = rng.normal(), rng.normal()
+                    rows.append({"country": ctry, "region": f"{ctry}_{r}",
+                                 "year": y, "z_PRCPTOT": zp, "z_TMEAN": zt,
+                                 "z_P_GF": rng.normal(),
+                                 "anom": 0.08 * zp - 0.04 * zt})
+        d = pd.DataFrame(rows)
+        d["DRYHEAT"] = d["z_PRCPTOT"] * d["z_TMEAN"]
+
+        lo = pooled_loyo(d, FEATURES, list(range(2001, 2015)), "tgt",
+                         ["n1", "n2"])          # transfer: target not trained
+        self.assertFalse(lo.empty, "transfer variant produced no predictions")
+        self.assertEqual(set(lo.country.unique()), {"tgt"})
+        self.assertIn("region", lo.columns)
+
+
 class TestCausalTrend(unittest.TestCase):
     def test_trend_excludes_own_year(self):
         from geocif.experiments.s2s_pooled_model import causal_trend

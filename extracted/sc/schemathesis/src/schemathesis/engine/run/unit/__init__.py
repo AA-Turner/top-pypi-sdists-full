@@ -32,7 +32,7 @@ from schemathesis.engine import Status, events
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.engine.run import PhaseName, PhaseSkipReason
 from schemathesis.engine.run.unit._direct_executor import run_driver
-from schemathesis.engine.run.unit._pool import WorkerPool
+from schemathesis.engine.run.unit._pool import WORKER_FINISHED, WorkerPool
 from schemathesis.engine.supervisor import SchedulingDirective
 from schemathesis.generation import overrides
 from schemathesis.generation.drivers import CoverageGenerator, ExamplesGenerator
@@ -59,6 +59,8 @@ def _build_coverage_generator(
         auth_storage=as_strategy_kwargs.get("auth_storage"),
         as_strategy_kwargs=as_strategy_kwargs,
         feedback=feedback,
+        session=ctx.coverage_session,
+        unexpected_methods_seen=ctx.coverage_unexpected_methods_seen,
     )
 
 
@@ -74,13 +76,21 @@ def _build_examples_generator(
     )
 
 
-def _create_scheduler(engine: EngineContext, phase: Phase) -> Scheduler:
+def _create_scheduler(engine: EngineContext, phase: Phase, *, only: frozenset[str] | None = None) -> Scheduler:
     """Create the appropriate scheduler via the schema's specification-aware override."""
     operations: list[Result[APIOperation, InvalidSchema]] = list(engine.schema.get_all_operations())
+    if phase.name != PhaseName.COVERAGE:
+        # An operation whose required body has no usable schema cannot be sent valid data, so every phase
+        # but coverage - which tests it by omitting the body - would judge it on data it never described.
+        operations = [item for item in operations if not (isinstance(item, Ok) and item.ok().has_skipped_required_body)]
+    if only is not None:
+        operations = [item for item in operations if isinstance(item, Ok) and item.ok().label in only]
+    # Entries the schema could not produce never claim a share, so counting them shrinks every other one.
+    engine.start_unit_phase(total_operations=sum(1 for item in operations if isinstance(item, Ok)))
     return engine.schema.get_unit_scheduler(operations, phase)
 
 
-def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
+def execute(engine: EngineContext, phase: Phase, *, only: frozenset[str] | None = None) -> events.EventGenerator:
     """Run a set of unit tests.
 
     Implemented as a producer-consumer pattern via a task queue.
@@ -90,13 +100,12 @@ def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
         mode = HypothesisTestMode.EXAMPLES
     elif phase.name == PhaseName.COVERAGE:
         mode = HypothesisTestMode.COVERAGE
-        engine.schema.reset_coverage_state()
     else:
         mode = HypothesisTestMode.FUZZING
 
     # Create scheduler based on ordering configuration
     try:
-        scheduler = _create_scheduler(engine, phase)
+        scheduler = _create_scheduler(engine, phase, only=only)
     except HookExecutionError as exc:
         yield events.NonFatalError(
             error=exc, phase=phase.name, label=f"`{exc.hook_name}` hook", related_to_operation=False
@@ -121,10 +130,16 @@ def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
             phase=phase.name,
             suite_id=suite_started.id,
         ) as pool:
+            finished = 0
             try:
                 while True:
                     try:
                         event = pool.events_queue.get(timeout=WORKER_TIMEOUT)
+                        if event is WORKER_FINISHED:
+                            finished += 1
+                            if finished == len(pool.workers):
+                                break
+                            continue
                         is_executed = True
                         if engine.is_interrupted:
                             raise KeyboardInterrupt
@@ -135,12 +150,14 @@ def execute(engine: EngineContext, phase: Phase) -> events.EventGenerator:
                             if event.status != Status.SKIP and (status is None or status < event.status):
                                 status = event.status
                             if event.status in (Status.ERROR, Status.FAILURE):
-                                engine.control.count_failure()
+                                engine.control.count_failure((phase.name, event.label))
                             engine.record_observations(event.recorder)
                         if isinstance(event, events.Interrupted) or engine.is_interrupted:
                             status = Status.INTERRUPTED
                             engine.stop()
-                        if engine.has_to_stop:
+                        # A reached failure limit stops at N by design. A spent budget has no cap to
+                        # keep, so let the workers wind down and hand over what they already produced.
+                        if engine.has_reached_the_failure_limit:
                             break
                     except queue.Empty:
                         # A worker may put its final events and exit between this thread's
@@ -228,6 +245,7 @@ def worker_task(
 
                 if isinstance(result, Ok):
                     operation = result.ok()
+                    ctx.take_operation_slice()
                     phases = ctx.config.phases_for(operation=operation)
                     # Skip tests if this phase is disabled
                     if (
@@ -304,7 +322,7 @@ def worker_task(
                                 config=HypothesisTestConfig(
                                     modes=[mode],
                                     settings=ctx.config.get_hypothesis_settings(operation=operation, phase=phase.value),
-                                    seed=ctx.config.seed,
+                                    seed=ctx.cycle_seed,
                                     project=ctx.config,
                                     as_strategy_kwargs=as_strategy_kwargs,
                                     feedback=feedback,
@@ -354,9 +372,10 @@ def build_feedback_sources(ctx: EngineContext, *, operation: APIOperation, phase
     extra_data_source = None
     # Extra data sources augment generation only when enabled for this phase.
     phase_config = ctx.config.phases_for(operation=operation).get_by_name(name=phase.value)
-    if isinstance(phase_config, (FuzzingPhaseConfig, ExamplesPhaseConfig, CoveragePhaseConfig)):
-        if phase_config.extra_data_sources.is_enabled and ctx.extra_data_source is not None:
-            extra_data_source = ctx.extra_data_source
+    if isinstance(phase_config, (FuzzingPhaseConfig, ExamplesPhaseConfig, CoveragePhaseConfig)) and (
+        phase_config.extra_data_sources.is_enabled and ctx.extra_data_source is not None
+    ):
+        extra_data_source = ctx.extra_data_source
     constants_value_source = None
     # Inject constants value source only when the pool is non-empty.
     if not ctx.constants_extraction.is_empty():

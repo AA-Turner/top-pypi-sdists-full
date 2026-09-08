@@ -2164,6 +2164,15 @@ CANONICAL_CASES = [
         {"not": {"type": "object", "propertyNames": {"pattern": "^a"}}},
         (lambda value: isinstance(value, dict) and any(not key.startswith("a") for key in value),),
     ),
+    (
+        {"not": {"type": "object", "patternProperties": {"^a": {"type": "integer"}}}},
+        (
+            lambda value: (
+                isinstance(value, dict)
+                and any(key.startswith("a") and isinstance(item, str) for key, item in value.items())
+            ),
+        ),
+    ),
 ]
 # NOT `ids=str`: pytest applies an `ids` callable per parameter, so a predicate tuple stringifies with
 # a memory address and `pytest -n auto` aborts with "Different tests were collected between gw0 and
@@ -2180,7 +2189,12 @@ def test_canonical_generation(schema, reaches):
 
     # A format generator cannot be steered by a pattern or a length, so those draws are discarded.
     @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    # A starved CI runner makes metaschema draws slow enough to trip `too_slow`; validity is what this checks.
+    @settings(
+        max_examples=25,
+        deadline=None,
+        suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow],
+    )
     def test(value):
         assert is_valid(value), value
 

@@ -1,6 +1,7 @@
+#![deny(unsafe_op_in_unsafe_fn)]
+#![warn(clippy::undocumented_unsafe_blocks)]
+
 use std::io;
-#[cfg(unix)]
-use std::mem::MaybeUninit;
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
 
@@ -8,8 +9,7 @@ use mio::Interest;
 #[cfg(windows)]
 use windows_sys::Win32::{
     Networking::WinSock::{
-        self as WinSock, AF_INET, AF_INET6, SOCKADDR, SOCKADDR_IN, SOCKADDR_IN6, SOCKADDR_STORAGE,
-        SOCKET, WSA_IO_PENDING, WSABUF,
+        self as WinSock, SOCKADDR, SOCKADDR_STORAGE, SOCKET, WSA_IO_PENDING, WSABUF,
     },
     System::IO::OVERLAPPED,
 };
@@ -20,130 +20,15 @@ use crate::vibeio::fd_inner::InnerRawHandle;
 #[cfg(windows)]
 use crate::vibeio::fd_inner::RawOsHandle;
 use crate::vibeio::io::IoBuf;
-use crate::vibeio::op::Op;
 use crate::vibeio::op::io_util::{CompletionBuffer, poll_result_or_wait};
-
-#[cfg(unix)]
-#[inline]
-fn socket_addr_to_raw(address: SocketAddr) -> (libc::sockaddr_storage, libc::socklen_t) {
-    match address {
-        SocketAddr::V4(address) => {
-            let sockaddr = libc::sockaddr_in {
-                sin_family: libc::AF_INET as libc::sa_family_t,
-                sin_port: address.port().to_be(),
-                sin_addr: libc::in_addr {
-                    s_addr: u32::from_ne_bytes(address.ip().octets()),
-                },
-                sin_zero: [0; 8],
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin_len: 0,
-            };
-
-            let mut storage = MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in>()
-                    .write(sockaddr);
-                (
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in>() as libc::socklen_t,
-                )
-            }
-        }
-        SocketAddr::V6(address) => {
-            let sockaddr = libc::sockaddr_in6 {
-                sin6_family: libc::AF_INET6 as libc::sa_family_t,
-                sin6_port: address.port().to_be(),
-                sin6_flowinfo: address.flowinfo(),
-                sin6_addr: libc::in6_addr {
-                    s6_addr: address.ip().octets(),
-                },
-                sin6_scope_id: address.scope_id(),
-                #[cfg(any(
-                    target_os = "macos",
-                    target_os = "ios",
-                    target_os = "freebsd",
-                    target_os = "openbsd",
-                    target_os = "dragonfly",
-                    target_os = "netbsd",
-                    target_os = "haiku",
-                    target_os = "aix",
-                ))]
-                sin6_len: 0,
-            };
-
-            let mut storage = MaybeUninit::<libc::sockaddr_storage>::zeroed();
-            unsafe {
-                storage
-                    .as_mut_ptr()
-                    .cast::<libc::sockaddr_in6>()
-                    .write(sockaddr);
-                (
-                    storage.assume_init(),
-                    std::mem::size_of::<libc::sockaddr_in6>() as libc::socklen_t,
-                )
-            }
-        }
-    }
-}
-
-#[cfg(windows)]
-#[inline]
-fn socket_addr_to_raw(address: SocketAddr) -> (SOCKADDR_STORAGE, i32) {
-    match address {
-        SocketAddr::V4(address) => {
-            let mut sockaddr = SOCKADDR_IN::default();
-            sockaddr.sin_family = AF_INET;
-            sockaddr.sin_port = address.port().to_be();
-            sockaddr.sin_addr.S_un.S_addr = u32::from_ne_bytes(address.ip().octets());
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN>(),
-                );
-            }
-            (storage, std::mem::size_of::<SOCKADDR_IN>() as i32)
-        }
-        SocketAddr::V6(address) => {
-            let mut sockaddr = SOCKADDR_IN6::default();
-            sockaddr.sin6_family = AF_INET6;
-            sockaddr.sin6_port = address.port().to_be();
-            sockaddr.sin6_flowinfo = address.flowinfo();
-            sockaddr.sin6_addr.u.Byte = address.ip().octets();
-            sockaddr.Anonymous.sin6_scope_id = address.scope_id() as u32;
-
-            let mut storage = SOCKADDR_STORAGE::default();
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &sockaddr as *const SOCKADDR_IN6 as *const u8,
-                    &mut storage as *mut SOCKADDR_STORAGE as *mut u8,
-                    std::mem::size_of::<SOCKADDR_IN6>(),
-                );
-            }
-            (storage, std::mem::size_of::<SOCKADDR_IN6>() as i32)
-        }
-    }
-}
+use crate::vibeio::op::{Op, socket_addr_to_raw};
 
 #[cfg(windows)]
 #[inline]
 fn socket_sendto<B: IoBuf>(socket: SOCKET, buf: &B, addr: SocketAddr) -> io::Result<usize> {
     use windows_sys::Win32::Networking::WinSock::{self as WinSock, SOCKET_ERROR, WSABUF};
 
-    let len = u32::try_from(buf.buf_len()).map_err(|_| {
+    let len = crate::vibeio::op::io_util::completion_len(buf.buf_len()).map_err(|_| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
             "write buffer is too large for Windows socket I/O",
@@ -157,6 +42,8 @@ fn socket_sendto<B: IoBuf>(socket: SOCKET, buf: &B, addr: SocketAddr) -> io::Res
     let (raw_addr, raw_addr_len) = socket_addr_to_raw(addr);
     let mut bytes: u32 = 0;
 
+    // SAFETY: IoBuf supplies a live initialized payload; raw_addr and all output
+    // locals remain live through this synchronous, null-OVERLAPPED call.
     let send_result = unsafe {
         WinSock::WSASendTo(
             socket,
@@ -171,6 +58,7 @@ fn socket_sendto<B: IoBuf>(socket: SOCKET, buf: &B, addr: SocketAddr) -> io::Res
         )
     };
     if send_result == SOCKET_ERROR {
+        // SAFETY: reads the calling thread's Winsock error without pointers.
         return Err(io::Error::from_raw_os_error(unsafe {
             WinSock::WSAGetLastError()
         }));
@@ -222,6 +110,10 @@ impl<'a, B: IoBuf> SendtoOp<'a, B> {
 
     #[inline]
     pub fn take_bufs(mut self) -> B {
+        assert!(
+            self.completion_token.is_none(),
+            "cannot reclaim a buffer while I/O is pending"
+        );
         self.buf.take().unwrap().into_inner()
     }
 }
@@ -241,6 +133,8 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
         #[cfg(unix)]
         let result = {
             let (raw_addr, raw_addr_len) = socket_addr_to_raw(self.addr);
+            // SAFETY: IoBuf provides initialized readable bytes and raw_addr is
+            // live address storage of the supplied size; sendto retains no pointers.
             let written = unsafe {
                 libc::sendto(
                     self.handle.handle,
@@ -267,11 +161,7 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
             )),
         };
 
-        match poll_result_or_wait(result, self.handle, cx, driver, Interest::WRITABLE) {
-            Poll::Ready(Ok(written)) => Poll::Ready(Ok(written)),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-            Poll::Pending => Poll::Pending,
-        }
+        poll_result_or_wait(result, self.handle, cx, driver, Interest::WRITABLE)
     }
 
     #[cfg(any(unix, windows))]
@@ -303,7 +193,7 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
             }
         };
         if result < 0 {
-            return Poll::Ready(Err(io::Error::from_raw_os_error(-result)));
+            return Poll::Ready(Err(crate::vibeio::op::io_util::completion_error(result)));
         }
         let written = result as usize;
         Poll::Ready(Ok(written))
@@ -320,12 +210,13 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
             ));
         };
 
-        let write_len = u32::try_from(buf.buf_len()).map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "write buffer is too large for Windows socket I/O",
-            )
-        })?;
+        let write_len =
+            crate::vibeio::op::io_util::completion_len(buf.buf_len()).map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "write buffer is too large for Windows socket I/O",
+                )
+            })?;
 
         let (raw_addr, raw_addr_len) = socket_addr_to_raw(self.addr);
         let completion = self.completion_state.get_or_insert_with(|| {
@@ -343,6 +234,9 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
         completion.addr = raw_addr;
         completion.addr_len = raw_addr_len;
 
+        // SAFETY: boxed metadata and the stable payload remain owned through
+        // completion, including cancellation retention in Drop. The driver
+        // supplies OVERLAPPED storage that lives until acknowledgement.
         let send_result = unsafe {
             WinSock::WSASendTo(
                 socket as SOCKET,
@@ -361,6 +255,7 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
             return Ok(());
         }
 
+        // SAFETY: reads this thread's last Winsock error without pointer arguments.
         let err = unsafe { WinSock::WSAGetLastError() };
         if err == WSA_IO_PENDING {
             Ok(())
@@ -382,12 +277,14 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
         let buf = self.buf.as_ref().unwrap().as_ref();
         let completion = self.completion_state.get_or_insert_with(|| {
             Box::new(SendtoLinuxCompletion {
-                addr: unsafe { std::mem::zeroed() },
-                addr_len: 0,
+                addr: raw_addr,
+                addr_len: raw_addr_len,
                 iovec: libc::iovec {
                     iov_base: std::ptr::null_mut(),
                     iov_len: 0,
                 },
+                // SAFETY: msghdr contains integer fields and raw pointers valid
+                // when zeroed. Stable pointers are installed after boxing below.
                 msghdr: unsafe { std::mem::zeroed() },
             })
         });
@@ -398,15 +295,15 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
             iov_len: buf.buf_len(),
         };
 
-        completion.msghdr = unsafe { std::mem::zeroed::<libc::msghdr>() };
+        // Reset every header field, including output flags, when reusing state.
         completion.msghdr.msg_name =
             &mut completion.addr as *mut libc::sockaddr_storage as *mut libc::c_void;
         completion.msghdr.msg_namelen = completion.addr_len;
         completion.msghdr.msg_iov = &mut completion.iovec as *mut libc::iovec;
         completion.msghdr.msg_iovlen = 1;
         completion.msghdr.msg_control = std::ptr::null_mut();
-        completion.msghdr.msg_controllen = 1;
-        completion.msghdr.msg_flags = 1;
+        completion.msghdr.msg_controllen = 0;
+        completion.msghdr.msg_flags = 0;
 
         let entry = opcode::SendMsg::new(
             types::Fd(self.handle.handle),
@@ -422,21 +319,109 @@ impl<B: IoBuf> Op for SendtoOp<'_, B> {
 impl<B: IoBuf> Drop for SendtoOp<'_, B> {
     #[inline]
     fn drop(&mut self) {
-        if let Some(completion_token) = self.completion_token {
-            if let Some(driver) = crate::vibeio::current_driver() {
-                #[cfg(any(windows, target_os = "linux"))]
-                let completion_state = self.completion_state.take();
-                #[cfg(not(any(windows, target_os = "linux")))]
-                let completion_state = ();
-
-                driver.ignore_completion(
-                    completion_token,
-                    Box::new((
-                        completion_state,
-                        self.buf.take().map(CompletionBuffer::into_stable_box),
-                    )),
-                );
-            }
+        if let Some(token) = self.completion_token.take() {
+            #[cfg(any(windows, target_os = "linux"))]
+            let completion_state = self.completion_state.take();
+            #[cfg(not(any(windows, target_os = "linux")))]
+            let completion_state = ();
+            // The owning driver, not the currently entered runtime, must retain
+            // every kernel-visible allocation until completion is acknowledged.
+            self.handle.cancel_completion(
+                token,
+                Box::new((
+                    completion_state,
+                    self.buf.take().map(CompletionBuffer::into_stable_box),
+                )),
+            );
         }
+    }
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    use super::*;
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn rebuilt_send_header_resets_metadata_and_preserves_storage() {
+        let driver = std::rc::Rc::new(AnyDriver::new_mock());
+        let handle = InnerRawHandle::for_mock_completion(driver);
+        let mut op = SendtoOp::new(&handle, vec![1, 2, 3], "127.0.0.1:1234".parse().unwrap());
+        op.build_completion_entry(1).unwrap();
+        let state = op.completion_state.as_mut().unwrap();
+        let state_pointer = std::ptr::from_ref(state.as_ref());
+        let payload_pointer = state.iovec.iov_base;
+        state.msghdr.msg_name = std::ptr::null_mut();
+        state.msghdr.msg_namelen = 0;
+        state.msghdr.msg_iov = std::ptr::null_mut();
+        state.msghdr.msg_iovlen = 0;
+        state.msghdr.msg_control = std::ptr::addr_of_mut!(state.addr).cast();
+        state.msghdr.msg_controllen = 1;
+        state.msghdr.msg_flags = libc::MSG_TRUNC;
+        op.build_completion_entry(2).unwrap();
+        let state = op.completion_state.as_ref().unwrap();
+        assert_eq!(std::ptr::from_ref(state.as_ref()), state_pointer);
+        assert_eq!(state.iovec.iov_base, payload_pointer);
+        assert_eq!(state.iovec.iov_len, 3);
+        assert_eq!(
+            state.msghdr.msg_name,
+            std::ptr::addr_of!(state.addr).cast_mut().cast()
+        );
+        assert_eq!(state.msghdr.msg_namelen, state.addr_len);
+        assert_eq!(
+            state.msghdr.msg_iov,
+            std::ptr::addr_of!(state.iovec).cast_mut()
+        );
+        assert_eq!(state.msghdr.msg_iovlen, 1);
+        assert!(state.msghdr.msg_control.is_null());
+        assert_eq!(state.msghdr.msg_controllen, 0);
+        assert_eq!(state.msghdr.msg_flags, 0);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn completion_send_delivers_datagram_without_ancillary_data() {
+        use std::os::fd::AsRawFd;
+        use std::rc::Rc;
+        let receiver = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        receiver
+            .set_read_timeout(Some(crate::vibeio::test_support::WATCHDOG))
+            .unwrap();
+        let sender = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+        let mut handle = InnerRawHandle::for_mock_completion(Rc::new(AnyDriver::new_mock()));
+        handle.handle = sender.as_raw_fd();
+        for payload in [b"datagram".as_slice(), b"".as_slice()] {
+            let mut op = SendtoOp::new(&handle, payload.to_vec(), receiver.local_addr().unwrap());
+            let entry = op.build_completion_entry(17).unwrap();
+            let mut ring = io_uring::IoUring::new(2).unwrap();
+            // SAFETY: sender, the boxed message metadata and the payload remain
+            // owned and unchanged until the send CQE is observed below.
+            unsafe { ring.submission().push(&entry).unwrap() };
+            ring.submit_and_wait(1).unwrap();
+            let completion = ring.completion().next().unwrap();
+            assert_eq!(completion.user_data(), 17);
+            assert_eq!(completion.result(), payload.len() as i32);
+            let mut received = [0u8; 32];
+            let (length, address) = receiver.recv_from(&mut received).unwrap();
+            assert_eq!(&received[..length], payload);
+            assert_eq!(address, sender.local_addr().unwrap());
+        }
+    }
+
+    #[test]
+    fn pending_buffer_is_retained_by_owning_driver() {
+        crate::vibeio::op::io_util::cancellation_tests::check_cancellation(
+            |handle, buffer, reclaim| {
+                let mut op = SendtoOp::new(handle, buffer, "127.0.0.1:1234".parse().unwrap());
+                op.completion_token = Some(41);
+                if reclaim {
+                    let result =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| op.take_bufs()));
+                    assert!(result.is_err(), "pending storage must not be reclaimed");
+                } else {
+                    drop(op);
+                }
+            },
+        );
     }
 }

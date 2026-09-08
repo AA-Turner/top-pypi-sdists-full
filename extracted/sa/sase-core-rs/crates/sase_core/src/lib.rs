@@ -43,7 +43,9 @@ pub mod external_pr;
 pub mod feature_flag_state;
 pub mod fenced_code;
 pub mod finalizer;
+pub mod fleet_attention;
 pub mod fleet_contract;
+pub mod fleet_mutation;
 pub mod git_query;
 pub mod glossary;
 pub mod host_bridge;
@@ -65,6 +67,7 @@ mod prompt_rewrite;
 pub mod prompt_stash;
 pub mod provider_disable;
 pub mod provider_priority;
+pub mod provider_usage;
 pub mod query;
 mod reference_path;
 pub mod referenced_by;
@@ -73,6 +76,7 @@ pub mod sections;
 mod serde_option;
 pub mod snippet_catalog;
 pub mod snippet_session;
+pub mod source_language;
 pub mod status;
 mod store_lock;
 pub mod suffix;
@@ -611,8 +615,8 @@ pub use editor::{
     CompletionContextKind, CompletionList, DefinitionTarget,
     DiagnosticSeverity, DirectiveBodyKind, DirectiveClauseContext,
     DirectiveClauseKind, DirectiveCompletionInventories,
-    DirectiveContractEntry, DirectiveFinalizerEntry, DirectiveMetadata,
-    DirectiveModelAliasKey, DirectiveModelEntry,
+    DirectiveContractEntry, DirectiveFinalizerEntry, DirectiveMachineEntry,
+    DirectiveMetadata, DirectiveModelAliasKey, DirectiveModelEntry,
     DirectiveSnippetRecipeContract, DirectiveSyntaxForm, DirectiveValueRole,
     DocumentSnapshot, EditorDiagnostic, EditorPosition, EditorRange,
     EditorTextEdit, FinalizerCatalogRequest, FinalizerCatalogResponse,
@@ -682,11 +686,30 @@ pub use finalizer::{
     FinalizerSubmissionPayloadWire, FinalizerSubmissionValidationWire,
     FinalizerTriggerKindWire, FINALIZER_WIRE_SCHEMA_VERSION,
 };
+pub use fleet_attention::{
+    decide_attention_notices, decide_fleet_attention_replay,
+    evaluate_attention_precondition, fleet_attention_payload_fingerprint,
+    project_fleet_attention, validate_fleet_attention_intent,
+    validate_fleet_attention_request, DurableFleetAttentionRecordWire,
+    FleetAttentionDecisionRequestWire, FleetAttentionDecisionWire,
+    FleetAttentionEntryWire, FleetAttentionIntentWire, FleetAttentionKindWire,
+    FleetAttentionLogicalIdentityWire, FleetAttentionNoticeDecisionWire,
+    FleetAttentionNoticeLedgerEntryWire, FleetAttentionNotificationRowWire,
+    FleetAttentionOptionWire, FleetAttentionOutcomeWire,
+    FleetAttentionPreconditionDecisionWire,
+    FleetAttentionPreconditionReasonWire, FleetAttentionQuestionFormWire,
+    FleetAttentionReceiptWire, FleetAttentionRequestKeyWire,
+    FleetAttentionRequestWire, FleetAttentionResponseWire,
+    FleetAttentionSnapshotWire, FleetAttentionStateWire,
+    FLEET_ATTENTION_CAPABILITY_ANSWER_QUESTION,
+    FLEET_ATTENTION_CAPABILITY_APPROVE_GATE,
+};
 pub use fleet_contract::{
     classify_cursor_replay, count_focus_and_fleet, count_logical_agents,
-    cursor_replay_reason_to_resync_reason, decide_operation_replay,
-    ensure_installation_identity, fleet_content_read_limit,
-    fleet_contract_schema_version, fleet_count_revision,
+    cursor_replay_reason_to_resync_reason, decide_fleet_launch_replay,
+    decide_operation_replay, ensure_installation_identity,
+    fleet_content_read_limit, fleet_contract_schema_version,
+    fleet_count_revision, fleet_launch_payload_fingerprint,
     fleet_project_eligibility_limit, instance_locator_key,
     load_installation_identity, logical_locator_key,
     migrate_installation_identity, operation_payload_fingerprint,
@@ -696,7 +719,8 @@ pub use fleet_contract::{
     validate_connection_plan, validate_content_handle,
     validate_fleet_authoritative_snapshot, validate_fleet_catalog_query,
     validate_fleet_content_read_request, validate_fleet_detail_request,
-    validate_fleet_invalidation_event, validate_fleet_logical_batch_request,
+    validate_fleet_invalidation_event, validate_fleet_launch_intent,
+    validate_fleet_launch_request, validate_fleet_logical_batch_request,
     validate_fleet_project_eligibility_request, validate_fleet_replay_capacity,
     validate_fleet_snapshot_freshness, validate_resolved_agent_summary,
     validate_store_cursor, AgentInstanceLocatorWire, CacheFreshnessRequestWire,
@@ -704,19 +728,23 @@ pub use fleet_contract::{
     ConnectionPlanWire, ContentHandleKindWire, ContentHandleWire,
     ContentMetadataWire, CursorReplayClassificationWire,
     CursorReplayDecisionWire, CursorReplayReasonWire, CursorReplayRequestWire,
-    DurableOperationRecordWire, FleetAuthoritativeSnapshotWire,
-    FleetCatalogPageSelectionWire, FleetCatalogPageWire, FleetCatalogQueryWire,
-    FleetConnectionKindWire, FleetContentReadRequestWire,
-    FleetContentReadResponseWire, FleetContractError, FleetCountBasisWire,
-    FleetDetailRequestWire, FleetDetailResponseWire, FleetEventStreamItemWire,
-    FleetHostCountInputWire, FleetHostCountWire, FleetInvalidationEventWire,
-    FleetInvalidationKindWire, FleetLogicalAgentCountsRequestWire,
-    FleetLogicalAgentCountsWire, FleetLogicalBatchEntryWire,
-    FleetLogicalBatchRequestWire, FleetLogicalBatchResponseWire,
-    FleetProjectEligibilityRequestWire, FleetProjectEligibilityResponseWire,
-    FleetProjectEligibilityWire, FleetResyncReasonWire,
-    FleetResyncRequiredWire, FleetRowKindWire, FleetScopeCountsWire,
-    FleetSnapshotFreshnessWire, FleetStatusBucketWire,
+    DurableFleetLaunchRecordWire, DurableOperationRecordWire,
+    FleetAuthoritativeSnapshotWire, FleetCatalogPageSelectionWire,
+    FleetCatalogPageWire, FleetCatalogQueryWire, FleetConnectionKindWire,
+    FleetContentReadRequestWire, FleetContentReadResponseWire,
+    FleetContractError, FleetCountBasisWire, FleetDetailRequestWire,
+    FleetDetailResponseWire, FleetEventStreamItemWire, FleetHostCountInputWire,
+    FleetHostCountWire, FleetInvalidationEventWire, FleetInvalidationKindWire,
+    FleetLaunchDecisionRequestWire, FleetLaunchDecisionWire,
+    FleetLaunchIntentWire, FleetLaunchProjectContextWire,
+    FleetLaunchReceiptWire, FleetLaunchReferenceKindWire,
+    FleetLaunchReferenceWire, FleetLaunchRequestWire, FleetLaunchResponseWire,
+    FleetLogicalAgentCountsRequestWire, FleetLogicalAgentCountsWire,
+    FleetLogicalBatchEntryWire, FleetLogicalBatchRequestWire,
+    FleetLogicalBatchResponseWire, FleetProjectEligibilityRequestWire,
+    FleetProjectEligibilityResponseWire, FleetProjectEligibilityWire,
+    FleetResyncReasonWire, FleetResyncRequiredWire, FleetRowKindWire,
+    FleetScopeCountsWire, FleetSnapshotFreshnessWire, FleetStatusBucketWire,
     FleetSummaryResponseWire, FocusFleetCountsRequestWire,
     FocusFleetCountsWire, FollowActivationWire, FollowCreatedByWire,
     FollowDiagnosticSeverityWire, FollowDiagnosticWire,
@@ -746,6 +774,19 @@ pub use fleet_contract::{
     FLEET_READ_MAX_CONTENT_BYTES, FLEET_READ_MAX_FILTER_BYTES,
     FLEET_READ_MAX_PAGE_ROWS, FLEET_READ_MAX_PROJECT_IDS,
     FLEET_READ_MAX_QUERY_BYTES, FLEET_READ_MAX_REPLAY_EVENTS,
+};
+pub use fleet_mutation::{
+    decide_fleet_mutation_replay, evaluate_mutation_precondition,
+    fleet_mutation_payload_fingerprint, partition_bulk_targets,
+    validate_fleet_mutation_intent, validate_fleet_mutation_request,
+    DurableFleetMutationRecordWire, FleetBulkOriginGroupWire,
+    FleetBulkPartitionWire, FleetBulkTargetWire,
+    FleetMutationDecisionRequestWire, FleetMutationDecisionWire,
+    FleetMutationIntentWire, FleetMutationKindWire, FleetMutationOutcomeWire,
+    FleetMutationPreconditionDecisionWire, FleetMutationPreconditionReasonWire,
+    FleetMutationReceiptWire, FleetMutationRequestWire,
+    FleetMutationResponseWire, FLEET_MUTATION_CAPABILITY_FORK,
+    FLEET_MUTATION_CAPABILITY_RETRY, FLEET_MUTATION_CAPABILITY_STOP,
 };
 pub use git_query::{
     derive_git_workspace_name, parse_git_branch_name,
@@ -824,34 +865,34 @@ pub use notifications::{
     append_notification, append_notification_counts,
     apply_notification_state_update, apply_notification_state_update_counts,
     cleanup_stale_pending_actions, current_unix_time,
-    legacy_telegram_pending_actions_path,
-    mobile_action_detail_from_notification,
+    legacy_telegram_pending_actions_path, mark_pending_action_handled,
+    merge_pending_action_transport, mobile_action_detail_from_notification,
     mobile_attachment_manifest_from_path, mobile_notification_card_from_wire,
     notification_activity_at, notification_activity_cursor,
     pending_action_from_notification, pending_action_identity,
     pending_action_state_for_notification, pending_action_state_from_store,
-    pending_action_store_path, plan_question_action_response,
-    plan_question_action_response_from_bytes,
+    pending_action_store_path, pending_action_transport,
+    plan_question_action_response, plan_question_action_response_from_bytes,
     read_current_notifications_snapshot, read_notifications_snapshot,
     read_notifications_snapshot_with_options, read_pending_action_store,
-    register_pending_action, resolve_notification_prefix,
-    resolve_pending_action_prefix, rewrite_notifications,
-    rewrite_notifications_counts, ActionResultWire, GateActionRequestWire,
-    GateBranchWire, GateFeedbackModeWire, GateOptionWire, GateSubmitWire,
-    MobileActionDetailWire, MobileActionKindWire,
-    MobileActionPlanErrorCodeWire, MobileActionPlanErrorWire,
-    MobileActionStateWire, MobileActionSummaryWire, MobileAttachmentKindWire,
-    MobileAttachmentManifestWire, MobileGateInputFieldWire,
-    MobileNotificationCardWire, MobileNotificationDetailResponseWire,
-    MobileNotificationListRequestWire, MobileNotificationListResponseWire,
-    NotificationAgentKeyWire, NotificationCountsWire,
-    NotificationStateUpdateWire, NotificationStoreSnapshotWire,
-    NotificationStoreStatsWire, NotificationUpdateOutcomeWire,
-    NotificationWire, PendingActionIdentityWire,
+    register_pending_action, remove_pending_action,
+    resolve_notification_prefix, resolve_pending_action_prefix,
+    rewrite_notifications, rewrite_notifications_counts, ActionResultWire,
+    GateActionRequestWire, GateBranchWire, GateFeedbackModeWire,
+    GateOptionWire, GateSubmitWire, MobileActionDetailWire,
+    MobileActionKindWire, MobileActionPlanErrorCodeWire,
+    MobileActionPlanErrorWire, MobileActionStateWire, MobileActionSummaryWire,
+    MobileAttachmentKindWire, MobileAttachmentManifestWire,
+    MobileGateInputFieldWire, MobileNotificationCardWire,
+    MobileNotificationDetailResponseWire, MobileNotificationListRequestWire,
+    MobileNotificationListResponseWire, NotificationAgentKeyWire,
+    NotificationCountsWire, NotificationStateUpdateWire,
+    NotificationStoreSnapshotWire, NotificationStoreStatsWire,
+    NotificationUpdateOutcomeWire, NotificationWire, PendingActionIdentityWire,
     PendingActionPrefixResolutionWire, PendingActionStoreWire,
-    PendingActionTransportWire, PendingActionWire, QuestionActionChoiceWire,
-    QuestionActionRequestWire, DEFAULT_PENDING_ACTION_PREFIX_LEN,
-    DEFAULT_PENDING_ACTION_STALE_SECONDS,
+    PendingActionTransportRequestWire, PendingActionTransportWire,
+    PendingActionWire, QuestionActionChoiceWire, QuestionActionRequestWire,
+    DEFAULT_PENDING_ACTION_PREFIX_LEN, DEFAULT_PENDING_ACTION_STALE_SECONDS,
     MOBILE_NOTIFICATION_WIRE_SCHEMA_VERSION,
     NOTIFICATION_STORE_WIRE_SCHEMA_VERSION,
     PENDING_ACTION_STORE_WIRE_SCHEMA_VERSION,
@@ -941,6 +982,23 @@ pub use provider_priority::{
     PROVIDER_PRIORITY_STATE_FILENAME, PROVIDER_PRIORITY_WIRE_SCHEMA_VERSION,
     PROVIDER_ROUTING_CONTEXT_WIRE_SCHEMA_VERSION,
 };
+pub use provider_usage::{
+    classify_freshness, exceeded_by_percent, format_remaining_text,
+    project_usage_snapshot, remaining_percent, reset_has_passed,
+    summarize_usage_windows, usage_known_constraints, usage_window_applies,
+    validate_usage_cadence, validate_usage_observation,
+    validate_usage_thresholds, ProviderUsageError,
+    ProviderUsageObservationWire, UsageApplicabilityMatch,
+    UsageApplicabilityWire, UsageAttentionKind, UsageAttentionWire,
+    UsageCollectionHealth, UsageCollectionOutcome, UsageCompleteness,
+    UsageFreshness, UsageKnownConstraintWire, UsagePublicProviderWire,
+    UsagePublicSnapshotWire, UsagePublicWindowWire, UsageReasonCode,
+    UsageScopedSummaryWire, UsageSource, UsageVendorState,
+    UsageWindowObservationWire, DEFAULT_USAGE_CADENCE_SECONDS,
+    DEFAULT_USAGE_CRITICAL_PERCENT, DEFAULT_USAGE_WARN_PERCENT,
+    MIN_USAGE_CADENCE_SECONDS, PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION,
+    PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION,
+};
 pub use query::{
     canonicalize_query, canonicalize_query_with_profile, compile_query,
     compile_query_with_profile, effective_project_name, evaluate_query_many,
@@ -973,6 +1031,14 @@ pub use snippet_catalog::{
     validate_snippet_trigger, ComposedSnippetCatalog, SnippetCall,
     SnippetCallStatus, SnippetDiagnostic, SnippetSourceSpan,
     SnippetTriggerValidation,
+};
+pub use source_language::{
+    logical_filename_from_hints, resolve_source_language,
+    source_filename_hints_from_json_value,
+    source_language_request_from_json_value, SourceCategory,
+    SourceFilenameHintsWire, SourceLanguageRequestWire,
+    SourceLanguageResultWire, SOURCE_LANGUAGE_PREFIX_BUDGET_BYTES,
+    SOURCE_LANGUAGE_WIRE_SCHEMA_VERSION,
 };
 /// Legacy Rust alias retained for compatibility with older status callers.
 pub use status::has_suffix as has_changespec_suffix;

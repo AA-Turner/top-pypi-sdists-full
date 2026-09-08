@@ -351,6 +351,30 @@ def register_models(register):
                 supports_tools=True,
             ),
         )
+    # GPT-6
+    for model_id in ("gpt-6-astra",):
+        register(
+            Responses(
+                model_id,
+                vision=True,
+                reasoning=True,
+                verbosity=True,
+                image_detail_original=True,
+                service_tier=True,
+                supports_schema=True,
+                supports_tools=True,
+            ),
+            AsyncResponses(
+                model_id,
+                vision=True,
+                reasoning=True,
+                verbosity=True,
+                image_detail_original=True,
+                service_tier=True,
+                supports_schema=True,
+                supports_tools=True,
+            ),
+        )
 
     # The -instruct completion model
     register(

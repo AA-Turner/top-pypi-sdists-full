@@ -38,6 +38,7 @@ from .literals import (
     GitLabTokenTypeType,
     IpAddressTypeType,
     JobStatusType,
+    JobTypeType,
     ManagementTypeType,
     MembershipTypeFilterType,
     NetworkTrafficRuleEffectType,
@@ -452,6 +453,7 @@ class EndpointTypeDef(TypedDict):
 class IntegratedRepositoryTypeDef(TypedDict):
     integrationId: str
     providerResourceId: str
+    branch: NotRequired[str]
 
 class SourceCodeRepositoryTypeDef(TypedDict):
     s3Location: NotRequired[str]
@@ -960,6 +962,7 @@ class TaskSummaryTypeDef(TypedDict):
     title: NotRequired[str]
     riskType: NotRequired[RiskTypeType]
     executionStatus: NotRequired[TaskExecutionStatusType]
+    taskHours: NotRequired[float]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -1146,6 +1149,8 @@ class StartCodeRemediationInputTypeDef(TypedDict):
 class StartPentestJobInputTypeDef(TypedDict):
     agentSpaceId: str
     pentestId: str
+    jobType: NotRequired[JobTypeType]
+    selectedFindingIds: NotRequired[Sequence[str]]
 
 class StartThreatModelJobInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1233,12 +1238,16 @@ class ActorOutputTypeDef(TypedDict):
     uris: NotRequired[list[str]]
     authentication: NotRequired[AuthenticationTypeDef]
     description: NotRequired[str]
+    enableEmailMfa: NotRequired[bool]
+    mfaForwardingAddress: NotRequired[str]
 
 class ActorTypeDef(TypedDict):
     identifier: NotRequired[str]
     uris: NotRequired[Sequence[str]]
     authentication: NotRequired[AuthenticationTypeDef]
     description: NotRequired[str]
+    enableEmailMfa: NotRequired[bool]
+    mfaForwardingAddress: NotRequired[str]
 
 class AddArtifactInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1981,6 +1990,7 @@ class TaskTypeDef(TypedDict):
     targetEndpoint: NotRequired[EndpointTypeDef]
     executionStatus: NotRequired[TaskExecutionStatusType]
     logsLocation: NotRequired[LogLocationTypeDef]
+    taskHours: NotRequired[float]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2030,6 +2040,7 @@ class CodeReviewJobTypeDef(TypedDict):
     errorInformation: NotRequired[ErrorInformationTypeDef]
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
+    maxTaskHours: NotRequired[float]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2143,6 +2154,9 @@ class PentestJobTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     cleanUpStrategy: NotRequired[CleanUpStrategyType]
     disableManagedSkills: NotRequired[list[SkillTypeType]]
+    maxTaskHours: NotRequired[float]
+    jobType: NotRequired[JobTypeType]
+    selectedFindingIds: NotRequired[list[str]]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2179,6 +2193,8 @@ class FindingTypeDef(TypedDict):
     codeLocations: NotRequired[list[CodeLocationTypeDef]]
     verificationScript: NotRequired[VerificationScriptTypeDef]
     alignmentRationale: NotRequired[str]
+    revalidationJobIds: NotRequired[list[str]]
+    originalFindingId: NotRequired[str]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2236,6 +2252,7 @@ class CodeReviewTypeDef(TypedDict):
     logConfig: NotRequired[CloudWatchLogTypeDef]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
+    maxTaskHours: NotRequired[float]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2250,6 +2267,7 @@ class CreateCodeReviewOutputTypeDef(TypedDict):
     agentSpaceId: str
     codeRemediationStrategy: CodeRemediationStrategyType
     validationMode: ValidationModeType
+    maxTaskHours: float
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePentestOutputTypeDef(TypedDict):
@@ -2290,6 +2308,7 @@ class PentestTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     cleanUpStrategy: NotRequired[CleanUpStrategyType]
     disableManagedSkills: NotRequired[list[SkillTypeType]]
+    maxTaskHours: NotRequired[float]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2316,6 +2335,7 @@ class UpdateCodeReviewOutputTypeDef(TypedDict):
     agentSpaceId: str
     codeRemediationStrategy: CodeRemediationStrategyType
     validationMode: ValidationModeType
+    maxTaskHours: float
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePentestOutputTypeDef(TypedDict):
@@ -2413,6 +2433,7 @@ class CreateCodeReviewInputTypeDef(TypedDict):
     logConfig: NotRequired[CloudWatchLogTypeDef]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
+    maxTaskHours: NotRequired[float]
 
 class CreatePentestInputTypeDef(TypedDict):
     title: str
@@ -2425,6 +2446,7 @@ class CreatePentestInputTypeDef(TypedDict):
     networkTrafficConfig: NotRequired[NetworkTrafficConfigUnionTypeDef]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     disableManagedSkills: NotRequired[Sequence[SkillTypeType]]
+    maxTaskHours: NotRequired[float]
 
 class CreateThreatModelInputTypeDef(TypedDict):
     title: str
@@ -2445,6 +2467,7 @@ class UpdateCodeReviewInputTypeDef(TypedDict):
     logConfig: NotRequired[CloudWatchLogTypeDef]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
+    maxTaskHours: NotRequired[float]
 
 class UpdatePentestInputTypeDef(TypedDict):
     pentestId: str
@@ -2458,6 +2481,7 @@ class UpdatePentestInputTypeDef(TypedDict):
     networkTrafficConfig: NotRequired[NetworkTrafficConfigUnionTypeDef]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     disableManagedSkills: NotRequired[Sequence[SkillTypeType]]
+    maxTaskHours: NotRequired[float]
 
 class UpdateThreatModelInputTypeDef(TypedDict):
     threatModelId: str

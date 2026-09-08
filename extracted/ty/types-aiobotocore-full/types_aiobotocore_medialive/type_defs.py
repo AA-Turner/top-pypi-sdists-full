@@ -863,6 +863,7 @@ __all__ = (
     "NielsenCBETTypeDef",
     "NielsenConfigurationTypeDef",
     "NielsenNaesIiNwTypeDef",
+    "NielsenNwOnlyTypeDef",
     "NielsenWatermarksSettingsTypeDef",
     "NodeInterfaceMappingCreateRequestTypeDef",
     "NodeInterfaceMappingOutputTypeDef",
@@ -1050,6 +1051,7 @@ __all__ = (
     "VideoCodecSettingsTypeDef",
     "VideoDescriptionOutputTypeDef",
     "VideoDescriptionTypeDef",
+    "VideoPositionRectangleTypeDef",
     "VideoSelectorColorSpaceSettingsTypeDef",
     "VideoSelectorPidTypeDef",
     "VideoSelectorProgramIdTypeDef",
@@ -2563,6 +2565,12 @@ class NielsenNaesIiNwTypeDef(TypedDict):
     Timezone: NotRequired[NielsenWatermarkTimezonesType]
 
 
+class NielsenNwOnlyTypeDef(TypedDict):
+    CheckDigitString: str
+    Sid: float
+    Timezone: NotRequired[NielsenWatermarkTimezonesType]
+
+
 class NodeInterfaceMappingTypeDef(TypedDict):
     LogicalInterfaceName: NotRequired[str]
     NetworkInterfaceMode: NotRequired[NetworkInterfaceModeType]
@@ -2575,6 +2583,7 @@ class OutputDestinationSettingsTypeDef(TypedDict):
     StreamName: NotRequired[str]
     Url: NotRequired[str]
     Username: NotRequired[str]
+    VirtualSourceAddress: NotRequired[str]
 
 
 class SrtOutputDestinationSettingsTypeDef(TypedDict):
@@ -2835,6 +2844,13 @@ UpdateSdiSourceRequestTypeDef = TypedDict(
         "Type": NotRequired[SdiSourceTypeType],
     },
 )
+
+
+class VideoPositionRectangleTypeDef(TypedDict):
+    Height: int
+    Width: int
+    X: int
+    Y: int
 
 
 class VideoSelectorPidTypeDef(TypedDict):
@@ -4320,6 +4336,7 @@ class NielsenWatermarksSettingsTypeDef(TypedDict):
     NielsenCbetSettings: NotRequired[NielsenCBETTypeDef]
     NielsenDistributionType: NotRequired[NielsenWatermarksDistributionTypesType]
     NielsenNaesIiNwSettings: NotRequired[NielsenNaesIiNwTypeDef]
+    NielsenNwOnlySettings: NotRequired[NielsenNwOnlyTypeDef]
 
 
 NodeInterfaceMappingUnionTypeDef = Union[
@@ -5806,6 +5823,8 @@ class VideoDescriptionOutputTypeDef(TypedDict):
     ScalingBehavior: NotRequired[VideoDescriptionScalingBehaviorType]
     Sharpness: NotRequired[int]
     Width: NotRequired[int]
+    CropRectangle: NotRequired[VideoPositionRectangleTypeDef]
+    OutputPositionRectangle: NotRequired[VideoPositionRectangleTypeDef]
 
 
 class VideoDescriptionTypeDef(TypedDict):
@@ -5816,6 +5835,8 @@ class VideoDescriptionTypeDef(TypedDict):
     ScalingBehavior: NotRequired[VideoDescriptionScalingBehaviorType]
     Sharpness: NotRequired[int]
     Width: NotRequired[int]
+    CropRectangle: NotRequired[VideoPositionRectangleTypeDef]
+    OutputPositionRectangle: NotRequired[VideoPositionRectangleTypeDef]
 
 
 DescribeInputResponseTypeDef = TypedDict(

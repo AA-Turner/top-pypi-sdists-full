@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: preliz
-Version: 0.27.1
+Version: 0.28.0
 Summary: Exploring and eliciting probability distributions.
 Author-email: ArviZ team <arviz.devs@gmail.com>
 Requires-Python: >=3.12
@@ -20,7 +20,7 @@ Requires-Dist: arviz_stats>=1.0.0,<2.0.0
 Requires-Dist: matplotlib>=3.9
 Requires-Dist: numba>=0.62
 Requires-Dist: numpy>=2.0
-Requires-Dist: pytensor_distributions>=0.2.0,<0.3.0
+Requires-Dist: pytensor_distributions>=0.3.2,<0.4.0
 Requires-Dist: scipy>=1.12
 Requires-Dist: nbclient>=0.2 ; extra == "full"
 Requires-Dist: ipywidgets ; extra == "full"

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pymzml
-Version: 2.6.1
+Version: 2.7.0
 Summary: high-throughput mzML parsing
 Project-URL: Homepage, https://pymzml.github.io/pymzML
 Project-URL: Issues, https://github.com/pymzml/pymzML/issues
@@ -21,11 +21,13 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: SunOS/Solaris
 Classifier: Operating System :: Unix
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
-Requires-Python: >=3.10.0
+Requires-Python: >=3.13.0
 Requires-Dist: numpy>=1.8.0
 Requires-Dist: regex
 Provides-Extra: deconvolution
@@ -129,7 +131,7 @@ pymzML is an extension to Python that offers
 Implementation
 **************
 
-pymzML requires Python3.10+.
+pymzML requires Python3.13+.
 The module is freely available on pymzml.github.com or pypi,
 published under MIT license and only requires numpy and regex, however there are several optional dependencies for extended functionality like interactive plotting and deconvolution.
 
@@ -157,12 +159,11 @@ doi: https://doi.org/10.1093/bioinformatics/bty046
 Installation
 ************
 
-pymzML requires `Python`_ 3.10 or higher.
+pymzML requires `Python`_ 3.13 or higher.
 
 .. note::
 
     Consider to use a Python virtual environment for easy installation and use.
-    Further, usage of python3.13+ is recommended.
 
 
 Download pymzML using `GitHub`_ **or** the zip file:

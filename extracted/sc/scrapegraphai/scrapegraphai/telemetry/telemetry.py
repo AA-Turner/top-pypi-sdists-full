@@ -36,6 +36,19 @@ def _load_config(config_location: str) -> configparser.ConfigParser:
     return config
 
 
+def _parse_bool(value: str) -> bool:
+    """Parse a boolean from a string using configparser's accepted spellings.
+
+    Accepts the same values as the config file does, so
+    ``SCRAPEGRAPHAI_TELEMETRY_ENABLED=false`` and ``telemetry_enabled = false``
+    behave identically. Raises ValueError on anything unrecognised.
+    """
+    try:
+        return configparser.ConfigParser.BOOLEAN_STATES[value.strip().lower()]
+    except KeyError:
+        raise ValueError(f"invalid boolean value: {value!r}")
+
+
 def _check_config_and_environ_for_telemetry_flag(default_value: bool, config_obj):
     telemetry_enabled = default_value
     if "telemetry_enabled" in config_obj["DEFAULT"]:
@@ -44,13 +57,18 @@ def _check_config_and_environ_for_telemetry_flag(default_value: bool, config_obj
         except Exception:
             pass
 
-    if os.environ.get("SCRAPEGRAPHAI_TELEMETRY_ENABLED") is not None:
+    env_value = os.environ.get("SCRAPEGRAPHAI_TELEMETRY_ENABLED")
+    if env_value is not None:
         try:
-            telemetry_enabled = config_obj.getboolean(
-                "DEFAULT", "telemetry_enabled"
+            telemetry_enabled = _parse_bool(env_value)
+        except ValueError:
+            logger.warning(
+                "SCRAPEGRAPHAI_TELEMETRY_ENABLED is set to %r, which is not a "
+                "recognised boolean. Telemetry is left at %s. Use one of: "
+                "true/false, yes/no, on/off, 1/0.",
+                env_value,
+                telemetry_enabled,
             )
-        except Exception:
-            pass
 
     return telemetry_enabled
 

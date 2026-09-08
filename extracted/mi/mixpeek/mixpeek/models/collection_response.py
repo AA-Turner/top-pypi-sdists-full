@@ -26,6 +26,7 @@ from mixpeek.models.alert_application_config_output import AlertApplicationConfi
 from mixpeek.models.bucket_schema_output import BucketSchemaOutput
 from mixpeek.models.cluster_application_config import ClusterApplicationConfig
 from mixpeek.models.collection_schedule_config import CollectionScheduleConfig
+from mixpeek.models.collection_vector_index import CollectionVectorIndex
 from mixpeek.models.retriever_enrichment_config_output import RetrieverEnrichmentConfigOutput
 from mixpeek.models.retriever_transform_config_output import RetrieverTransformConfigOutput
 from mixpeek.models.shared_collection_features_extractors_models_feature_extractor_config_output import SharedCollectionFeaturesExtractorsModelsFeatureExtractorConfigOutput
@@ -49,7 +50,7 @@ class CollectionResponse(BaseModel):
     source: SourceConfigOutput = Field(description="REQUIRED. Source configuration defining where data comes from. Type 'bucket': Process objects from one or more buckets (tier 1). Type 'collection': Process documents from upstream collection(s) (tier 2+). For multi-bucket sources, all buckets must have compatible schemas. For multi-collection sources, all collections must have compatible schemas. Determines input_schema and enables decomposition trees.")
     source_bucket_schemas: Optional[Dict[str, BucketSchemaOutput]] = Field(default=None, description="NOT REQUIRED (auto-computed). Snapshot of bucket schemas at collection creation. Only populated for multi-bucket collections (source.type='bucket' with multiple bucket_ids). Key: bucket_id, Value: BucketSchema at time of collection creation. Used for: Schema compatibility validation, document lineage, debugging. Schema snapshot is immutable - bucket schema changes after collection creation do not affect this. Single-bucket collections may omit this field (schema in input_schema is sufficient).")
     source_lineage: Optional[List[SingleLineageEntry]] = Field(default=None, description="NOT REQUIRED (auto-computed). Lineage chain showing complete processing history. Each entry contains: source_config, feature_extractor, output_schema for one tier. Length indicates processing depth (1 = tier 1, 2 = tier 2, etc.). Use for: Understanding multi-tier pipelines, visualizing decomposition trees.")
-    vector_indexes: Optional[List[Any]] = Field(default=None, description="NOT REQUIRED (auto-computed from extractor). Vector indexes for semantic search. Populated from feature_extractor.required_vector_indexes. Defines: Which embeddings are indexed, dimensions, distance metrics. Use for: Understanding search capabilities, debugging vector queries.")
+    vector_indexes: Optional[List[CollectionVectorIndex]] = Field(default=None, description="NOT REQUIRED (auto-computed). Vector indexes for semantic search. Populated from feature_extractor.required_vector_indexes on extractor-backed collections, and from the namespace vector config on promoted or direct-upsert (BYO) collections, where each entry carries source='namespace_vector_config'. Defines which embeddings are indexed, their dimensions and distance metric. Use for understanding search capabilities and debugging vector queries. An entry's `source` distinguishes a namespace-declared index from an extractor-derived one; extractor-derived entries omit it. The nested `index` object carries the storage name, dimensions, distance and inference_name.")
     payload_indexes: Optional[List[Any]] = Field(default=None, description="NOT REQUIRED (auto-computed from extractor + namespace). Payload indexes for filtering. Enables efficient filtering on metadata fields, timestamps, IDs. Populated from: extractor requirements + namespace defaults. Use for: Understanding which fields support fast filtering.")
     embedding_task: Optional[StrictStr] = Field(default=None, description="Override the embedding task hint for instruction-aware models (E5, Gemini). Defaults to 'retrieval_document' for indexing pipelines. Values: retrieval_document, retrieval_query, semantic_similarity, classification, clustering. Applied to all task-aware embedding models in this collection's extractor pipeline.")
     enabled: Optional[StrictBool] = Field(default=True, description="NOT REQUIRED (defaults to True). Whether the collection accepts new documents. False: Collection exists but won't process new objects. True: Active and processing. Use for: Temporarily disabling collections without deletion.")
@@ -154,6 +155,13 @@ class CollectionResponse(BaseModel):
                 if _item_source_lineage:
                     _items.append(_item_source_lineage.to_dict())
             _dict['source_lineage'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in vector_indexes (list)
+        _items = []
+        if self.vector_indexes:
+            for _item_vector_indexes in self.vector_indexes:
+                if _item_vector_indexes:
+                    _items.append(_item_vector_indexes.to_dict())
+            _dict['vector_indexes'] = _items
         # override the default output from pydantic by calling `to_dict()` of schedule
         if self.schedule:
             _dict['schedule'] = self.schedule.to_dict()
@@ -221,7 +229,7 @@ class CollectionResponse(BaseModel):
             if obj.get("source_bucket_schemas") is not None
             else None,
             "source_lineage": [SingleLineageEntry.from_dict(_item) for _item in obj["source_lineage"]] if obj.get("source_lineage") is not None else None,
-            "vector_indexes": obj.get("vector_indexes"),
+            "vector_indexes": [CollectionVectorIndex.from_dict(_item) for _item in obj["vector_indexes"]] if obj.get("vector_indexes") is not None else None,
             "payload_indexes": obj.get("payload_indexes"),
             "embedding_task": obj.get("embedding_task"),
             "enabled": obj.get("enabled") if obj.get("enabled") is not None else True,

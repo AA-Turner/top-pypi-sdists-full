@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+import contextlib
 from dataclasses import is_dataclass
 from enum import Enum
 import importlib.util
@@ -18,6 +20,9 @@ from pyvista.core.errors import PyVistaAttributeError
 from pyvista.core.errors import VTKVersionError
 from pyvista.core.utilities.misc import _NoNewAttrMixin
 from pyvista.plotting.charts import _vtkWrapper
+from tests.vtk_backend_divergence import NO_SNAKE_CASE
+from tests.vtk_backend_divergence import TRIMMED_CLASS_SET
+from tests.vtk_backend_divergence import TRIMMED_MODULE_SET
 
 
 def test_vtk_namespace():
@@ -30,7 +35,7 @@ def test_vtk_namespace():
         _ = _vtk.does_not_exist
 
 
-@pytest.mark.needs_vtk_version((9, 3, 0), reason='Test hangs in CI on Linux')
+@pytest.mark.skip_vtk_backend('cvista', reason=TRIMMED_MODULE_SET)
 def test_vtk_module_does_not_exist(monkeypatch):
     # Test module does not exist
     cls, module = 'foo', 'bar'
@@ -45,6 +50,7 @@ def test_vtk_module_does_not_exist(monkeypatch):
 
 
 @pytest.mark.needs_vtk_version((9, 5, 0), reason='Test hangs in CI on Linux')
+@pytest.mark.skip_vtk_backend('cvista', reason=TRIMMED_CLASS_SET)
 def test_vtk_class_does_not_exist(monkeypatch):
     # Test module exists, but class does not
     cls, module = 'foo', 'vtkCommonCore'
@@ -56,6 +62,43 @@ def test_vtk_class_does_not_exist(monkeypatch):
     )
     with pytest.raises(ImportError, match=match):
         _ = getattr(_vtk, cls)
+
+
+@pytest.mark.parametrize(
+    'mapping',
+    [
+        _vtk._CORE_MODULES,
+        _vtk._PLOTTING_MODULES,
+        _vtk._OPENGL_MODULES,
+    ],
+    ids=['core', 'plotting', 'opengl'],
+)
+def test_vtk_module_mapping_is_sorted_and_unique(mapping):
+    # Modules are alphabetically ordered
+    assert list(mapping) == sorted(mapping)
+
+    # Classes are alphabetically ordered within each module
+    for module, classes in mapping.items():
+        assert classes == tuple(sorted(classes)), module
+
+    # Classes are unique within this mapping
+    counts = Counter(cls for classes in mapping.values() for cls in classes)
+    duplicates = {cls: count for cls, count in counts.items() if count > 1}
+    assert not duplicates
+
+
+def test_vtk_classes_are_globally_unique():
+    mappings = (
+        _vtk._CORE_MODULES,
+        _vtk._PLOTTING_MODULES,
+        _vtk._OPENGL_MODULES,
+    )
+
+    counts = Counter(
+        cls for mapping in mappings for classes in mapping.values() for cls in classes
+    )
+    duplicates = {cls: count for cls, count in counts.items() if count > 1}
+    assert not duplicates
 
 
 def get_all_pyvista_classes() -> tuple[tuple[str, ...], tuple[type, ...]]:
@@ -139,14 +182,18 @@ def pytest_generate_tests(metafunc):
 def try_init_pyvista_object(class_):
     # Init object but skip if abstract
     kwargs = get_default_class_init_kwargs(class_)
+    ctx = contextlib.nullcontext()
+    if class_ is pv.ActorProperties:
+        ctx = pytest.warns(pv.PyVistaDeprecationWarning)
     try:
-        instance = class_(**kwargs)
-    except (ImportError, VTKVersionError):
+        with ctx:
+            instance = class_(**kwargs)
+    except (VTKVersionError, ImportError):
         pytest.skip('VTK Version not supported.')
     except TypeError as e:
         if 'abstract' in repr(e):
             pytest.skip('Class is abstract.')
-        raise
+        raise  # pragma: no cover -- failure path
     return instance
 
 
@@ -248,12 +295,16 @@ def get_default_class_init_kwargs(pyvista_class):
     elif pyvista_class is pv.XMLPartitionedDataSetWriter:
         kwargs['path'] = ''
         kwargs['data_object'] = pv.PartitionedDataSet()
+    elif pyvista_class is pv.EnSightWriter:
+        kwargs['path'] = ''
+        kwargs['data_object'] = pv.UnstructuredGrid()
     elif issubclass(pyvista_class, pv.BaseWriter):
         kwargs['path'] = ''
         kwargs['data_object'] = pv.PolyData()
     return kwargs
 
 
+@pytest.mark.skip_vtk_backend('cvista', reason=NO_SNAKE_CASE)
 def test_vtk_snake_case_api_is_disabled(vtk_subclass):
     if vtk_subclass is VTKObjectWrapperCheckSnakeCase:
         pytest.skip('Class is effectively abstract.')
@@ -286,7 +337,7 @@ def test_vtk_snake_case_api_is_disabled(vtk_subclass):
                 f'the PyVista API'
             )
             assert match in repr(e)  # noqa: PT017
-        else:
+        else:  # pragma: no cover -- failure path
             if DisableVtkSnakeCase not in vtk_subclass.__mro__:
                 msg = (
                     f'The class {vtk_subclass.__name__!r} in {vtk_subclass.__module__!r}\n'
@@ -377,6 +428,7 @@ def test_dir_snake_case_hidden_when_disallowed(sphere):
 
 
 @pytest.mark.skipif(pv.vtk_version_info < (9, 4), reason='Requires VTK >= 9.4')
+@pytest.mark.skip_vtk_backend('cvista', reason=NO_SNAKE_CASE)
 def test_dir_snake_case_visible_when_allowed(sphere):
     """Snake_case VTK aliases appear in ``dir`` when snake_case is allowed."""
     with pv.vtk_snake_case('allow'):
@@ -438,7 +490,7 @@ def test_pyvista_class_no_new_attributes(pyvista_class):
     except AttributeError as e:
         if 'dict' in repr(e):
             pytest.skip('Skip dict classes')
-    else:
+    else:  # pragma: no cover -- failure path
         if not issubclass(pyvista_class, _NoNewAttrMixin):
             msg = (
                 f'The class {pyvista_class.__name__!r} in {pyvista_class.__module__!r}'

@@ -408,6 +408,55 @@ def _request_hash(params: Any) -> str:
     return hashlib.sha256(body.encode()).hexdigest()
 
 
+#: How long `tasks/cancel` waits for an interrupted tool to return before it
+#: cancels the coroutine outright. Long enough for a kernel to raise
+#: `KeyboardInterrupt` and for the tool to write what the cell printed; short
+#: enough that a client asking to cancel is not left waiting on it.
+GRACE_SECONDS = 2.0
+
+
+async def _let_it_finish(handle: Any, interrupted: bool) -> None:
+    """Give an interrupted tool the moment it needs to hand back its output.
+
+    Cancelling the handle the instant the interrupt is sent throws away the
+    thing the cancel was supposed to preserve. The interrupt makes the kernel
+    raise, the tool's own completion path collects what the cell printed and
+    writes it to the notebook and the result — and a `handle.cancel()` racing
+    that leaves the task `cancelled` with nothing in it, which reads as "the
+    cell produced nothing" for a cell that printed five hundred lines.
+
+    Measured on prod1 on 2026-09-07, before this: a cell cancelled after
+    twenty seconds of printing answered `tasks/result` with **no content at
+    all**, and `read_cell` showed the cell with no outputs and no execution
+    count — the ticks existed only in a kernel nobody asked again.
+
+    Only when the interrupt was actually delivered. A provider that cannot
+    interrupt — `_do_interrupt` answering `False`, which several variants
+    honestly do — will not finish inside any grace, and waiting on it only
+    makes the client wait to be told the same thing.
+
+    The handle is not awaited for its value and never re-raises: it may fail,
+    and a failing task is the caller of this being about to cancel it anyway.
+
+    Unshielded on purpose. `wait_for` cancels what it is waiting on when the
+    timeout expires, which is precisely what the caller does next, and it
+    waits for that cancellation to land — so the status is written after the
+    tool has actually stopped rather than while it is still unwinding. A
+    `shield` here would only leave the same work for the line below; the
+    tests could not tell the two apart, which is the argument for the
+    simpler one.
+    """
+    if not interrupted:
+        return
+    try:
+        await asyncio.wait_for(handle, timeout=GRACE_SECONDS)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        pass
+    # Broad on purpose: how the work ended is the task's business, not this.
+    except Exception as error:  # noqa: BLE001
+        logger.debug("The interrupted task ended with %s", error)
+
+
 async def _interrupt(record: TaskRecord) -> bool:
     """Run a task's interrupt, if it has one. Never raises.
 
@@ -415,6 +464,17 @@ async def _interrupt(record: TaskRecord) -> bool:
     work to stop, and half of that succeeding is better than none of it. The
     failure is logged, because a kernel that could not be interrupted is a
     sandbox somebody has to go and look at.
+
+    **An interrupt that answers `False` failed.** This used to return `True`
+    whenever the call did not raise, throwing away what the interrupt said
+    about itself — and several sandbox variants answer `False` on purpose,
+    because their provider takes no interrupt and saying so is the whole
+    point of their override. Reporting those as interrupted is the same
+    mistake one level up from the one that made this worth fixing.
+
+    `None` is not a refusal. Most interrupts return nothing at all —
+    `JupyterKernelClient.interrupt` and `threading.Event.set` among them — so
+    only an explicit `False` counts as one.
     """
     stop = getattr(record, "interrupt", None)
     if stop is None:
@@ -422,7 +482,7 @@ async def _interrupt(record: TaskRecord) -> bool:
     try:
         outcome = stop()
         if hasattr(outcome, "__await__"):
-            await outcome
+            outcome = await outcome
     # Broad on purpose: the cancel proceeds regardless.
     except Exception as error:
         logger.error(
@@ -430,6 +490,13 @@ async def _interrupt(record: TaskRecord) -> bool:
             "the work it started may still be running",
             record.task_id,
             error,
+        )
+        return False
+    if outcome is False:
+        logger.error(
+            "Task %s refused the interrupt; the task is cancelled but the work "
+            "it started may still be running",
+            record.task_id,
         )
         return False
     return True
@@ -529,6 +596,29 @@ class TasksExtension(Extension):
         }
 
     def methods(self) -> Sequence[MethodBinding]:
+        """The four `tasks/*` methods, bound the way the runner calls them.
+
+        **`(ctx, params)`, and the order is not a detail.** The SDK types a
+        bound handler as `Callable[[ServerRequestContext, Any], ...]` and
+        invokes it `await entry.handler(ctx, typed_params)`. These were
+        written `(params, ctx)`, so every one of them received the context
+        where it expected the parameters: `tasks/get`, `tasks/cancel` and
+        `tasks/result` all read `params.task_id` and got
+
+            AttributeError: 'ServerRequestContext' object has no attribute 'task_id'
+
+        which the runner turns into `-32603 Internal server error`. Measured
+        on a deployment on 2026-09-07, on the first request that ever reached
+        them: creating a task worked and nothing could then be asked about it.
+
+        `tasks/list` did *not* fail, which is worse — it reads nothing off
+        either argument, so it answered correctly while its three siblings
+        were broken, and a smoke test that listed tasks would have passed.
+
+        Nothing caught it because every test called these directly, in the
+        order the definitions used. `tests/test_tasks.py` drives them through
+        a real `MethodBinding` now.
+        """
         return (
             MethodBinding(
                 method="tasks/get",
@@ -558,17 +648,17 @@ class TasksExtension(Extension):
 
     # -- the four methods ---------------------------------------------------
 
-    async def _handle_get(self, params: Any, ctx: Any) -> GetTaskResult:
+    async def _handle_get(self, ctx: Any, params: Any) -> GetTaskResult:
         record = await self.store.get(params.task_id)
         if record is None:
             raise _no_such_task(params.task_id)
         return GetTaskResult(**record.public().model_dump(by_alias=False))
 
-    async def _handle_list(self, params: Any, ctx: Any) -> ListTasksResult:
+    async def _handle_list(self, ctx: Any, params: Any) -> ListTasksResult:
         records = await self.store.list()
         return ListTasksResult(tasks=[record.public() for record in records])
 
-    async def _handle_cancel(self, params: Any, ctx: Any) -> CancelTaskResult:
+    async def _handle_cancel(self, ctx: Any, params: Any) -> CancelTaskResult:
         record = await self.store.get(params.task_id)
         if record is None:
             raise _no_such_task(params.task_id)
@@ -577,9 +667,10 @@ class TasksExtension(Extension):
             # handle alone leaves a cell running on a kernel that nobody is
             # watching, holding a sandbox and costing money, while the task
             # says `cancelled`.
-            await _interrupt(record)
+            interrupted = await _interrupt(record)
             handle = record.handle
             if handle is not None:
+                await _let_it_finish(handle, interrupted)
                 handle.cancel()
             record = await self.store.update(
                 params.task_id, status="cancelled", status_message="cancelled by the client"
@@ -590,7 +681,7 @@ class TasksExtension(Extension):
         # client lost, and telling it so as a failure teaches it to retry.
         return CancelTaskResult(**record.public().model_dump(by_alias=False))
 
-    async def _handle_result(self, params: Any, ctx: Any) -> Any:
+    async def _handle_result(self, ctx: Any, params: Any) -> Any:
         record = await self.store.get(params.task_id)
         if record is None:
             raise _no_such_task(params.task_id)

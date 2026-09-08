@@ -47,6 +47,7 @@ __all__ = (
     "EncryptionKeyProviderInputType",
     "EncryptionKeyProviderType",
     "ExternalIdTypeType",
+    "GridImageTypeType",
     "IamRoleStatusType",
     "IormLifecycleStateType",
     "LicenseModelType",
@@ -63,6 +64,9 @@ __all__ = (
     "ListDbNodesPaginatorName",
     "ListDbServersPaginatorName",
     "ListDbSystemShapesPaginatorName",
+    "ListExadbVmClustersPaginatorName",
+    "ListExascaleDbStorageVaultsPaginatorName",
+    "ListGiMinorVersionsPaginatorName",
     "ListGiVersionsPaginatorName",
     "ListOdbNetworksPaginatorName",
     "ListOdbPeeringConnectionsPaginatorName",
@@ -87,10 +91,12 @@ __all__ = (
     "ResourceServiceName",
     "ResourceStatusType",
     "ServiceName",
+    "ShapeAttributeType",
     "ShapeTypeType",
     "SourceTypeType",
     "StandbyAllowlistedIpsSourceType",
     "SupportedAwsIntegrationType",
+    "UpdateActionType",
     "VpcEndpointTypeType",
     "WalletPasswordSourceType",
     "WalletTypeType",
@@ -169,6 +175,7 @@ DiskRedundancyType = Literal["HIGH", "NORMAL"]
 EncryptionKeyProviderInputType = Literal["AWS_KMS", "ORACLE_MANAGED"]
 EncryptionKeyProviderType = Literal["AWS_KMS", "OCI", "OKV", "ORACLE_MANAGED"]
 ExternalIdTypeType = Literal["compartment_ocid", "database_ocid", "tenant_ocid"]
+GridImageTypeType = Literal["CUSTOM_IMAGE", "RELEASE_UPDATE"]
 IamRoleStatusType = Literal[
     "ASSOCIATING",
     "CONNECTED",
@@ -195,6 +202,9 @@ ListCloudVmClustersPaginatorName = Literal["list_cloud_vm_clusters"]
 ListDbNodesPaginatorName = Literal["list_db_nodes"]
 ListDbServersPaginatorName = Literal["list_db_servers"]
 ListDbSystemShapesPaginatorName = Literal["list_db_system_shapes"]
+ListExadbVmClustersPaginatorName = Literal["list_exadb_vm_clusters"]
+ListExascaleDbStorageVaultsPaginatorName = Literal["list_exascale_db_storage_vaults"]
+ListGiMinorVersionsPaginatorName = Literal["list_gi_minor_versions"]
 ListGiVersionsPaginatorName = Literal["list_gi_versions"]
 ListOdbNetworksPaginatorName = Literal["list_odb_networks"]
 ListOdbPeeringConnectionsPaginatorName = Literal["list_odb_peering_connections"]
@@ -253,6 +263,7 @@ ResourceStatusType = Literal[
     "TERMINATING",
     "UPDATING",
 ]
+ShapeAttributeType = Literal["BLOCK_STORAGE", "SMART_STORAGE"]
 ShapeTypeType = Literal["AMD", "AMPERE_FLEX_A1", "INTEL", "INTEL_FLEX_X9"]
 SourceTypeType = Literal[
     "BACKUP_FROM_ID",
@@ -265,6 +276,7 @@ SourceTypeType = Literal[
 ]
 StandbyAllowlistedIpsSourceType = Literal["NOT_APPLICABLE", "PRIMARY", "SEPARATE"]
 SupportedAwsIntegrationType = Literal["KmsTde"]
+UpdateActionType = Literal["NON_ROLLING_APPLY", "PRECHECK", "ROLLBACK", "ROLLING_APPLY"]
 VpcEndpointTypeType = Literal["SERVICENETWORK"]
 WalletPasswordSourceType = Literal["API_REQUEST_PARAMETER", "CUSTOMER_MANAGED_AWS_SECRET"]
 WalletTypeType = Literal["INSTANCE", "REGIONAL"]
@@ -272,8 +284,11 @@ OdbServiceName = Literal["odb"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -578,6 +593,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -713,6 +729,9 @@ PaginatorName = Literal[
     "list_db_nodes",
     "list_db_servers",
     "list_db_system_shapes",
+    "list_exadb_vm_clusters",
+    "list_exascale_db_storage_vaults",
+    "list_gi_minor_versions",
     "list_gi_versions",
     "list_odb_networks",
     "list_odb_peering_connections",

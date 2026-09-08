@@ -52,6 +52,7 @@ from .paginator import (
     ListEntitySecurityProfilesPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
+    ListExtractionDefinitionsPaginator,
     ListFlowAssociationsPaginator,
     ListHoursOfOperationOverridesPaginator,
     ListHoursOfOperationsPaginator,
@@ -61,6 +62,7 @@ from .paginator import (
     ListIntegrationAssociationsPaginator,
     ListLambdaFunctionsPaginator,
     ListLexBotsPaginator,
+    ListMetricsPaginator,
     ListPhoneNumbersPaginator,
     ListPhoneNumbersV2Paginator,
     ListPredefinedAttributesPaginator,
@@ -97,6 +99,7 @@ from .paginator import (
     SearchDataTablesPaginator,
     SearchHoursOfOperationOverridesPaginator,
     SearchHoursOfOperationsPaginator,
+    SearchMetricsPaginator,
     SearchPredefinedAttributesPaginator,
     SearchPromptsPaginator,
     SearchQueuesPaginator,
@@ -187,6 +190,8 @@ from .type_defs import (
     CreateEmailAddressResponseTypeDef,
     CreateEvaluationFormRequestTypeDef,
     CreateEvaluationFormResponseTypeDef,
+    CreateExtractionDefinitionRequestTypeDef,
+    CreateExtractionDefinitionResponseTypeDef,
     CreateHoursOfOperationOverrideRequestTypeDef,
     CreateHoursOfOperationOverrideResponseTypeDef,
     CreateHoursOfOperationRequestTypeDef,
@@ -195,6 +200,8 @@ from .type_defs import (
     CreateInstanceResponseTypeDef,
     CreateIntegrationAssociationRequestTypeDef,
     CreateIntegrationAssociationResponseTypeDef,
+    CreateMetricRequestTypeDef,
+    CreateMetricResponseTypeDef,
     CreateNotificationRequestTypeDef,
     CreateNotificationResponseTypeDef,
     CreateParticipantRequestTypeDef,
@@ -252,10 +259,12 @@ from .type_defs import (
     DeleteDataTableRequestTypeDef,
     DeleteEmailAddressRequestTypeDef,
     DeleteEvaluationFormRequestTypeDef,
+    DeleteExtractionDefinitionRequestTypeDef,
     DeleteHoursOfOperationOverrideRequestTypeDef,
     DeleteHoursOfOperationRequestTypeDef,
     DeleteInstanceRequestTypeDef,
     DeleteIntegrationAssociationRequestTypeDef,
+    DeleteMetricRequestTypeDef,
     DeleteNotificationRequestTypeDef,
     DeletePredefinedAttributeRequestTypeDef,
     DeletePromptRequestTypeDef,
@@ -303,6 +312,8 @@ from .type_defs import (
     DescribeEmailAddressResponseTypeDef,
     DescribeEvaluationFormRequestTypeDef,
     DescribeEvaluationFormResponseTypeDef,
+    DescribeExtractionDefinitionRequestTypeDef,
+    DescribeExtractionDefinitionResponseTypeDef,
     DescribeHoursOfOperationOverrideRequestTypeDef,
     DescribeHoursOfOperationOverrideResponseTypeDef,
     DescribeHoursOfOperationRequestTypeDef,
@@ -313,6 +324,8 @@ from .type_defs import (
     DescribeInstanceResponseTypeDef,
     DescribeInstanceStorageConfigRequestTypeDef,
     DescribeInstanceStorageConfigResponseTypeDef,
+    DescribeMetricRequestTypeDef,
+    DescribeMetricResponseTypeDef,
     DescribeNotificationRequestTypeDef,
     DescribeNotificationResponseTypeDef,
     DescribePhoneNumberRequestTypeDef,
@@ -451,6 +464,8 @@ from .type_defs import (
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestTypeDef,
     ListEvaluationFormVersionsResponseTypeDef,
+    ListExtractionDefinitionsRequestTypeDef,
+    ListExtractionDefinitionsResponseTypeDef,
     ListFlowAssociationsRequestTypeDef,
     ListFlowAssociationsResponseTypeDef,
     ListHoursOfOperationOverridesRequestTypeDef,
@@ -469,6 +484,8 @@ from .type_defs import (
     ListLambdaFunctionsResponseTypeDef,
     ListLexBotsRequestTypeDef,
     ListLexBotsResponseTypeDef,
+    ListMetricsRequestTypeDef,
+    ListMetricsResponseTypeDef,
     ListNotificationsRequestTypeDef,
     ListNotificationsResponseTypeDef,
     ListPhoneNumbersRequestTypeDef,
@@ -572,6 +589,8 @@ from .type_defs import (
     SearchHoursOfOperationOverridesResponseTypeDef,
     SearchHoursOfOperationsRequestTypeDef,
     SearchHoursOfOperationsResponseTypeDef,
+    SearchMetricsRequestTypeDef,
+    SearchMetricsResponseTypeDef,
     SearchNotificationsRequestTypeDef,
     SearchNotificationsResponseTypeDef,
     SearchPredefinedAttributesRequestTypeDef,
@@ -608,6 +627,8 @@ from .type_defs import (
     SendChatIntegrationEventResponseTypeDef,
     SendOutboundEmailRequestTypeDef,
     SendOutboundWebNotificationRequestTypeDef,
+    StartAssistantContactRequestTypeDef,
+    StartAssistantContactResponseTypeDef,
     StartAttachedFileUploadRequestTypeDef,
     StartAttachedFileUploadResponseTypeDef,
     StartChatContactRequestTypeDef,
@@ -667,6 +688,7 @@ from .type_defs import (
     UpdateContactRequestTypeDef,
     UpdateContactRoutingDataRequestTypeDef,
     UpdateContactScheduleRequestTypeDef,
+    UpdateContactTaskTemplateRequestTypeDef,
     UpdateDataTableAttributeRequestTypeDef,
     UpdateDataTableAttributeResponseTypeDef,
     UpdateDataTableMetadataRequestTypeDef,
@@ -677,10 +699,13 @@ from .type_defs import (
     UpdateEmailAddressMetadataResponseTypeDef,
     UpdateEvaluationFormRequestTypeDef,
     UpdateEvaluationFormResponseTypeDef,
+    UpdateExtractionDefinitionRequestTypeDef,
     UpdateHoursOfOperationOverrideRequestTypeDef,
     UpdateHoursOfOperationRequestTypeDef,
     UpdateInstanceAttributeRequestTypeDef,
     UpdateInstanceStorageConfigRequestTypeDef,
+    UpdateMetricContentRequestTypeDef,
+    UpdateMetricMetadataRequestTypeDef,
     UpdateNotificationContentRequestTypeDef,
     UpdateParticipantAuthenticationRequestTypeDef,
     UpdateParticipantRoleConfigRequestTypeDef,
@@ -1269,6 +1294,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_evaluation_form)
         """
 
+    async def create_extraction_definition(
+        self, **kwargs: Unpack[CreateExtractionDefinitionRequestTypeDef]
+    ) -> CreateExtractionDefinitionResponseTypeDef:
+        """
+        Creates an extraction definition in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_extraction_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_extraction_definition)
+        """
+
     async def create_hours_of_operation(
         self, **kwargs: Unpack[CreateHoursOfOperationRequestTypeDef]
     ) -> CreateHoursOfOperationResponseTypeDef:
@@ -1309,6 +1344,16 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_integration_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_integration_association)
+        """
+
+    async def create_metric(
+        self, **kwargs: Unpack[CreateMetricRequestTypeDef]
+    ) -> CreateMetricResponseTypeDef:
+        """
+        Creates a new metric definition for the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_metric.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_metric)
         """
 
     async def create_notification(
@@ -1669,6 +1714,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_evaluation_form)
         """
 
+    async def delete_extraction_definition(
+        self, **kwargs: Unpack[DeleteExtractionDefinitionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an extraction definition from the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_extraction_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_extraction_definition)
+        """
+
     async def delete_hours_of_operation(
         self, **kwargs: Unpack[DeleteHoursOfOperationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1709,6 +1764,14 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_integration_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_integration_association)
+        """
+
+    async def delete_metric(self, **kwargs: Unpack[DeleteMetricRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes an existing metric from the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_metric.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_metric)
         """
 
     async def delete_notification(
@@ -2051,6 +2114,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_evaluation_form)
         """
 
+    async def describe_extraction_definition(
+        self, **kwargs: Unpack[DescribeExtractionDefinitionRequestTypeDef]
+    ) -> DescribeExtractionDefinitionResponseTypeDef:
+        """
+        Describes an extraction definition in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_extraction_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_extraction_definition)
+        """
+
     async def describe_hours_of_operation(
         self, **kwargs: Unpack[DescribeHoursOfOperationRequestTypeDef]
     ) -> DescribeHoursOfOperationResponseTypeDef:
@@ -2099,6 +2172,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_instance_storage_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_instance_storage_config)
+        """
+
+    async def describe_metric(
+        self, **kwargs: Unpack[DescribeMetricRequestTypeDef]
+    ) -> DescribeMetricResponseTypeDef:
+        """
+        Retrieves the full definition of an existing metric from the specified Connect
+        Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_metric.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_metric)
         """
 
     async def describe_notification(
@@ -2905,6 +2989,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_evaluation_forms)
         """
 
+    async def list_extraction_definitions(
+        self, **kwargs: Unpack[ListExtractionDefinitionsRequestTypeDef]
+    ) -> ListExtractionDefinitionsResponseTypeDef:
+        """
+        Lists extraction definitions in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_extraction_definitions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_extraction_definitions)
+        """
+
     async def list_flow_associations(
         self, **kwargs: Unpack[ListFlowAssociationsRequestTypeDef]
     ) -> ListFlowAssociationsResponseTypeDef:
@@ -2995,6 +3089,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_lex_bots.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_lex_bots)
+        """
+
+    async def list_metrics(
+        self, **kwargs: Unpack[ListMetricsRequestTypeDef]
+    ) -> ListMetricsResponseTypeDef:
+        """
+        Retrieves a paginated list of metric summaries for the specified Connect
+        Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_metrics.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_metrics)
         """
 
     async def list_notifications(
@@ -3562,6 +3667,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_hours_of_operations)
         """
 
+    async def search_metrics(
+        self, **kwargs: Unpack[SearchMetricsRequestTypeDef]
+    ) -> SearchMetricsResponseTypeDef:
+        """
+        Searches for metrics in the specified Connect Customer instance using search
+        criteria and optional tag-based filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_metrics.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_metrics)
+        """
+
     async def search_notifications(
         self, **kwargs: Unpack[SearchNotificationsRequestTypeDef]
     ) -> SearchNotificationsResponseTypeDef:
@@ -3760,6 +3876,16 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/send_outbound_web_notification.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#send_outbound_web_notification)
+        """
+
+    async def start_assistant_contact(
+        self, **kwargs: Unpack[StartAssistantContactRequestTypeDef]
+    ) -> StartAssistantContactResponseTypeDef:
+        """
+        Starts a chat contact with an AI agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_assistant_contact.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_assistant_contact)
         """
 
     async def start_attached_file_upload(
@@ -4186,6 +4312,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact_schedule)
         """
 
+    async def update_contact_task_template(
+        self, **kwargs: Unpack[UpdateContactTaskTemplateRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the task template association on an existing task contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_task_template.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact_task_template)
+        """
+
     async def update_data_table_attribute(
         self, **kwargs: Unpack[UpdateDataTableAttributeRequestTypeDef]
     ) -> UpdateDataTableAttributeResponseTypeDef:
@@ -4238,6 +4374,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_evaluation_form)
         """
 
+    async def update_extraction_definition(
+        self, **kwargs: Unpack[UpdateExtractionDefinitionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates an extraction definition in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_extraction_definition.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_extraction_definition)
+        """
+
     async def update_hours_of_operation(
         self, **kwargs: Unpack[UpdateHoursOfOperationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -4276,6 +4422,28 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_instance_storage_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_instance_storage_config)
+        """
+
+    async def update_metric_content(
+        self, **kwargs: Unpack[UpdateMetricContentRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the calculation, unit, and/or trend indicator of an existing metric in
+        the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_metric_content.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_metric_content)
+        """
+
+    async def update_metric_metadata(
+        self, **kwargs: Unpack[UpdateMetricMetadataRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the name and/or description of an existing metric in the specified
+        Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_metric_metadata.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_metric_metadata)
         """
 
     async def update_notification_content(
@@ -4948,6 +5116,17 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_extraction_definitions"]
+    ) -> ListExtractionDefinitionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_flow_associations"]
     ) -> ListFlowAssociationsPaginator:
         """
@@ -5038,6 +5217,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_lex_bots"]
     ) -> ListLexBotsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_metrics"]
+    ) -> ListMetricsPaginator:
         """
         Create a paginator for an operation.
 
@@ -5434,6 +5624,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_hours_of_operations"]
     ) -> SearchHoursOfOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_metrics"]
+    ) -> SearchMetricsPaginator:
         """
         Create a paginator for an operation.
 

@@ -6,13 +6,8 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from . import drive, general, research, sql
-_dynamic_imports: typing.Dict[str, str] = {
-    "drive": ".drive",
-    "general": ".general",
-    "research": ".research",
-    "sql": ".sql",
-}
+    from . import general
+_dynamic_imports: typing.Dict[str, str] = {"general": ".general"}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -36,4 +31,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["drive", "general", "research", "sql"]
+__all__ = ["general"]

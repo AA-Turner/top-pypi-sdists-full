@@ -65,12 +65,10 @@ class Screen(_raw_display_base.Screen):
         """Initialize a screen that directly prints escape codes to an output
         terminal.
 
-        bracketed_paste_mode -- enable bracketed paste mode in the host terminal.
-            If the host terminal supports it, the application will receive `begin paste`
-            and `end paste` keystrokes when the user pastes text.
-        focus_reporting -- enable focus reporting in the host terminal.
-            If the host terminal supports it, the application will receive `focus in`
-            and `focus out` keystrokes when the application gains and loses focus.
+        :param bracketed_paste_mode: enable bracketed paste mode in the host terminal. If the host terminal supports it,
+            the application will receive `begin paste` and `end paste` keystrokes when the user pastes text.
+        :param focus_reporting: enable focus reporting in the host terminal. If the host terminal supports it, the
+            application will receive `focus in` and `focus out` keystrokes when the application gains and loses focus.
 
         .. note::
             on terminal-generated signals: putting the terminal into cbreak mode (see `start()`)
@@ -110,7 +108,7 @@ class Screen(_raw_display_base.Screen):
 
     def _sigwinch_handler(self, signum: int = 28, frame: FrameType | None = None) -> None:
         """
-        frame -- will always be None when the GLib event loop is being used.
+        :param frame: will always be None when the GLib event loop is being used.
         """
         super()._sigwinch_handler(signum, frame)
 
@@ -146,7 +144,7 @@ class Screen(_raw_display_base.Screen):
 
     def _sigcont_handler(self, signum: int, frame: FrameType | None = None) -> None:
         """
-        frame -- will always be None when the GLib event loop is being used.
+        :param frame: will always be None when the GLib event loop is being used.
         """
         self.signal_restore()
 
@@ -189,6 +187,11 @@ class Screen(_raw_display_base.Screen):
             self._stop_gpm_tracking()
 
     def _start_gpm_tracking(self) -> None:
+        """
+        Start the gpm helper that reports mouse events on the Linux console.
+
+        :raises RuntimeError: the gpm helper process provides no standard output.
+        """
         if not os.path.isfile("/usr/bin/mev"):
             return
         if not os.environ.get("TERM", "").lower().startswith("linux"):
@@ -222,7 +225,8 @@ class Screen(_raw_display_base.Screen):
         """
         Initialize the screen and input mode.
 
-        alternate_buffer -- use an alternate screen buffer
+        :param alternate_buffer: use an alternate screen buffer
+        :raises TypeError: unexpected positional or keyword arguments were given.
         """
         if args or kwargs:
             raise TypeError(f"start() got unexpected arguments: {args=!r}, {kwargs=!r}")
@@ -274,6 +278,7 @@ class Screen(_raw_display_base.Screen):
         self.signal_restore()
 
         self._stop_mouse_restore_buffer()
+        self._stop_restore_palette()
 
         fd = self._input_fileno()
         if fd is not None and os.isatty(fd):
@@ -354,6 +359,11 @@ class Screen(_raw_display_base.Screen):
         return codes
 
     def _read_raw_input(self, timeout: int) -> bytearray:
+        """
+        Read whatever raw input is available, waiting at most *timeout* seconds.
+
+        :raises RuntimeError: the input file has been closed.
+        """
         ready = self._wait_for_input_ready(timeout)
         gpm_stdout = self.gpm_mev.stdout if self.gpm_mev is not None else None
         if gpm_stdout is not None and gpm_stdout.fileno() in ready:

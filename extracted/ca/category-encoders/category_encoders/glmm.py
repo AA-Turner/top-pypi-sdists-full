@@ -52,10 +52,15 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
     return_df: bool
         boolean for whether to return a pandas DataFrame from transform
         (otherwise it will be a numpy array).
-    handle_missing: str
+    handle_missing: str, int, float or callable
         options are 'return_nan', 'error' and 'value', defaults to 'value', which returns 0.
-    handle_unknown: str
+        A number is used as the encoded value for missing values that were not seen at fit time,
+        and a callable fn(value, mapping) is evaluated once per column when the mapping is
+        finalized during fit.
+    handle_unknown: str, int, float or callable
         options are 'return_nan', 'error' and 'value', defaults to 'value', which returns 0.
+        A number is used as the encoded value for unseen categories, and a callable
+        fn(value, mapping) is evaluated once per column when the mapping is finalized during fit.
     randomized: bool,
         adds Gaussian regularization noise to the encoded values during fit
         to decrease overfitting. The noise is multiplicative — encoded values
@@ -127,6 +132,11 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
         randomized=False,
         sigma=0.05,
         binomial_target=None,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
+        composite_cols=None,
+        keep_components=False,
     ):
         super().__init__(
             verbose=verbose,
@@ -135,6 +145,11 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
+            composite_cols=composite_cols,
+            keep_components=keep_components,
         )
         self.ordinal_encoder = None
         self.mapping = None
@@ -159,7 +174,7 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
         X = self.ordinal_encoder.transform(X)
 
         if self.handle_unknown == 'error':
-            if X[self.cols].isin([-1]).any().any():
+            if X[self.cols].isin([util.UNKNOWN_SENTINEL]).any().any():
                 raise ValueError('Unexpected categories found in dataframe')
 
         # Loop over the columns and replace the nominal values with the numbers
@@ -228,15 +243,9 @@ class GLMMEncoder( util.SupervisedTransformerMixin ,util.BaseEncoder):
                 if len(X[col].unique()) == len(y):
                     estimate[:] = 0
 
-                if self.handle_unknown == 'return_nan':
-                    estimate.loc[-1] = np.nan
-                elif self.handle_unknown == 'value':
-                    estimate.loc[-1] = 0
-
-                if self.handle_missing == 'return_nan':
-                    estimate.loc[values.loc[np.nan]] = np.nan
-                elif self.handle_missing == 'value':
-                    estimate.loc[-2] = 0
+                estimate = util.finalize_encoding_mapping(
+                    estimate, values, self.handle_unknown, self.handle_missing, 0
+                )
 
                 mapping[col] = estimate
         finally:

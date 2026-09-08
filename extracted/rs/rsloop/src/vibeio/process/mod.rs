@@ -1,40 +1,48 @@
 //! Process utilities for spawning and managing child processes.
 //!
 //! This module provides async-aware wrappers around `std::process::Command` and
-//! `std::process::Child`, allowing you to spawn and interact with child processes
-//! without blocking the executor.
+//! `std::process::Child`, with driver-backed pipe I/O and offloaded blocking
+//! operations when configured inside a runtime.
 //!
 //! Key types:
 //! - `Command`: an async-aware builder for spawning child processes.
-//! - `Child`: represents a running child process with async `wait()`, `kill()`, etc.
+//! - `Child`: represents a running child process with async `wait()` and
+//!   synchronous `kill()` and `try_wait()` methods.
 //! - `ChildStdin`, `ChildStdout`, `ChildStderr`: async-aware stdio streams.
 //!
 //! Implementation notes:
 //! - On Unix, the module uses `mio`/`io_uring` drivers to register child process
 //!   file descriptors for async I/O when possible. Falls back to a blocking pool
 //!   when the driver is unavailable or registration fails.
-//! - A background `ZombieReaper` task runs per runtime to reap exited child processes
-//!   and avoid leaving zombies. This is started automatically when the runtime is
-//!   created.
-//! - Calling any process API outside a runtime will panic (matching the library's
-//!   general behavior for runtime-only APIs).
+//! - Child drop retains reaping ownership through a runtime reaper when available
+//!   or a background-thread fallback otherwise.
+//! - Construction and child waiting can run outside a runtime. Inside a runtime,
+//!   stdio's blocking fallback and Command::status/output require a blocking
+//!   pool. Outside a runtime, those fallback operations execute synchronously
+//!   when polled. Command::spawn always invokes std's synchronous spawn.
+//!
+//! # Cancellation of blocking operations
+//!
+//! An offloaded operation owns its stream or command until its worker finishes.
+//! Dropping the pending future does not stop the worker or restore that object
+//! to its wrapper. The wrapper remains consumed; operations return a closed or
+//! consumed error, and infallible command configuration/accessors may panic.
+//! A future dropped before its first poll has not transferred ownership.
+//! This limitation is distinct from Unix driver-backed pipe cancellation.
 
 mod reaper;
 
 use reaper::ZombieReaper;
 pub(crate) use reaper::{ZombieReaperMessage, start_zombie_reaper};
 
-use std::cell::RefCell;
 use std::ffi::OsStr;
 #[cfg(unix)]
 use std::future::poll_fn;
 use std::io::{self, Read, Write};
-use std::sync::{Arc, Mutex};
 
 #[cfg(unix)]
 use mio::Interest;
 
-use std::mem::ManuallyDrop;
 #[cfg(unix)]
 use std::os::fd::{AsRawFd, IntoRawFd, RawFd};
 #[cfg(windows)]
@@ -45,9 +53,7 @@ use crate::vibeio::driver::RegistrationMode;
 use crate::vibeio::executor::current_driver;
 #[cfg(unix)]
 use crate::vibeio::fd_inner::InnerRawHandle;
-use crate::vibeio::io::{
-    AsyncRead, AsyncWrite, IoBuf, IoBufMut, iobuf_to_slice, iobufmut_to_slice,
-};
+use crate::vibeio::io::{AsyncRead, AsyncWrite, IoBuf, IoBufMut, iobuf_to_slice, read_into_buf};
 #[cfg(unix)]
 use crate::vibeio::op::{ReadOp, WriteOp};
 
@@ -55,7 +61,7 @@ pub use std::process::{ExitStatus, Output, Stdio};
 
 #[cfg(unix)]
 enum ChildIo {
-    Async(ManuallyDrop<InnerRawHandle>),
+    Async(InnerRawHandle),
     Blocking,
 }
 
@@ -89,28 +95,7 @@ fn blocking_pool_io_error() -> io::Error {
 
 #[cfg(unix)]
 #[inline]
-fn configure_nonblocking(fd: RawFd, uses_completion: bool) {
-    // On Linux, pipe2() already sets O_NONBLOCK at creation time, so
-    // we only need to adjust flags when the mode doesn't match.
-    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
-    if flags == -1 {
-        return;
-    }
-
-    let mut new_flags = flags | libc::O_NONBLOCK;
-    if uses_completion {
-        new_flags &= !libc::O_NONBLOCK;
-    }
-    if new_flags != flags {
-        unsafe {
-            libc::fcntl(fd, libc::F_SETFL, new_flags);
-        }
-    }
-}
-
-#[cfg(unix)]
-#[inline]
-fn make_child_io(fd: RawFd, interest: Interest) -> ChildIo {
+fn make_child_io(fd: RawFd, interest: Interest) -> io::Result<ChildIo> {
     if let Some(driver) = current_driver() {
         match InnerRawHandle::new_with_driver_and_mode(
             &driver,
@@ -119,14 +104,13 @@ fn make_child_io(fd: RawFd, interest: Interest) -> ChildIo {
             RegistrationMode::Completion,
         ) {
             Ok(handle) => {
-                let handle = ManuallyDrop::new(handle);
-                configure_nonblocking(fd, handle.uses_completion());
-                ChildIo::Async(handle)
+                crate::vibeio::fd_inner::set_nonblocking(fd, !handle.uses_completion())?;
+                Ok(ChildIo::Async(handle))
             }
-            Err(_) => ChildIo::Blocking,
+            Err(_) => Ok(ChildIo::Blocking),
         }
     } else {
-        ChildIo::Blocking
+        Ok(ChildIo::Blocking)
     }
 }
 
@@ -136,31 +120,16 @@ where
     R: Read + Send + 'static,
     B: IoBufMut,
 {
-    let shared = Arc::new(Mutex::new(RefCell::new(Some((inner, buf)))));
-    let shared_clone = shared.clone();
-    let result = crate::vibeio::spawn_blocking(move || {
-        let (mut inner, mut buf) = shared_clone
-            .try_lock()
-            .ok()
-            .and_then(|rc| rc.take())
-            .expect("inner/buf is none");
-        let temp_slice = iobufmut_to_slice(&mut buf);
-        let result = inner.read(temp_slice);
-        (result, inner, buf)
-    })
-    .await;
-
-    match result {
-        Ok(result) => result,
-        Err(_) => {
-            let (inner, buf) = shared
-                .try_lock()
-                .ok()
-                .and_then(|rc| rc.take())
-                .expect("inner/buf is none");
-            (Err(blocking_pool_io_error()), inner, buf)
-        }
-    }
+    let (result, (inner, buf)) =
+        crate::vibeio::blocking::with_buffer((inner, buf), |(inner, buf)| {
+            read_into_buf(buf, |slice| inner.read(slice))
+        })
+        .await;
+    (
+        result.unwrap_or_else(|_| Err(blocking_pool_io_error())),
+        inner,
+        buf,
+    )
 }
 
 #[inline]
@@ -169,31 +138,16 @@ where
     W: Write + Send + 'static,
     B: IoBuf,
 {
-    let shared = Arc::new(Mutex::new(RefCell::new(Some((inner, buf)))));
-    let shared_clone = shared.clone();
-    let result = crate::vibeio::spawn_blocking(move || {
-        let (mut inner, buf) = shared_clone
-            .try_lock()
-            .ok()
-            .and_then(|rc| rc.take())
-            .expect("inner/buf is none");
-        let temp_slice = iobuf_to_slice(&buf);
-        let result = inner.write(temp_slice);
-        (result, inner, buf)
-    })
-    .await;
-
-    match result {
-        Ok(result) => result,
-        Err(_) => {
-            let (inner, buf) = shared
-                .try_lock()
-                .ok()
-                .and_then(|rc| rc.take())
-                .expect("inner/buf is none");
-            (Err(blocking_pool_io_error()), inner, buf)
-        }
-    }
+    let (result, (inner, buf)) =
+        crate::vibeio::blocking::with_buffer((inner, buf), |(inner, buf)| {
+            inner.write(iobuf_to_slice(buf))
+        })
+        .await;
+    (
+        result.unwrap_or_else(|_| Err(blocking_pool_io_error())),
+        inner,
+        buf,
+    )
 }
 
 /// Async-aware child process stdin stream.
@@ -203,10 +157,9 @@ where
 /// the executor.
 ///
 /// # Examples
-/// ```ignore
-/// let mut child = Command::new("cat").stdin(Stdio::piped()).spawn()?;
-/// child.stdin.as_mut().unwrap().write_all(b"hello\n").await?;
-/// ```
+/// See "Child-process pipes and exit status" in
+/// `tools/vibeio-check/EXAMPLES.md` for a Unix-gated executable example with
+/// checked I/O results, explicit flushing and concurrent pipe draining.
 pub struct ChildStdin {
     inner: Option<std::process::ChildStdin>,
     #[allow(dead_code)]
@@ -220,11 +173,9 @@ pub struct ChildStdin {
 /// the executor.
 ///
 /// # Examples
-/// ```ignore
-/// let mut child = Command::new("echo").stdout(Stdio::piped()).spawn()?;
-/// let mut buf = vec![0u8; 64];
-/// let (result, buf) = child.stdout.as_mut().unwrap().read(buf).await;
-/// ```
+/// See "Child-process pipes and exit status" in
+/// `tools/vibeio-check/EXAMPLES.md` for a Unix-gated executable example with
+/// checked I/O results, explicit flushing and concurrent pipe draining.
 pub struct ChildStdout {
     inner: Option<std::process::ChildStdout>,
     #[allow(dead_code)]
@@ -238,11 +189,9 @@ pub struct ChildStdout {
 /// the executor.
 ///
 /// # Examples
-/// ```ignore
-/// let mut child = Command::new("sh").stderr(Stdio::piped()).spawn()?;
-/// let mut buf = vec![0u8; 64];
-/// let (result, buf) = child.stderr.as_mut().unwrap().read(buf).await;
-/// ```
+/// See "Child-process pipes and exit status" in
+/// `tools/vibeio-check/EXAMPLES.md` for a Unix-gated executable example with
+/// checked I/O results, explicit flushing and concurrent pipe draining.
 pub struct ChildStderr {
     inner: Option<std::process::ChildStderr>,
     #[allow(dead_code)]
@@ -254,7 +203,7 @@ impl ChildStdin {
     #[inline]
     pub(crate) fn from_std(inner: std::process::ChildStdin) -> io::Result<Self> {
         #[cfg(unix)]
-        let io = make_child_io(inner.as_raw_fd(), Interest::WRITABLE);
+        let io = make_child_io(inner.as_raw_fd(), Interest::WRITABLE)?;
         #[cfg(windows)]
         let io = ChildIo::Blocking;
 
@@ -266,29 +215,15 @@ impl ChildStdin {
 
     /// Consume this `ChildStdin` and return the underlying `std::process::ChildStdin`.
     #[inline]
-    pub fn into_std(self) -> std::process::ChildStdin {
-        #[cfg(not(unix))]
-        let this = ManuallyDrop::new(self);
-        #[cfg(unix)]
-        let mut this = ManuallyDrop::new(self);
-        #[cfg(unix)]
-        if let ChildIo::Async(handle) = &mut this.io {
-            unsafe {
-                ManuallyDrop::drop(handle);
-            }
-        }
-        let inner = unsafe { std::ptr::read(&this.inner) };
-        inner.expect("child stdin is already taken")
+    pub fn into_std(mut self) -> std::process::ChildStdin {
+        self.inner.take().expect("child stdin is already taken")
     }
 
     #[inline]
     fn drop_handle(&mut self) {
-        #[cfg(unix)]
-        if let ChildIo::Async(handle) = &mut self.io {
-            unsafe {
-                ManuallyDrop::drop(handle);
-            }
-        }
+        // Deregister before the standard stream closes its descriptor.
+        // Replacing the state also prevents a second drop during field cleanup.
+        self.io = ChildIo::Blocking;
     }
 }
 
@@ -297,7 +232,7 @@ impl ChildStdout {
     #[inline]
     pub(crate) fn from_std(inner: std::process::ChildStdout) -> io::Result<Self> {
         #[cfg(unix)]
-        let io = make_child_io(inner.as_raw_fd(), Interest::READABLE);
+        let io = make_child_io(inner.as_raw_fd(), Interest::READABLE)?;
         #[cfg(windows)]
         let io = ChildIo::Blocking;
 
@@ -309,29 +244,15 @@ impl ChildStdout {
 
     /// Consume this `ChildStdout` and return the underlying `std::process::ChildStdout`.
     #[inline]
-    pub fn into_std(self) -> std::process::ChildStdout {
-        #[cfg(not(unix))]
-        let this = ManuallyDrop::new(self);
-        #[cfg(unix)]
-        let mut this = ManuallyDrop::new(self);
-        #[cfg(unix)]
-        if let ChildIo::Async(handle) = &mut this.io {
-            unsafe {
-                ManuallyDrop::drop(handle);
-            }
-        }
-        let inner = unsafe { std::ptr::read(&this.inner) };
-        inner.expect("child stdout is already taken")
+    pub fn into_std(mut self) -> std::process::ChildStdout {
+        self.inner.take().expect("child stdout is already taken")
     }
 
     #[inline]
     fn drop_handle(&mut self) {
-        #[cfg(unix)]
-        if let ChildIo::Async(handle) = &mut self.io {
-            unsafe {
-                ManuallyDrop::drop(handle);
-            }
-        }
+        // Deregister before the standard stream closes its descriptor.
+        // Replacing the state also prevents a second drop during field cleanup.
+        self.io = ChildIo::Blocking;
     }
 }
 
@@ -340,7 +261,7 @@ impl ChildStderr {
     #[inline]
     pub(crate) fn from_std(inner: std::process::ChildStderr) -> io::Result<Self> {
         #[cfg(unix)]
-        let io = make_child_io(inner.as_raw_fd(), Interest::READABLE);
+        let io = make_child_io(inner.as_raw_fd(), Interest::READABLE)?;
         #[cfg(windows)]
         let io = ChildIo::Blocking;
 
@@ -352,29 +273,15 @@ impl ChildStderr {
 
     /// Consume this `ChildStderr` and return the underlying `std::process::ChildStderr`.
     #[inline]
-    pub fn into_std(self) -> std::process::ChildStderr {
-        #[cfg(not(unix))]
-        let this = ManuallyDrop::new(self);
-        #[cfg(unix)]
-        let mut this = ManuallyDrop::new(self);
-        #[cfg(unix)]
-        if let ChildIo::Async(handle) = &mut this.io {
-            unsafe {
-                ManuallyDrop::drop(handle);
-            }
-        }
-        let inner = unsafe { std::ptr::read(&this.inner) };
-        inner.expect("child stderr is already taken")
+    pub fn into_std(mut self) -> std::process::ChildStderr {
+        self.inner.take().expect("child stderr is already taken")
     }
 
     #[inline]
     fn drop_handle(&mut self) {
-        #[cfg(unix)]
-        if let ChildIo::Async(handle) = &mut self.io {
-            unsafe {
-                ManuallyDrop::drop(handle);
-            }
-        }
+        // Deregister before the standard stream closes its descriptor.
+        // Replacing the state also prevents a second drop during field cleanup.
+        self.io = ChildIo::Blocking;
     }
 }
 
@@ -443,34 +350,9 @@ impl AsyncWrite for ChildStdin {
                 Some(inner) => inner,
                 None => return Err(stdio_closed_error()),
             };
-            let shared = Arc::new(Mutex::new(RefCell::new(Some(inner))));
-            let shared_clone = shared.clone();
-            let result = crate::vibeio::spawn_blocking(move || {
-                let mut inner = shared_clone
-                    .try_lock()
-                    .ok()
-                    .and_then(|rc| rc.take())
-                    .expect("inner is none");
-                let flush_result = inner.flush();
-                (flush_result, inner)
-            })
-            .await;
-
-            match result {
-                Ok((flush_result, inner)) => {
-                    self.inner = Some(inner);
-                    flush_result
-                }
-                Err(_) => {
-                    let inner = shared
-                        .try_lock()
-                        .ok()
-                        .and_then(|rc| rc.take())
-                        .expect("inner is none");
-                    self.inner = Some(inner);
-                    Err(blocking_pool_io_error())
-                }
-            }
+            let (result, inner) = crate::vibeio::blocking::with_buffer(inner, Write::flush).await;
+            self.inner = Some(inner);
+            result.unwrap_or_else(|_| Err(blocking_pool_io_error()))
         } else {
             let inner = self.inner.as_mut().ok_or_else(stdio_closed_error)?;
             inner.flush()
@@ -481,7 +363,7 @@ impl AsyncWrite for ChildStdin {
 impl AsyncRead for ChildStdout {
     #[inline]
     async fn read<B: IoBufMut>(&mut self, buf: B) -> (Result<usize, io::Error>, B) {
-        if buf.buf_len() == 0 {
+        if buf.buf_capacity() == 0 {
             return (Ok(0), buf);
         }
 
@@ -506,8 +388,8 @@ impl AsyncRead for ChildStdout {
                 None => return (Err(stdio_closed_error()), buf),
             };
             let mut buf = buf;
-            let temp_slice = iobufmut_to_slice(&mut buf);
-            (inner.read(temp_slice), buf)
+            let result = read_into_buf(&mut buf, |slice| inner.read(slice));
+            (result, buf)
         }
     }
 }
@@ -515,7 +397,7 @@ impl AsyncRead for ChildStdout {
 impl AsyncRead for ChildStderr {
     #[inline]
     async fn read<B: IoBufMut>(&mut self, buf: B) -> (Result<usize, io::Error>, B) {
-        if buf.buf_len() == 0 {
+        if buf.buf_capacity() == 0 {
             return (Ok(0), buf);
         }
 
@@ -540,8 +422,8 @@ impl AsyncRead for ChildStderr {
                 None => return (Err(stdio_closed_error()), buf),
             };
             let mut buf = buf;
-            let temp_slice = iobufmut_to_slice(&mut buf);
-            (inner.read(temp_slice), buf)
+            let result = read_into_buf(&mut buf, |slice| inner.read(slice));
+            (result, buf)
         }
     }
 }
@@ -669,11 +551,9 @@ impl IntoRawHandle for ChildStderr {
 /// - `stdin`, `stdout`, `stderr`: async streams for stdio.
 ///
 /// # Examples
-/// ```ignore
-/// let mut child = Command::new("echo").arg("hello").spawn()?;
-/// let status = child.wait().await?;
-/// println!("exit status: {}", status);
-/// ```
+/// See "Child-process pipes and exit status" in
+/// `tools/vibeio-check/EXAMPLES.md` for a Unix-gated executable example with
+/// checked I/O results, explicit flushing and concurrent pipe draining.
 pub struct Child {
     inner: Option<std::process::Child>,
     id: u32,
@@ -686,20 +566,37 @@ pub struct Child {
 impl Child {
     /// Create a new `Child` from a standard library `Child`.
     #[inline]
-    pub(crate) fn from_std(mut child: std::process::Child) -> io::Result<Self> {
-        let stdin = child.stdin.take().map(ChildStdin::from_std).transpose()?;
-        let stdout = child.stdout.take().map(ChildStdout::from_std).transpose()?;
-        let stderr = child.stderr.take().map(ChildStderr::from_std).transpose()?;
+    pub(crate) fn from_std(child: std::process::Child) -> io::Result<Self> {
         let id = child.id();
-
-        Ok(Self {
+        // Install reaping ownership before any fallible stdio setup. Dropping
+        // std::process::Child alone would not reap a partially wrapped child.
+        let mut wrapped = Self {
             inner: Some(child),
             id,
-            stdin,
-            stdout,
-            stderr,
+            stdin: None,
+            stdout: None,
+            stderr: None,
             reaper: ZombieReaper::new(),
-        })
+        };
+        wrapped.stdin = wrapped
+            .inner_mut()?
+            .stdin
+            .take()
+            .map(ChildStdin::from_std)
+            .transpose()?;
+        wrapped.stdout = wrapped
+            .inner_mut()?
+            .stdout
+            .take()
+            .map(ChildStdout::from_std)
+            .transpose()?;
+        wrapped.stderr = wrapped
+            .inner_mut()?
+            .stderr
+            .take()
+            .map(ChildStderr::from_std)
+            .transpose()?;
+        Ok(wrapped)
     }
 
     /// Returns the OS-assigned process identifier.
@@ -764,13 +661,9 @@ impl Drop for Child {
 /// - `output()`: run the process to completion and return its output.
 ///
 /// # Examples
-/// ```ignore
-/// let status = Command::new("echo")
-///     .arg("hello")
-///     .status()
-///     .await?;
-/// println!("exit status: {}", status);
-/// ```
+/// See "Child-process pipes and exit status" in
+/// `tools/vibeio-check/EXAMPLES.md` for a Unix-gated executable example with
+/// checked I/O results, explicit flushing and concurrent pipe draining.
 pub struct Command {
     inner: Option<std::process::Command>,
 }
@@ -886,38 +779,17 @@ impl Command {
     /// Run the process to completion and return its exit status.
     ///
     /// This is an async version of `std::process::Command::status`.
+    /// Inside a runtime it requires a blocking pool; outside one it blocks when
+    /// polled. Canceling a pending offload leaves this command consumed and does
+    /// not stop the worker. See the module's cancellation notes.
     #[inline]
     pub async fn status(&mut self) -> io::Result<ExitStatus> {
         if current_driver().is_some() {
             let inner = self.inner.take().ok_or_else(command_consumed_error)?;
-            let shared = Arc::new(Mutex::new(RefCell::new(Some(inner))));
-            let shared_clone = shared.clone();
-            let result = crate::vibeio::spawn_blocking(move || {
-                let mut cmd = shared_clone
-                    .try_lock()
-                    .ok()
-                    .and_then(|rc| rc.take())
-                    .expect("command is none");
-                let status = cmd.status();
-                (status, cmd)
-            })
-            .await;
-
-            match result {
-                Ok((status, cmd)) => {
-                    self.inner = Some(cmd);
-                    status
-                }
-                Err(_) => {
-                    let cmd = shared
-                        .try_lock()
-                        .ok()
-                        .and_then(|rc| rc.take())
-                        .expect("command is none");
-                    self.inner = Some(cmd);
-                    Err(blocking_pool_io_error())
-                }
-            }
+            let (result, inner) =
+                crate::vibeio::blocking::with_buffer(inner, std::process::Command::status).await;
+            self.inner = Some(inner);
+            result.unwrap_or_else(|_| Err(blocking_pool_io_error()))
         } else {
             self.inner_mut().status()
         }
@@ -926,38 +798,17 @@ impl Command {
     /// Run the process to completion and return its output.
     ///
     /// This is an async version of `std::process::Command::output`.
+    /// Inside a runtime it requires a blocking pool; outside one it blocks when
+    /// polled. Canceling a pending offload leaves this command consumed and does
+    /// not stop the worker. See the module's cancellation notes.
     #[inline]
     pub async fn output(&mut self) -> io::Result<Output> {
         if current_driver().is_some() {
             let inner = self.inner.take().ok_or_else(command_consumed_error)?;
-            let shared = Arc::new(Mutex::new(RefCell::new(Some(inner))));
-            let shared_clone = shared.clone();
-            let result = crate::vibeio::spawn_blocking(move || {
-                let mut cmd = shared_clone
-                    .try_lock()
-                    .ok()
-                    .and_then(|rc| rc.take())
-                    .expect("command is none");
-                let output = cmd.output();
-                (output, cmd)
-            })
-            .await;
-
-            match result {
-                Ok((output, cmd)) => {
-                    self.inner = Some(cmd);
-                    output
-                }
-                Err(_) => {
-                    let cmd = shared
-                        .try_lock()
-                        .ok()
-                        .and_then(|rc| rc.take())
-                        .expect("command is none");
-                    self.inner = Some(cmd);
-                    Err(blocking_pool_io_error())
-                }
-            }
+            let (result, inner) =
+                crate::vibeio::blocking::with_buffer(inner, std::process::Command::output).await;
+            self.inner = Some(inner);
+            result.unwrap_or_else(|_| Err(blocking_pool_io_error()))
         } else {
             self.inner_mut().output()
         }
@@ -979,12 +830,220 @@ impl Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(any(unix, feature = "blocking-default"))]
     use crate::vibeio::driver::AnyDriver;
     use crate::vibeio::executor::Runtime;
     use crate::vibeio::io::{AsyncRead, AsyncWrite, IoBufWithCursor};
 
+    #[cfg(unix)]
+    #[test]
+    fn child_stream_conversion_deregisters_once_and_preserves_descriptors() {
+        use std::os::fd::AsFd;
+        let mut driver = AnyDriver::new_mock();
+        let AnyDriver::Mock(mock) = &mut driver else {
+            unreachable!()
+        };
+        mock.registrations = Some(Default::default());
+        mock.registrations
+            .as_ref()
+            .unwrap()
+            .results
+            .borrow_mut()
+            .extend((0..3).map(|index| Ok(mio::Token(index))));
+        Runtime::new(driver).block_on(async {
+            let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+                .arg("--list")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            // Reap even if an assertion fails; closing streams unblocks output.
+            struct Cleanup(std::process::Child);
+            impl Drop for Cleanup {
+                fn drop(&mut self) {
+                    let _ = self.0.kill();
+                    let _ = self.0.wait();
+                }
+            }
+            let stdin = child.stdin.take().unwrap();
+            let stdout = child.stdout.take().unwrap();
+            let stderr = child.stderr.take().unwrap();
+            let child = Cleanup(child);
+            macro_rules! roundtrip {
+                ($stream:ident, $wrapper:ident) => {{
+                    let fd = $stream.as_raw_fd();
+                    let stream = $wrapper::from_std($stream).unwrap().into_std();
+                    assert_eq!(stream.as_raw_fd(), fd);
+                    drop(stream.as_fd().try_clone_to_owned().unwrap());
+                    stream
+                }};
+            }
+            let stdin = roundtrip!(stdin, ChildStdin);
+            let stdout = roundtrip!(stdout, ChildStdout);
+            let stderr = roundtrip!(stderr, ChildStderr);
+            let driver = current_driver().unwrap();
+            let AnyDriver::Mock(mock) = driver.as_ref() else {
+                unreachable!()
+            };
+            assert_eq!(
+                *mock.registrations.as_ref().unwrap().deregistered.borrow(),
+                [mio::Token(0), mio::Token(1), mio::Token(2)]
+            );
+            drop((stdin, stdout, stderr));
+            drop(child);
+        });
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_child_io_configuration_releases_registration() {
+        let mut driver = AnyDriver::new_mock();
+        let AnyDriver::Mock(mock) = &mut driver else {
+            unreachable!()
+        };
+        mock.registrations = Some(Default::default());
+        mock.registrations
+            .as_ref()
+            .unwrap()
+            .results
+            .borrow_mut()
+            .push_back(Ok(mio::Token(0)));
+        Runtime::new(driver).block_on(async {
+            let result = make_child_io(-1, Interest::READABLE);
+            assert!(matches!(result, Err(ref error) if error.raw_os_error() == Some(libc::EBADF)));
+            let driver = current_driver().unwrap();
+            let AnyDriver::Mock(mock) = driver.as_ref() else {
+                unreachable!()
+            };
+            assert_eq!(
+                *mock.registrations.as_ref().unwrap().deregistered.borrow(),
+                [mio::Token(0)]
+            );
+        });
+    }
+
     fn make_runtime() -> Runtime {
-        Runtime::new(AnyDriver::new_best().expect("driver should initialize"))
+        // Windows child pipes need blocking workers even when this test is
+        // built with only `process`, without the `blocking-default` feature.
+        struct TestPool;
+        impl crate::vibeio::blocking::BlockingThreadPool for TestPool {
+            fn spawn(&self, task: Box<dyn FnOnce() + Send>) {
+                std::thread::spawn(task);
+            }
+        }
+        crate::vibeio::RuntimeBuilder::new()
+            .blocking_pool(Box::new(TestPool))
+            .enable_timer(true)
+            .build()
+            .expect("driver should initialize")
+    }
+
+    #[test]
+    fn command_offloads_restore_configuration_on_success_and_pool_rejection() {
+        struct TestPool(bool);
+        impl crate::vibeio::blocking::BlockingThreadPool for TestPool {
+            fn spawn(&self, task: Box<dyn FnOnce() + Send>) {
+                if self.0 {
+                    std::thread::spawn(task).join().unwrap();
+                }
+            }
+        }
+        for run in [false, true] {
+            let runtime = crate::vibeio::RuntimeBuilder::new()
+                .driver(crate::vibeio::DriverKind::Mock)
+                .blocking_pool(Box::new(TestPool(run)))
+                .build()
+                .unwrap();
+            runtime.block_on(async move {
+                // Enumerate this test binary's tests without running them.
+                let executable = std::env::current_exe().unwrap();
+                let mut command = Command::new(&executable);
+                command
+                    .as_std()
+                    .arg("--list")
+                    .stdout(std::process::Stdio::null());
+                let status = command.status().await;
+                if run {
+                    assert!(status.unwrap().success());
+                } else {
+                    assert_eq!(status.unwrap_err().kind(), io::ErrorKind::Other);
+                }
+                assert_eq!(command.as_std().get_program(), executable.as_os_str());
+                assert_eq!(command.as_std().get_args().collect::<Vec<_>>(), ["--list"]);
+
+                command.as_std().stdout(std::process::Stdio::piped());
+                let output = command.output().await;
+                if run {
+                    let output = output.unwrap();
+                    assert!(output.status.success());
+                    assert!(!output.stdout.is_empty());
+                } else {
+                    assert_eq!(output.unwrap_err().kind(), io::ErrorKind::Other);
+                }
+                assert_eq!(command.as_std().get_program(), executable.as_os_str());
+                assert_eq!(command.as_std().get_args().collect::<Vec<_>>(), ["--list"]);
+            });
+        }
+    }
+
+    #[test]
+    fn blocking_pipe_worker_panics_preserve_stream_and_buffer() {
+        struct JoiningPool;
+        impl crate::vibeio::blocking::BlockingThreadPool for JoiningPool {
+            fn spawn(&self, task: Box<dyn FnOnce() + Send>) {
+                let _ = std::thread::spawn(task).join();
+            }
+        }
+        struct PanickingIo(usize);
+        impl Read for PanickingIo {
+            fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+                self.0 += 1;
+                panic!("injected reader panic")
+            }
+        }
+        impl Write for PanickingIo {
+            fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
+                self.0 += 1;
+                panic!("injected writer panic")
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let runtime = crate::vibeio::RuntimeBuilder::new()
+            .driver(crate::vibeio::DriverKind::Mock)
+            .blocking_pool(Box::new(JoiningPool))
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let buf = b"preserved".to_vec();
+            let ptr = buf.as_ptr();
+            let (result, inner, buf) = read_in_blocking_pool(PanickingIo(0), buf).await;
+            assert_eq!(result.unwrap_err().kind(), io::ErrorKind::Other);
+            assert_eq!(inner.0, 1);
+            assert_eq!(buf, b"preserved");
+            assert_eq!(buf.as_ptr(), ptr);
+            let (result, inner, buf) = write_in_blocking_pool(inner, buf).await;
+            assert_eq!(result.unwrap_err().kind(), io::ErrorKind::Other);
+            assert_eq!(inner.0, 2);
+            assert_eq!(buf, b"preserved");
+            assert_eq!(buf.as_ptr(), ptr);
+        });
+    }
+
+    #[cfg(feature = "blocking-default")]
+    #[test]
+    fn blocking_child_reader_fills_empty_vector_and_clears_it_at_eof() {
+        Runtime::new(AnyDriver::new_mock()).block_on(async {
+            let reader = std::io::Cursor::new(b"hello".to_vec());
+            let (result, reader, buf) = read_in_blocking_pool(reader, Vec::with_capacity(8)).await;
+            assert_eq!(result.unwrap(), 5);
+            assert_eq!(buf, b"hello");
+            let (result, _, buf) = read_in_blocking_pool(reader, buf).await;
+            assert_eq!(result.unwrap(), 0);
+            assert!(buf.is_empty());
+        });
     }
 
     async fn write_all<W: AsyncWrite>(writer: &mut W, buf: &[u8]) -> io::Result<()> {
@@ -1007,7 +1066,7 @@ mod tests {
     async fn read_line<R: AsyncRead>(reader: &mut R) -> io::Result<String> {
         let mut output = Vec::new();
         loop {
-            let (result, buf) = reader.read(vec![0u8; 64]).await;
+            let (result, buf) = reader.read(Vec::with_capacity(64)).await;
             let read = result?;
             if read == 0 {
                 break;
@@ -1024,7 +1083,7 @@ mod tests {
 
     #[test]
     fn command_spawn_stdio_roundtrip() {
-        make_runtime().block_on(async {
+        make_runtime().block_on(crate::vibeio::test_support::with_watchdog(async {
             let mut cmd = if cfg!(windows) {
                 let mut cmd = Command::new("cmd");
                 cmd.args([
@@ -1061,6 +1120,6 @@ mod tests {
 
             let status = child.wait().await.expect("wait succeeds");
             assert!(status.success());
-        });
+        }));
     }
 }

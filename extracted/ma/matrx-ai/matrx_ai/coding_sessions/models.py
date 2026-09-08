@@ -85,8 +85,10 @@ class BridgeAccountIdentity(BaseModel):
     machine. Version 1 (absent field) is the retired per-installation HMAC;
     v1 keys are never comparable across machines or against v2 keys.
     ``provider_account_fingerprint`` is the first 12 hex chars of the key.
-    ``provider_account_label`` is a short display-safe label (masked email or an
-    org-id prefix) — never a raw email, credential, or token.
+    ``provider_account_label`` is the provider account's own identity as the
+    person knows it — the signed-in email, else the organization id. It is
+    provenance the owner already has, so it is shown in full (Arman's ruling,
+    2026-09-07: an account name is not a secret). Never a credential or token.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -94,7 +96,7 @@ class BridgeAccountIdentity(BaseModel):
     provider_account_key: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     provider_account_key_version: Literal[1, 2] = 2
     provider_account_fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{12}$")] | None = None
-    provider_account_label: Annotated[str, Field(min_length=1, max_length=64)] | None = None
+    provider_account_label: Annotated[str, Field(min_length=1, max_length=320)] | None = None
 
     @model_validator(mode="after")
     def enforce_fingerprint_consistency(self) -> BridgeAccountIdentity:
@@ -116,7 +118,7 @@ class BridgeSourceMetadata(BaseModel):
     provider_account_key: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     provider_account_key_version: Literal[1, 2] = 1
     provider_account_fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{12}$")] | None = None
-    provider_account_label: Annotated[str, Field(min_length=1, max_length=64)] | None = None
+    provider_account_label: Annotated[str, Field(min_length=1, max_length=320)] | None = None
     importer_version: Annotated[str, Field(min_length=1, max_length=64)]
     client_version: Annotated[str, Field(min_length=1, max_length=64)] | None = None
     transcript_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]

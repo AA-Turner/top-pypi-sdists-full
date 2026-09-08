@@ -98,6 +98,9 @@ class AppliancesManager:
         except AuthException as e:
             LOGGER.error("Authentication failed: %s", e)
             return False
+        except (TimeoutError, aiohttp.ClientError) as e:
+            LOGGER.error("Failed to connect to AWS IoT: %s", e)
+            return False
 
         for thing in things_list:
             await self._add_appliance(thing)
@@ -110,10 +113,6 @@ class AppliancesManager:
 
     async def disconnect(self):
         """Disconnect MQTT"""
-        if not self._mqtt.is_connected:
-            LOGGER.debug("MQTT client not connected")
-            return False
-
         await self._mqtt.disconnect()
 
     async def _add_appliance(self, thing: dict[str, Any]) -> None:

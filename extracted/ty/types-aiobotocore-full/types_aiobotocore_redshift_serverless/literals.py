@@ -39,6 +39,7 @@ __all__ = (
     "ListTracksPaginatorName",
     "ListUsageLimitsPaginatorName",
     "ListWorkgroupsPaginatorName",
+    "LogDestinationTypeType",
     "LogExportType",
     "ManagedWorkgroupStatusType",
     "NamespaceStatusType",
@@ -48,6 +49,8 @@ __all__ = (
     "RedshiftServerlessServiceName",
     "RegionName",
     "ResourceServiceName",
+    "S3TableActionType",
+    "S3TableGranularityType",
     "ServiceName",
     "SnapshotStatusType",
     "StateType",
@@ -74,6 +77,7 @@ ListTableRestoreStatusPaginatorName = Literal["list_table_restore_status"]
 ListTracksPaginatorName = Literal["list_tracks"]
 ListUsageLimitsPaginatorName = Literal["list_usage_limits"]
 ListWorkgroupsPaginatorName = Literal["list_workgroups"]
+LogDestinationTypeType = Literal["cloudwatch", "s3table"]
 LogExportType = Literal["connectionlog", "useractivitylog", "userlog"]
 ManagedWorkgroupStatusType = Literal[
     "AVAILABLE", "CREATING", "DELETING", "MODIFYING", "NOT_AVAILABLE"
@@ -81,6 +85,8 @@ ManagedWorkgroupStatusType = Literal[
 NamespaceStatusType = Literal["AVAILABLE", "DELETING", "MODIFYING"]
 OfferingTypeType = Literal["ALL_UPFRONT", "NO_UPFRONT"]
 PerformanceTargetStatusType = Literal["DISABLED", "ENABLED"]
+S3TableActionType = Literal["Disable", "Enable"]
+S3TableGranularityType = Literal["account", "namespace"]
 SnapshotStatusType = Literal["AVAILABLE", "CANCELLED", "COPYING", "CREATING", "DELETED", "FAILED"]
 StateType = Literal["ACTIVE", "DISABLED"]
 UsageLimitBreachActionType = Literal["deactivate", "emit-metric", "log"]
@@ -91,8 +97,11 @@ RedshiftServerlessServiceName = Literal["redshift-serverless"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -397,6 +406,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

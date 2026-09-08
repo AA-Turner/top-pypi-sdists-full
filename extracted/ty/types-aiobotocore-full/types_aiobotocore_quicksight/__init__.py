@@ -15,6 +15,7 @@ Usage::
         DescribeFolderResolvedPermissionsPaginator,
         ListActionConnectorsPaginator,
         ListAnalysesPaginator,
+        ListApprovalPoliciesPaginator,
         ListAssetBundleExportJobsPaginator,
         ListAssetBundleImportJobsPaginator,
         ListBrandsPaginator,
@@ -23,6 +24,7 @@ Usage::
         ListDashboardsPaginator,
         ListDataSetsPaginator,
         ListDataSourcesPaginator,
+        ListDlpSettingsPaginator,
         ListFlowsPaginator,
         ListFolderMembersPaginator,
         ListFoldersForResourcePaginator,
@@ -33,6 +35,7 @@ Usage::
         ListIAMPolicyAssignmentsPaginator,
         ListIngestionsPaginator,
         ListKnowledgeBasesPaginator,
+        ListLimitsProfilesPaginator,
         ListNamespacesPaginator,
         ListOAuthClientApplicationsPaginator,
         ListRoleMembershipsPaginator,
@@ -41,6 +44,7 @@ Usage::
         ListTemplatesPaginator,
         ListThemeVersionsPaginator,
         ListThemesPaginator,
+        ListTopicsV2Paginator,
         ListUserGroupsPaginator,
         ListUsersPaginator,
         QuickSightClient,
@@ -54,6 +58,7 @@ Usage::
         SearchGroupsPaginator,
         SearchKnowledgeBasesPaginator,
         SearchTopicsPaginator,
+        SearchTopicsV2Paginator,
     )
 
     session = get_session()
@@ -66,6 +71,7 @@ Usage::
     describe_folder_resolved_permissions_paginator: DescribeFolderResolvedPermissionsPaginator = client.get_paginator("describe_folder_resolved_permissions")
     list_action_connectors_paginator: ListActionConnectorsPaginator = client.get_paginator("list_action_connectors")
     list_analyses_paginator: ListAnalysesPaginator = client.get_paginator("list_analyses")
+    list_approval_policies_paginator: ListApprovalPoliciesPaginator = client.get_paginator("list_approval_policies")
     list_asset_bundle_export_jobs_paginator: ListAssetBundleExportJobsPaginator = client.get_paginator("list_asset_bundle_export_jobs")
     list_asset_bundle_import_jobs_paginator: ListAssetBundleImportJobsPaginator = client.get_paginator("list_asset_bundle_import_jobs")
     list_brands_paginator: ListBrandsPaginator = client.get_paginator("list_brands")
@@ -74,6 +80,7 @@ Usage::
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
     list_data_sets_paginator: ListDataSetsPaginator = client.get_paginator("list_data_sets")
     list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+    list_dlp_settings_paginator: ListDlpSettingsPaginator = client.get_paginator("list_dlp_settings")
     list_flows_paginator: ListFlowsPaginator = client.get_paginator("list_flows")
     list_folder_members_paginator: ListFolderMembersPaginator = client.get_paginator("list_folder_members")
     list_folders_for_resource_paginator: ListFoldersForResourcePaginator = client.get_paginator("list_folders_for_resource")
@@ -84,6 +91,7 @@ Usage::
     list_iam_policy_assignments_paginator: ListIAMPolicyAssignmentsPaginator = client.get_paginator("list_iam_policy_assignments")
     list_ingestions_paginator: ListIngestionsPaginator = client.get_paginator("list_ingestions")
     list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
+    list_limits_profiles_paginator: ListLimitsProfilesPaginator = client.get_paginator("list_limits_profiles")
     list_namespaces_paginator: ListNamespacesPaginator = client.get_paginator("list_namespaces")
     list_o_auth_client_applications_paginator: ListOAuthClientApplicationsPaginator = client.get_paginator("list_o_auth_client_applications")
     list_role_memberships_paginator: ListRoleMembershipsPaginator = client.get_paginator("list_role_memberships")
@@ -92,6 +100,7 @@ Usage::
     list_templates_paginator: ListTemplatesPaginator = client.get_paginator("list_templates")
     list_theme_versions_paginator: ListThemeVersionsPaginator = client.get_paginator("list_theme_versions")
     list_themes_paginator: ListThemesPaginator = client.get_paginator("list_themes")
+    list_topics_v2_paginator: ListTopicsV2Paginator = client.get_paginator("list_topics_v2")
     list_user_groups_paginator: ListUserGroupsPaginator = client.get_paginator("list_user_groups")
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
@@ -104,6 +113,7 @@ Usage::
     search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
     search_knowledge_bases_paginator: SearchKnowledgeBasesPaginator = client.get_paginator("search_knowledge_bases")
     search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
+    search_topics_v2_paginator: SearchTopicsV2Paginator = client.get_paginator("search_topics_v2")
     ```
 """
 
@@ -113,6 +123,7 @@ from .paginator import (
     DescribeFolderResolvedPermissionsPaginator,
     ListActionConnectorsPaginator,
     ListAnalysesPaginator,
+    ListApprovalPoliciesPaginator,
     ListAssetBundleExportJobsPaginator,
     ListAssetBundleImportJobsPaginator,
     ListBrandsPaginator,
@@ -121,6 +132,7 @@ from .paginator import (
     ListDashboardVersionsPaginator,
     ListDataSetsPaginator,
     ListDataSourcesPaginator,
+    ListDlpSettingsPaginator,
     ListFlowsPaginator,
     ListFolderMembersPaginator,
     ListFoldersForResourcePaginator,
@@ -131,6 +143,7 @@ from .paginator import (
     ListIAMPolicyAssignmentsPaginator,
     ListIngestionsPaginator,
     ListKnowledgeBasesPaginator,
+    ListLimitsProfilesPaginator,
     ListNamespacesPaginator,
     ListOAuthClientApplicationsPaginator,
     ListRoleMembershipsPaginator,
@@ -139,6 +152,7 @@ from .paginator import (
     ListTemplateVersionsPaginator,
     ListThemesPaginator,
     ListThemeVersionsPaginator,
+    ListTopicsV2Paginator,
     ListUserGroupsPaginator,
     ListUsersPaginator,
     SearchActionConnectorsPaginator,
@@ -151,6 +165,7 @@ from .paginator import (
     SearchGroupsPaginator,
     SearchKnowledgeBasesPaginator,
     SearchTopicsPaginator,
+    SearchTopicsV2Paginator,
 )
 
 Client = QuickSightClient
@@ -162,6 +177,7 @@ __all__ = (
     "DescribeFolderResolvedPermissionsPaginator",
     "ListActionConnectorsPaginator",
     "ListAnalysesPaginator",
+    "ListApprovalPoliciesPaginator",
     "ListAssetBundleExportJobsPaginator",
     "ListAssetBundleImportJobsPaginator",
     "ListBrandsPaginator",
@@ -170,6 +186,7 @@ __all__ = (
     "ListDashboardsPaginator",
     "ListDataSetsPaginator",
     "ListDataSourcesPaginator",
+    "ListDlpSettingsPaginator",
     "ListFlowsPaginator",
     "ListFolderMembersPaginator",
     "ListFoldersForResourcePaginator",
@@ -180,6 +197,7 @@ __all__ = (
     "ListIAMPolicyAssignmentsPaginator",
     "ListIngestionsPaginator",
     "ListKnowledgeBasesPaginator",
+    "ListLimitsProfilesPaginator",
     "ListNamespacesPaginator",
     "ListOAuthClientApplicationsPaginator",
     "ListRoleMembershipsPaginator",
@@ -188,6 +206,7 @@ __all__ = (
     "ListTemplatesPaginator",
     "ListThemeVersionsPaginator",
     "ListThemesPaginator",
+    "ListTopicsV2Paginator",
     "ListUserGroupsPaginator",
     "ListUsersPaginator",
     "QuickSightClient",
@@ -201,4 +220,5 @@ __all__ = (
     "SearchGroupsPaginator",
     "SearchKnowledgeBasesPaginator",
     "SearchTopicsPaginator",
+    "SearchTopicsV2Paginator",
 )

@@ -39,7 +39,7 @@ __all__ = (
     "ServiceName",
 )
 
-CompressionOptionType = Literal["GZIP", "PARQUET"]
+CompressionOptionType = Literal["GZIP", "PARQUET", "ZIP"]
 ExecutionStatusCodeType = Literal[
     "DELIVERY_FAILURE",
     "DELIVERY_IN_PROCESS",
@@ -50,7 +50,7 @@ ExecutionStatusCodeType = Literal[
     "QUERY_QUEUED",
 ]
 ExecutionStatusReasonType = Literal[
-    "BILL_OWNER_CHANGED", "INSUFFICIENT_PERMISSION", "INTERNAL_FAILURE"
+    "BILL_OWNER_CHANGED", "DEPRECATED", "INSUFFICIENT_PERMISSION", "INTERNAL_FAILURE"
 ]
 ExportStatusCodeType = Literal["HEALTHY", "UNHEALTHY"]
 FormatOptionType = Literal["PARQUET", "TEXT_OR_CSV"]
@@ -64,8 +64,11 @@ BillingandCostManagementDataExportsServiceName = Literal["bcm-data-exports"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -370,6 +373,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

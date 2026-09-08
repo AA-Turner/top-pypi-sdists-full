@@ -28,6 +28,7 @@ __all__ = (
     "DestinationTypeType",
     "EncryptedLogGroupStrategyType",
     "EncryptionConflictResolutionStrategyType",
+    "EncryptionScopeType",
     "EncryptionStrategyType",
     "FilterBehaviorType",
     "FilterRequirementType",
@@ -51,6 +52,9 @@ __all__ = (
     "ServiceName",
     "SignalTypeType",
     "StatusType",
+    "TagConflictResolutionStrategyType",
+    "TagPropagationFailureReasonType",
+    "TagPropagationStatusType",
     "TelemetryEnrichmentStatusType",
     "TelemetryPipelineStatusType",
     "TelemetrySourceTypeType",
@@ -66,6 +70,7 @@ CentralizationFailureReasonType = Literal[
 DestinationTypeType = Literal["cloud-watch-logs"]
 EncryptedLogGroupStrategyType = Literal["ALLOW", "SKIP"]
 EncryptionConflictResolutionStrategyType = Literal["ALLOW", "SKIP"]
+EncryptionScopeType = Literal["ENCRYPTED_SOURCE_ONLY", "NEW_DESTINATION_LOG_GROUPS"]
 EncryptionStrategyType = Literal["AWS_OWNED", "CUSTOMER_MANAGED"]
 FilterBehaviorType = Literal["DROP", "KEEP"]
 FilterRequirementType = Literal["MEETS_ALL", "MEETS_ANY"]
@@ -126,6 +131,9 @@ SignalTypeType = Literal["LOG", "METRIC"]
 StatusType = Literal[
     "FAILED_START", "FAILED_STOP", "NOT_STARTED", "RUNNING", "STARTING", "STOPPED", "STOPPING"
 ]
+TagConflictResolutionStrategyType = Literal["ADD_ONLY", "IN_SYNC", "UPDATE_SYNC"]
+TagPropagationFailureReasonType = Literal["RoleLacksPermissions", "RoleNotAssumable"]
+TagPropagationStatusType = Literal["Healthy", "Unhealthy"]
 TelemetryEnrichmentStatusType = Literal["Impaired", "Running", "Stopped"]
 TelemetryPipelineStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -146,8 +154,11 @@ CloudWatchObservabilityAdminServiceServiceName = Literal["observabilityadmin"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -452,6 +463,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

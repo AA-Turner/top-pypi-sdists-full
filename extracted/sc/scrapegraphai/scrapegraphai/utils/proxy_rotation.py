@@ -142,18 +142,18 @@ def _parse_proxy(proxy: ProxySettings) -> ProxySettings:
     """
     assert "server" in proxy, "missing server in the proxy configuration"
 
-    auhtorization = [x in proxy for x in ("username", "password")]
+    authorization = [x in proxy for x in ("username", "password")]
 
     message = "username and password must be provided in pairs or not at all"
 
-    assert all(auhtorization) or not any(auhtorization), message
+    assert all(authorization) or not any(authorization), message
 
     parsed = {"server": proxy["server"]}
 
     if proxy.get("bypass"):
         parsed["bypass"] = proxy["bypass"]
 
-    if all(auhtorization):
+    if all(authorization):
         parsed["username"] = proxy["username"]
         parsed["password"] = proxy["password"]
 
@@ -192,9 +192,14 @@ def parse_or_search_proxy(proxy: Proxy) -> ProxySettings:
     """
     Parses a proxy configuration or searches for a matching one via broker.
     """
-    assert "server" in proxy, "Missing 'server' field in the proxy configuration."
+    assert "server" in proxy, "missing server in the proxy configuration"
 
-    parsed_url = urlparse(proxy["server"])
+    server = proxy["server"]
+    if server == "broker":
+        return _search_proxy(proxy)
+
+    server_with_scheme = server if "://" in server else f"http://{server}"
+    parsed_url = urlparse(server_with_scheme)
     server_address = parsed_url.hostname
 
     if server_address is None:
@@ -206,6 +211,6 @@ def parse_or_search_proxy(proxy: Proxy) -> ProxySettings:
     ):
         return _parse_proxy(proxy)
 
-    assert proxy["server"] == "broker", f"Unknown proxy server type: {proxy['server']}"
+    assert proxy["server"] == "broker", f"unknown proxy server type: {proxy['server']}"
 
     return _search_proxy(proxy)

@@ -18,7 +18,12 @@ import threading
 import plac_core
 
 version = sys.version_info[:2]
-multiprocessing = mp.get_context("fork")
+
+# MPTask requires fork; 3.14 default is forkserver/spawn.
+try:
+    multiprocessing = mp.get_context("fork")
+except (ValueError, AttributeError):  # Windows / Py<3.4
+    multiprocessing = mp
 
 if version < (3, 5):
     from imp import load_source
@@ -542,6 +547,9 @@ class MPTask(BaseTask):
         """
         The monitor has a .send method and a .man multiprocessing.Manager
         """
+        if sys.platform == "win32":
+            raise RuntimeError(
+                "mpcommands require os.fork and are not supported on this platform")
         self.no = no
         self.arglist = arglist
         self._genobj = self._wrap(genobj, stringify_tb=True)
@@ -802,83 +810,6 @@ class Manager(StartStopObject):
         for monitor in self.registry.values():
             monitor.queue.put(('add_listener', no))
 
-# ######################### plac server ############################# #
-
-#
-# Removed in version 1.4.0 due to incompatibility with Python 3.12
-#
-'''
-import asyncore
-import asynchat
-import socket
-
-class _AsynHandler(asynchat.async_chat):
-    "asynchat handler starting a new interpreter loop for each connection"
-
-    terminator = '\r\n'  # the standard one for telnet
-    prompt = 'i> '
-
-    def __init__(self, socket, interpreter):
-        asynchat.async_chat.__init__(self, socket)
-        self.set_terminator(self.terminator)
-        self.i = interpreter
-        self.i.__enter__()
-        self.data = []
-        self.write(self.prompt)
-
-    def write(self, data, *args):
-        "Push a string back to the client"
-        if args:
-            data %= args
-        if data.endswith('\n') and not data.endswith(self.terminator):
-            data = data[:-1] + self.terminator  # fix newlines
-        self.push(data)
-
-    def collect_incoming_data(self, data):
-        "Collect one character at the time"
-        self.data.append(data)
-
-    def found_terminator(self):
-        "Put in the queue the line received from the client"
-        line = ''.join(self.data)
-        self.log('Received line %r from %s' % (line, self.addr))
-        if line == 'EOF':
-            self.i.__exit__(None, None, None)
-            self.handle_close()
-        else:
-            task = self.i.submit(line)
-            task.run()  # synchronous or not
-            if task.etype:  # manage exception
-                error = '%s: %s\nReceived: %s' % (
-                    task.etype.__name__, task.exc, ' '.join(task.arglist))
-                self.log_info(task.traceback + error)  # on the server
-                self.write(error + self.terminator)  # back to the client
-            else:  # no exception
-                self.write(task.str + self.terminator)
-            self.data = []
-            self.write(self.prompt)
-
-
-class _AsynServer(asyncore.dispatcher):
-    "asyncore-based server spawning AsynHandlers"
-
-    def __init__(self, interpreter, newhandler, port, listen=5):
-        self.interpreter = interpreter
-        self.newhandler = newhandler
-        self.port = port
-        asyncore.dispatcher.__init__(self)
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.bind(('', port))
-        self.listen(listen)
-
-    def handle_accept(self):
-        clientsock, clientaddr = self.accept()
-        self.log('Connected from %s' % str(clientaddr))
-        i = self.interpreter.__class__(self.interpreter.obj)  # new interpreter
-        self.newhandler(clientsock, i)  # spawn a new handler
-
-'''
-
 # ########################## the Interpreter ############################ #
 
 class Interpreter(object):
@@ -1129,15 +1060,10 @@ class Interpreter(object):
             pass
 
     def start_server(self, port=2199, **kw):
-        """Starts an asyncore server reading commands for clients and opening
-        a new interpreter for each connection."""
-        _AsynServer(self, _AsynHandler, port)  # register the server
-        try:
-            asyncore.loop(**kw)
-        except (KeyboardInterrupt, TerminatedProcess):
-            pass
-        finally:
-            asyncore.close_all()
+        """Removed in 1.4.0: asyncore is gone in Python 3.12+."""
+        raise NotImplementedError(
+            'plac server was removed in 1.4.0 '
+            '(asyncore is unavailable on Python 3.12+)')
 
     def add_monitor(self, mon):
         self.man.add(mon)

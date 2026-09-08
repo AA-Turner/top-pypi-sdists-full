@@ -58,7 +58,11 @@ def effective_status_with_rate_limit_headers(status_code: Optional[int], headers
 
 
 def compute_cooldown(
-    status_code: Optional[int], headers: Optional[dict], config
+    status_code: Optional[int],
+    headers: Optional[dict],
+    config,
+    *,
+    proven_dead: bool = False,
 ) -> Tuple[int, float, Optional[str]]:
     now_ts = time.time()
     cooldown_default_s = float(_cfg(config, "cooldown_default_s", 120))
@@ -67,8 +71,12 @@ def compute_cooldown(
     cooldown_jitter_s = max(0.0, float(_cfg(config, "cooldown_jitter_s", 10)))
     jitter = random.uniform(0, cooldown_jitter_s) if cooldown_jitter_s > 0 else 0.0
 
+    # A page 401/403 is not proof of a dead account; only `proven_dead` (a failed self-lookup) earns the
+    # long block, else the account returns after a short cooldown.
     if status_code in (401, 403):
-        return int(status_code), now_ts + auth_cooldown_s, "auth_failed"
+        if proven_dead:
+            return int(status_code), now_ts + auth_cooldown_s, "auth_failed"
+        return int(status_code), now_ts + transient_cooldown_s + jitter, "auth_unconfirmed"
 
     # 404 from GraphQL typically means stale query IDs, not bad auth.
     # Use a short transient cooldown so the account can retry quickly.

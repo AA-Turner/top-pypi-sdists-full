@@ -351,8 +351,12 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                   if s:
                       exp_rows.append({"target": tgt, "variant": vname,
                                        "offset": off, **s})
-    exp = pd.DataFrame(exp_rows)
-    exp.to_csv(out / "pooling_experiments.csv", index=False)
+    if not skip_experiments:
+        # In skip mode `exp` already holds the reused experiments; rebuilding
+        # it from the (empty) exp_rows would erase them and silently drop
+        # every target back to own-country training.
+        exp = pd.DataFrame(exp_rows)
+        exp.to_csv(out / "pooling_experiments.csv", index=False)
 
     # ---- 4. best variant per target (mean AUC over offsets 1-3) ----
     best = {}
@@ -388,12 +392,19 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         vcountries = ([tgt] if vname == "own" else cands if vname == "all"
                       else [c for c in cands if c != tgt] if vname == "transfer"
                       else [tgt, vname[1:]])
+        # The pooled frame must contain the TARGET's rows even when the
+        # variant trains without them ("transfer"): pooled_loyo predicts
+        # target rows and trains on `vcountries`. Building it from
+        # vcountries alone left nothing to predict.
         frames = []
-        for c in vcountries:
+        for c in dict.fromkeys(list(vcountries) + [tgt]):
+            if c not in anoms:
+                continue
             d = anoms[c].merge(feats[c][off], on=["region", "year"], how="inner")
             d["country"] = c
             frames.append(d)
-        train = pd.concat(frames, ignore_index=True).dropna(subset=["anom"])
+        pooled = pd.concat(frames, ignore_index=True)
+        train = pooled[pooled.country.isin(vcountries)].dropna(subset=["anom"])
         if len(train) < 40:
             logger.warning(f"{tgt}: training pool too small ({len(train)}) — "
                            f"forecast skipped")
@@ -409,8 +420,11 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             float(train["DRYHEAT"].min()), float(train["DRYHEAT"].max()))
         fxc["ahat"] = predict_ols(res, fxc, fl)
         # class probabilities from pooled LOYO residuals of the same variant
-        lo = pooled_loyo(pd.concat(frames, ignore_index=True), fl,
-                         eval_years, tgt, vcountries)
+        lo = pooled_loyo(pooled, fl, eval_years, tgt, vcountries)
+        if lo.empty:
+            logger.warning(f"{tgt}: no pooled LOYO rows for variant {vname} — "
+                           f"forecast skipped")
+            continue
         lo2 = lo.merge(anoms[tgt][["region", "year", "anom"]],
                        on=["region", "year"], suffixes=("", "_o"))
         obs_a = lo2["anom_o"] if "anom_o" in lo2.columns else lo2["anom"]

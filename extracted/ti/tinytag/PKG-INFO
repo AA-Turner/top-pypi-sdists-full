@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tinytag
-Version: 2.3.1
+Version: 2.3.2
 Summary: Read audio file metadata
 Keywords: metadata,audio,music,mp3,m4a,wav,ogg,opus,flac,wma,aiff
 Author: Tom Wallroth, Mat (mathiascode)
@@ -529,6 +529,12 @@ UnsupportedFormatError  # File format is not supported
 
 
 ## Changelog
+
+### 2.3.2  (2026-09-07)
+
+- ID3: Optimize parsing of UTF-16 strings
+- MP4: Only parse decoder specific info if it exists
+- ASF: Decode strings as UTF-16LE instead of system byte order
 
 ### 2.3.1  (2026-08-30)
 

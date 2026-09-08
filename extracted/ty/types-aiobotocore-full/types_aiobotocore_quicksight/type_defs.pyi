@@ -39,9 +39,11 @@ from .literals import (
     AssetBundleExportJobDataSourcePropertyToOverrideType,
     AssetBundleExportJobFolderPropertyToOverrideType,
     AssetBundleExportJobStatusType,
+    AssetBundleExportJobTopicV2PropertyToOverrideType,
     AssetBundleExportJobVPCConnectionPropertyToOverrideType,
     AssetBundleImportFailureActionType,
     AssetBundleImportJobStatusType,
+    AssetTypeType,
     AssignmentStatusType,
     AudioExtractionStatusType,
     AuthenticationMethodOptionType,
@@ -56,6 +58,7 @@ from .literals import (
     BoxPlotFillStyleType,
     BrandStatusType,
     BrandVersionStatusType,
+    CapabilityStateType,
     CategoricalAggregationFunctionType,
     CategoryFilterFunctionType,
     CategoryFilterMatchOperatorType,
@@ -110,6 +113,8 @@ from .literals import (
     DefaultAggregationType,
     DigitGroupingStyleType,
     DisplayFormatType,
+    DlpActionType,
+    DlpSettingStatusType,
     EditionType,
     EmbeddingIdentityTypeType,
     FieldNameType,
@@ -158,6 +163,8 @@ from .literals import (
     LayerCustomActionTriggerType,
     LayoutElementTypeType,
     LegendPositionType,
+    LimitSourceType,
+    LimitUnitType,
     LineChartLineStyleType,
     LineChartMarkerShapeType,
     LineChartTypeType,
@@ -214,6 +221,7 @@ from .literals import (
     RelativeFontSizeType,
     ResizeOptionType,
     ResourceStatusType,
+    ResourceTypeType,
     ReviewedAnswerErrorCodeType,
     RoleType,
     RowLevelPermissionFormatVersionType,
@@ -275,6 +283,7 @@ from .literals import (
     TopicSortDirectionType,
     TopicTimeGranularityType,
     TopicUserExperienceVersionType,
+    TopicV2PublishOptionType,
     TransposedColumnTypeType,
     UndefinedSpecifiedValueTypeType,
     URLTargetConfigurationType,
@@ -356,7 +365,11 @@ __all__ = (
     "AppendOperationOutputTypeDef",
     "AppendOperationTypeDef",
     "AppendedColumnTypeDef",
+    "ApplicableToOutputTypeDef",
+    "ApplicableToTypeDef",
+    "ApplicableToUnionTypeDef",
     "ApplicationThemeTypeDef",
+    "ApprovalPolicyTypeDef",
     "ArcAxisConfigurationTypeDef",
     "ArcAxisDisplayRangeTypeDef",
     "ArcConfigurationTypeDef",
@@ -381,6 +394,8 @@ __all__ = (
     "AssetBundleExportJobSummaryTypeDef",
     "AssetBundleExportJobThemeOverridePropertiesOutputTypeDef",
     "AssetBundleExportJobThemeOverridePropertiesTypeDef",
+    "AssetBundleExportJobTopicV2OverridePropertiesOutputTypeDef",
+    "AssetBundleExportJobTopicV2OverridePropertiesTypeDef",
     "AssetBundleExportJobVPCConnectionOverridePropertiesOutputTypeDef",
     "AssetBundleExportJobVPCConnectionOverridePropertiesTypeDef",
     "AssetBundleExportJobValidationStrategyTypeDef",
@@ -433,6 +448,11 @@ __all__ = (
     "AssetBundleImportJobThemeOverridePermissionsTypeDef",
     "AssetBundleImportJobThemeOverrideTagsOutputTypeDef",
     "AssetBundleImportJobThemeOverrideTagsTypeDef",
+    "AssetBundleImportJobTopicV2OverrideParametersTypeDef",
+    "AssetBundleImportJobTopicV2OverridePermissionsOutputTypeDef",
+    "AssetBundleImportJobTopicV2OverridePermissionsTypeDef",
+    "AssetBundleImportJobTopicV2OverrideTagsOutputTypeDef",
+    "AssetBundleImportJobTopicV2OverrideTagsTypeDef",
     "AssetBundleImportJobVPCConnectionOverrideParametersOutputTypeDef",
     "AssetBundleImportJobVPCConnectionOverrideParametersTypeDef",
     "AssetBundleImportJobVPCConnectionOverrideTagsOutputTypeDef",
@@ -493,6 +513,9 @@ __all__ = (
     "BatchDeleteKnowledgeBaseSuccessTypeDef",
     "BatchDeleteTopicReviewedAnswerRequestTypeDef",
     "BatchDeleteTopicReviewedAnswerResponseTypeDef",
+    "BatchDescribeUserLimitsErrorTypeDef",
+    "BatchDescribeUserLimitsRequestTypeDef",
+    "BatchDescribeUserLimitsResponseTypeDef",
     "BigQueryParametersTypeDef",
     "BinCountOptionsTypeDef",
     "BinWidthOptionsTypeDef",
@@ -642,6 +665,8 @@ __all__ = (
     "CreateAgentResponseTypeDef",
     "CreateAnalysisRequestTypeDef",
     "CreateAnalysisResponseTypeDef",
+    "CreateApprovalPolicyRequestTypeDef",
+    "CreateApprovalPolicyResponseTypeDef",
     "CreateBrandRequestTypeDef",
     "CreateBrandResponseTypeDef",
     "CreateColumnsOperationOutputTypeDef",
@@ -655,6 +680,8 @@ __all__ = (
     "CreateDataSetResponseTypeDef",
     "CreateDataSourceRequestTypeDef",
     "CreateDataSourceResponseTypeDef",
+    "CreateDlpSettingRequestTypeDef",
+    "CreateDlpSettingResponseTypeDef",
     "CreateFlowRequestTypeDef",
     "CreateFlowResponseTypeDef",
     "CreateFolderMembershipRequestTypeDef",
@@ -671,6 +698,8 @@ __all__ = (
     "CreateIngestionResponseTypeDef",
     "CreateKnowledgeBaseRequestTypeDef",
     "CreateKnowledgeBaseResponseTypeDef",
+    "CreateLimitsProfileRequestTypeDef",
+    "CreateLimitsProfileResponseTypeDef",
     "CreateNamespaceRequestTypeDef",
     "CreateNamespaceResponseTypeDef",
     "CreateOAuthClientApplicationRequestTypeDef",
@@ -694,6 +723,8 @@ __all__ = (
     "CreateTopicRequestTypeDef",
     "CreateTopicResponseTypeDef",
     "CreateTopicReviewedAnswerTypeDef",
+    "CreateTopicV2RequestTypeDef",
+    "CreateTopicV2ResponseTypeDef",
     "CreateVPCConnectionRequestTypeDef",
     "CreateVPCConnectionResponseTypeDef",
     "CredentialPairTypeDef",
@@ -901,6 +932,7 @@ __all__ = (
     "DeleteAgentResponseTypeDef",
     "DeleteAnalysisRequestTypeDef",
     "DeleteAnalysisResponseTypeDef",
+    "DeleteApprovalPolicyRequestTypeDef",
     "DeleteBrandAssignmentRequestTypeDef",
     "DeleteBrandAssignmentResponseTypeDef",
     "DeleteBrandRequestTypeDef",
@@ -917,6 +949,8 @@ __all__ = (
     "DeleteDataSourceResponseTypeDef",
     "DeleteDefaultQBusinessApplicationRequestTypeDef",
     "DeleteDefaultQBusinessApplicationResponseTypeDef",
+    "DeleteDlpSettingRequestTypeDef",
+    "DeleteDlpSettingResponseTypeDef",
     "DeleteFlowRequestTypeDef",
     "DeleteFlowResponseTypeDef",
     "DeleteFolderMembershipRequestTypeDef",
@@ -933,6 +967,8 @@ __all__ = (
     "DeleteIdentityPropagationConfigResponseTypeDef",
     "DeleteKnowledgeBaseRequestTypeDef",
     "DeleteKnowledgeBaseResponseTypeDef",
+    "DeleteLimitsProfileRequestTypeDef",
+    "DeleteLimitsProfileResponseTypeDef",
     "DeleteNamespaceRequestTypeDef",
     "DeleteNamespaceResponseTypeDef",
     "DeleteOAuthClientApplicationRequestTypeDef",
@@ -957,6 +993,8 @@ __all__ = (
     "DeleteTopicRefreshScheduleResponseTypeDef",
     "DeleteTopicRequestTypeDef",
     "DeleteTopicResponseTypeDef",
+    "DeleteTopicV2RequestTypeDef",
+    "DeleteTopicV2ResponseTypeDef",
     "DeleteUserByPrincipalIdRequestTypeDef",
     "DeleteUserByPrincipalIdResponseTypeDef",
     "DeleteUserCustomPermissionRequestTypeDef",
@@ -987,6 +1025,8 @@ __all__ = (
     "DescribeAnalysisPermissionsResponseTypeDef",
     "DescribeAnalysisRequestTypeDef",
     "DescribeAnalysisResponseTypeDef",
+    "DescribeApprovalPolicyRequestTypeDef",
+    "DescribeApprovalPolicyResponseTypeDef",
     "DescribeAssetBundleExportJobRequestTypeDef",
     "DescribeAssetBundleExportJobResponseTypeDef",
     "DescribeAssetBundleImportJobRequestTypeDef",
@@ -1025,6 +1065,8 @@ __all__ = (
     "DescribeDataSourceResponseTypeDef",
     "DescribeDefaultQBusinessApplicationRequestTypeDef",
     "DescribeDefaultQBusinessApplicationResponseTypeDef",
+    "DescribeDlpSettingRequestTypeDef",
+    "DescribeDlpSettingResponseTypeDef",
     "DescribeFlowRequestTypeDef",
     "DescribeFlowResponseTypeDef",
     "DescribeFolderPermissionsRequestPaginateTypeDef",
@@ -1051,6 +1093,8 @@ __all__ = (
     "DescribeKnowledgeBasePermissionsResponseTypeDef",
     "DescribeKnowledgeBaseRequestTypeDef",
     "DescribeKnowledgeBaseResponseTypeDef",
+    "DescribeLimitsProfileRequestTypeDef",
+    "DescribeLimitsProfileResponseTypeDef",
     "DescribeNamespaceRequestTypeDef",
     "DescribeNamespaceResponseTypeDef",
     "DescribeOAuthClientApplicationRequestTypeDef",
@@ -1085,12 +1129,16 @@ __all__ = (
     "DescribeThemeResponseTypeDef",
     "DescribeTopicPermissionsRequestTypeDef",
     "DescribeTopicPermissionsResponseTypeDef",
+    "DescribeTopicPermissionsV2RequestTypeDef",
+    "DescribeTopicPermissionsV2ResponseTypeDef",
     "DescribeTopicRefreshRequestTypeDef",
     "DescribeTopicRefreshResponseTypeDef",
     "DescribeTopicRefreshScheduleRequestTypeDef",
     "DescribeTopicRefreshScheduleResponseTypeDef",
     "DescribeTopicRequestTypeDef",
     "DescribeTopicResponseTypeDef",
+    "DescribeTopicV2RequestTypeDef",
+    "DescribeTopicV2ResponseTypeDef",
     "DescribeUserRequestTypeDef",
     "DescribeUserResponseTypeDef",
     "DescribeVPCConnectionRequestTypeDef",
@@ -1101,12 +1149,15 @@ __all__ = (
     "DestinationTableTypeDef",
     "DimensionFieldTypeDef",
     "DisplayFormatOptionsTypeDef",
+    "DlpSettingDetailsTypeDef",
+    "DlpSettingSummaryTypeDef",
     "DonutCenterOptionsTypeDef",
     "DonutOptionsTypeDef",
     "DrillDownFilterOutputTypeDef",
     "DrillDownFilterTypeDef",
     "DropDownControlDisplayOptionsTypeDef",
     "DynamicDefaultValueTypeDef",
+    "EffectiveLimitTypeDef",
     "EmptyVisualOutputTypeDef",
     "EmptyVisualTypeDef",
     "EntityTypeDef",
@@ -1332,6 +1383,9 @@ __all__ = (
     "GetSessionEmbedUrlResponseTypeDef",
     "GlobalTableBorderOptionsTypeDef",
     "GoogleDriveParametersTypeDef",
+    "GovernanceOutputTypeDef",
+    "GovernanceTypeDef",
+    "GovernanceUnionTypeDef",
     "GradientColorOutputTypeDef",
     "GradientColorTypeDef",
     "GradientStopTypeDef",
@@ -1458,6 +1512,7 @@ __all__ = (
     "KnowledgeBaseSortByTypeDef",
     "KnowledgeBaseSummaryTypeDef",
     "KnowledgeBaseTypeDef",
+    "LabelActionMappingTypeDef",
     "LabelOptionsTypeDef",
     "LayerCustomActionOperationOutputTypeDef",
     "LayerCustomActionOperationTypeDef",
@@ -1470,6 +1525,7 @@ __all__ = (
     "LayoutOutputTypeDef",
     "LayoutTypeDef",
     "LegendOptionsTypeDef",
+    "LimitsProfileTypeDef",
     "LineChartAggregatedFieldWellsOutputTypeDef",
     "LineChartAggregatedFieldWellsTypeDef",
     "LineChartConfigurationOutputTypeDef",
@@ -1497,6 +1553,9 @@ __all__ = (
     "ListAnalysesRequestPaginateTypeDef",
     "ListAnalysesRequestTypeDef",
     "ListAnalysesResponseTypeDef",
+    "ListApprovalPoliciesRequestPaginateTypeDef",
+    "ListApprovalPoliciesRequestTypeDef",
+    "ListApprovalPoliciesResponseTypeDef",
     "ListAssetBundleExportJobsRequestPaginateTypeDef",
     "ListAssetBundleExportJobsRequestTypeDef",
     "ListAssetBundleExportJobsResponseTypeDef",
@@ -1524,6 +1583,9 @@ __all__ = (
     "ListDataSourcesRequestPaginateTypeDef",
     "ListDataSourcesRequestTypeDef",
     "ListDataSourcesResponseTypeDef",
+    "ListDlpSettingsRequestPaginateTypeDef",
+    "ListDlpSettingsRequestTypeDef",
+    "ListDlpSettingsResponseTypeDef",
     "ListFlowsInputPaginateTypeDef",
     "ListFlowsInputTypeDef",
     "ListFlowsOutputTypeDef",
@@ -1556,6 +1618,9 @@ __all__ = (
     "ListKnowledgeBasesRequestPaginateTypeDef",
     "ListKnowledgeBasesRequestTypeDef",
     "ListKnowledgeBasesResponseTypeDef",
+    "ListLimitsProfilesRequestPaginateTypeDef",
+    "ListLimitsProfilesRequestTypeDef",
+    "ListLimitsProfilesResponseTypeDef",
     "ListNamespacesRequestPaginateTypeDef",
     "ListNamespacesRequestTypeDef",
     "ListNamespacesResponseTypeDef",
@@ -1598,6 +1663,9 @@ __all__ = (
     "ListTopicReviewedAnswersResponseTypeDef",
     "ListTopicsRequestTypeDef",
     "ListTopicsResponseTypeDef",
+    "ListTopicsV2RequestPaginateTypeDef",
+    "ListTopicsV2RequestTypeDef",
+    "ListTopicsV2ResponseTypeDef",
     "ListUserGroupsRequestPaginateTypeDef",
     "ListUserGroupsRequestTypeDef",
     "ListUserGroupsResponseTypeDef",
@@ -1630,6 +1698,9 @@ __all__ = (
     "MediaExtractionConfigurationTypeDef",
     "MemberIdArnPairTypeDef",
     "MetricComparisonComputationTypeDef",
+    "MicrosoftPurviewCredentialsTypeDef",
+    "MicrosoftPurviewProviderConfigOutputTypeDef",
+    "MicrosoftPurviewProviderConfigTypeDef",
     "MinimumLabelTypeTypeDef",
     "MissingDataConfigurationTypeDef",
     "MySqlParametersTypeDef",
@@ -1638,6 +1709,7 @@ __all__ = (
     "NamedEntityDefinitionOutputTypeDef",
     "NamedEntityDefinitionTypeDef",
     "NamedEntityRefTypeDef",
+    "NamedEntitySortTypeDef",
     "NamespaceErrorTypeDef",
     "NamespaceInfoV2TypeDef",
     "NavbarStyleTypeDef",
@@ -1789,10 +1861,14 @@ __all__ = (
     "PredictQAResultsRequestTypeDef",
     "PredictQAResultsResponseTypeDef",
     "PrestoParametersTypeDef",
+    "ProfileLimitValueTypeDef",
     "ProgressBarOptionsTypeDef",
     "ProjectOperationOutputTypeDef",
     "ProjectOperationTypeDef",
     "ProjectOperationUnionTypeDef",
+    "ProviderConfigOutputTypeDef",
+    "ProviderConfigTypeDef",
+    "ProviderConfigUnionTypeDef",
     "PutDataSetRefreshPropertiesRequestTypeDef",
     "PutDataSetRefreshPropertiesResponseTypeDef",
     "QAResultTypeDef",
@@ -1959,6 +2035,9 @@ __all__ = (
     "SearchTopicsRequestPaginateTypeDef",
     "SearchTopicsRequestTypeDef",
     "SearchTopicsResponseTypeDef",
+    "SearchTopicsV2RequestPaginateTypeDef",
+    "SearchTopicsV2RequestTypeDef",
+    "SearchTopicsV2ResponseTypeDef",
     "SecondaryValueOptionsTypeDef",
     "SectionAfterPageBreakTypeDef",
     "SectionBasedLayoutCanvasSizeOptionsTypeDef",
@@ -2213,6 +2292,8 @@ __all__ = (
     "TopicColumnOutputTypeDef",
     "TopicColumnTypeDef",
     "TopicConfigOptionsTypeDef",
+    "TopicConfigurationOutputTypeDef",
+    "TopicConfigurationTypeDef",
     "TopicConstantValueOutputTypeDef",
     "TopicConstantValueTypeDef",
     "TopicConstantValueUnionTypeDef",
@@ -2236,12 +2317,14 @@ __all__ = (
     "TopicIROutputTypeDef",
     "TopicIRTypeDef",
     "TopicIRUnionTypeDef",
+    "TopicIdentifierDeclarationTypeDef",
     "TopicNamedEntityOutputTypeDef",
     "TopicNamedEntityTypeDef",
     "TopicNullFilterTypeDef",
     "TopicNumericEqualityFilterTypeDef",
     "TopicNumericRangeFilterTypeDef",
     "TopicRangeFilterConstantTypeDef",
+    "TopicReferenceTypeDef",
     "TopicRefreshDetailsTypeDef",
     "TopicRefreshScheduleOutputTypeDef",
     "TopicRefreshScheduleSummaryTypeDef",
@@ -2256,6 +2339,15 @@ __all__ = (
     "TopicTemplateOutputTypeDef",
     "TopicTemplateTypeDef",
     "TopicTemplateUnionTypeDef",
+    "TopicV2DataSetReferenceTypeDef",
+    "TopicV2DataSetRelationEndpointOutputTypeDef",
+    "TopicV2DataSetRelationEndpointTypeDef",
+    "TopicV2DataSetRelationOutputTypeDef",
+    "TopicV2DataSetRelationTypeDef",
+    "TopicV2DetailsOutputTypeDef",
+    "TopicV2DetailsTypeDef",
+    "TopicV2DetailsUnionTypeDef",
+    "TopicV2SummaryTypeDef",
     "TopicVisualOutputTypeDef",
     "TopicVisualTypeDef",
     "TopicVisualUnionTypeDef",
@@ -2320,6 +2412,8 @@ __all__ = (
     "UpdateAnalysisResponseTypeDef",
     "UpdateApplicationWithTokenExchangeGrantRequestTypeDef",
     "UpdateApplicationWithTokenExchangeGrantResponseTypeDef",
+    "UpdateApprovalPolicyRequestTypeDef",
+    "UpdateApprovalPolicyResponseTypeDef",
     "UpdateBrandAssignmentRequestTypeDef",
     "UpdateBrandAssignmentResponseTypeDef",
     "UpdateBrandPublishedVersionRequestTypeDef",
@@ -2348,6 +2442,8 @@ __all__ = (
     "UpdateDataSourceResponseTypeDef",
     "UpdateDefaultQBusinessApplicationRequestTypeDef",
     "UpdateDefaultQBusinessApplicationResponseTypeDef",
+    "UpdateDlpSettingRequestTypeDef",
+    "UpdateDlpSettingResponseTypeDef",
     "UpdateFlowPermissionsInputTypeDef",
     "UpdateFlowPermissionsOutputTypeDef",
     "UpdateFlowRequestTypeDef",
@@ -2370,6 +2466,8 @@ __all__ = (
     "UpdateKnowledgeBasePermissionsResponseTypeDef",
     "UpdateKnowledgeBaseRequestTypeDef",
     "UpdateKnowledgeBaseResponseTypeDef",
+    "UpdateLimitsProfileRequestTypeDef",
+    "UpdateLimitsProfileResponseTypeDef",
     "UpdateOAuthClientApplicationRequestTypeDef",
     "UpdateOAuthClientApplicationResponseTypeDef",
     "UpdatePublicSharingSettingsRequestTypeDef",
@@ -2408,10 +2506,14 @@ __all__ = (
     "UpdateThemeResponseTypeDef",
     "UpdateTopicPermissionsRequestTypeDef",
     "UpdateTopicPermissionsResponseTypeDef",
+    "UpdateTopicPermissionsV2RequestTypeDef",
+    "UpdateTopicPermissionsV2ResponseTypeDef",
     "UpdateTopicRefreshScheduleRequestTypeDef",
     "UpdateTopicRefreshScheduleResponseTypeDef",
     "UpdateTopicRequestTypeDef",
     "UpdateTopicResponseTypeDef",
+    "UpdateTopicV2RequestTypeDef",
+    "UpdateTopicV2ResponseTypeDef",
     "UpdateUserCustomPermissionRequestTypeDef",
     "UpdateUserCustomPermissionResponseTypeDef",
     "UpdateUserRequestTypeDef",
@@ -2423,6 +2525,8 @@ __all__ = (
     "UserIdentifierTypeDef",
     "UserIndexCapacityFilterTypeDef",
     "UserIndexCapacityTypeDef",
+    "UserLimitsEntryTypeDef",
+    "UserLimitsTypeDef",
     "UserNameOrEmailFilterTypeDef",
     "UserTypeDef",
     "VPCConnectionSummaryTypeDef",
@@ -2442,6 +2546,8 @@ __all__ = (
     "VisualHighlightOperationTypeDef",
     "VisualInteractionOptionsTypeDef",
     "VisualMenuOptionTypeDef",
+    "VisualMessageConfigurationTypeDef",
+    "VisualMessagesTypeDef",
     "VisualOptionsTypeDef",
     "VisualOutputTypeDef",
     "VisualPaletteOutputTypeDef",
@@ -2586,8 +2692,9 @@ class AggregationPartitionByTypeDef(TypedDict):
     TimeGranularity: NotRequired[TimeGranularityType]
 
 class ColumnIdentifierTypeDef(TypedDict):
-    DataSetIdentifier: str
     ColumnName: str
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
 
 class AmazonElasticsearchParametersTypeDef(TypedDict):
     Domain: str
@@ -2608,9 +2715,10 @@ class GenerativeAuthoringConfigurationsTypeDef(TypedDict):
     Enabled: bool
 
 class CalculatedFieldTypeDef(TypedDict):
-    DataSetIdentifier: str
     Name: str
     Expression: str
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
 
 class DataSetIdentifierDeclarationTypeDef(TypedDict):
     Identifier: str
@@ -2618,6 +2726,10 @@ class DataSetIdentifierDeclarationTypeDef(TypedDict):
 
 class QueryExecutionOptionsTypeDef(TypedDict):
     QueryExecutionMode: NotRequired[QueryExecutionModeType]
+
+class TopicIdentifierDeclarationTypeDef(TypedDict):
+    Identifier: str
+    TopicArn: str
 
 class EntityTypeDef(TypedDict):
     Path: NotRequired[str]
@@ -2630,6 +2742,10 @@ class AnalysisSearchFilterTypeDef(TypedDict):
 class DataSetReferenceTypeDef(TypedDict):
     DataSetPlaceholder: str
     DataSetArn: str
+
+class TopicReferenceTypeDef(TypedDict):
+    TopicPlaceholder: str
+    TopicArn: str
 
 class AnalysisSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
@@ -2665,6 +2781,21 @@ class AnonymousUserQSearchBarEmbeddingConfigurationTypeDef(TypedDict):
 class AppendedColumnTypeDef(TypedDict):
     ColumnName: str
     NewColumnId: str
+
+ApplicableToOutputTypeDef = TypedDict(
+    "ApplicableToOutputTypeDef",
+    {
+        "Type": Literal["GROUP"],
+        "GroupArns": NotRequired[list[str]],
+    },
+)
+ApplicableToTypeDef = TypedDict(
+    "ApplicableToTypeDef",
+    {
+        "Type": Literal["GROUP"],
+        "GroupArns": NotRequired[Sequence[str]],
+    },
+)
 
 class ArcAxisDisplayRangeTypeDef(TypedDict):
     Min: NotRequired[float]
@@ -2708,6 +2839,10 @@ class AssetBundleExportJobThemeOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
     Properties: list[Literal["Name"]]
 
+class AssetBundleExportJobTopicV2OverridePropertiesOutputTypeDef(TypedDict):
+    Arn: str
+    Properties: list[AssetBundleExportJobTopicV2PropertyToOverrideType]
+
 class AssetBundleExportJobVPCConnectionOverridePropertiesOutputTypeDef(TypedDict):
     Arn: str
     Properties: list[AssetBundleExportJobVPCConnectionPropertyToOverrideType]
@@ -2739,6 +2874,10 @@ class AssetBundleExportJobRefreshScheduleOverridePropertiesTypeDef(TypedDict):
 class AssetBundleExportJobThemeOverridePropertiesTypeDef(TypedDict):
     Arn: str
     Properties: Sequence[Literal["Name"]]
+
+class AssetBundleExportJobTopicV2OverridePropertiesTypeDef(TypedDict):
+    Arn: str
+    Properties: Sequence[AssetBundleExportJobTopicV2PropertyToOverrideType]
 
 class AssetBundleExportJobVPCConnectionOverridePropertiesTypeDef(TypedDict):
     Arn: str
@@ -2825,6 +2964,11 @@ class AssetBundleImportJobResourceIdOverrideConfigurationTypeDef(TypedDict):
 class AssetBundleImportJobThemeOverrideParametersTypeDef(TypedDict):
     ThemeId: str
     Name: NotRequired[str]
+
+class AssetBundleImportJobTopicV2OverrideParametersTypeDef(TypedDict):
+    TopicId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
 
 class AssetBundleImportJobVPCConnectionOverrideParametersOutputTypeDef(TypedDict):
     VPCConnectionId: str
@@ -2966,6 +3110,17 @@ class BatchDeleteTopicReviewedAnswerRequestTypeDef(TypedDict):
     TopicId: str
     AnswerIds: NotRequired[Sequence[str]]
 
+class BatchDescribeUserLimitsErrorTypeDef(TypedDict):
+    errorCode: str
+    message: str
+    userName: NotRequired[str]
+    namespace: NotRequired[str]
+    userArn: NotRequired[str]
+
+class UserLimitsEntryTypeDef(TypedDict):
+    userName: str
+    namespace: str
+
 class BigQueryParametersTypeDef(TypedDict):
     ProjectId: str
     DataSetRegion: NotRequired[str]
@@ -3023,243 +3178,285 @@ class CancelIngestionRequestTypeDef(TypedDict):
     IngestionId: str
 
 class CapabilitiesTypeDef(TypedDict):
-    ExportToCsv: NotRequired[Literal["DENY"]]
-    ExportToExcel: NotRequired[Literal["DENY"]]
-    ExportToPdf: NotRequired[Literal["DENY"]]
-    PrintReports: NotRequired[Literal["DENY"]]
-    CreateAndUpdateThemes: NotRequired[Literal["DENY"]]
-    AddOrRunAnomalyDetectionForAnalyses: NotRequired[Literal["DENY"]]
-    ShareAnalyses: NotRequired[Literal["DENY"]]
-    CreateAndUpdateDatasets: NotRequired[Literal["DENY"]]
-    ShareDatasets: NotRequired[Literal["DENY"]]
-    SubscribeDashboardEmailReports: NotRequired[Literal["DENY"]]
-    CreateAndUpdateDashboardEmailReports: NotRequired[Literal["DENY"]]
-    ShareDashboards: NotRequired[Literal["DENY"]]
-    CreateAndUpdateThresholdAlerts: NotRequired[Literal["DENY"]]
-    RenameSharedFolders: NotRequired[Literal["DENY"]]
-    CreateSharedFolders: NotRequired[Literal["DENY"]]
-    CreateAndUpdateDataSources: NotRequired[Literal["DENY"]]
-    ShareDataSources: NotRequired[Literal["DENY"]]
-    ViewAccountSPICECapacity: NotRequired[Literal["DENY"]]
-    CreateSPICEDataset: NotRequired[Literal["DENY"]]
-    ExportToPdfInScheduledReports: NotRequired[Literal["DENY"]]
-    ExportToCsvInScheduledReports: NotRequired[Literal["DENY"]]
-    ExportToExcelInScheduledReports: NotRequired[Literal["DENY"]]
-    IncludeContentInScheduledReportsEmail: NotRequired[Literal["DENY"]]
-    Dashboard: NotRequired[Literal["DENY"]]
-    Analysis: NotRequired[Literal["DENY"]]
-    Automate: NotRequired[Literal["DENY"]]
-    Flow: NotRequired[Literal["DENY"]]
-    Apps: NotRequired[Literal["DENY"]]
-    CreateAndUpdateApps: NotRequired[Literal["DENY"]]
-    ShareApps: NotRequired[Literal["DENY"]]
-    InvokeAppsAIInference: NotRequired[Literal["DENY"]]
-    AccessAppsNativeDataStore: NotRequired[Literal["DENY"]]
-    PublishWithoutApproval: NotRequired[Literal["DENY"]]
-    UseBedrockModels: NotRequired[Literal["DENY"]]
-    PerformFlowUiTask: NotRequired[Literal["DENY"]]
-    ApproveFlowShareRequests: NotRequired[Literal["DENY"]]
-    UseAgentWebSearch: NotRequired[Literal["DENY"]]
-    KnowledgeBase: NotRequired[Literal["DENY"]]
-    Action: NotRequired[Literal["DENY"]]
-    GenericHTTPAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateGenericHTTPAction: NotRequired[Literal["DENY"]]
-    ShareGenericHTTPAction: NotRequired[Literal["DENY"]]
-    UseGenericHTTPAction: NotRequired[Literal["DENY"]]
-    AsanaAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateAsanaAction: NotRequired[Literal["DENY"]]
-    ShareAsanaAction: NotRequired[Literal["DENY"]]
-    UseAsanaAction: NotRequired[Literal["DENY"]]
-    SlackAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSlackAction: NotRequired[Literal["DENY"]]
-    ShareSlackAction: NotRequired[Literal["DENY"]]
-    UseSlackAction: NotRequired[Literal["DENY"]]
-    ServiceNowAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateServiceNowAction: NotRequired[Literal["DENY"]]
-    ShareServiceNowAction: NotRequired[Literal["DENY"]]
-    UseServiceNowAction: NotRequired[Literal["DENY"]]
-    SalesforceAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSalesforceAction: NotRequired[Literal["DENY"]]
-    ShareSalesforceAction: NotRequired[Literal["DENY"]]
-    UseSalesforceAction: NotRequired[Literal["DENY"]]
-    MSExchangeAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateMSExchangeAction: NotRequired[Literal["DENY"]]
-    ShareMSExchangeAction: NotRequired[Literal["DENY"]]
-    UseMSExchangeAction: NotRequired[Literal["DENY"]]
-    PagerDutyAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdatePagerDutyAction: NotRequired[Literal["DENY"]]
-    SharePagerDutyAction: NotRequired[Literal["DENY"]]
-    UsePagerDutyAction: NotRequired[Literal["DENY"]]
-    JiraAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateJiraAction: NotRequired[Literal["DENY"]]
-    ShareJiraAction: NotRequired[Literal["DENY"]]
-    UseJiraAction: NotRequired[Literal["DENY"]]
-    ConfluenceAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateConfluenceAction: NotRequired[Literal["DENY"]]
-    ShareConfluenceAction: NotRequired[Literal["DENY"]]
-    UseConfluenceAction: NotRequired[Literal["DENY"]]
-    OneDriveAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateOneDriveAction: NotRequired[Literal["DENY"]]
-    ShareOneDriveAction: NotRequired[Literal["DENY"]]
-    UseOneDriveAction: NotRequired[Literal["DENY"]]
-    SharePointAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSharePointAction: NotRequired[Literal["DENY"]]
-    ShareSharePointAction: NotRequired[Literal["DENY"]]
-    UseSharePointAction: NotRequired[Literal["DENY"]]
-    MSTeamsAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateMSTeamsAction: NotRequired[Literal["DENY"]]
-    ShareMSTeamsAction: NotRequired[Literal["DENY"]]
-    UseMSTeamsAction: NotRequired[Literal["DENY"]]
-    GoogleCalendarAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateGoogleCalendarAction: NotRequired[Literal["DENY"]]
-    ShareGoogleCalendarAction: NotRequired[Literal["DENY"]]
-    UseGoogleCalendarAction: NotRequired[Literal["DENY"]]
-    ZendeskAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateZendeskAction: NotRequired[Literal["DENY"]]
-    ShareZendeskAction: NotRequired[Literal["DENY"]]
-    UseZendeskAction: NotRequired[Literal["DENY"]]
-    SmartsheetAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSmartsheetAction: NotRequired[Literal["DENY"]]
-    ShareSmartsheetAction: NotRequired[Literal["DENY"]]
-    UseSmartsheetAction: NotRequired[Literal["DENY"]]
-    SAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
-    ShareSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
-    UseSAPBusinessPartnerAction: NotRequired[Literal["DENY"]]
-    SAPProductMasterDataAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
-    ShareSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
-    UseSAPProductMasterDataAction: NotRequired[Literal["DENY"]]
-    SAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
-    ShareSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
-    UseSAPPhysicalInventoryAction: NotRequired[Literal["DENY"]]
-    SAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
-    ShareSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
-    UseSAPBillOfMaterialAction: NotRequired[Literal["DENY"]]
-    SAPMaterialStockAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSAPMaterialStockAction: NotRequired[Literal["DENY"]]
-    ShareSAPMaterialStockAction: NotRequired[Literal["DENY"]]
-    UseSAPMaterialStockAction: NotRequired[Literal["DENY"]]
-    FactSetAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateFactSetAction: NotRequired[Literal["DENY"]]
-    ShareFactSetAction: NotRequired[Literal["DENY"]]
-    UseFactSetAction: NotRequired[Literal["DENY"]]
-    AmazonSThreeAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateAmazonSThreeAction: NotRequired[Literal["DENY"]]
-    ShareAmazonSThreeAction: NotRequired[Literal["DENY"]]
-    UseAmazonSThreeAction: NotRequired[Literal["DENY"]]
-    TextractAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateTextractAction: NotRequired[Literal["DENY"]]
-    ShareTextractAction: NotRequired[Literal["DENY"]]
-    UseTextractAction: NotRequired[Literal["DENY"]]
-    ComprehendAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateComprehendAction: NotRequired[Literal["DENY"]]
-    ShareComprehendAction: NotRequired[Literal["DENY"]]
-    UseComprehendAction: NotRequired[Literal["DENY"]]
-    ComprehendMedicalAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateComprehendMedicalAction: NotRequired[Literal["DENY"]]
-    ShareComprehendMedicalAction: NotRequired[Literal["DENY"]]
-    UseComprehendMedicalAction: NotRequired[Literal["DENY"]]
-    AmazonBedrockARSAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
-    ShareAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
-    UseAmazonBedrockARSAction: NotRequired[Literal["DENY"]]
-    AmazonBedrockFSAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
-    ShareAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
-    UseAmazonBedrockFSAction: NotRequired[Literal["DENY"]]
-    AmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
-    ShareAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
-    UseAmazonBedrockKRSAction: NotRequired[Literal["DENY"]]
-    MCPAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateMCPAction: NotRequired[Literal["DENY"]]
-    ShareMCPAction: NotRequired[Literal["DENY"]]
-    UseMCPAction: NotRequired[Literal["DENY"]]
-    OpenAPIAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateOpenAPIAction: NotRequired[Literal["DENY"]]
-    ShareOpenAPIAction: NotRequired[Literal["DENY"]]
-    UseOpenAPIAction: NotRequired[Literal["DENY"]]
-    SandPGMIAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSandPGMIAction: NotRequired[Literal["DENY"]]
-    ShareSandPGMIAction: NotRequired[Literal["DENY"]]
-    UseSandPGMIAction: NotRequired[Literal["DENY"]]
-    SandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
-    ShareSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
-    UseSandPGlobalEnergyAction: NotRequired[Literal["DENY"]]
-    BambooHRAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateBambooHRAction: NotRequired[Literal["DENY"]]
-    ShareBambooHRAction: NotRequired[Literal["DENY"]]
-    UseBambooHRAction: NotRequired[Literal["DENY"]]
-    BoxAgentAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateBoxAgentAction: NotRequired[Literal["DENY"]]
-    ShareBoxAgentAction: NotRequired[Literal["DENY"]]
-    UseBoxAgentAction: NotRequired[Literal["DENY"]]
-    CanvaAgentAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateCanvaAgentAction: NotRequired[Literal["DENY"]]
-    ShareCanvaAgentAction: NotRequired[Literal["DENY"]]
-    UseCanvaAgentAction: NotRequired[Literal["DENY"]]
-    GithubAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateGithubAction: NotRequired[Literal["DENY"]]
-    ShareGithubAction: NotRequired[Literal["DENY"]]
-    UseGithubAction: NotRequired[Literal["DENY"]]
-    NotionAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateNotionAction: NotRequired[Literal["DENY"]]
-    ShareNotionAction: NotRequired[Literal["DENY"]]
-    UseNotionAction: NotRequired[Literal["DENY"]]
-    LinearAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateLinearAction: NotRequired[Literal["DENY"]]
-    ShareLinearAction: NotRequired[Literal["DENY"]]
-    UseLinearAction: NotRequired[Literal["DENY"]]
-    HuggingFaceAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateHuggingFaceAction: NotRequired[Literal["DENY"]]
-    ShareHuggingFaceAction: NotRequired[Literal["DENY"]]
-    UseHuggingFaceAction: NotRequired[Literal["DENY"]]
-    MondayAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateMondayAction: NotRequired[Literal["DENY"]]
-    ShareMondayAction: NotRequired[Literal["DENY"]]
-    UseMondayAction: NotRequired[Literal["DENY"]]
-    HubspotAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateHubspotAction: NotRequired[Literal["DENY"]]
-    ShareHubspotAction: NotRequired[Literal["DENY"]]
-    UseHubspotAction: NotRequired[Literal["DENY"]]
-    IntercomAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateIntercomAction: NotRequired[Literal["DENY"]]
-    ShareIntercomAction: NotRequired[Literal["DENY"]]
-    UseIntercomAction: NotRequired[Literal["DENY"]]
-    NewRelicAction: NotRequired[Literal["DENY"]]
-    CreateAndUpdateNewRelicAction: NotRequired[Literal["DENY"]]
-    ShareNewRelicAction: NotRequired[Literal["DENY"]]
-    UseNewRelicAction: NotRequired[Literal["DENY"]]
-    Topic: NotRequired[Literal["DENY"]]
-    EditVisualWithQ: NotRequired[Literal["DENY"]]
-    BuildCalculatedFieldWithQ: NotRequired[Literal["DENY"]]
-    CreateDashboardExecutiveSummaryWithQ: NotRequired[Literal["DENY"]]
-    Space: NotRequired[Literal["DENY"]]
-    CreateSpaces: NotRequired[Literal["DENY"]]
-    ShareSpaces: NotRequired[Literal["DENY"]]
-    ChatAgent: NotRequired[Literal["DENY"]]
-    CreateChatAgents: NotRequired[Literal["DENY"]]
-    ShareChatAgents: NotRequired[Literal["DENY"]]
-    Research: NotRequired[Literal["DENY"]]
-    SelfUpgradeUserRole: NotRequired[Literal["DENY"]]
-    Extension: NotRequired[Literal["DENY"]]
-    UseBrowserExtension: NotRequired[Literal["DENY"]]
-    UseWordAddInExtension: NotRequired[Literal["DENY"]]
-    UseOutlookAddInExtension: NotRequired[Literal["DENY"]]
-    UseExcelAddInExtension: NotRequired[Literal["DENY"]]
-    UsePowerpointAddInExtension: NotRequired[Literal["DENY"]]
-    ManageSharedFolders: NotRequired[Literal["DENY"]]
-    GenerateAnalyses: NotRequired[Literal["DENY"]]
-    Story: NotRequired[Literal["DENY"]]
-    Scenario: NotRequired[Literal["DENY"]]
-    Trigger: NotRequired[Literal["DENY"]]
-    ScheduleTrigger: NotRequired[Literal["DENY"]]
-    InboundEmailTrigger: NotRequired[Literal["DENY"]]
-    QuickEventTrigger: NotRequired[Literal["DENY"]]
+    ExportToCsv: NotRequired[CapabilityStateType]
+    ExportToExcel: NotRequired[CapabilityStateType]
+    ExportToPdf: NotRequired[CapabilityStateType]
+    PrintReports: NotRequired[CapabilityStateType]
+    CreateAndUpdateThemes: NotRequired[CapabilityStateType]
+    AddOrRunAnomalyDetectionForAnalyses: NotRequired[CapabilityStateType]
+    ShareAnalyses: NotRequired[CapabilityStateType]
+    CreateAndUpdateDatasets: NotRequired[CapabilityStateType]
+    ShareDatasets: NotRequired[CapabilityStateType]
+    SubscribeDashboardEmailReports: NotRequired[CapabilityStateType]
+    CreateAndUpdateDashboardEmailReports: NotRequired[CapabilityStateType]
+    ShareDashboards: NotRequired[CapabilityStateType]
+    CreateAndUpdateThresholdAlerts: NotRequired[CapabilityStateType]
+    RenameSharedFolders: NotRequired[CapabilityStateType]
+    CreateSharedFolders: NotRequired[CapabilityStateType]
+    CreateAndUpdateDataSources: NotRequired[CapabilityStateType]
+    ShareDataSources: NotRequired[CapabilityStateType]
+    ViewAccountSPICECapacity: NotRequired[CapabilityStateType]
+    CreateSPICEDataset: NotRequired[CapabilityStateType]
+    ExportToPdfInScheduledReports: NotRequired[CapabilityStateType]
+    ExportToCsvInScheduledReports: NotRequired[CapabilityStateType]
+    ExportToExcelInScheduledReports: NotRequired[CapabilityStateType]
+    IncludeContentInScheduledReportsEmail: NotRequired[CapabilityStateType]
+    Dashboard: NotRequired[CapabilityStateType]
+    Analysis: NotRequired[CapabilityStateType]
+    Automate: NotRequired[CapabilityStateType]
+    Flow: NotRequired[CapabilityStateType]
+    Apps: NotRequired[CapabilityStateType]
+    CreateAndUpdateApps: NotRequired[CapabilityStateType]
+    ShareApps: NotRequired[CapabilityStateType]
+    InvokeAppsAIInference: NotRequired[CapabilityStateType]
+    AccessAppsNativeDataStore: NotRequired[CapabilityStateType]
+    PublishWithoutApproval: NotRequired[CapabilityStateType]
+    UseBedrockModels: NotRequired[CapabilityStateType]
+    PerformFlowUiTask: NotRequired[CapabilityStateType]
+    ApproveFlowShareRequests: NotRequired[CapabilityStateType]
+    UseAgentWebSearch: NotRequired[CapabilityStateType]
+    KnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateKnowledgeBases: NotRequired[CapabilityStateType]
+    ShareKnowledgeBases: NotRequired[CapabilityStateType]
+    SharePointKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateSharePointKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareSharePointKnowledgeBase: NotRequired[CapabilityStateType]
+    UseSharePointKnowledgeBase: NotRequired[CapabilityStateType]
+    GoogleDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateGoogleDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareGoogleDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    UseGoogleDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    WebCrawlerKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateWebCrawlerKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareWebCrawlerKnowledgeBase: NotRequired[CapabilityStateType]
+    UseWebCrawlerKnowledgeBase: NotRequired[CapabilityStateType]
+    S3KnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateS3KnowledgeBase: NotRequired[CapabilityStateType]
+    ShareS3KnowledgeBase: NotRequired[CapabilityStateType]
+    UseS3KnowledgeBase: NotRequired[CapabilityStateType]
+    ConfluenceKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateConfluenceKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareConfluenceKnowledgeBase: NotRequired[CapabilityStateType]
+    UseConfluenceKnowledgeBase: NotRequired[CapabilityStateType]
+    OneDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateOneDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareOneDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    UseOneDriveKnowledgeBase: NotRequired[CapabilityStateType]
+    QBusinessKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateQBusinessKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareQBusinessKnowledgeBase: NotRequired[CapabilityStateType]
+    UseQBusinessKnowledgeBase: NotRequired[CapabilityStateType]
+    BedrockManagedKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateBedrockManagedKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareBedrockManagedKnowledgeBase: NotRequired[CapabilityStateType]
+    UseBedrockManagedKnowledgeBase: NotRequired[CapabilityStateType]
+    BoxKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateBoxKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareBoxKnowledgeBase: NotRequired[CapabilityStateType]
+    UseBoxKnowledgeBase: NotRequired[CapabilityStateType]
+    IDCKnowledgeBase: NotRequired[CapabilityStateType]
+    CreateAndUpdateIDCKnowledgeBase: NotRequired[CapabilityStateType]
+    ShareIDCKnowledgeBase: NotRequired[CapabilityStateType]
+    UseIDCKnowledgeBase: NotRequired[CapabilityStateType]
+    Action: NotRequired[CapabilityStateType]
+    GenericHTTPAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateGenericHTTPAction: NotRequired[CapabilityStateType]
+    ShareGenericHTTPAction: NotRequired[CapabilityStateType]
+    UseGenericHTTPAction: NotRequired[CapabilityStateType]
+    AsanaAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateAsanaAction: NotRequired[CapabilityStateType]
+    ShareAsanaAction: NotRequired[CapabilityStateType]
+    UseAsanaAction: NotRequired[CapabilityStateType]
+    SlackAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSlackAction: NotRequired[CapabilityStateType]
+    ShareSlackAction: NotRequired[CapabilityStateType]
+    UseSlackAction: NotRequired[CapabilityStateType]
+    ServiceNowAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateServiceNowAction: NotRequired[CapabilityStateType]
+    ShareServiceNowAction: NotRequired[CapabilityStateType]
+    UseServiceNowAction: NotRequired[CapabilityStateType]
+    SalesforceAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSalesforceAction: NotRequired[CapabilityStateType]
+    ShareSalesforceAction: NotRequired[CapabilityStateType]
+    UseSalesforceAction: NotRequired[CapabilityStateType]
+    MSExchangeAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateMSExchangeAction: NotRequired[CapabilityStateType]
+    ShareMSExchangeAction: NotRequired[CapabilityStateType]
+    UseMSExchangeAction: NotRequired[CapabilityStateType]
+    PagerDutyAction: NotRequired[CapabilityStateType]
+    CreateAndUpdatePagerDutyAction: NotRequired[CapabilityStateType]
+    SharePagerDutyAction: NotRequired[CapabilityStateType]
+    UsePagerDutyAction: NotRequired[CapabilityStateType]
+    JiraAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateJiraAction: NotRequired[CapabilityStateType]
+    ShareJiraAction: NotRequired[CapabilityStateType]
+    UseJiraAction: NotRequired[CapabilityStateType]
+    ConfluenceAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateConfluenceAction: NotRequired[CapabilityStateType]
+    ShareConfluenceAction: NotRequired[CapabilityStateType]
+    UseConfluenceAction: NotRequired[CapabilityStateType]
+    OneDriveAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateOneDriveAction: NotRequired[CapabilityStateType]
+    ShareOneDriveAction: NotRequired[CapabilityStateType]
+    UseOneDriveAction: NotRequired[CapabilityStateType]
+    SharePointAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSharePointAction: NotRequired[CapabilityStateType]
+    ShareSharePointAction: NotRequired[CapabilityStateType]
+    UseSharePointAction: NotRequired[CapabilityStateType]
+    MSTeamsAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateMSTeamsAction: NotRequired[CapabilityStateType]
+    ShareMSTeamsAction: NotRequired[CapabilityStateType]
+    UseMSTeamsAction: NotRequired[CapabilityStateType]
+    GoogleCalendarAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateGoogleCalendarAction: NotRequired[CapabilityStateType]
+    ShareGoogleCalendarAction: NotRequired[CapabilityStateType]
+    UseGoogleCalendarAction: NotRequired[CapabilityStateType]
+    ZendeskAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateZendeskAction: NotRequired[CapabilityStateType]
+    ShareZendeskAction: NotRequired[CapabilityStateType]
+    UseZendeskAction: NotRequired[CapabilityStateType]
+    SmartsheetAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSmartsheetAction: NotRequired[CapabilityStateType]
+    ShareSmartsheetAction: NotRequired[CapabilityStateType]
+    UseSmartsheetAction: NotRequired[CapabilityStateType]
+    SAPBusinessPartnerAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSAPBusinessPartnerAction: NotRequired[CapabilityStateType]
+    ShareSAPBusinessPartnerAction: NotRequired[CapabilityStateType]
+    UseSAPBusinessPartnerAction: NotRequired[CapabilityStateType]
+    SAPProductMasterDataAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSAPProductMasterDataAction: NotRequired[CapabilityStateType]
+    ShareSAPProductMasterDataAction: NotRequired[CapabilityStateType]
+    UseSAPProductMasterDataAction: NotRequired[CapabilityStateType]
+    SAPPhysicalInventoryAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSAPPhysicalInventoryAction: NotRequired[CapabilityStateType]
+    ShareSAPPhysicalInventoryAction: NotRequired[CapabilityStateType]
+    UseSAPPhysicalInventoryAction: NotRequired[CapabilityStateType]
+    SAPBillOfMaterialAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSAPBillOfMaterialAction: NotRequired[CapabilityStateType]
+    ShareSAPBillOfMaterialAction: NotRequired[CapabilityStateType]
+    UseSAPBillOfMaterialAction: NotRequired[CapabilityStateType]
+    SAPMaterialStockAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSAPMaterialStockAction: NotRequired[CapabilityStateType]
+    ShareSAPMaterialStockAction: NotRequired[CapabilityStateType]
+    UseSAPMaterialStockAction: NotRequired[CapabilityStateType]
+    FactSetAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateFactSetAction: NotRequired[CapabilityStateType]
+    ShareFactSetAction: NotRequired[CapabilityStateType]
+    UseFactSetAction: NotRequired[CapabilityStateType]
+    AmazonSThreeAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateAmazonSThreeAction: NotRequired[CapabilityStateType]
+    ShareAmazonSThreeAction: NotRequired[CapabilityStateType]
+    UseAmazonSThreeAction: NotRequired[CapabilityStateType]
+    TextractAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateTextractAction: NotRequired[CapabilityStateType]
+    ShareTextractAction: NotRequired[CapabilityStateType]
+    UseTextractAction: NotRequired[CapabilityStateType]
+    ComprehendAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateComprehendAction: NotRequired[CapabilityStateType]
+    ShareComprehendAction: NotRequired[CapabilityStateType]
+    UseComprehendAction: NotRequired[CapabilityStateType]
+    ComprehendMedicalAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateComprehendMedicalAction: NotRequired[CapabilityStateType]
+    ShareComprehendMedicalAction: NotRequired[CapabilityStateType]
+    UseComprehendMedicalAction: NotRequired[CapabilityStateType]
+    AmazonBedrockARSAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateAmazonBedrockARSAction: NotRequired[CapabilityStateType]
+    ShareAmazonBedrockARSAction: NotRequired[CapabilityStateType]
+    UseAmazonBedrockARSAction: NotRequired[CapabilityStateType]
+    AmazonBedrockFSAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateAmazonBedrockFSAction: NotRequired[CapabilityStateType]
+    ShareAmazonBedrockFSAction: NotRequired[CapabilityStateType]
+    UseAmazonBedrockFSAction: NotRequired[CapabilityStateType]
+    AmazonBedrockKRSAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateAmazonBedrockKRSAction: NotRequired[CapabilityStateType]
+    ShareAmazonBedrockKRSAction: NotRequired[CapabilityStateType]
+    UseAmazonBedrockKRSAction: NotRequired[CapabilityStateType]
+    MCPAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateMCPAction: NotRequired[CapabilityStateType]
+    ShareMCPAction: NotRequired[CapabilityStateType]
+    UseMCPAction: NotRequired[CapabilityStateType]
+    OpenAPIAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateOpenAPIAction: NotRequired[CapabilityStateType]
+    ShareOpenAPIAction: NotRequired[CapabilityStateType]
+    UseOpenAPIAction: NotRequired[CapabilityStateType]
+    SandPGMIAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSandPGMIAction: NotRequired[CapabilityStateType]
+    ShareSandPGMIAction: NotRequired[CapabilityStateType]
+    UseSandPGMIAction: NotRequired[CapabilityStateType]
+    SandPGlobalEnergyAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateSandPGlobalEnergyAction: NotRequired[CapabilityStateType]
+    ShareSandPGlobalEnergyAction: NotRequired[CapabilityStateType]
+    UseSandPGlobalEnergyAction: NotRequired[CapabilityStateType]
+    BambooHRAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateBambooHRAction: NotRequired[CapabilityStateType]
+    ShareBambooHRAction: NotRequired[CapabilityStateType]
+    UseBambooHRAction: NotRequired[CapabilityStateType]
+    BoxAgentAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateBoxAgentAction: NotRequired[CapabilityStateType]
+    ShareBoxAgentAction: NotRequired[CapabilityStateType]
+    UseBoxAgentAction: NotRequired[CapabilityStateType]
+    CanvaAgentAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateCanvaAgentAction: NotRequired[CapabilityStateType]
+    ShareCanvaAgentAction: NotRequired[CapabilityStateType]
+    UseCanvaAgentAction: NotRequired[CapabilityStateType]
+    GithubAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateGithubAction: NotRequired[CapabilityStateType]
+    ShareGithubAction: NotRequired[CapabilityStateType]
+    UseGithubAction: NotRequired[CapabilityStateType]
+    NotionAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateNotionAction: NotRequired[CapabilityStateType]
+    ShareNotionAction: NotRequired[CapabilityStateType]
+    UseNotionAction: NotRequired[CapabilityStateType]
+    LinearAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateLinearAction: NotRequired[CapabilityStateType]
+    ShareLinearAction: NotRequired[CapabilityStateType]
+    UseLinearAction: NotRequired[CapabilityStateType]
+    HuggingFaceAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateHuggingFaceAction: NotRequired[CapabilityStateType]
+    ShareHuggingFaceAction: NotRequired[CapabilityStateType]
+    UseHuggingFaceAction: NotRequired[CapabilityStateType]
+    MondayAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateMondayAction: NotRequired[CapabilityStateType]
+    ShareMondayAction: NotRequired[CapabilityStateType]
+    UseMondayAction: NotRequired[CapabilityStateType]
+    HubspotAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateHubspotAction: NotRequired[CapabilityStateType]
+    ShareHubspotAction: NotRequired[CapabilityStateType]
+    UseHubspotAction: NotRequired[CapabilityStateType]
+    IntercomAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateIntercomAction: NotRequired[CapabilityStateType]
+    ShareIntercomAction: NotRequired[CapabilityStateType]
+    UseIntercomAction: NotRequired[CapabilityStateType]
+    NewRelicAction: NotRequired[CapabilityStateType]
+    CreateAndUpdateNewRelicAction: NotRequired[CapabilityStateType]
+    ShareNewRelicAction: NotRequired[CapabilityStateType]
+    UseNewRelicAction: NotRequired[CapabilityStateType]
+    Topic: NotRequired[CapabilityStateType]
+    EditVisualWithQ: NotRequired[CapabilityStateType]
+    BuildCalculatedFieldWithQ: NotRequired[CapabilityStateType]
+    CreateDashboardExecutiveSummaryWithQ: NotRequired[CapabilityStateType]
+    Space: NotRequired[CapabilityStateType]
+    CreateSpaces: NotRequired[CapabilityStateType]
+    ShareSpaces: NotRequired[CapabilityStateType]
+    ChatAgent: NotRequired[CapabilityStateType]
+    CreateChatAgents: NotRequired[CapabilityStateType]
+    ShareChatAgents: NotRequired[CapabilityStateType]
+    Research: NotRequired[CapabilityStateType]
+    SelfUpgradeUserRole: NotRequired[CapabilityStateType]
+    Extension: NotRequired[CapabilityStateType]
+    UseBrowserExtension: NotRequired[CapabilityStateType]
+    UseWordAddInExtension: NotRequired[CapabilityStateType]
+    UseOutlookAddInExtension: NotRequired[CapabilityStateType]
+    UseExcelAddInExtension: NotRequired[CapabilityStateType]
+    UsePowerpointAddInExtension: NotRequired[CapabilityStateType]
+    ManageSharedFolders: NotRequired[CapabilityStateType]
+    GenerateAnalyses: NotRequired[CapabilityStateType]
+    Story: NotRequired[CapabilityStateType]
+    Scenario: NotRequired[CapabilityStateType]
+    Trigger: NotRequired[CapabilityStateType]
+    ScheduleTrigger: NotRequired[CapabilityStateType]
+    InboundEmailTrigger: NotRequired[CapabilityStateType]
+    QuickEventTrigger: NotRequired[CapabilityStateType]
 
 class CapacityBytesRangeFilterTypeDef(TypedDict):
     minBytes: NotRequired[int]
@@ -3516,6 +3713,10 @@ class CreateIngestionRequestTypeDef(TypedDict):
     AwsAccountId: str
     IngestionType: NotRequired[IngestionTypeType]
 
+class ProfileLimitValueTypeDef(TypedDict):
+    maxValue: int
+    unit: LimitUnitType
+
 class CreateRoleMembershipRequestTypeDef(TypedDict):
     MemberName: str
     AwsAccountId: str
@@ -3580,6 +3781,9 @@ class CustomParameterValuesOutputTypeDef(TypedDict):
     IntegerValues: NotRequired[list[int]]
     DecimalValues: NotRequired[list[float]]
     DateTimeValues: NotRequired[list[datetime]]
+
+class GovernanceOutputTypeDef(TypedDict):
+    DefaultCategoryEffects: NotRequired[dict[str, Literal["DENY_BY_DEFAULT"]]]
 
 class CustomPromptInputParametersTypeDef(TypedDict):
     ResponseLength: NotRequired[str]
@@ -3998,6 +4202,9 @@ class DeleteAnalysisRequestTypeDef(TypedDict):
     RecoveryWindowInDays: NotRequired[int]
     ForceDeleteWithoutRecovery: NotRequired[bool]
 
+class DeleteApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
+
 class DeleteBrandAssignmentRequestTypeDef(TypedDict):
     AwsAccountId: str
 
@@ -4029,6 +4236,10 @@ class DeleteDataSourceRequestTypeDef(TypedDict):
 class DeleteDefaultQBusinessApplicationRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: NotRequired[str]
+
+class DeleteDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
 
 class DeleteFlowRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -4067,6 +4278,10 @@ class DeleteIdentityPropagationConfigRequestTypeDef(TypedDict):
 class DeleteKnowledgeBaseRequestTypeDef(TypedDict):
     AwsAccountId: str
     KnowledgeBaseId: str
+
+class DeleteLimitsProfileRequestTypeDef(TypedDict):
+    profileId: str
+    accountId: str
 
 class DeleteNamespaceRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -4122,6 +4337,10 @@ class DeleteTopicRefreshScheduleRequestTypeDef(TypedDict):
     DatasetId: str
 
 class DeleteTopicRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    TopicId: str
+
+class DeleteTopicV2RequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
 
@@ -4189,6 +4408,9 @@ class DescribeAnalysisPermissionsRequestTypeDef(TypedDict):
 class DescribeAnalysisRequestTypeDef(TypedDict):
     AwsAccountId: str
     AnalysisId: str
+
+class DescribeApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
 
 class DescribeAssetBundleExportJobRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -4278,6 +4500,10 @@ class DescribeDataSourceRequestTypeDef(TypedDict):
 class DescribeDefaultQBusinessApplicationRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: NotRequired[str]
+
+class DescribeDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
 
 class DescribeFlowRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -4369,6 +4595,10 @@ class DescribeKnowledgeBaseRequestTypeDef(TypedDict):
     AwsAccountId: str
     KnowledgeBaseId: str
 
+class DescribeLimitsProfileRequestTypeDef(TypedDict):
+    profileId: str
+    accountId: str
+
 class DescribeNamespaceRequestTypeDef(TypedDict):
     AwsAccountId: str
     Namespace: str
@@ -4454,6 +4684,10 @@ class DescribeTopicPermissionsRequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
 
+class DescribeTopicPermissionsV2RequestTypeDef(TypedDict):
+    AwsAccountId: str
+    TopicId: str
+
 class DescribeTopicRefreshRequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
@@ -4478,6 +4712,10 @@ class TopicRefreshScheduleOutputTypeDef(TypedDict):
     TopicScheduleType: NotRequired[TopicScheduleTypeType]
 
 class DescribeTopicRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    TopicId: str
+
+class DescribeTopicV2RequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
 
@@ -4510,11 +4748,27 @@ class NegativeFormatTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Suffix: NotRequired[str]
 
+class DlpSettingSummaryTypeDef(TypedDict):
+    DlpSettingId: str
+    Name: str
+    Arn: str
+    Status: DlpSettingStatusType
+    ProviderType: Literal["MICROSOFT_PURVIEW"]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+
 class DonutCenterOptionsTypeDef(TypedDict):
     LabelVisibility: NotRequired[VisibilityType]
 
 class ListControlSelectAllOptionsTypeDef(TypedDict):
     Visibility: NotRequired[VisibilityType]
+
+class EffectiveLimitTypeDef(TypedDict):
+    resourceType: ResourceTypeType
+    limitValue: int
+    limitUnit: LimitUnitType
+    source: LimitSourceType
+    profileId: str
 
 ErrorInfoTypeDef = TypedDict(
     "ErrorInfoTypeDef",
@@ -4768,6 +5022,9 @@ class TableBorderOptionsTypeDef(TypedDict):
     Thickness: NotRequired[int]
     Style: NotRequired[TableBorderStyleType]
 
+class GovernanceTypeDef(TypedDict):
+    DefaultCategoryEffects: NotRequired[Mapping[str, Literal["DENY_BY_DEFAULT"]]]
+
 class GradientStopTypeDef(TypedDict):
     GradientOffset: float
     DataValue: NotRequired[float]
@@ -4919,6 +5176,11 @@ KnowledgeBaseSummaryTypeDef = TypedDict(
     },
 )
 
+class LabelActionMappingTypeDef(TypedDict):
+    LabelId: str
+    LabelName: str
+    Action: DlpActionType
+
 class MissingDataConfigurationTypeDef(TypedDict):
     TreatmentOption: NotRequired[MissingDataTreatmentOptionType]
 
@@ -4938,6 +5200,10 @@ class ListAgentsRequestTypeDef(TypedDict):
 
 class ListAnalysesRequestTypeDef(TypedDict):
     AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListApprovalPoliciesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
@@ -4981,6 +5247,11 @@ class ListDataSetsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 class ListDataSourcesRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListDlpSettingsRequestTypeDef(TypedDict):
     AwsAccountId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -5053,6 +5324,12 @@ class ListKnowledgeBasesRequestTypeDef(TypedDict):
     AwsAccountId: str
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class ListLimitsProfilesRequestTypeDef(TypedDict):
+    accountId: str
+    resourceType: NotRequired[ResourceTypeType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class ListNamespacesRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -5205,6 +5482,16 @@ class TopicSummaryTypeDef(TypedDict):
     Name: NotRequired[str]
     UserExperienceVersion: NotRequired[TopicUserExperienceVersionType]
 
+class ListTopicsV2RequestTypeDef(TypedDict):
+    AwsAccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class TopicV2SummaryTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    TopicId: NotRequired[str]
+    Name: NotRequired[str]
+
 class ListUserGroupsRequestTypeDef(TypedDict):
     UserName: str
     AwsAccountId: str
@@ -5249,6 +5536,9 @@ class VideoExtractionConfigurationTypeDef(TypedDict):
     videoExtractionStatus: VideoExtractionStatusType
     videoExtractionType: NotRequired[VideoExtractionTypeType]
 
+class MicrosoftPurviewCredentialsTypeDef(TypedDict):
+    SecretArn: str
+
 class NamedEntityDefinitionMetricOutputTypeDef(TypedDict):
     Aggregation: NotRequired[NamedEntityAggTypeType]
     AggregationFunctionParameters: NotRequired[dict[str, str]]
@@ -5259,6 +5549,10 @@ class NamedEntityDefinitionMetricTypeDef(TypedDict):
 
 class NamedEntityRefTypeDef(TypedDict):
     NamedEntityName: NotRequired[str]
+
+class NamedEntitySortTypeDef(TypedDict):
+    FieldName: str
+    Direction: TopicSortDirectionType
 
 NamespaceErrorTypeDef = TypedDict(
     "NamespaceErrorTypeDef",
@@ -5704,6 +5998,18 @@ class TopicSingularFilterConstantTypeDef(TypedDict):
     ConstantType: NotRequired[ConstantTypeType]
     SingularConstant: NotRequired[str]
 
+class TopicV2DataSetReferenceTypeDef(TypedDict):
+    DataSetArn: str
+    DataSetName: NotRequired[str]
+
+class TopicV2DataSetRelationEndpointOutputTypeDef(TypedDict):
+    DataSetArn: str
+    ColumnNames: list[str]
+
+class TopicV2DataSetRelationEndpointTypeDef(TypedDict):
+    DataSetArn: str
+    ColumnNames: Sequence[str]
+
 class TotalAggregationFunctionTypeDef(TypedDict):
     SimpleTotalAggregationFunction: NotRequired[SimpleTotalAggregationFunctionType]
 
@@ -5884,6 +6190,16 @@ class UserNameOrEmailFilterTypeDef(TypedDict):
 class VisualHighlightOperationTypeDef(TypedDict):
     Trigger: VisualHighlightTriggerType
 
+class VisualMessageConfigurationTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    Title: NotRequired[str]
+    TitleVisibility: NotRequired[VisibilityType]
+    Description: NotRequired[str]
+    DescriptionVisibility: NotRequired[VisibilityType]
+    LinkText: NotRequired[str]
+    LinkUrl: NotRequired[str]
+    LinkVisibility: NotRequired[VisibilityType]
+
 class WaterfallChartGroupColorConfigurationTypeDef(TypedDict):
     PositiveBarColor: NotRequired[str]
     NegativeBarColor: NotRequired[str]
@@ -6059,14 +6375,17 @@ class SearchAnalysesRequestTypeDef(TypedDict):
 class AnalysisSourceTemplateTypeDef(TypedDict):
     DataSetReferences: Sequence[DataSetReferenceTypeDef]
     Arn: str
+    TopicReferences: NotRequired[Sequence[TopicReferenceTypeDef]]
 
 class DashboardSourceTemplateTypeDef(TypedDict):
     DataSetReferences: Sequence[DataSetReferenceTypeDef]
     Arn: str
+    TopicReferences: NotRequired[Sequence[TopicReferenceTypeDef]]
 
 class TemplateSourceAnalysisTypeDef(TypedDict):
     Arn: str
     DataSetReferences: Sequence[DataSetReferenceTypeDef]
+    TopicReferences: NotRequired[Sequence[TopicReferenceTypeDef]]
 
 class AnonymousUserDashboardFeatureConfigurationsTypeDef(TypedDict):
     SharedView: NotRequired[SharedViewConfigurationsTypeDef]
@@ -6076,6 +6395,20 @@ class AnonymousUserDashboardVisualEmbeddingConfigurationTypeDef(TypedDict):
 
 class RegisteredUserDashboardVisualEmbeddingConfigurationTypeDef(TypedDict):
     InitialDashboardVisualId: DashboardVisualIdTypeDef
+
+class ApprovalPolicyTypeDef(TypedDict):
+    PolicyId: str
+    PolicyArn: str
+    Name: str
+    Actions: list[Literal["SHARE"]]
+    AssetTypes: list[AssetTypeType]
+    ApplicableTo: ApplicableToOutputTypeDef
+    ApprovalGroups: list[str]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    Description: NotRequired[str]
+
+ApplicableToUnionTypeDef = Union[ApplicableToTypeDef, ApplicableToOutputTypeDef]
 
 class ArcAxisConfigurationTypeDef(TypedDict):
     Range: NotRequired[ArcAxisDisplayRangeTypeDef]
@@ -6097,6 +6430,7 @@ class AssetBundleCloudFormationOverridePropertyConfigurationOutputTypeDef(TypedD
     Analyses: NotRequired[list[AssetBundleExportJobAnalysisOverridePropertiesOutputTypeDef]]
     Dashboards: NotRequired[list[AssetBundleExportJobDashboardOverridePropertiesOutputTypeDef]]
     Folders: NotRequired[list[AssetBundleExportJobFolderOverridePropertiesOutputTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleExportJobTopicV2OverridePropertiesOutputTypeDef]]
 
 class AssetBundleCloudFormationOverridePropertyConfigurationTypeDef(TypedDict):
     ResourceIdOverrideConfiguration: NotRequired[
@@ -6114,6 +6448,7 @@ class AssetBundleCloudFormationOverridePropertyConfigurationTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleExportJobAnalysisOverridePropertiesTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleExportJobDashboardOverridePropertiesTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleExportJobFolderOverridePropertiesTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleExportJobTopicV2OverridePropertiesTypeDef]]
 
 class AssetBundleImportJobAnalysisOverridePermissionsOutputTypeDef(TypedDict):
     AnalysisIds: list[str]
@@ -6133,6 +6468,10 @@ class AssetBundleImportJobFolderOverridePermissionsOutputTypeDef(TypedDict):
 
 class AssetBundleImportJobThemeOverridePermissionsOutputTypeDef(TypedDict):
     ThemeIds: list[str]
+    Permissions: AssetBundleResourcePermissionsOutputTypeDef
+
+class AssetBundleImportJobTopicV2OverridePermissionsOutputTypeDef(TypedDict):
+    TopicIds: list[str]
     Permissions: AssetBundleResourcePermissionsOutputTypeDef
 
 class AssetBundleResourceLinkSharingConfigurationOutputTypeDef(TypedDict):
@@ -6156,6 +6495,10 @@ class AssetBundleImportJobFolderOverridePermissionsTypeDef(TypedDict):
 
 class AssetBundleImportJobThemeOverridePermissionsTypeDef(TypedDict):
     ThemeIds: Sequence[str]
+    Permissions: AssetBundleResourcePermissionsTypeDef
+
+class AssetBundleImportJobTopicV2OverridePermissionsTypeDef(TypedDict):
+    TopicIds: Sequence[str]
     Permissions: AssetBundleResourcePermissionsTypeDef
 
 class AssetBundleResourceLinkSharingConfigurationTypeDef(TypedDict):
@@ -6207,6 +6550,14 @@ class AssetBundleImportJobThemeOverrideTagsOutputTypeDef(TypedDict):
 
 class AssetBundleImportJobThemeOverrideTagsTypeDef(TypedDict):
     ThemeIds: Sequence[str]
+    Tags: Sequence[TagTypeDef]
+
+class AssetBundleImportJobTopicV2OverrideTagsOutputTypeDef(TypedDict):
+    TopicIds: list[str]
+    Tags: list[TagTypeDef]
+
+class AssetBundleImportJobTopicV2OverrideTagsTypeDef(TypedDict):
+    TopicIds: Sequence[str]
     Tags: Sequence[TagTypeDef]
 
 class AssetBundleImportJobVPCConnectionOverrideTagsOutputTypeDef(TypedDict):
@@ -6486,6 +6837,12 @@ class CreateDataSourceResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateDlpSettingResponseTypeDef(TypedDict):
+    Arn: str
+    DlpSettingId: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateFlowResponseTypeDef(TypedDict):
     Arn: str
     FlowId: str
@@ -6524,6 +6881,11 @@ class CreateKnowledgeBaseResponseTypeDef(TypedDict):
     CreationStatus: DataSetStatusType
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateLimitsProfileResponseTypeDef(TypedDict):
+    arn: str
+    profileId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateNamespaceResponseTypeDef(TypedDict):
@@ -6592,6 +6954,13 @@ class CreateTopicResponseTypeDef(TypedDict):
     Arn: str
     TopicId: str
     RefreshArn: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateTopicV2ResponseTypeDef(TypedDict):
+    Arn: str
+    TopicId: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6684,6 +7053,12 @@ class DeleteDefaultQBusinessApplicationResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteDlpSettingResponseTypeDef(TypedDict):
+    Arn: str
+    DlpSettingId: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteFlowResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
@@ -6727,6 +7102,10 @@ class DeleteKnowledgeBaseResponseTypeDef(TypedDict):
     KnowledgeBaseId: str
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteLimitsProfileResponseTypeDef(TypedDict):
+    arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteNamespaceResponseTypeDef(TypedDict):
@@ -6803,6 +7182,13 @@ class DeleteTopicRefreshScheduleResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteTopicResponseTypeDef(TypedDict):
+    Arn: str
+    TopicId: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteTopicV2ResponseTypeDef(TypedDict):
     Arn: str
     TopicId: str
     RequestId: str
@@ -7218,6 +7604,12 @@ class UpdateDefaultQBusinessApplicationResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateDlpSettingResponseTypeDef(TypedDict):
+    Arn: str
+    DlpSettingId: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateFlowResponseTypeDef(TypedDict):
     Arn: str
     FlowId: str
@@ -7258,6 +7650,10 @@ class UpdateKnowledgeBaseResponseTypeDef(TypedDict):
     KnowledgeBaseId: str
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateLimitsProfileResponseTypeDef(TypedDict):
+    arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateOAuthClientApplicationResponseTypeDef(TypedDict):
@@ -7347,6 +7743,13 @@ class UpdateTopicResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateTopicV2ResponseTypeDef(TypedDict):
+    Arn: str
+    TopicId: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateUserCustomPermissionResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
@@ -7385,6 +7788,11 @@ class BatchDeleteKnowledgeBaseResponseTypeDef(TypedDict):
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchDescribeUserLimitsRequestTypeDef(TypedDict):
+    accountId: str
+    users: NotRequired[Sequence[UserLimitsEntryTypeDef]]
+    resourceTypes: NotRequired[Sequence[ResourceTypeType]]
 
 class HistogramBinOptionsTypeDef(TypedDict):
     SelectedBinType: NotRequired[HistogramBinTypeType]
@@ -7438,22 +7846,6 @@ class ListBrandsResponseTypeDef(TypedDict):
     Brands: list[BrandSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-class CreateCustomPermissionsRequestTypeDef(TypedDict):
-    AwsAccountId: str
-    CustomPermissionsName: str
-    Capabilities: NotRequired[CapabilitiesTypeDef]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-class CustomPermissionsTypeDef(TypedDict):
-    Arn: NotRequired[str]
-    CustomPermissionsName: NotRequired[str]
-    Capabilities: NotRequired[CapabilitiesTypeDef]
-
-class UpdateCustomPermissionsRequestTypeDef(TypedDict):
-    AwsAccountId: str
-    CustomPermissionsName: str
-    Capabilities: NotRequired[CapabilitiesTypeDef]
 
 class CategoryFilterConfigurationOutputTypeDef(TypedDict):
     FilterListConfiguration: NotRequired[FilterListConfigurationOutputTypeDef]
@@ -7653,6 +8045,30 @@ class UpdateGroupResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateLimitsProfileRequestTypeDef(TypedDict):
+    accountId: str
+    profileName: str
+    resourceLimits: Mapping[ResourceTypeType, ProfileLimitValueTypeDef]
+    clientToken: str
+    description: NotRequired[str]
+
+class LimitsProfileTypeDef(TypedDict):
+    profileId: str
+    arn: str
+    accountId: str
+    profileName: str
+    resourceLimits: dict[ResourceTypeType, ProfileLimitValueTypeDef]
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+
+class UpdateLimitsProfileRequestTypeDef(TypedDict):
+    profileId: str
+    accountId: str
+    profileName: NotRequired[str]
+    description: NotRequired[str]
+    resourceLimits: NotRequired[Mapping[ResourceTypeType, ProfileLimitValueTypeDef]]
+
 class CreateTemplateAliasResponseTypeDef(TypedDict):
     TemplateAlias: TemplateAliasTypeDef
     Status: int
@@ -7709,6 +8125,12 @@ class CustomActionNavigationOperationTypeDef(TypedDict):
 class CustomValuesConfigurationOutputTypeDef(TypedDict):
     CustomValues: CustomParameterValuesOutputTypeDef
     IncludeNullValue: NotRequired[bool]
+
+class CustomPermissionsTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    CustomPermissionsName: NotRequired[str]
+    Capabilities: NotRequired[CapabilitiesTypeDef]
+    Governance: NotRequired[GovernanceOutputTypeDef]
 
 class CustomPromptInputTypeDef(TypedDict):
     ExistingPrompt: NotRequired[CustomPromptProfileTypeDef]
@@ -7988,6 +8410,14 @@ class DescribeTopicPermissionsResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeTopicPermissionsV2ResponseTypeDef(TypedDict):
+    TopicId: str
+    TopicArn: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    Status: int
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class LinkSharingConfigurationOutputTypeDef(TypedDict):
     Permissions: NotRequired[list[ResourcePermissionOutputTypeDef]]
 
@@ -8061,6 +8491,14 @@ class UpdateTopicPermissionsResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateTopicPermissionsV2ResponseTypeDef(TypedDict):
+    TopicId: str
+    TopicArn: str
+    Permissions: list[ResourcePermissionOutputTypeDef]
+    Status: int
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeFolderPermissionsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     FolderId: str
@@ -8079,6 +8517,9 @@ class ListActionConnectorsRequestPaginateTypeDef(TypedDict):
 
 class ListAnalysesRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListApprovalPoliciesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAssetBundleExportJobsRequestPaginateTypeDef(TypedDict):
@@ -8111,6 +8552,10 @@ class ListDataSetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDataSourcesRequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDlpSettingsRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -8164,6 +8609,11 @@ class ListKnowledgeBasesRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListLimitsProfilesRequestPaginateTypeDef(TypedDict):
+    accountId: str
+    resourceType: NotRequired[ResourceTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListNamespacesRequestPaginateTypeDef(TypedDict):
     AwsAccountId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -8205,6 +8655,10 @@ ListThemesRequestPaginateTypeDef = TypedDict(
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
+
+class ListTopicsV2RequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListUserGroupsRequestPaginateTypeDef(TypedDict):
     UserName: str
@@ -8337,9 +8791,20 @@ class DisplayFormatOptionsTypeDef(TypedDict):
     NegativeFormat: NotRequired[NegativeFormatTypeDef]
     CurrencySymbol: NotRequired[str]
 
+class ListDlpSettingsResponseTypeDef(TypedDict):
+    DlpSettingSummaries: list[DlpSettingSummaryTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class DonutOptionsTypeDef(TypedDict):
     ArcOptions: NotRequired[ArcOptionsTypeDef]
     DonutCenterOptions: NotRequired[DonutCenterOptionsTypeDef]
+
+class UserLimitsTypeDef(TypedDict):
+    userName: str
+    namespace: str
+    effectiveLimits: list[EffectiveLimitTypeDef]
 
 FMKBParametersUnionTypeDef = Union[FMKBParametersTypeDef, FMKBParametersOutputTypeDef]
 
@@ -8545,6 +9010,8 @@ class TableSideBorderOptionsTypeDef(TypedDict):
     Right: NotRequired[TableBorderOptionsTypeDef]
     Top: NotRequired[TableBorderOptionsTypeDef]
     Bottom: NotRequired[TableBorderOptionsTypeDef]
+
+GovernanceUnionTypeDef = Union[GovernanceTypeDef, GovernanceOutputTypeDef]
 
 class GradientColorOutputTypeDef(TypedDict):
     Stops: NotRequired[list[GradientStopTypeDef]]
@@ -8765,6 +9232,20 @@ class SearchTopicsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListTopicsV2ResponseTypeDef(TypedDict):
+    TopicSummaryList: list[TopicV2SummaryTypeDef]
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class SearchTopicsV2ResponseTypeDef(TypedDict):
+    TopicSummaryList: list[TopicV2SummaryTypeDef]
+    Status: int
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListUsersIndexCapacityResponseTypeDef(TypedDict):
     users: list[UserIndexCapacityTypeDef]
     requestId: str
@@ -8788,12 +9269,25 @@ class MediaExtractionConfigurationTypeDef(TypedDict):
     audioExtractionConfiguration: NotRequired[AudioExtractionConfigurationTypeDef]
     videoExtractionConfiguration: NotRequired[VideoExtractionConfigurationTypeDef]
 
+class MicrosoftPurviewProviderConfigOutputTypeDef(TypedDict):
+    Credentials: MicrosoftPurviewCredentialsTypeDef
+    LabelActionMappings: list[LabelActionMappingTypeDef]
+    UnmappedAction: DlpActionType
+
+class MicrosoftPurviewProviderConfigTypeDef(TypedDict):
+    Credentials: MicrosoftPurviewCredentialsTypeDef
+    LabelActionMappings: Sequence[LabelActionMappingTypeDef]
+    UnmappedAction: DlpActionType
+
 class NamedEntityDefinitionOutputTypeDef(TypedDict):
     FieldName: NotRequired[str]
     PropertyName: NotRequired[str]
     PropertyRole: NotRequired[PropertyRoleType]
     PropertyUsage: NotRequired[PropertyUsageType]
     Metric: NotRequired[NamedEntityDefinitionMetricOutputTypeDef]
+    RankOrder: NotRequired[int]
+    PresentationOrder: NotRequired[int]
+    IsHidden: NotRequired[bool]
 
 class NamedEntityDefinitionTypeDef(TypedDict):
     FieldName: NotRequired[str]
@@ -8801,6 +9295,9 @@ class NamedEntityDefinitionTypeDef(TypedDict):
     PropertyRole: NotRequired[PropertyRoleType]
     PropertyUsage: NotRequired[PropertyUsageType]
     Metric: NotRequired[NamedEntityDefinitionMetricTypeDef]
+    RankOrder: NotRequired[int]
+    PresentationOrder: NotRequired[int]
+    IsHidden: NotRequired[bool]
 
 class NamespaceInfoV2TypeDef(TypedDict):
     Name: NotRequired[str]
@@ -8969,6 +9466,17 @@ class SearchTopicsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class SearchTopicsV2RequestPaginateTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[TopicSearchFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class SearchTopicsV2RequestTypeDef(TypedDict):
+    AwsAccountId: str
+    Filters: Sequence[TopicSearchFilterTypeDef]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class SectionBasedLayoutPaperCanvasSizeOptionsTypeDef(TypedDict):
     PaperSize: NotRequired[PaperSizeType]
     PaperOrientation: NotRequired[PaperOrientationType]
@@ -9065,11 +9573,22 @@ class TopicNullFilterTypeDef(TypedDict):
 class TopicNumericEqualityFilterTypeDef(TypedDict):
     Constant: NotRequired[TopicSingularFilterConstantTypeDef]
     Aggregation: NotRequired[NamedFilterAggTypeType]
+    Inverse: NotRequired[bool]
+    NullFilter: NotRequired[NullFilterTypeType]
 
 class TopicRelativeDateFilterTypeDef(TypedDict):
     TimeGranularity: NotRequired[TopicTimeGranularityType]
     RelativeDateFilterFunction: NotRequired[TopicRelativeDateFilterFunctionType]
     Constant: NotRequired[TopicSingularFilterConstantTypeDef]
+    NullFilter: NotRequired[NullFilterTypeType]
+
+class TopicV2DataSetRelationOutputTypeDef(TypedDict):
+    Left: TopicV2DataSetRelationEndpointOutputTypeDef
+    Right: TopicV2DataSetRelationEndpointOutputTypeDef
+
+class TopicV2DataSetRelationTypeDef(TypedDict):
+    Left: TopicV2DataSetRelationEndpointTypeDef
+    Right: TopicV2DataSetRelationEndpointTypeDef
 
 class TotalAggregationOptionTypeDef(TypedDict):
     FieldId: str
@@ -9085,6 +9604,9 @@ class UserIndexCapacityFilterTypeDef(TypedDict):
 
 class VisualCustomActionDefaultsTypeDef(TypedDict):
     highlightOperation: NotRequired[VisualHighlightOperationTypeDef]
+
+class VisualMessagesTypeDef(TypedDict):
+    NoDataMessage: NotRequired[VisualMessageConfigurationTypeDef]
 
 class WaterfallChartColorConfigurationTypeDef(TypedDict):
     GroupColorConfiguration: NotRequired[WaterfallChartGroupColorConfigurationTypeDef]
@@ -9194,6 +9716,41 @@ class AnonymousUserDashboardEmbeddingConfigurationTypeDef(TypedDict):
     DisabledFeatures: NotRequired[Sequence[Literal["SHARED_VIEW"]]]
     FeatureConfigurations: NotRequired[AnonymousUserDashboardFeatureConfigurationsTypeDef]
 
+class CreateApprovalPolicyResponseTypeDef(TypedDict):
+    Policy: ApprovalPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeApprovalPolicyResponseTypeDef(TypedDict):
+    Policy: ApprovalPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListApprovalPoliciesResponseTypeDef(TypedDict):
+    Policies: list[ApprovalPolicyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class UpdateApprovalPolicyResponseTypeDef(TypedDict):
+    Policy: ApprovalPolicyTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
+    Name: str
+    Actions: Sequence[Literal["SHARE"]]
+    AssetTypes: Sequence[AssetTypeType]
+    ApplicableTo: ApplicableToUnionTypeDef
+    ApprovalGroups: Sequence[str]
+    Description: NotRequired[str]
+
+class UpdateApprovalPolicyRequestTypeDef(TypedDict):
+    PolicyId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    Actions: NotRequired[Sequence[Literal["SHARE"]]]
+    AssetTypes: NotRequired[Sequence[AssetTypeType]]
+    ApplicableTo: NotRequired[ApplicableToUnionTypeDef]
+    ApprovalGroups: NotRequired[Sequence[str]]
+
 class DescribeAssetBundleExportJobResponseTypeDef(TypedDict):
     JobStatus: AssetBundleExportJobStatusType
     DownloadUrl: str
@@ -9241,6 +9798,7 @@ class AssetBundleImportJobOverrideTagsOutputTypeDef(TypedDict):
     Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverrideTagsOutputTypeDef]]
     Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverrideTagsOutputTypeDef]]
     Folders: NotRequired[list[AssetBundleImportJobFolderOverrideTagsOutputTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleImportJobTopicV2OverrideTagsOutputTypeDef]]
 
 class AssetBundleImportJobOverrideTagsTypeDef(TypedDict):
     VPCConnections: NotRequired[Sequence[AssetBundleImportJobVPCConnectionOverrideTagsTypeDef]]
@@ -9250,6 +9808,7 @@ class AssetBundleImportJobOverrideTagsTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleImportJobAnalysisOverrideTagsTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleImportJobDashboardOverrideTagsTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleImportJobFolderOverrideTagsTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleImportJobTopicV2OverrideTagsTypeDef]]
 
 class ListOAuthClientApplicationsResponseTypeDef(TypedDict):
     OAuthClientApplications: list[OAuthClientApplicationSummaryTypeDef]
@@ -9341,19 +9900,6 @@ class FieldBarSeriesItemTypeDef(TypedDict):
 class BrandElementStyleTypeDef(TypedDict):
     NavbarStyle: NotRequired[NavbarStyleTypeDef]
 
-class DescribeCustomPermissionsResponseTypeDef(TypedDict):
-    Status: int
-    CustomPermissions: CustomPermissionsTypeDef
-    RequestId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ListCustomPermissionsResponseTypeDef(TypedDict):
-    Status: int
-    CustomPermissionsList: list[CustomPermissionsTypeDef]
-    RequestId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class ClientCredentialsGrantMetadataTypeDef(TypedDict):
     BaseEndpoint: str
     ClientCredentialsSource: NotRequired[Literal["PLAIN_CREDENTIALS"]]
@@ -9369,12 +9915,14 @@ class TopicCategoryFilterOutputTypeDef(TypedDict):
     CategoryFilterType: NotRequired[CategoryFilterTypeType]
     Constant: NotRequired[TopicCategoryFilterConstantOutputTypeDef]
     Inverse: NotRequired[bool]
+    NullFilter: NotRequired[NullFilterTypeType]
 
 class TopicCategoryFilterTypeDef(TypedDict):
     CategoryFilterFunction: NotRequired[CategoryFilterFunctionType]
     CategoryFilterType: NotRequired[CategoryFilterTypeType]
     Constant: NotRequired[TopicCategoryFilterConstantTypeDef]
     Inverse: NotRequired[bool]
+    NullFilter: NotRequired[NullFilterTypeType]
 
 class TagColumnOperationOutputTypeDef(TypedDict):
     ColumnName: str
@@ -9389,7 +9937,17 @@ class DataSetConfigurationOutputTypeDef(TypedDict):
     DataSetSchema: NotRequired[DataSetSchemaOutputTypeDef]
     ColumnGroupSchemaList: NotRequired[list[ColumnGroupSchemaOutputTypeDef]]
 
+class TopicConfigurationOutputTypeDef(TypedDict):
+    Placeholder: NotRequired[str]
+    DataSetSchema: NotRequired[DataSetSchemaOutputTypeDef]
+    ColumnGroupSchemaList: NotRequired[list[ColumnGroupSchemaOutputTypeDef]]
+
 class DataSetConfigurationTypeDef(TypedDict):
+    Placeholder: NotRequired[str]
+    DataSetSchema: NotRequired[DataSetSchemaTypeDef]
+    ColumnGroupSchemaList: NotRequired[Sequence[ColumnGroupSchemaTypeDef]]
+
+class TopicConfigurationTypeDef(TypedDict):
     Placeholder: NotRequired[str]
     DataSetSchema: NotRequired[DataSetSchemaTypeDef]
     ColumnGroupSchemaList: NotRequired[Sequence[ColumnGroupSchemaTypeDef]]
@@ -9440,12 +9998,34 @@ class SearchDataSetsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeLimitsProfileResponseTypeDef(TypedDict):
+    profile: LimitsProfileTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListLimitsProfilesResponseTypeDef(TypedDict):
+    profiles: list[LimitsProfileTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class DestinationParameterValueConfigurationOutputTypeDef(TypedDict):
     CustomValuesConfiguration: NotRequired[CustomValuesConfigurationOutputTypeDef]
     SelectAllValueOptions: NotRequired[Literal["ALL_VALUES"]]
     SourceParameterName: NotRequired[str]
     SourceField: NotRequired[str]
     SourceColumn: NotRequired[ColumnIdentifierTypeDef]
+
+class DescribeCustomPermissionsResponseTypeDef(TypedDict):
+    Status: int
+    CustomPermissions: CustomPermissionsTypeDef
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCustomPermissionsResponseTypeDef(TypedDict):
+    Status: int
+    CustomPermissionsList: list[CustomPermissionsTypeDef]
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class CreateAgentRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -9695,6 +10275,11 @@ class TopicIRMetricTypeDef(TypedDict):
     DisplayFormatOptions: NotRequired[DisplayFormatOptionsTypeDef]
     NamedEntity: NotRequired[NamedEntityRefTypeDef]
 
+class BatchDescribeUserLimitsResponseTypeDef(TypedDict):
+    userLimits: list[UserLimitsTypeDef]
+    errors: list[BatchDescribeUserLimitsErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateSpaceResourcesResponseTypeDef(TypedDict):
     spaceId: str
     spaceArn: str
@@ -9895,6 +10480,19 @@ class GlobalTableBorderOptionsTypeDef(TypedDict):
     UniformBorder: NotRequired[TableBorderOptionsTypeDef]
     SideSpecificBorder: NotRequired[TableSideBorderOptionsTypeDef]
 
+class CreateCustomPermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    CustomPermissionsName: str
+    Capabilities: NotRequired[CapabilitiesTypeDef]
+    Governance: NotRequired[GovernanceUnionTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class UpdateCustomPermissionsRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    CustomPermissionsName: str
+    Capabilities: NotRequired[CapabilitiesTypeDef]
+    Governance: NotRequired[GovernanceUnionTypeDef]
+
 class ConditionalFormattingGradientColorOutputTypeDef(TypedDict):
     Expression: str
     Color: GradientColorOutputTypeDef
@@ -10067,6 +10665,12 @@ class UpdateTopicPermissionsRequestTypeDef(TypedDict):
     GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
     RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
 
+class UpdateTopicPermissionsV2RequestTypeDef(TypedDict):
+    AwsAccountId: str
+    TopicId: str
+    GrantPermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    RevokePermissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+
 class SheetStyleTypeDef(TypedDict):
     Tile: NotRequired[TileStyleTypeDef]
     TileLayout: NotRequired[TileLayoutStyleTypeDef]
@@ -10098,12 +10702,21 @@ KnowledgeBaseTypeDef = TypedDict(
     },
 )
 
+class ProviderConfigOutputTypeDef(TypedDict):
+    MicrosoftPurview: NotRequired[MicrosoftPurviewProviderConfigOutputTypeDef]
+
+class ProviderConfigTypeDef(TypedDict):
+    MicrosoftPurview: NotRequired[MicrosoftPurviewProviderConfigTypeDef]
+
 class TopicNamedEntityOutputTypeDef(TypedDict):
     EntityName: str
     EntityDescription: NotRequired[str]
     EntitySynonyms: NotRequired[list[str]]
     SemanticEntityType: NotRequired[SemanticEntityTypeOutputTypeDef]
     Definition: NotRequired[list[NamedEntityDefinitionOutputTypeDef]]
+    Sort: NotRequired[list[NamedEntitySortTypeDef]]
+    RankOrder: NotRequired[int]
+    PresentationOrder: NotRequired[int]
 
 class TopicNamedEntityTypeDef(TypedDict):
     EntityName: str
@@ -10111,6 +10724,9 @@ class TopicNamedEntityTypeDef(TypedDict):
     EntitySynonyms: NotRequired[Sequence[str]]
     SemanticEntityType: NotRequired[SemanticEntityTypeTypeDef]
     Definition: NotRequired[Sequence[NamedEntityDefinitionTypeDef]]
+    Sort: NotRequired[Sequence[NamedEntitySortTypeDef]]
+    RankOrder: NotRequired[int]
+    PresentationOrder: NotRequired[int]
 
 class DescribeNamespaceResponseTypeDef(TypedDict):
     Namespace: NamespaceInfoV2TypeDef
@@ -10196,11 +10812,14 @@ class UpdateFlowPermissionsInputTypeDef(TypedDict):
 class TopicDateRangeFilterTypeDef(TypedDict):
     Inclusive: NotRequired[bool]
     Constant: NotRequired[TopicRangeFilterConstantTypeDef]
+    NullFilter: NotRequired[NullFilterTypeType]
 
 class TopicNumericRangeFilterTypeDef(TypedDict):
     Inclusive: NotRequired[bool]
     Constant: NotRequired[TopicRangeFilterConstantTypeDef]
     Aggregation: NotRequired[NamedFilterAggTypeType]
+    Inverse: NotRequired[bool]
+    NullFilter: NotRequired[NullFilterTypeType]
 
 class ReadAuthorizationCodeGrantMetadataTypeDef(TypedDict):
     BaseEndpoint: str
@@ -10345,6 +10964,18 @@ class SheetTextBoxTypeDef(TypedDict):
     Content: NotRequired[str]
     Interactions: NotRequired[TextBoxInteractionOptionsTypeDef]
 
+class TopicV2DetailsOutputTypeDef(TypedDict):
+    Name: str
+    Description: NotRequired[str]
+    DataSets: NotRequired[list[TopicV2DataSetReferenceTypeDef]]
+    DataSetRelations: NotRequired[list[TopicV2DataSetRelationOutputTypeDef]]
+
+class TopicV2DetailsTypeDef(TypedDict):
+    Name: str
+    Description: NotRequired[str]
+    DataSets: NotRequired[Sequence[TopicV2DataSetReferenceTypeDef]]
+    DataSetRelations: NotRequired[Sequence[TopicV2DataSetRelationTypeDef]]
+
 class ListUsersIndexCapacityRequestTypeDef(TypedDict):
     awsAccountId: str
     namespace: NotRequired[str]
@@ -10360,6 +10991,7 @@ class AssetOptionsOutputTypeDef(TypedDict):
     QBusinessInsightsStatus: NotRequired[QBusinessInsightsStatusType]
     ExcludedDataSetArns: NotRequired[list[str]]
     CustomActionDefaults: NotRequired[VisualCustomActionDefaultsTypeDef]
+    VisualMessages: NotRequired[VisualMessagesTypeDef]
 
 class AssetOptionsTypeDef(TypedDict):
     Timezone: NotRequired[str]
@@ -10367,6 +10999,7 @@ class AssetOptionsTypeDef(TypedDict):
     QBusinessInsightsStatus: NotRequired[QBusinessInsightsStatusType]
     ExcludedDataSetArns: NotRequired[Sequence[str]]
     CustomActionDefaults: NotRequired[VisualCustomActionDefaultsTypeDef]
+    VisualMessages: NotRequired[VisualMessagesTypeDef]
 
 class FilterCrossSheetControlOutputTypeDef(TypedDict):
     FilterControlId: str
@@ -10484,6 +11117,7 @@ class AssetBundleImportJobOverridePermissionsOutputTypeDef(TypedDict):
     Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverridePermissionsOutputTypeDef]]
     Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverridePermissionsOutputTypeDef]]
     Folders: NotRequired[list[AssetBundleImportJobFolderOverridePermissionsOutputTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleImportJobTopicV2OverridePermissionsOutputTypeDef]]
 
 class AssetBundleImportJobOverridePermissionsTypeDef(TypedDict):
     DataSources: NotRequired[Sequence[AssetBundleImportJobDataSourceOverridePermissionsTypeDef]]
@@ -10492,6 +11126,7 @@ class AssetBundleImportJobOverridePermissionsTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleImportJobAnalysisOverridePermissionsTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleImportJobDashboardOverridePermissionsTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleImportJobFolderOverridePermissionsTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleImportJobTopicV2OverridePermissionsTypeDef]]
 
 AssetBundleImportJobOverrideTagsUnionTypeDef = Union[
     AssetBundleImportJobOverrideTagsTypeDef, AssetBundleImportJobOverrideTagsOutputTypeDef
@@ -11017,6 +11652,19 @@ class DescribeKnowledgeBaseResponseTypeDef(TypedDict):
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DlpSettingDetailsTypeDef(TypedDict):
+    DlpSettingId: str
+    Name: str
+    Arn: str
+    Status: DlpSettingStatusType
+    ProviderType: Literal["MICROSOFT_PURVIEW"]
+    ProviderConfig: ProviderConfigOutputTypeDef
+    ProviderOutageAction: DlpActionType
+    CreatedAt: datetime
+    UpdatedAt: datetime
+
+ProviderConfigUnionTypeDef = Union[ProviderConfigTypeDef, ProviderConfigOutputTypeDef]
+
 class ComparisonFormatConfigurationTypeDef(TypedDict):
     NumberDisplayFormatConfiguration: NotRequired[NumberDisplayFormatConfigurationTypeDef]
     PercentageDisplayFormatConfiguration: NotRequired[PercentageDisplayFormatConfigurationTypeDef]
@@ -11148,6 +11796,17 @@ class StaticFileTypeDef(TypedDict):
 StringDatasetParameterUnionTypeDef = Union[
     StringDatasetParameterTypeDef, StringDatasetParameterOutputTypeDef
 ]
+
+class DescribeTopicV2ResponseTypeDef(TypedDict):
+    Arn: str
+    TopicId: str
+    Topic: TopicV2DetailsOutputTypeDef
+    CustomInstructions: CustomInstructionsTypeDef
+    Status: int
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+TopicV2DetailsUnionTypeDef = Union[TopicV2DetailsTypeDef, TopicV2DetailsOutputTypeDef]
 
 class ParameterDeclarationOutputTypeDef(TypedDict):
     StringParameterDeclaration: NotRequired[StringParameterDeclarationOutputTypeDef]
@@ -11680,6 +12339,30 @@ class PutDataSetRefreshPropertiesRequestTypeDef(TypedDict):
     DataSetId: str
     DataSetRefreshProperties: DataSetRefreshPropertiesTypeDef
 
+class DescribeDlpSettingResponseTypeDef(TypedDict):
+    DlpSetting: DlpSettingDetailsTypeDef
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
+    Name: str
+    ProviderType: Literal["MICROSOFT_PURVIEW"]
+    ProviderConfig: ProviderConfigUnionTypeDef
+    ProviderOutageAction: DlpActionType
+    Enabled: bool
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class UpdateDlpSettingRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    DlpSettingId: str
+    Name: NotRequired[str]
+    ProviderType: NotRequired[Literal["MICROSOFT_PURVIEW"]]
+    ProviderConfig: NotRequired[ProviderConfigUnionTypeDef]
+    ProviderOutageAction: NotRequired[DlpActionType]
+    Enabled: NotRequired[bool]
+
 class ComparisonConfigurationTypeDef(TypedDict):
     ComparisonMethod: NotRequired[ComparisonMethodType]
     ComparisonFormat: NotRequired[ComparisonFormatConfigurationTypeDef]
@@ -11855,6 +12538,21 @@ class DescribeDashboardSnapshotJobResponseTypeDef(TypedDict):
 SnapshotConfigurationUnionTypeDef = Union[
     SnapshotConfigurationTypeDef, SnapshotConfigurationOutputTypeDef
 ]
+
+class CreateTopicV2RequestTypeDef(TypedDict):
+    AwsAccountId: str
+    TopicId: str
+    Topic: TopicV2DetailsUnionTypeDef
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    FolderArns: NotRequired[Sequence[str]]
+    CustomInstructions: NotRequired[CustomInstructionsTypeDef]
+
+class UpdateTopicV2RequestTypeDef(TypedDict):
+    AwsAccountId: str
+    TopicId: str
+    Topic: TopicV2DetailsUnionTypeDef
+    CustomInstructions: NotRequired[CustomInstructionsTypeDef]
+    PublishOption: NotRequired[TopicV2PublishOptionType]
 
 class GenerateEmbedUrlForRegisteredUserRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -12113,6 +12811,7 @@ class AssetBundleImportJobOverrideParametersOutputTypeDef(TypedDict):
     Analyses: NotRequired[list[AssetBundleImportJobAnalysisOverrideParametersTypeDef]]
     Dashboards: NotRequired[list[AssetBundleImportJobDashboardOverrideParametersTypeDef]]
     Folders: NotRequired[list[AssetBundleImportJobFolderOverrideParametersTypeDef]]
+    TopicsV2: NotRequired[list[AssetBundleImportJobTopicV2OverrideParametersTypeDef]]
 
 class GaugeChartOptionsTypeDef(TypedDict):
     PrimaryValueDisplayType: NotRequired[PrimaryValueDisplayTypeType]
@@ -12979,6 +13678,7 @@ class AssetBundleImportJobOverrideParametersTypeDef(TypedDict):
     Analyses: NotRequired[Sequence[AssetBundleImportJobAnalysisOverrideParametersTypeDef]]
     Dashboards: NotRequired[Sequence[AssetBundleImportJobDashboardOverrideParametersTypeDef]]
     Folders: NotRequired[Sequence[AssetBundleImportJobFolderOverrideParametersTypeDef]]
+    TopicsV2: NotRequired[Sequence[AssetBundleImportJobTopicV2OverrideParametersTypeDef]]
 
 class CredentialPairTypeDef(TypedDict):
     Username: str
@@ -13043,16 +13743,18 @@ class SheetImageOutputTypeDef(TypedDict):
 
 class CustomContentVisualOutputTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[CustomContentConfigurationTypeDef]
     Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     VisualContentAltText: NotRequired[str]
 
 class EmptyVisualOutputTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
 
 class DataSetTypeDef(TypedDict):
@@ -13530,16 +14232,18 @@ class SheetImageTypeDef(TypedDict):
 
 class CustomContentVisualTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[CustomContentConfigurationTypeDef]
     Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     VisualContentAltText: NotRequired[str]
 
 class EmptyVisualTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
 
 FilterOperationUnionTypeDef = Union[FilterOperationTypeDef, FilterOperationOutputTypeDef]
@@ -13994,6 +14698,7 @@ class AnalysisTypeDef(TypedDict):
     Status: NotRequired[ResourceStatusType]
     Errors: NotRequired[list[AnalysisErrorTypeDef]]
     DataSetArns: NotRequired[list[str]]
+    TopicArns: NotRequired[list[str]]
     ThemeArn: NotRequired[str]
     CreatedTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
@@ -14007,6 +14712,7 @@ class DashboardVersionTypeDef(TypedDict):
     Arn: NotRequired[str]
     SourceEntityArn: NotRequired[str]
     DataSetArns: NotRequired[list[str]]
+    TopicArns: NotRequired[list[str]]
     Description: NotRequired[str]
     ThemeArn: NotRequired[str]
     Sheets: NotRequired[list[SheetTypeDef]]
@@ -14017,6 +14723,7 @@ class TemplateVersionTypeDef(TypedDict):
     VersionNumber: NotRequired[int]
     Status: NotRequired[ResourceStatusType]
     DataSetConfigurations: NotRequired[list[DataSetConfigurationOutputTypeDef]]
+    TopicConfigurations: NotRequired[list[TopicConfigurationOutputTypeDef]]
     Description: NotRequired[str]
     SourceEntityArn: NotRequired[str]
     ThemeArn: NotRequired[str]
@@ -14920,20 +15627,22 @@ class ScatterPlotVisualTypeDef(TypedDict):
 
 class InsightVisualOutputTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     InsightConfiguration: NotRequired[InsightConfigurationOutputTypeDef]
     Actions: NotRequired[list[VisualCustomActionOutputTypeDef]]
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     VisualContentAltText: NotRequired[str]
 
 class InsightVisualTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     InsightConfiguration: NotRequired[InsightConfigurationTypeDef]
     Actions: NotRequired[Sequence[VisualCustomActionTypeDef]]
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     VisualContentAltText: NotRequired[str]
 
 class TreeMapVisualOutputTypeDef(TypedDict):
@@ -15055,18 +15764,20 @@ class DescribeTemplateResponseTypeDef(TypedDict):
 
 class LayerMapVisualOutputTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[GeospatialLayerMapConfigurationOutputTypeDef]
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     VisualContentAltText: NotRequired[str]
 
 class LayerMapVisualTypeDef(TypedDict):
     VisualId: str
-    DataSetIdentifier: str
     Title: NotRequired[VisualTitleLabelOptionsTypeDef]
     Subtitle: NotRequired[VisualSubtitleLabelOptionsTypeDef]
     ChartConfiguration: NotRequired[GeospatialLayerMapConfigurationTypeDef]
+    DataSetIdentifier: NotRequired[str]
+    TopicIdentifier: NotRequired[str]
     VisualContentAltText: NotRequired[str]
 
 class FilterOutputTypeDef(TypedDict):
@@ -15261,6 +15972,7 @@ class BatchCreateTopicReviewedAnswerRequestTypeDef(TypedDict):
 
 class AnalysisDefinitionOutputTypeDef(TypedDict):
     DataSetIdentifierDeclarations: list[DataSetIdentifierDeclarationTypeDef]
+    TopicIdentifierDeclarations: NotRequired[list[TopicIdentifierDeclarationTypeDef]]
     Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
     TooltipSheets: NotRequired[list[TooltipSheetDefinitionOutputTypeDef]]
     CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
@@ -15274,6 +15986,7 @@ class AnalysisDefinitionOutputTypeDef(TypedDict):
 
 class DashboardVersionDefinitionOutputTypeDef(TypedDict):
     DataSetIdentifierDeclarations: list[DataSetIdentifierDeclarationTypeDef]
+    TopicIdentifierDeclarations: NotRequired[list[TopicIdentifierDeclarationTypeDef]]
     Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
     TooltipSheets: NotRequired[list[TooltipSheetDefinitionOutputTypeDef]]
     CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
@@ -15286,6 +15999,7 @@ class DashboardVersionDefinitionOutputTypeDef(TypedDict):
 
 class TemplateVersionDefinitionOutputTypeDef(TypedDict):
     DataSetConfigurations: list[DataSetConfigurationOutputTypeDef]
+    TopicConfigurations: NotRequired[list[TopicConfigurationOutputTypeDef]]
     Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
     TooltipSheets: NotRequired[list[TooltipSheetDefinitionOutputTypeDef]]
     CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
@@ -15299,6 +16013,7 @@ class TemplateVersionDefinitionOutputTypeDef(TypedDict):
 
 class AnalysisDefinitionTypeDef(TypedDict):
     DataSetIdentifierDeclarations: Sequence[DataSetIdentifierDeclarationTypeDef]
+    TopicIdentifierDeclarations: NotRequired[Sequence[TopicIdentifierDeclarationTypeDef]]
     Sheets: NotRequired[Sequence[SheetDefinitionTypeDef]]
     TooltipSheets: NotRequired[Sequence[TooltipSheetDefinitionTypeDef]]
     CalculatedFields: NotRequired[Sequence[CalculatedFieldTypeDef]]
@@ -15312,6 +16027,7 @@ class AnalysisDefinitionTypeDef(TypedDict):
 
 class DashboardVersionDefinitionTypeDef(TypedDict):
     DataSetIdentifierDeclarations: Sequence[DataSetIdentifierDeclarationTypeDef]
+    TopicIdentifierDeclarations: NotRequired[Sequence[TopicIdentifierDeclarationTypeDef]]
     Sheets: NotRequired[Sequence[SheetDefinitionTypeDef]]
     TooltipSheets: NotRequired[Sequence[TooltipSheetDefinitionTypeDef]]
     CalculatedFields: NotRequired[Sequence[CalculatedFieldTypeDef]]
@@ -15324,6 +16040,7 @@ class DashboardVersionDefinitionTypeDef(TypedDict):
 
 class TemplateVersionDefinitionTypeDef(TypedDict):
     DataSetConfigurations: Sequence[DataSetConfigurationTypeDef]
+    TopicConfigurations: NotRequired[Sequence[TopicConfigurationTypeDef]]
     Sheets: NotRequired[Sequence[SheetDefinitionTypeDef]]
     TooltipSheets: NotRequired[Sequence[TooltipSheetDefinitionTypeDef]]
     CalculatedFields: NotRequired[Sequence[CalculatedFieldTypeDef]]

@@ -87,10 +87,7 @@
 - rule:
     name: H012
     message: There should be no spaces around attribute =.
-    flags: re.DOTALL
-    patterns:
-      - <\w+?(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{\#[^\#]*\#}|{[^}]*}|[^'\">{}])*\s+=
-      - <\w+?(\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{\#[^\#]*\#}|{[^}]*}|[^'\">{}])*=\s
+    python_module: djlint.rules.H012
 - rule:
     name: H013
     skip_in_attributes: true
@@ -178,13 +175,8 @@
       - <\w+\s(?:\"[^\"]*\"|'[^']*'|{{[^}]*}}|{%[^%]*%}|{\#[^\#]*\#}|[^'\">{}])*?(?<![-.:\w])style\s*=
 - rule:
     name: H022
-    skip_in_attributes: true
     message: Use HTTPS for external links.
-    flags: re.I
-    patterns:
-      # a quoted value is stepped over whole, so an "http://" written inside
-      # one is not read as a link; a loopback or private host is not external
-      - <\w+\s(?:\"[^\"]*\"|'[^']*'|[^'\">])*?(?<![-.:\w])(?:href|data-url|action|src|url|srcset)\s*=[\"']http://(?!localhost[:/\"']|127\.0\.0\.1|0\.0\.0\.0|\[::1\]|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|[^\"'/]*\.(?:local|test|localhost)[:/\"'])
+    python_module: djlint.rules.H022
 - rule:
     name: H023
     message: Do not use entity references.
@@ -269,22 +261,8 @@
       - '{%(?:"[^"]*"|''[^'']*''|(?!%}|}%)[^"''])*}%'
 - rule:
     name: H036
-    skip_in_attributes: true
     message: Do not use br tags for spacing.
-    flags: re.I|re.X
-    patterns:
-      # a run of breaks is vertical space rather than a break in the content
-      - <br\s*/?>(?:\s|&nbsp;|&\#160;)*<br\s*/?>
-      # a break against the inside edge of a block box renders nothing that the
-      # box's own margin does not
-      - |-
-        <(?:p|div|li|dd|dt|td|th|section|article|aside|header|footer|main
-          |nav|blockquote|figcaption|h[1-6])\b(?:"[^"]*"|'[^']*'|[^>"'])*>
-        \s*<br\s*/?>
-      - |-
-        <br\s*/?>\s*
-        </(?:p|div|li|dd|dt|td|th|section|article|aside|header|footer|main
-           |nav|blockquote|figcaption|h[1-6])\s*>
+    python_module: djlint.rules.H036
 - rule:
     name: H037
     message: Duplicate attribute found.
@@ -382,3 +360,83 @@
       # attributes are found whichever order they are written in; a delay
       # of zero is an immediate redirect, which WCAG allows
       - <meta\b(?=(?:"[^"]*"|'[^']*'|[^'">])*?(?<![-.:\w])http-equiv\s*=\s*["']?\s*refresh\b)(?:"[^"]*"|'[^']*'|[^'">])*?(?<![-.:\w])content\s*=\s*["']?\s*0*[1-9]
+- rule:
+    name: T041
+    message: Extends tag should be the first tag in the template.
+    exclude:
+      - handlebars
+      - golang
+      - liquid
+      - angular
+    python_module: djlint.rules.T041
+- rule:
+    name: T042
+    message: Content outside a block is not rendered in a template that extends another.
+    exclude:
+      - handlebars
+      - golang
+      - liquid
+      - angular
+    python_module: djlint.rules.T042
+- rule:
+    name: T043
+    message: Block name is used more than once in the template.
+    exclude:
+      - handlebars
+      - golang
+      - liquid
+      - angular
+    python_module: djlint.rules.T043
+- rule:
+    name: T044
+    message: Output tag holds a statement keyword; use a block tag.
+    exclude:
+      - golang
+      - handlebars
+      - angular
+    python_module: djlint.rules.T044
+- rule:
+    name: T045
+    message: Template tag inside an html comment still runs; use a template comment to disable it.
+    python_module: djlint.rules.T045
+- rule:
+    name: H053
+    message: Id is used more than once in the file.
+    python_module: djlint.rules.H053
+- rule:
+    name: H054
+    message: Interactive element should not be nested inside another.
+    python_module: djlint.rules.H054
+- rule:
+    name: H055
+    skip_in_attributes: true
+    message: Lang attribute should be a language tag such as en or pt-BR.
+    flags: re.DOTALL|re.I
+    patterns:
+      # a value written by a template tag is unknowable, and a php short echo
+      # is one too, since only the "<?php" spelling is an ignored block; an
+      # empty value is H005's, but a value that is only whitespace is not, so
+      # it is reported here; the name boundary keeps xml:lang and data-lang
+      # out, and end of file counts as the end of the value, so a truncated
+      # "<html lang=en" is not read as a bad tag; the attribute skip steps over
+      # a template tag whole, so a ">" written inside one, as in
+      # "{% if a > b %}", does not hide the lang, and it stops at the next "<",
+      # which keeps the scan linear on a document of unterminated tags
+      - <html(?![\w-])(?:"[^"]*"|'[^']*'|{{(?:[^{}]|}(?!}))*}}|{%(?:[^{%]|%(?!}))*%}|{\#(?:[^{\#]|\#(?!}))*\#}|[^'"<>])*?(?<![-.:\w])lang\s*=\s*(["'])?(?!(?(1)[^"'>]*|[^"'\s>]*)(?:{[{%\#]|\${|<\?))(?!\s*[a-z]{2,3}(?:-[a-z0-9]{1,8})*\s*(?:(?(1)\1|[\s/>])|$))(?(1)[^"'>]+|[^"'\s/>]+)
+- rule:
+    name: H056
+    skip_in_attributes: true
+    message: Src should not be empty.
+    flags: re.DOTALL|re.I
+    patterns:
+      # a src with no value at all is empty too; the name has to start where
+      # an attribute name can start, which keeps data-src, :src and an
+      # unquoted value that merely ends in src out, and the lookahead after
+      # the name keeps srcset out; only a value the browser reads as empty is
+      # reported, so an unquoted value, a whitespace one and one written by a
+      # template tag are all left alone
+      - <(?:img|script|iframe|embed|source|track|audio|video)(?![\w-])(?:"[^"]*"|'[^']*'|{{{(?:[^{}]|}(?!}}))*}}}|{{(?:[^{}]|}(?!}))*}}|{%(?:[^{%]|%(?!}))*%}|{#(?:[^{#]|#(?!}))*#}|[^'"<>])*?(?<=[\s/"'}])src(?:\s*=\s*(?:""|''|(?=/?>))|(?=[\s/>])(?!\s*=))
+- rule:
+    name: H057
+    message: Video should have a captions track.
+    python_module: djlint.rules.H057

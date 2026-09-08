@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: meson-python
-Version: 0.20.0
-Summary: Meson Python build backend (PEP 517)
+Version: 0.21.0
+Summary: The Python build backend for Meson projects
 Keywords: meson,build,backend,pep517,package
 Maintainer-Email: Ralf Gommers <ralf.gommers@gmail.com>, Daniele Nicolodi <daniele@grinta.net>, Henry Schreiner <HenrySchreinerIII@gmail.com>
 License-Expression: MIT

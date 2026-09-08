@@ -69,10 +69,13 @@ __all__ = (
     "ExecutionClassType",
     "ExecutionStatusType",
     "ExistConditionType",
+    "ExportSettingType",
+    "ExportStatusType",
     "FieldDataTypeType",
     "FieldFilterOperatorType",
     "FieldNameType",
     "FilterLogicalOperatorType",
+    "FilterModeType",
     "FilterOperationType",
     "FilterOperatorType",
     "FilterValueTypeType",
@@ -143,6 +146,8 @@ __all__ = (
     "MetadataOperationType",
     "NodeTypeType",
     "OAuth2GrantTypeType",
+    "ObservationConfigurationType",
+    "ObservationModeType",
     "OverwriteChildResourcePermissionsWithDefaultEnumType",
     "PaginatorName",
     "ParamTypeType",
@@ -163,6 +168,7 @@ __all__ = (
     "ResourceShareTypeType",
     "ResourceStateType",
     "ResourceTypeType",
+    "ResultTypeEnumType",
     "S3EncryptionModeType",
     "ScheduleStateType",
     "ScheduleTypeType",
@@ -426,6 +432,8 @@ EnableHybridValuesType = Literal["FALSE", "TRUE"]
 ExecutionClassType = Literal["FLEX", "STANDARD"]
 ExecutionStatusType = Literal["FAILED", "STARTED"]
 ExistConditionType = Literal["MUST_EXIST", "NONE", "NOT_EXIST"]
+ExportSettingType = Literal["DISABLED", "ENABLED"]
+ExportStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "FAILED"]
 FieldDataTypeType = Literal[
     "ARRAY",
     "BIGINT",
@@ -459,6 +467,7 @@ FieldFilterOperatorType = Literal[
 ]
 FieldNameType = Literal["CRAWL_ID", "DPU_HOUR", "END_TIME", "START_TIME", "STATE"]
 FilterLogicalOperatorType = Literal["AND", "OR"]
+FilterModeType = Literal["FILTER_STRING", "QUERY_PARAMS"]
 FilterOperationType = Literal["EQ", "GT", "GTE", "ISNULL", "LT", "LTE", "REGEX"]
 FilterOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "NE"]
 FilterValueTypeType = Literal["COLUMNEXTRACTED", "CONSTANT"]
@@ -597,6 +606,8 @@ MaterializedViewRefreshTypeType = Literal["FULL", "INCREMENTAL"]
 MetadataOperationType = Literal["CREATE"]
 NodeTypeType = Literal["CRAWLER", "JOB", "TRIGGER"]
 OAuth2GrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "JWT_BEARER"]
+ObservationConfigurationType = Literal["ALL", "NONE"]
+ObservationModeType = Literal["FIXED", "SCHEDULED"]
 OverwriteChildResourcePermissionsWithDefaultEnumType = Literal["Accept", "Deny"]
 ParamTypeType = Literal["bool", "complex", "float", "int", "list", "null", "str"]
 ParquetCompressionTypeType = Literal[
@@ -636,6 +647,7 @@ ResourceActionType = Literal["CREATE", "UPDATE"]
 ResourceShareTypeType = Literal["ALL", "FEDERATED", "FOREIGN"]
 ResourceStateType = Literal["FAILED", "IN_PROGRESS", "QUEUED", "STOPPED", "SUCCESS"]
 ResourceTypeType = Literal["ARCHIVE", "FILE", "JAR"]
+ResultTypeEnumType = Literal["ALL", "FAILED_ONLY", "PASSED_ONLY"]
 S3EncryptionModeType = Literal["DISABLED", "SSE-KMS", "SSE-S3"]
 ScheduleStateType = Literal["NOT_SCHEDULED", "SCHEDULED", "TRANSITIONING"]
 ScheduleTypeType = Literal["AUTO", "CRON"]
@@ -699,8 +711,11 @@ GlueServiceName = Literal["glue"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -1005,6 +1020,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

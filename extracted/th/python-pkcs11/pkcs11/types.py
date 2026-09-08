@@ -7,8 +7,9 @@ This module provides stubs that are overrideen in pkcs11._pkcs11.
 from __future__ import annotations
 
 from binascii import hexlify
+from collections.abc import Iterator
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Final, Iterator
+from typing import TYPE_CHECKING, Any, Final
 
 from pkcs11 import CancelStrategy
 from pkcs11.constants import (
@@ -31,6 +32,8 @@ from pkcs11.exceptions import (
 from pkcs11.mechanisms import KeyType, Mechanism
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from pkcs11.attributes import AttributeMapper
 
 PROTECTED_AUTH: Final[object] = object()
@@ -109,15 +112,13 @@ class MechanismInfo:
     def __str__(self) -> str:
         return "\n".join(
             (
-                "Supported key lengths: [%s, %s]" % (self.min_key_length, self.max_key_length),
-                "Flags: %s" % self.flags,
+                f"Supported key lengths: [{self.min_key_length}, {self.max_key_length}]",
+                f"Flags: {self.flags}",
             )
         )
 
     def __repr__(self) -> str:
-        return "<{klass} (mechanism={mechanism}, flags={flags})>".format(
-            klass=type(self).__name__, mechanism=str(self.mechanism), flags=str(self.flags)
-        )
+        return f"<{type(self).__name__} (mechanism={self.mechanism!s}, flags={self.flags!s})>"
 
 
 class Slot(IdentifiedBy):
@@ -294,14 +295,14 @@ class Session(IdentifiedBy):
 
     __slots__ = ()
 
-    def __enter__(self) -> Session:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
         self,
         type_: type[BaseException] | None,
         value: BaseException | None,
-        traceback: Any,
+        traceback: object,
     ) -> None:
         self.close()
 
@@ -367,11 +368,11 @@ class Session(IdentifiedBy):
         try:
             obj = next(iterator)
         except StopIteration as ex:
-            raise NoSuchKey("No key matching %s" % attrs) from ex
+            raise NoSuchKey(f"No key matching {attrs}") from ex
 
         try:
             next(iterator)
-            raise MultipleObjectsReturned("More than 1 key matches %s" % attrs)
+            raise MultipleObjectsReturned(f"More than 1 key matches {attrs}")
         except StopIteration:
             pass
         # The caller expects a Key, but get_objects returns Object
@@ -830,12 +831,12 @@ class Key(HasKeyType):
     def _key_description(self) -> str:
         """A description of the key."""
         try:
-            return "%s-bit %s" % (self.key_length, self.key_type.name)
+            return f"{self.key_length}-bit {self.key_type.name}"
         except AttributeTypeInvalid:
             return self.key_type.name
 
     def __repr__(self) -> str:
-        return "<%s label='%s' id='%s' %s>" % (
+        return "<{} label='{}' id='{}' {}>".format(
             type(self).__name__,
             self.label,
             hexlify(self.id).decode("ascii"),
@@ -1371,6 +1372,84 @@ class DeriveMixin(HasKeyType):
         :param MechanismFlag capabilities: Key capabilities (or default).
         :param Mechanism mechanism: Generation mechanism (or default).
         :param bytes mechanism_param: Optional vector to the mechanism.
+        :param dict(Attribute,*) template: Additional attributes.
+
+        :rtype: SecretKey
+        """
+        raise NotImplementedError()
+
+
+class EncapsulateMixin(HasKeyType):
+    """
+    This :class:`Object` supports the encapsulate capability (ML-KEM).
+    """
+
+    def encapsulate_key(
+        self,
+        key_type: KeyType,
+        key_length: int | None = None,
+        id: bytes | None = None,
+        label: str | None = None,
+        store: bool = False,
+        capabilities: MechanismFlag | None = None,
+        mechanism: Mechanism | None = None,
+        mechanism_param: bytes | None = None,
+        template: dict[Attribute, Any] | None = None,
+    ) -> tuple[bytes, SecretKey]:
+        """
+        Use this ML-KEM public key to encapsulate a fresh shared secret.
+
+        Returns ``(ciphertext, shared_secret)`` where *ciphertext* is the
+        KEM ciphertext to be transmitted to the decapsulating party, and
+        *shared_secret* is the newly-created secret key object on the token.
+
+        :param KeyType key_type: Key type for the shared secret (e.g. KeyType.GENERIC_SECRET).
+        :param int key_length: Shared secret length in bits.
+        :param bytes id: Key identifier.
+        :param str label: Key label.
+        :param store: Store key on token (requires R/W session).
+        :param MechanismFlag capabilities: Key capabilities (or default).
+        :param Mechanism mechanism: Encapsulation mechanism (or default).
+        :param bytes mechanism_param: Optional mechanism parameter.
+        :param dict(Attribute,*) template: Additional attributes.
+
+        :rtype: tuple[bytes, SecretKey]
+        """
+        raise NotImplementedError()
+
+
+class DecapsulateMixin(HasKeyType):
+    """
+    This :class:`Object` supports the decapsulate capability (ML-KEM).
+    """
+
+    def decapsulate_key(
+        self,
+        ciphertext: bytes,
+        key_type: KeyType,
+        key_length: int | None = None,
+        id: bytes | None = None,
+        label: str | None = None,
+        store: bool = False,
+        capabilities: MechanismFlag | None = None,
+        mechanism: Mechanism | None = None,
+        mechanism_param: bytes | None = None,
+        template: dict[Attribute, Any] | None = None,
+    ) -> SecretKey:
+        """
+        Use this ML-KEM private key to decapsulate the shared secret from *ciphertext*.
+
+        Returns the recovered shared secret key object.
+
+        :param bytes ciphertext: KEM ciphertext from the encapsulating party.
+        :param KeyType key_type: Key type for the shared secret (e.g. KeyType.GENERIC_SECRET).
+        :param int key_length: Shared secret length in bits.
+        :param bytes id: Key identifier.
+        :param str label: Key label.
+        :param store: Store key on token (requires R/W session).
+        :param MechanismFlag capabilities: Key capabilities (or default).
+        :param Mechanism mechanism: Decapsulation mechanism (or default).
+        :param bytes mechanism_param: Optional mechanism parameter.
         :param dict(Attribute,*) template: Additional attributes.
 
         :rtype: SecretKey

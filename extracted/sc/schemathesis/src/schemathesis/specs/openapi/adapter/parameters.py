@@ -4,6 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from itertools import chain
 from random import Random
 from typing import TYPE_CHECKING, Any, cast
@@ -14,9 +15,8 @@ import jsonschema_rs
 from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.adapter import OperationParameter
-from schemathesis.core.errors import InvalidSchema
+from schemathesis.core.errors import InvalidSchema, RefResolutionError, unresolvable_reference
 from schemathesis.core.jsonschema import (
-    FANCY_REGEX_OPTIONS,
     VALIDATED_FORMATS_BY_DRAFT,
     BundleError,
     Bundler,
@@ -28,7 +28,7 @@ from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY, BundleCache
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, get_type
 from schemathesis.core.media_types import FORM_MEDIA_TYPES
-from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation
+from schemathesis.core.parameters import HEADER_LOCATIONS, ParameterLocation, SkippedParameter
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.validation import check_header_name
 from schemathesis.generation.jsonschema import EMPTY_STRATEGY
@@ -448,9 +448,7 @@ def _binary_length_fits(data: bytes, schema: JsonSchemaObject) -> bool:
     if isinstance(minimum, int) and length < minimum:
         return False
     maximum = schema.get("maxLength")
-    if isinstance(maximum, int) and length > maximum:
-        return False
-    return True
+    return not (isinstance(maximum, int) and length > maximum)
 
 
 def _constant_types_for(schema: JsonSchemaObject, validator_cls: type) -> tuple[ConstantType, ...]:
@@ -722,10 +720,7 @@ def _integer_property_bounds(schema: JsonSchemaObject) -> dict[str, tuple[int | 
 
 
 def _has_explicit_slash_example(examples: Sequence[object]) -> bool:
-    for example in examples:
-        if isinstance(example, str) and "/" in unquote(example):
-            return True
-    return False
+    return any(isinstance(example, str) and "/" in unquote(example) for example in examples)
 
 
 def _get_explicit_intent_path_names(*, parameters: Sequence[OpenApiParameter]) -> frozenset[str]:
@@ -1140,6 +1135,18 @@ class OpenApiParameter(OpenApiComponent):
             and schema.get("maxItems", 1) >= 1
         ):
             schema = {**schema, "minItems": 1}
+        # An explicit `allowEmptyValue: false` forbids sending the parameter with an empty value.
+        # The default is not applied — it would strip empty strings from every query parameter,
+        # and most schemas that omit the keyword do accept them.
+        if (
+            self.definition.get("allowEmptyValue") is False
+            and self.location is ParameterLocation.QUERY
+            and isinstance(schema, dict)
+            and schema.get("type") == "string"
+            and schema.get("minLength", 0) < 1
+            and schema.get("maxLength", 1) >= 1
+        ):
+            schema = {**schema, "minLength": 1}
         return schema
 
     def _get_raw_schema(self) -> JsonSchema:
@@ -1597,8 +1604,13 @@ def _bundle_parameter(
     resolver: Resolver,
     bundler: Bundler,
     bundle_cache: BundleCache,
-) -> tuple[dict[str, Any], dict[str, str]]:
-    """Bundle a parameter definition to make it self-contained."""
+    skipped: list[SkippedParameter],
+) -> tuple[dict[str, Any], dict[str, str]] | None:
+    """Bundle a parameter definition to make it self-contained.
+
+    Returns `None` when an optional parameter names a reference that does not resolve; such a
+    parameter can be left out of the request instead of failing the whole operation.
+    """
     param_id = id(parameter)
     cached = bundle_cache.get(param_id)
     if cached is not None:
@@ -1621,6 +1633,11 @@ def _bundle_parameter(
             location = parameter.get("in", "")
             name = parameter.get("name", "<UNKNOWN>")
             raise InvalidSchema.from_bundle_error(exc, location, name) from exc
+        except RefResolutionError as exc:
+            if not _is_skippable(definition, exc):
+                raise
+            skipped.append(_skipped_parameter(definition, exc))
+            return None
     elif "content" in definition:
         definition = dict(definition)
         try:
@@ -1644,6 +1661,11 @@ def _bundle_parameter(
             location = parameter.get("in", "")
             name = parameter.get("name", "<UNKNOWN>")
             raise InvalidSchema.from_bundle_error(exc, location, name) from exc
+        except RefResolutionError as exc:
+            if not _is_skippable(definition, exc):
+                raise
+            skipped.append(_skipped_parameter(definition, exc))
+            return None
 
     definition_ = cast(dict, definition)
     result = definition_, name_to_uri
@@ -1651,6 +1673,38 @@ def _bundle_parameter(
     # and pick up this entry.
     bundle_cache[param_id] = (parameter, deepclone(definition_), dict(name_to_uri))
     return result
+
+
+def _is_recoverable_body_reference(reference: str) -> bool:
+    """Whether a required body can be dropped over this reference.
+
+    A same-document reference that does not resolve means the document is incomplete, which the
+    absent body already covers. A reference into another document may have failed because that
+    document could not be read - an operational error to surface rather than work around.
+    """
+    return reference.startswith("#")
+
+
+def _is_skippable(definition: Mapping, error: RefResolutionError) -> bool:
+    """Whether the operation stays testable without this parameter.
+
+    A required body can be left out and tested as a known-invalid request; every other required
+    parameter has no meaningful absent state, so the operation cannot be tested without it.
+    """
+    if not definition.get("required", False):
+        return True
+    return definition.get("in") == ParameterLocation.BODY.value and _is_recoverable_body_reference(
+        unresolvable_reference(error)
+    )
+
+
+def _skipped_parameter(definition: Mapping, error: RefResolutionError) -> SkippedParameter:
+    return SkippedParameter(
+        location=definition.get("in", ""),
+        name=definition.get("name", "<UNKNOWN>"),
+        reference=unresolvable_reference(error),
+        required=definition.get("required", False),
+    )
 
 
 OPENAPI_20_DEFAULT_BODY_MEDIA_TYPE = "application/json"
@@ -1676,6 +1730,7 @@ def iter_parameters_v2(
     adapter: ParameterAdapter,
     bundler: Bundler,
     bundle_cache: BundleCache,
+    skipped: list[SkippedParameter],
 ) -> Iterator[OperationParameter]:
     media_types = definition.get("consumes", default_media_types)
     # Wildcard `*/*` is valid Swagger but no real client sends it as Content-Type. Drop it when concrete
@@ -1695,7 +1750,10 @@ def iter_parameters_v2(
     form_parameters = []
     form_name_to_uri = {}
     for parameter in chain(operation_parameters, shared_parameters):
-        parameter, name_to_uri = _bundle_parameter(parameter, resolver, bundler, bundle_cache)
+        bundled_parameter = _bundle_parameter(parameter, resolver, bundler, bundle_cache, skipped)
+        if bundled_parameter is None:
+            continue
+        parameter, name_to_uri = bundled_parameter
         location = parameter.get("in")
         if not isinstance(location, str):
             continue
@@ -1711,9 +1769,8 @@ def iter_parameters_v2(
             resource_name = None
             for param in chain(operation_parameters, shared_parameters):
                 _, param = maybe_resolve_with_resolver(param, resolver)
-                if param.get("in") == ParameterLocation.BODY:
-                    if "$ref" in param["schema"]:
-                        resource_name = resource_name_from_ref(param["schema"]["$ref"])
+                if param.get("in") == ParameterLocation.BODY and "$ref" in param["schema"]:
+                    resource_name = resource_name_from_ref(param["schema"]["$ref"])
             for media_type in body_media_types:
                 yield OpenApiBody.from_definition(
                     definition=parameter,
@@ -1748,6 +1805,7 @@ def iter_parameters_v3(
     adapter: ParameterAdapter,
     bundler: Bundler,
     bundle_cache: BundleCache,
+    skipped: list[SkippedParameter],
 ) -> Iterator[OperationParameter]:
     # Open API 3.0 has the `requestBody` keyword, which may contain multiple different payload variants.
     # TODO: Typing
@@ -1759,7 +1817,10 @@ def iter_parameters_v3(
     operation_parameters = _validated_parameters(definition)
 
     for parameter in chain(operation_parameters, shared_parameters):
-        parameter, name_to_uri = _bundle_parameter(parameter, resolver, bundler, bundle_cache)
+        bundled_parameter = _bundle_parameter(parameter, resolver, bundler, bundle_cache, skipped)
+        if bundled_parameter is None:
+            continue
+        parameter, name_to_uri = bundled_parameter
         location = parameter.get("in")
         if not isinstance(location, str):
             continue
@@ -1807,6 +1868,19 @@ def iter_parameters_v3(
                     name_to_uri = bundled.name_to_uri
                 except BundleError as exc:
                     raise InvalidSchema.from_bundle_error(exc, "body") from exc
+                except RefResolutionError as exc:
+                    reference = unresolvable_reference(exc)
+                    if required and not _is_recoverable_body_reference(reference):
+                        raise
+                    skipped.append(
+                        SkippedParameter(
+                            location=ParameterLocation.BODY.value,
+                            name=None,
+                            reference=reference,
+                            required=required,
+                        )
+                    )
+                    continue
             yield OpenApiBody.from_definition(
                 definition=content,
                 is_required=required,
@@ -1901,9 +1975,7 @@ class OpenApiParameterSet(ParameterSet):
 
     def get_strict_validator(self) -> jsonschema_rs.Validator:
         if isinstance(self._strict_validator, NotSet):
-            self._strict_validator = self.adapter.jsonschema_validator_cls(
-                self.schema, validate_formats=True, pattern_options=FANCY_REGEX_OPTIONS
-            )
+            self._strict_validator = make_validator(self.schema, self.adapter.jsonschema_validator_cls)
         return self._strict_validator
 
     @property
@@ -2004,6 +2076,7 @@ class OpenApiParameterSet(ParameterSet):
             GENERATOR_MODE_TO_STRATEGY_FACTORY,
             _can_skip_header_filter,
             jsonify_python_specific_types,
+            jsonify_query_parameters,
             make_negative_strategy,
         )
 
@@ -2249,8 +2322,13 @@ class OpenApiParameterSet(ParameterSet):
                         )
                     )
                 else:
+                    optional = frozenset(schema_obj.get("properties") or ()) - frozenset(
+                        schema_obj.get("required") or ()
+                    )
                     strategy = strategy.map(
-                        wrap_map_hook_for_generated_value(jsonify_python_specific_types, prune_constants=False)
+                        wrap_map_hook_for_generated_value(
+                            partial(jsonify_query_parameters, optional=optional), prune_constants=False
+                        )
                     )
             else:
                 header_filter = is_valid_header

@@ -9,9 +9,8 @@ from typing import TYPE_CHECKING
 
 import click
 
+from schemathesis.cli.commands.run.context import PHASE_STATUS_PRIORITY
 from schemathesis.cli.commands.run.handlers.base import BaseOutputHandler
-from schemathesis.cli.commands.run.warnings import WarningCollector, WarningData
-from schemathesis.cli.context import BaseExecutionContext
 from schemathesis.cli.events import LoadingFinished, LoadingStarted
 from schemathesis.cli.output import (
     BLOCK_PADDING,
@@ -35,19 +34,19 @@ from schemathesis.cli.output import (
 from schemathesis.config import ProjectConfig, ReportFormat
 from schemathesis.core.output import decode_response_text, prepare_response_payload
 from schemathesis.core.result import Ok
-from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.timing import Instant
 from schemathesis.core.version import SCHEMATHESIS_VERSION
-from schemathesis.engine import Status, StopReason, events
-from schemathesis.engine.run import PhaseName, PhaseSkipReason
+from schemathesis.engine import Status, events
+from schemathesis.engine.run import ELASTIC_PHASES, PhaseName
 from schemathesis.engine.run.probes import ProbeOutcome
 
 if TYPE_CHECKING:
-    from rich.console import Console
+    from rich.console import Console, RenderableType
     from rich.live import Live
     from rich.progress import Progress, TaskID
     from rich.text import Text
 
+    from schemathesis.cli.commands.run.context import ExecutionContext
     from schemathesis.engine.run.cache import CacheReport
     from schemathesis.generation.stateful.state_machine import ExtractionFailure
 
@@ -169,6 +168,7 @@ class UnitTestProgressManager:
     current: int
     total: int
     started_at: Instant
+    elapsed_ms: int
 
     # Progress components
     title_progress: Progress
@@ -176,7 +176,9 @@ class UnitTestProgressManager:
     operations_progress: Progress
     current_operations: dict[str, OperationProgress]
     stats: dict[Status, int]
+    outcomes: dict[str, Status]
     stats_progress: Progress
+    suffix: str
     live: Live | None
 
     # Task IDs
@@ -206,6 +208,7 @@ class UnitTestProgressManager:
         self.current = 0
         self.total = total
         self.started_at = Instant()
+        self.elapsed_ms = 0
 
         # Initialize progress displays
         self.title_progress = Progress(
@@ -228,6 +231,7 @@ class UnitTestProgressManager:
         )
 
         self.current_operations = {}
+        self.outcomes = {}
 
         self.stats_progress = Progress(
             TextColumn("    "),
@@ -235,6 +239,7 @@ class UnitTestProgressManager:
             console=self.console,
         )
         self.stats_task_id = self.stats_progress.add_task("")
+        self.suffix = ""
         self.stats = {
             Status.SUCCESS: 0,
             Status.FAILURE: 0,
@@ -247,7 +252,7 @@ class UnitTestProgressManager:
         self.live = None
         self.is_interrupted = False
 
-    def _get_stats_message(self) -> str:
+    def _get_stats_message(self, *, live: bool = True) -> str:
         width = len(str(self.total))
 
         parts = []
@@ -260,17 +265,28 @@ class UnitTestProgressManager:
             parts.append(f"🚫 {self.stats[Status.ERROR]:{width}d} error{suffix}")
         if self.stats[Status.SKIP] or self.stats[Status.INTERRUPTED]:
             parts.append(f"⏭  {self.stats[Status.SKIP] + self.stats[Status.INTERRUPTED]:{width}d} skipped")
+        if self.suffix and live:
+            parts.append(self.suffix)
         return "  ".join(parts)
+
+    def set_suffix(self, suffix: str) -> None:
+        self.suffix = suffix
+        self._update_stats_display()
 
     def _update_stats_display(self) -> None:
         """Update the statistics display."""
         self.stats_progress.update(self.stats_task_id, description=self._get_stats_message())
 
-    def start(self) -> None:
+    def start(self, *, show_live: bool = True) -> None:
         """Start progress display."""
         from rich.console import Group
         from rich.live import Live
         from rich.text import Text
+
+        if not show_live:
+            self.title_task_id = self.title_progress.add_task(self.title, total=self.total)
+            self.progress_task_id = self.progress_bar.add_task("", total=self.total)
+            return
 
         group = Group(
             self.title_progress,
@@ -301,6 +317,16 @@ class UnitTestProgressManager:
         self.title_progress.update(self.title_task_id, completed=self.current)
         self.progress_bar.update(self.progress_task_id, completed=self.current)
 
+    def end_pass(self) -> None:
+        """Fold this pass into the phase's running time."""
+        self.elapsed_ms += self.started_at.elapsed_ms
+
+    def restart_pass(self) -> None:
+        """A repeat under a budget walks the operations again; the totals keep counting."""
+        self.current = 0
+        self.current_operations.clear()
+        self.started_at = Instant()
+
     def start_operation(self, label: str) -> None:
         """Start tracking new operation."""
         task_id = self.operations_progress.add_task("", label=label, start_time=time.monotonic())
@@ -318,14 +344,21 @@ class UnitTestProgressManager:
                 self.title_progress.update(self.title_task_id, description=description)
             self.operations_progress.update(operation.task_id, visible=False)
 
-    def update_stats(self, status: Status) -> None:
-        """Update statistics for a finished scenario."""
+    def update_stats(self, label: str, status: Status) -> None:
+        """Record an operation's outcome; a repeat under a budget retests it rather than adding one."""
+        previous = self.outcomes.get(label)
+        if previous is not None:
+            if PHASE_STATUS_PRIORITY[status] <= PHASE_STATUS_PRIORITY[previous]:
+                return
+            self.stats[previous] -= 1
+        self.outcomes[label] = status
         self.stats[status] += 1
         self._update_stats_display()
 
     def interrupt(self) -> None:
         self.is_interrupted = True
-        self.stats[Status.SKIP] += self.total - self.current
+        # A repeat walks the operations again, so what is left is what never reported at all.
+        self.stats[Status.SKIP] += max(self.total - len(self.outcomes), 0)
         if self.live:
             self.stop()
 
@@ -339,10 +372,10 @@ class UnitTestProgressManager:
 
     def get_completion_message(self, default_icon: str = "🕛") -> str:
         """Complete the phase and return status message."""
-        duration = format_duration(self.started_at.elapsed_ms)
+        duration = format_duration(self.elapsed_ms)
         icon = self._get_status_icon(default_icon)
 
-        message = self._get_stats_message() or "No tests were run"
+        message = self._get_stats_message(live=False) or "No tests were run"
         if self.is_interrupted:
             duration_message = f"interrupted after {duration}"
         else:
@@ -361,6 +394,7 @@ class StatefulProgressManager:
     links_inferred: int
     links_total: int
     started_at: Instant
+    elapsed_ms: int
 
     # Progress components
     title_progress: Progress
@@ -391,6 +425,7 @@ class StatefulProgressManager:
         self.links_inferred = links_inferred
         self.links_total = links_total
         self.started_at = Instant()
+        self.elapsed_ms = 0
 
         self.title_progress = Progress(
             TextColumn(""),
@@ -429,7 +464,7 @@ class StatefulProgressManager:
         }
         self.is_interrupted = False
 
-    def start(self) -> None:
+    def start(self, *, show_live: bool = True) -> None:
         """Start progress display."""
         from rich.console import Group
         from rich.live import Live
@@ -450,6 +485,8 @@ class StatefulProgressManager:
             Text(),
             self.stats_progress,
         )
+        if not show_live:
+            return
         self.live = Live(group, refresh_per_second=10, console=self.console, transient=True)
         self.live.start()
 
@@ -504,9 +541,17 @@ class StatefulProgressManager:
         if self.live:
             self.stop()
 
+    def end_pass(self) -> None:
+        """Fold this pass into the phase's running time."""
+        self.elapsed_ms += self.started_at.elapsed_ms
+
+    def restart_pass(self) -> None:
+        """A repeat under a budget draws new scenarios; the totals keep counting."""
+        self.started_at = Instant()
+
     def get_completion_message(self, icon: str | None = None) -> tuple[str, str]:
         """Complete the phase and return status message."""
-        duration = format_duration(self.started_at.elapsed_ms)
+        duration = format_duration(self.elapsed_ms)
         icon = icon or self._get_status_icon()
 
         message = self._get_stats_message() or "No tests were run"
@@ -519,49 +564,48 @@ class StatefulProgressManager:
 
 
 @dataclass
-class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
+class OutputHandler(BaseOutputHandler["ExecutionContext"]):
     config: ProjectConfig
 
     loading_manager: LoadingProgressManager | None = None
     probing_manager: ProbingProgressManager | None = None
     unit_tests_manager: UnitTestProgressManager | None = None
     stateful_tests_manager: StatefulProgressManager | None = None
+    # How many times each phase has started; under a time limit they repeat.
+    started_at: Instant = field(default_factory=Instant)
+    cycle_live: Live | None = None
+    cycle_phase: PhaseName = PhaseName.FUZZING
+    cycle_bar: Progress | None = None
+    cycle_bar_task_id: TaskID | None = None
+    cycle_links: str = ""
+    # A phase that repeats under a budget keeps one manager, so its blocks stay a single block.
+    repeat_managers: dict[PhaseName, UnitTestProgressManager | StatefulProgressManager] = field(default_factory=dict)
+    repeat_statuses: dict[PhaseName, Status] = field(default_factory=dict)
+    cycle_context: ExecutionContext | None = None
+    # When the run last found a failure it had not seen before.
+    last_failure_at: Instant | None = None
+    seen_failures: int = 0
 
-    statistic: ApiStatistic | None = None
-    # Keyed by operation label - a reason only applies to the operation it came from.
-    skip_reasons: dict[str, set[str]] = field(default_factory=dict)
-    warning_collector: WarningCollector | None = None
-    errors: set[events.NonFatalError] = field(default_factory=set)
-    phases: dict[PhaseName, tuple[Status, PhaseSkipReason | None]] = field(
-        default_factory=lambda: dict.fromkeys(PhaseName, (Status.SKIP, None))
-    )
     console: Console = field(default_factory=make_console)
 
-    @property
-    def warnings(self) -> WarningData:
-        assert self.warning_collector is not None
-        return self.warning_collector.data
-
-    def handle_event(self, ctx: BaseExecutionContext, event: events.EngineEvent) -> None:
+    def handle_event(self, ctx: ExecutionContext, event: events.EngineEvent) -> None:
+        if isinstance(event, events.EngineStarted):
+            # The budget runs from here, not from whatever schema loading took before it.
+            self.started_at = Instant()
         if isinstance(event, events.PhaseStarted):
-            self._on_phase_started(event)
+            self._on_phase_started(ctx, event)
         elif isinstance(event, events.PhaseFinished):
-            self._on_phase_finished(event)
+            self._on_phase_finished(ctx, event)
         elif isinstance(event, events.ScenarioStarted):
             self._on_scenario_started(event)
         elif isinstance(event, events.ScenarioFinished):
             self._on_scenario_finished(ctx, event)
-        elif isinstance(event, events.SchemaAnalysisWarnings):
-            assert self.warning_collector is not None
-            self.warning_collector.on_schema_warnings(ctx, event)
         if isinstance(event, events.EngineFinished):
             self._on_engine_finished(ctx, event)
         elif isinstance(event, events.Interrupted):
             self._on_interrupted(event)
         elif isinstance(event, events.FatalError):
             self._on_fatal_error(ctx, event)
-        elif isinstance(event, events.NonFatalError):
-            self.errors.add(event)
         elif isinstance(event, events.RateLimitRetry):
             self._on_rate_limit_retry(event)
         elif isinstance(event, LoadingStarted):
@@ -569,11 +613,13 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
         elif isinstance(event, LoadingFinished):
             self._on_loading_finished(ctx, event)
 
-    def start(self, ctx: BaseExecutionContext) -> None:
-        self.warning_collector = WarningCollector(config=self.config)
+    def start(self, ctx: ExecutionContext) -> None:
         display_header(SCHEMATHESIS_VERSION)
 
-    def shutdown(self, ctx: BaseExecutionContext) -> None:
+    def shutdown(self, ctx: ExecutionContext) -> None:
+        if self.cycle_live is not None:
+            self.cycle_live.stop()
+            self.cycle_live = None
         if self.unit_tests_manager is not None:
             self.unit_tests_manager.stop()
         if self.stateful_tests_manager is not None:
@@ -583,14 +629,12 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
         if self.probing_manager is not None:
             self.probing_manager.stop()
 
-    def _on_loading_finished(self, ctx: BaseExecutionContext, event: LoadingFinished) -> None:
+    def _on_loading_finished(self, ctx: ExecutionContext, event: LoadingFinished) -> None:
         from rich.padding import Padding
         from rich.style import Style
         from rich.table import Table
 
         self.config = event.config
-        assert self.warning_collector is not None
-        self.warning_collector.config = event.config
 
         assert self.loading_manager is not None
         self.loading_manager.stop()
@@ -602,8 +646,6 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
         self.console.print(message)
         self.console.print()
         self.loading_manager = None
-        self.warning_collector.on_unmatched_filters(ctx, event.statistic)
-        self.statistic = event.statistic
 
         table = Table(
             show_header=False,
@@ -634,48 +676,139 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
         if ctx.initialization_lines:
             print_lines(ctx.initialization_lines)
 
-    def _on_phase_started(self, event: events.PhaseStarted) -> None:
+    def _on_phase_started(self, ctx: ExecutionContext, event: events.PhaseStarted) -> None:
         phase = event.phase
         if phase.name == PhaseName.PROBING and phase.is_enabled:
             self._start_probing()
         elif phase.name in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING] and phase.is_enabled:
-            self._start_unit_tests(phase.name)
+            self._start_unit_tests(ctx, event)
         elif phase.name == PhaseName.STATEFUL_TESTING and phase.is_enabled and phase.skip_reason is None:
             self._start_stateful_tests(event)
+
+    def _in_cycle(self, phase: PhaseName) -> bool:
+        return self.config.max_time is not None and phase in ELASTIC_PHASES
+
+    def _start_cycle_line(self) -> None:
+        from rich.live import Live
+        from rich.progress import BarColumn, Progress, TextColumn
+
+        if self.cycle_live is not None:
+            return
+        # The line exists only under a budget, which is what the bar counts down.
+        max_time = self.config.max_time
+        assert max_time is not None
+        self.cycle_bar = Progress(
+            TextColumn("    "),
+            BarColumn(bar_width=None),
+            TextColumn("{task.percentage:.0f}%"),
+            console=self.console,
+        )
+        self.cycle_bar_task_id = self.cycle_bar.add_task("", total=max_time * 1000)
+        # Rendered on every refresh tick so the clocks keep moving between scenarios.
+        self.cycle_live = Live(
+            get_renderable=self._cycle_renderable, refresh_per_second=10, console=self.console, transient=True
+        )
+        self.cycle_live.start()
+
+    def _cycle_metrics(self, ctx: ExecutionContext) -> str:
+        # Per-cycle pass/fail counts swing as operations flip between passes; these only grow.
+        parts = [f"{ctx.statistic.total_cases} cases"]
+        unique = len(ctx.statistic.unique_failures_map)
+        if unique:
+            parts.append(f"❌ {unique} unique failure{'' if unique == 1 else 's'}")
+        errors = len(ctx.errors)
+        if errors:
+            parts.append(f"🚫 {errors} error{'' if errors == 1 else 's'}")
+        if self.cycle_links:
+            parts.append(self.cycle_links)
+        extra = self._progress_suffix(ctx)
+        if extra:
+            parts.append(extra)
+        return "  ".join(parts)
+
+    def _cycle_renderable(self) -> RenderableType:
+        from rich.console import Group
+        from rich.text import Text
+
+        metrics = self._cycle_metrics(self.cycle_context) if self.cycle_context is not None else ""
+        body: list = [Text(f" 🕛  {self.cycle_phase.display}"), Text("")]
+        if self.cycle_bar is not None and self.cycle_bar_task_id is not None:
+            self.cycle_bar.update(self.cycle_bar_task_id, completed=self.started_at.elapsed_ms)
+            body += [self.cycle_bar, Text("")]
+        body.append(Text(f"     {metrics}"))
+        return Group(*body)
+
+    def _stop_cycle_line(self) -> None:
+        if self.cycle_live is not None:
+            self.cycle_live.stop()
+            self.cycle_live = None
+            self.cycle_bar = None
+            self.cycle_bar_task_id = None
+        # Every repeat of a phase folds into the one block it reports at the end of the run.
+        for phase in (PhaseName.FUZZING, PhaseName.STATEFUL_TESTING):
+            manager = self.repeat_managers.pop(phase, None)
+            status = self.repeat_statuses.pop(phase, Status.SUCCESS)
+            if isinstance(manager, StatefulProgressManager):
+                self._print_stateful_completion(manager, status)
+            elif manager is not None:
+                self._print_unit_completion(manager, status)
 
     def _start_probing(self) -> None:
         self.probing_manager = ProbingProgressManager(console=self.console)
         self.probing_manager.start()
 
-    def _start_unit_tests(self, phase: PhaseName) -> None:
-        assert self.statistic is not None
+    def _start_unit_tests(self, ctx: ExecutionContext, event: events.PhaseStarted) -> None:
+        assert ctx.api_statistic is not None
         assert self.unit_tests_manager is None
+        phase = event.phase.name
+        retained = self.repeat_managers.get(phase)
+        if isinstance(retained, UnitTestProgressManager):
+            self.unit_tests_manager = retained
+            retained.restart_pass()
+            return
         self.unit_tests_manager = UnitTestProgressManager(
             console=self.console,
             title=phase.display,
-            total=self.statistic.operations.selected,
+            total=ctx.api_statistic.operations.selected,
         )
-        self.unit_tests_manager.start()
+        in_cycle = self._in_cycle(phase)
+        if in_cycle:
+            self.repeat_managers[phase] = self.unit_tests_manager
+            self._start_cycle_line()
+        self.unit_tests_manager.start(show_live=not in_cycle and self.cycle_live is None)
 
     def _start_stateful_tests(self, event: events.PhaseStarted) -> None:
-        assert event.payload is not None
+        payload = event.payload
+        assert isinstance(payload, events.StatefulPhasePayload)
+        retained = self.repeat_managers.get(PhaseName.STATEFUL_TESTING)
+        if isinstance(retained, StatefulProgressManager):
+            self.stateful_tests_manager = retained
+            retained.restart_pass()
+            # A repeat re-runs inference, which reports zero once links are already injected.
+            retained.links_selected = max(retained.links_selected, payload.transitions_selected)
+            retained.links_inferred = max(retained.links_inferred, payload.inferred_transitions)
+            retained.links_total = max(retained.links_total, payload.transitions_total)
+            return
         self.stateful_tests_manager = StatefulProgressManager(
             console=self.console,
-            title="Stateful",
-            links_selected=event.payload.transitions_selected,
-            links_inferred=event.payload.inferred_transitions,
-            links_total=event.payload.transitions_total,
+            title=PhaseName.STATEFUL_TESTING.display,
+            links_selected=payload.transitions_selected,
+            links_inferred=payload.inferred_transitions,
+            links_total=payload.transitions_total,
         )
-        self.stateful_tests_manager.start()
+        in_cycle = self._in_cycle(PhaseName.STATEFUL_TESTING)
+        if in_cycle:
+            self.repeat_managers[PhaseName.STATEFUL_TESTING] = self.stateful_tests_manager
+            self._start_cycle_line()
+        self.stateful_tests_manager.start(show_live=not in_cycle and self.cycle_live is None)
 
-    def _on_phase_finished(self, event: events.PhaseFinished) -> None:
+    def _on_phase_finished(self, ctx: ExecutionContext, event: events.PhaseFinished) -> None:
         from rich.padding import Padding
         from rich.style import Style
         from rich.table import Table
         from rich.text import Text
 
         phase = event.phase
-        self.phases[phase.name] = (event.status, phase.skip_reason)
 
         if phase.name == PhaseName.PROBING:
             assert self.probing_manager is not None
@@ -720,47 +853,71 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
                 self.console.print(Padding(table, BLOCK_PADDING))
                 self.console.print()
         elif phase.name == PhaseName.STATEFUL_TESTING and phase.is_enabled and self.stateful_tests_manager is not None:
-            self.stateful_tests_manager.stop()
-            if event.status == Status.ERROR:
-                title, summary = self.stateful_tests_manager.get_completion_message("🚫")
-            else:
-                title, summary = self.stateful_tests_manager.get_completion_message()
-
-            self.console.print(Padding(Text(title, style="bright_white"), BLOCK_PADDING))
-
-            table = Table(
-                show_header=False,
-                box=None,
-                padding=(0, 4),
-                collapse_padding=True,
-            )
-            table.add_column("Field", style=Style(color="bright_white", bold=True))
-            table.add_column("Value", style="cyan")
-            table.add_row("Scenarios:", f"{self.stateful_tests_manager.scenarios}")
-            message = f"{len(self.stateful_tests_manager.links_covered)} covered / {self.stateful_tests_manager.links_selected} selected / {self.stateful_tests_manager.links_total} total"
-            if self.stateful_tests_manager.links_inferred:
-                message += f" ({self.stateful_tests_manager.links_inferred} inferred)"
-            table.add_row("API Links:", message)
-
-            self.console.print()
-            self.console.print(Padding(table, BLOCK_PADDING))
-            self.console.print()
-            self.console.print(Padding(Text(summary, style="bright_white"), (0, 0, 0, 5)))
-            self.console.print()
+            manager = self.stateful_tests_manager
             self.stateful_tests_manager = None
+            if self._retain(phase.name, event.status):
+                self.cycle_context = ctx
+                return
+            manager.stop()
+            manager.end_pass()
+            self._print_stateful_completion(manager, event.status)
         elif (
             phase.name in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING]
             and phase.is_enabled
             and self.unit_tests_manager is not None
         ):
-            self.unit_tests_manager.stop()
-            if event.status == Status.ERROR:
-                message = self.unit_tests_manager.get_completion_message("🚫")
-            else:
-                message = self.unit_tests_manager.get_completion_message()
-            self.console.print(Padding(Text(message, style="white"), BLOCK_PADDING))
-            self.console.print()
+            unit_manager = self.unit_tests_manager
             self.unit_tests_manager = None
+            if self._retain(phase.name, event.status):
+                self.cycle_context = ctx
+                return
+            unit_manager.stop()
+            unit_manager.end_pass()
+            self._print_unit_completion(unit_manager, event.status)
+
+    def _retain(self, phase: PhaseName, status: Status) -> bool:
+        """Hold this phase's result back while it can still repeat."""
+        if phase not in self.repeat_managers:
+            return False
+        self.repeat_managers[phase].end_pass()
+        current = self.repeat_statuses.get(phase)
+        if current is None or PHASE_STATUS_PRIORITY[status] >= PHASE_STATUS_PRIORITY[current]:
+            self.repeat_statuses[phase] = status
+        return True
+
+    def _print_unit_completion(self, manager: UnitTestProgressManager, status: Status) -> None:
+        from rich.padding import Padding
+        from rich.text import Text
+
+        icon = "🚫" if status == Status.ERROR else "🕛"
+        self.console.print(Padding(Text(manager.get_completion_message(icon), style="white"), BLOCK_PADDING))
+        self.console.print()
+
+    def _print_stateful_completion(self, manager: StatefulProgressManager, status: Status) -> None:
+        from rich.padding import Padding
+        from rich.style import Style
+        from rich.table import Table
+        from rich.text import Text
+
+        title, summary = manager.get_completion_message("🚫" if status == Status.ERROR else None)
+        self.console.print(Padding(Text(title, style="bright_white"), BLOCK_PADDING))
+
+        table = Table(show_header=False, box=None, padding=(0, 4), collapse_padding=True)
+        table.add_column("Field", style=Style(color="bright_white", bold=True))
+        table.add_column("Value", style="cyan")
+        table.add_row("Scenarios:", f"{manager.scenarios}")
+        message = (
+            f"{len(manager.links_covered)} covered / {manager.links_selected} selected / {manager.links_total} total"
+        )
+        if manager.links_inferred:
+            message += f" ({manager.links_inferred} inferred)"
+        table.add_row("API Links:", message)
+
+        self.console.print()
+        self.console.print(Padding(table, BLOCK_PADDING))
+        self.console.print()
+        self.console.print(Padding(Text(summary, style="bright_white"), (0, 0, 0, 5)))
+        self.console.print()
 
     def _on_scenario_started(self, event: events.ScenarioStarted) -> None:
         if event.phase in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING]:
@@ -769,29 +926,50 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
             assert self.unit_tests_manager is not None
             self.unit_tests_manager.start_operation(event.label)
 
-    def _on_scenario_finished(self, ctx: BaseExecutionContext, event: events.ScenarioFinished) -> None:
-        assert self.warning_collector is not None
-        self.warning_collector.on_scenario_finished(ctx, event)
+    def _note_new_failures(self, ctx: ExecutionContext) -> None:
+        unique = len(ctx.statistic.unique_failures_map)
+        if unique > self.seen_failures:
+            self.seen_failures = unique
+            self.last_failure_at = Instant()
+
+    def _progress_suffix(self, ctx: ExecutionContext) -> str:
+        max_time = self.config.max_time
+        # Both clocks read against the budget; without one there is nothing to count down to.
+        if max_time is None:
+            return ""
+        parts = [f"⏳ {format_duration(max(max_time * 1000 - self.started_at.elapsed_ms, 0))} left"]
+        if self.last_failure_at is not None:
+            parts.append(f"🕑 {format_duration(self.last_failure_at.elapsed_ms)} since last new failure")
+        return "  ".join(parts)
+
+    def _on_scenario_finished(self, ctx: ExecutionContext, event: events.ScenarioFinished) -> None:
+        self._note_new_failures(ctx)
         if event.phase in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING]:
             assert self.unit_tests_manager is not None
+            self.unit_tests_manager.set_suffix(self._progress_suffix(ctx))
+            if event.phase == PhaseName.FUZZING:
+                self.cycle_phase = event.phase
+            self.cycle_context = ctx
             if event.label:
                 self.unit_tests_manager.finish_operation(event.label)
             self.unit_tests_manager.update_progress()
-            self.unit_tests_manager.update_stats(event.status)
-            if event.status == Status.SKIP and event.skip_reason is not None and event.label:
-                self.skip_reasons.setdefault(event.label, set()).add(event.skip_reason)
+            self.unit_tests_manager.update_stats(event.label or event.recorder.label, event.status)
         elif (
             event.phase == PhaseName.STATEFUL_TESTING
             and not event.is_final
             and event.status not in (Status.INTERRUPTED, Status.SKIP, None)
         ):
             assert self.stateful_tests_manager is not None
+            manager = self.stateful_tests_manager
+            self.cycle_phase = PhaseName.STATEFUL_TESTING
             links_seen = {
                 case.transition.id
                 for case in event.recorder.cases.values()
                 if case.transition is not None and case.is_transition_applied
             }
-            self.stateful_tests_manager.update(links_seen, event.status)
+            manager.update(links_seen, event.status)
+            self.cycle_links = f"🔗 {len(manager.links_covered)}/{manager.links_total} links"
+            self.cycle_context = ctx
 
     def _on_rate_limit_retry(self, event: events.RateLimitRetry) -> None:
         from rich.padding import Padding
@@ -833,7 +1011,7 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
             self.console.print()
             self.probing_manager = None
 
-    def _on_fatal_error(self, ctx: BaseExecutionContext, event: events.FatalError) -> None:
+    def _on_fatal_error(self, ctx: ExecutionContext, event: events.FatalError) -> None:
         self.shutdown(ctx)
         display_fatal_error(
             self.console,
@@ -935,91 +1113,108 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
 
         self._print_warning_tips(tips)
 
-    def display_warnings(self) -> None:
+    def display_warnings(self, ctx: ExecutionContext) -> None:
         display_section_name("WARNINGS")
         click.echo()
-        if self.warnings.missing_auth:
+        if ctx.warnings.missing_auth:
             self._display_warning_block(
                 title="Authentication failed",
-                operations=self.warnings.missing_auth,
+                operations=ctx.warnings.missing_auth,
                 suffix_text=" returned authentication errors",
                 tips=["💡 Ensure valid authentication credentials are set via --auth or -H"],
             )
 
-        if self.warnings.missing_test_data:
+        if ctx.warnings.base_url_mismatch:
+            self._display_warning_block(
+                title="Base URL may be missing a path",
+                operations=ctx.warnings.base_url_mismatch,
+                suffix_text=" returned only 404 Not Found",
+                tips=[f"💡 The schema declares a base path; try --url {ctx.warnings.base_url_suggestion}"],
+            )
+
+        if ctx.warnings.missing_test_data:
             self._display_warning_block(
                 title="Missing test data",
-                operations=self.warnings.missing_test_data,
+                operations=ctx.warnings.missing_test_data,
                 suffix_text=" repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic",
                 tips=[
                     "💡 Provide realistic parameter values in your config file so tests can access existing resources",
                 ],
             )
 
-        if self.warnings.validation_mismatch:
+        if ctx.warnings.validation_mismatch:
             self._display_warning_block(
                 title="Schema validation mismatch",
-                operations=self.warnings.validation_mismatch,
+                operations=ctx.warnings.validation_mismatch,
                 suffix_text=" mostly rejected generated data due to validation errors, indicating schema constraints don't match API validation",
                 tips=["💡 Check your schema constraints - API validation may be stricter than documented"],
             )
 
-        if self.warnings.missing_deserializer:
+        if ctx.warnings.missing_deserializer:
             self._display_grouped_detail_block(
                 title="Schema validation skipped",
-                warnings=self.warnings.missing_deserializer,
+                warnings=ctx.warnings.missing_deserializer,
                 entity_name="operation",
                 suffix_text=" cannot validate responses due to missing deserializers",
                 tips=["💡 Register a deserializer with @schemathesis.deserializer() to enable validation"],
             )
 
-        if self.warnings.unused_openapi_auth:
+        if ctx.warnings.unused_openapi_auth:
             self._display_warning_block(
                 title="Unused OpenAPI auth",
-                operations=self.warnings.unused_openapi_auth,
+                operations=ctx.warnings.unused_openapi_auth,
                 suffix_text=" not defined in the schema",
                 tips=[],
                 entity_name="configured auth scheme",
             )
 
-        if self.warnings.unmatched_filter:
+        if ctx.warnings.unmatched_filter:
             self._display_warning_block(
                 title="Unmatched filters",
-                operations=self.warnings.unmatched_filter,
+                operations=ctx.warnings.unmatched_filter,
                 suffix_text=" matched no API operations",
                 tips=["💡 Check the filter for a typo, or update it if the operation was renamed"],
                 entity_name="filter",
             )
 
-        if self.warnings.method_not_allowed:
+        if ctx.warnings.method_not_allowed:
             self._display_warning_block(
                 title="Method Not Allowed",
-                operations=self.warnings.method_not_allowed,
+                operations=ctx.warnings.method_not_allowed,
                 suffix_text=" consistently returned `405 Method Not Allowed` — skipped from later phases",
                 tips=[
                     "💡 Verify the server actually accepts these methods, or remove them from the schema if unsupported"
                 ],
             )
 
-        if self.warnings.unsupported_regex:
+        if ctx.warnings.unsupported_regex:
             self._display_detailed_warning_block(
                 title="Unsupported regex patterns",
-                warnings=self.warnings.unsupported_regex,
+                warnings=ctx.warnings.unsupported_regex,
                 entity_name="operation",
                 suffix_text=" contain regex patterns no value can be generated for",
                 tips=["💡 Supply examples for these operations, or narrow the pattern"],
             )
 
-        if self.warnings.constants_extraction:
+        if ctx.warnings.unresolvable_reference:
+            self._display_detailed_warning_block(
+                title="Unresolvable references",
+                warnings=ctx.warnings.unresolvable_reference,
+                entity_name="operation",
+                suffix_text=" skipped parts of the schema",
+                tips=["💡 Resolve these references so the skipped parts get tested"],
+            )
+
+        if ctx.warnings.constants_extraction:
             self._display_warning_block(
                 title="Constant reuse skipped",
-                operations=self.warnings.constants_extraction,
+                operations=ctx.warnings.constants_extraction,
                 suffix_text=" could not be scanned for constant reuse",
                 tips=["💡 Check that each @schemathesis.python.constants source returns your app or modules"],
                 entity_name="registered source",
             )
 
-    def display_stateful_failures(self, ctx: BaseExecutionContext) -> None:
+    def display_stateful_failures(self, ctx: ExecutionContext) -> None:
         display_section_name("Stateful tests")
 
         click.echo("\nFailed to extract data from response:")
@@ -1069,58 +1264,14 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
 
         click.echo()
 
-    def display_api_operations(self, ctx: BaseExecutionContext, stop_reason: StopReason) -> None:
-        assert self.statistic is not None
-        errored = len(
-            {
-                err.label
-                for err in self.errors
-                # Some API operations may have some tests before they have an error
-                if err.phase in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING]
-                and err.label not in ctx.statistic.tested_operations
-                and err.related_to_operation
-            }
-        )
-        # API operations that are skipped due to fail-fast are counted here as well
-        skipped = self.statistic.operations.selected - len(ctx.statistic.tested_operations) - errored
-        # An operation tested in one phase may have been skipped in another; its reason does not explain
-        # the operations counted above, which were never tested at all.
-        explained = {
-            label: reasons
-            for label, reasons in self.skip_reasons.items()
-            if label not in ctx.statistic.tested_operations
-        }
-        reasons = {reason for values in explained.values() for reason in values}
-        # Cases ran, but no selected check applied to them. Operations tested elsewhere are not in the count above.
-        without_checks = ctx.statistic.operations_without_checks - ctx.statistic.tested_operations
-        if without_checks:
-            reasons.add("No checks ran")
-        if skipped > len(explained.keys() | without_checks):
-            if stop_reason.skip_explanation is not None:
-                reasons.add(stop_reason.skip_explanation)
-            elif any(
-                self.phases[phase][0] == Status.ERROR
-                for phase in (PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING)
-            ):
-                reasons.add("Phase errored")
-        skip_reasons = sorted(reasons)
-        display_api_operations(
-            selected=self.statistic.operations.selected,
-            total=self.statistic.operations.total,
-            tested=len(ctx.statistic.tested_operations),
-            errored=errored,
-            skipped=skipped,
-            skip_reasons=skip_reasons,
-        )
-
-    def display_phases(self) -> None:
+    def display_phases(self, ctx: ExecutionContext) -> None:
         click.echo(_style("Test Phases:", bold=True))
 
         for phase in PhaseName:
             if phase in (PhaseName.PROBING, PhaseName.SCHEMA_ANALYSIS):
                 # Internal phases are not part of the test phase summary
                 continue
-            status, skip_reason = self.phases[phase]
+            status, skip_reason = ctx.phases[phase]
 
             if status == Status.SKIP:
                 click.echo(_style(f"  ⏭  {phase.display}", fg="yellow"), nl=False)
@@ -1138,69 +1289,72 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
                 click.echo(_style(f"  ⚡ {phase.display}", fg="yellow"))
         click.echo()
 
-    def display_test_cases(self, ctx: BaseExecutionContext) -> None:
-        display_test_cases(ctx.statistic)
-
-    def display_failures_summary(self, ctx: BaseExecutionContext) -> None:
-        display_failures_summary(ctx.statistic)
-
-    def display_errors_summary(self) -> None:
-        display_errors_summary(self.errors)
-
-    def display_warnings_summary(self) -> None:
+    def display_warnings_summary(self, ctx: ExecutionContext) -> None:
         click.echo(_style("Warnings:", bold=True))
         missing_deserializer = {
-            label for operations in self.warnings.missing_deserializer.values() for label in operations
+            label for operations in ctx.warnings.missing_deserializer.values() for label in operations
         }
         entries = (
             (
-                sum(len(operations) for operations in self.warnings.missing_auth.values()),
+                sum(len(operations) for operations in ctx.warnings.missing_auth.values()),
                 "Missing authentication",
                 "operation",
                 "returned only 401/403 responses",
             ),
             (
-                len(self.warnings.missing_test_data),
+                len(ctx.warnings.base_url_mismatch),
+                "Base URL may be missing a path",
+                "operation",
+                "returned only 404 responses",
+            ),
+            (
+                len(ctx.warnings.missing_test_data),
                 "Missing valid test data",
                 "operation",
                 "repeatedly returned 404 responses",
             ),
             (
-                len(self.warnings.validation_mismatch),
+                len(ctx.warnings.validation_mismatch),
                 "Schema validation mismatch",
                 "operation",
                 "mostly rejected generated data",
             ),
             (len(missing_deserializer), "Schema validation skipped", "operation", "cannot validate responses"),
             (
-                len(self.warnings.unused_openapi_auth),
+                len(ctx.warnings.unused_openapi_auth),
                 "Unused OpenAPI auth",
                 "configured auth scheme",
                 "not used in the schema",
             ),
             (
-                len(self.warnings.unsupported_regex),
+                len(ctx.warnings.unsupported_regex),
                 "Unsupported regex",
                 "operation",
                 "had ungeneratable regex patterns",
             ),
             (
-                len(self.warnings.unmatched_filter),
+                len(ctx.warnings.unmatched_filter),
                 "Unmatched filters",
                 "filter",
                 "matched no API operations",
             ),
             (
-                len(self.warnings.method_not_allowed),
+                len(ctx.warnings.method_not_allowed),
                 "Method Not Allowed",
                 "operation",
                 "skipped after consistent 405 responses",
             ),
             (
-                len(self.warnings.constants_extraction),
+                len(ctx.warnings.constants_extraction),
                 "Constant reuse skipped",
                 "registered source",
                 "could not be scanned",
+            ),
+            (
+                len(ctx.warnings.unresolvable_reference),
+                "Unresolvable references",
+                "operation",
+                "had parts of the schema skipped",
             ),
         )
         for count, title, entity_name, suffix_text in entries:
@@ -1210,14 +1364,14 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
             click.echo(_style(f"  ⚠️ {title}: {bold(str(count))} {entity_name}{plural} {suffix_text}", fg="yellow"))
         click.echo()
 
-    def display_final_line(self, ctx: BaseExecutionContext, event: events.EngineFinished) -> None:
+    def display_final_line(self, ctx: ExecutionContext, event: events.EngineFinished) -> None:
         unique_failures = sum(
             len(group.failures) for grouped in ctx.statistic.failures.values() for group in grouped.values()
         )
         display_final_line(
             failures=unique_failures,
-            errors=len(self.errors),
-            warnings=self.warnings.kind_count,
+            errors=len(ctx.errors),
+            warnings=ctx.warnings.kind_count,
             running_time=event.running_time,
             total_cases=ctx.statistic.total_cases,
         )
@@ -1244,15 +1398,16 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
     def display_seed(self) -> None:
         display_seed(self.config)
 
-    def _on_engine_finished(self, ctx: BaseExecutionContext, event: events.EngineFinished) -> None:
+    def _on_engine_finished(self, ctx: ExecutionContext, event: events.EngineFinished) -> None:
+        self._stop_cycle_line()
         assert self.loading_manager is None
         assert self.probing_manager is None
         assert self.unit_tests_manager is None
         assert self.stateful_tests_manager is None
-        if self.errors:
+        if ctx.errors:
             display_section_name("ERRORS")
             errors = sorted(
-                self.errors, key=lambda r: (r.phase.value if r.phase is not None else "", r.label, r.info.title)
+                ctx.errors, key=lambda r: (r.phase.value if r.phase is not None else "", r.label, r.info.title)
             )
             for label, group_errors in groupby(errors, key=lambda r: r.label):
                 display_section_name(label, "_", fg="red")
@@ -1268,26 +1423,28 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
                 )
             )
         display_failures(ctx.statistic, ctx.config.output, record_crashes=ctx.config.cache.enabled)
-        if not self.warnings.is_empty:
-            self.display_warnings()
+        if not ctx.warnings.is_empty:
+            self.display_warnings(ctx)
         if ctx.statistic.extraction_failures:
             self.display_stateful_failures(ctx)
         display_section_name("SUMMARY")
         click.echo()
 
-        if self.statistic:
-            self.display_api_operations(ctx, event.stop_reason)
+        summary = ctx.summary()
 
-        self.display_phases()
+        if summary.operations is not None:
+            display_api_operations(summary.operations)
 
-        if ctx.statistic.failures:
-            self.display_failures_summary(ctx)
+        self.display_phases(ctx)
 
-        if self.errors:
-            self.display_errors_summary()
+        if summary.failures:
+            display_failures_summary(summary.failures)
 
-        if not self.warnings.is_empty:
-            self.display_warnings_summary()
+        if summary.errors:
+            display_errors_summary(summary.errors)
+
+        if not ctx.warnings.is_empty:
+            self.display_warnings_summary(ctx)
 
         if event.payload is not None:
             if event.payload.reauth_count > 0:
@@ -1305,7 +1462,7 @@ class OutputHandler(BaseOutputHandler[BaseExecutionContext]):
             print_lines(ctx.summary_lines)
             click.echo()
 
-        self.display_test_cases(ctx)
+        display_test_cases(summary.test_cases)
         self.display_reports()
         self.display_seed()
         self.display_final_line(ctx, event)

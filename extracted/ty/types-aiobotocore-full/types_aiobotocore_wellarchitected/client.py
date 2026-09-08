@@ -22,16 +22,30 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import (
+    ListAgentContextsPaginator,
+    ListAgentGoalsPaginator,
+    ListAgentProfilesPaginator,
+    ListAgentRecommendationGenerationsPaginator,
+    ListAgentRecommendationItemsPaginator,
+    ListAgentRecommendationsPaginator,
+)
 from .type_defs import (
     AssociateLensesInputTypeDef,
     AssociateProfilesInputTypeDef,
+    CreateAgentContextRequestTypeDef,
+    CreateAgentContextResponseTypeDef,
+    CreateAgentGoalRequestTypeDef,
+    CreateAgentGoalResponseTypeDef,
+    CreateAgentProfileRequestTypeDef,
+    CreateAgentProfileResponseTypeDef,
     CreateLensShareInputTypeDef,
     CreateLensShareOutputTypeDef,
     CreateLensVersionInputTypeDef,
@@ -50,6 +64,9 @@ from .type_defs import (
     CreateWorkloadOutputTypeDef,
     CreateWorkloadShareInputTypeDef,
     CreateWorkloadShareOutputTypeDef,
+    DeleteAgentContextRequestTypeDef,
+    DeleteAgentGoalRequestTypeDef,
+    DeleteAgentProfileRequestTypeDef,
     DeleteLensInputTypeDef,
     DeleteLensShareInputTypeDef,
     DeleteProfileInputTypeDef,
@@ -63,6 +80,16 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     ExportLensInputTypeDef,
     ExportLensOutputTypeDef,
+    GetAgentContextRequestTypeDef,
+    GetAgentContextResponseTypeDef,
+    GetAgentGoalRequestTypeDef,
+    GetAgentGoalResponseTypeDef,
+    GetAgentProfileRequestTypeDef,
+    GetAgentProfileResponseTypeDef,
+    GetAgentRecommendationGenerationRequestTypeDef,
+    GetAgentRecommendationGenerationResponseTypeDef,
+    GetAgentRecommendationRequestTypeDef,
+    GetAgentRecommendationResponseTypeDef,
     GetAnswerInputTypeDef,
     GetAnswerOutputTypeDef,
     GetConsolidatedReportInputTypeDef,
@@ -91,6 +118,18 @@ from .type_defs import (
     GetWorkloadOutputTypeDef,
     ImportLensInputTypeDef,
     ImportLensOutputTypeDef,
+    ListAgentContextsRequestTypeDef,
+    ListAgentContextsResponseTypeDef,
+    ListAgentGoalsRequestTypeDef,
+    ListAgentGoalsResponseTypeDef,
+    ListAgentProfilesRequestTypeDef,
+    ListAgentProfilesResponseTypeDef,
+    ListAgentRecommendationGenerationsRequestTypeDef,
+    ListAgentRecommendationGenerationsResponseTypeDef,
+    ListAgentRecommendationItemsRequestTypeDef,
+    ListAgentRecommendationItemsResponseTypeDef,
+    ListAgentRecommendationsRequestTypeDef,
+    ListAgentRecommendationsResponseTypeDef,
     ListAnswersInputTypeDef,
     ListAnswersOutputTypeDef,
     ListCheckDetailsInputTypeDef,
@@ -129,8 +168,18 @@ from .type_defs import (
     ListWorkloadSharesOutputTypeDef,
     ListWorkloadsInputTypeDef,
     ListWorkloadsOutputTypeDef,
+    PutAgentRecommendationFeedbackRequestTypeDef,
+    StartAgentRecommendationGenerationRequestTypeDef,
+    StartAgentRecommendationGenerationResponseTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
+    UpdateAgentContextRequestTypeDef,
+    UpdateAgentContextResponseTypeDef,
+    UpdateAgentGoalRequestTypeDef,
+    UpdateAgentGoalResponseTypeDef,
+    UpdateAgentProfileRequestTypeDef,
+    UpdateAgentProfileResponseTypeDef,
+    UpdateAgentRecommendationStatusRequestTypeDef,
     UpdateAnswerInputTypeDef,
     UpdateAnswerOutputTypeDef,
     UpdateGlobalSettingsInputTypeDef,
@@ -157,9 +206,9 @@ from .type_defs import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Self, Unpack
+    from typing import Literal, Self, Unpack
 else:
-    from typing_extensions import Self, Unpack
+    from typing_extensions import Literal, Self, Unpack
 
 
 __all__ = ("WellArchitectedClient",)
@@ -229,6 +278,37 @@ class WellArchitectedClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/associate_profiles.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#associate_profiles)
+        """
+
+    async def create_agent_context(
+        self, **kwargs: Unpack[CreateAgentContextRequestTypeDef]
+    ) -> CreateAgentContextResponseTypeDef:
+        """
+        Creates a context associated with an optimization profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_agent_context.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#create_agent_context)
+        """
+
+    async def create_agent_goal(
+        self, **kwargs: Unpack[CreateAgentGoalRequestTypeDef]
+    ) -> CreateAgentGoalResponseTypeDef:
+        """
+        Creates an optimization goal associated with a profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_agent_goal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#create_agent_goal)
+        """
+
+    async def create_agent_profile(
+        self, **kwargs: Unpack[CreateAgentProfileRequestTypeDef]
+    ) -> CreateAgentProfileResponseTypeDef:
+        """
+        Creates an optimization profile that defines the scope and configuration for
+        generating recommendations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_agent_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#create_agent_profile)
         """
 
     async def create_lens_share(
@@ -319,6 +399,36 @@ class WellArchitectedClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_workload_share.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#create_workload_share)
+        """
+
+    async def delete_agent_context(
+        self, **kwargs: Unpack[DeleteAgentContextRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a context associated with a profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/delete_agent_context.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#delete_agent_context)
+        """
+
+    async def delete_agent_goal(
+        self, **kwargs: Unpack[DeleteAgentGoalRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an optimization goal from a profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/delete_agent_goal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#delete_agent_goal)
+        """
+
+    async def delete_agent_profile(
+        self, **kwargs: Unpack[DeleteAgentProfileRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an optimization profile and its associated configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/delete_agent_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#delete_agent_profile)
         """
 
     async def delete_lens(
@@ -429,6 +539,60 @@ class WellArchitectedClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/export_lens.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#export_lens)
+        """
+
+    async def get_agent_context(
+        self, **kwargs: Unpack[GetAgentContextRequestTypeDef]
+    ) -> GetAgentContextResponseTypeDef:
+        """
+        Retrieves detailed information about a specific context associated with a
+        profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_context.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_agent_context)
+        """
+
+    async def get_agent_goal(
+        self, **kwargs: Unpack[GetAgentGoalRequestTypeDef]
+    ) -> GetAgentGoalResponseTypeDef:
+        """
+        Retrieves detailed information about a specific optimization goal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_goal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_agent_goal)
+        """
+
+    async def get_agent_profile(
+        self, **kwargs: Unpack[GetAgentProfileRequestTypeDef]
+    ) -> GetAgentProfileResponseTypeDef:
+        """
+        Retrieves detailed information about an optimization profile, including its
+        configuration and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_agent_profile)
+        """
+
+    async def get_agent_recommendation(
+        self, **kwargs: Unpack[GetAgentRecommendationRequestTypeDef]
+    ) -> GetAgentRecommendationResponseTypeDef:
+        """
+        Retrieves detailed information about a specific optimization recommendation,
+        including its impact analysis, content, and implementation guidance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_recommendation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_agent_recommendation)
+        """
+
+    async def get_agent_recommendation_generation(
+        self, **kwargs: Unpack[GetAgentRecommendationGenerationRequestTypeDef]
+    ) -> GetAgentRecommendationGenerationResponseTypeDef:
+        """
+        Retrieves information about a recommendation generation process, including its
+        status, progress, and results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_recommendation_generation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_agent_recommendation_generation)
         """
 
     async def get_answer(self, **kwargs: Unpack[GetAnswerInputTypeDef]) -> GetAnswerOutputTypeDef:
@@ -571,6 +735,67 @@ class WellArchitectedClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/import_lens.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#import_lens)
+        """
+
+    async def list_agent_contexts(
+        self, **kwargs: Unpack[ListAgentContextsRequestTypeDef]
+    ) -> ListAgentContextsResponseTypeDef:
+        """
+        Lists contexts associated with a profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_contexts.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#list_agent_contexts)
+        """
+
+    async def list_agent_goals(
+        self, **kwargs: Unpack[ListAgentGoalsRequestTypeDef]
+    ) -> ListAgentGoalsResponseTypeDef:
+        """
+        Lists optimization goals associated with a specified profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_goals.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#list_agent_goals)
+        """
+
+    async def list_agent_profiles(
+        self, **kwargs: Unpack[ListAgentProfilesRequestTypeDef]
+    ) -> ListAgentProfilesResponseTypeDef:
+        """
+        Lists optimization profiles in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_profiles.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#list_agent_profiles)
+        """
+
+    async def list_agent_recommendation_generations(
+        self, **kwargs: Unpack[ListAgentRecommendationGenerationsRequestTypeDef]
+    ) -> ListAgentRecommendationGenerationsResponseTypeDef:
+        """
+        Lists recommendation generation processes for a specified profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_recommendation_generations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#list_agent_recommendation_generations)
+        """
+
+    async def list_agent_recommendation_items(
+        self, **kwargs: Unpack[ListAgentRecommendationItemsRequestTypeDef]
+    ) -> ListAgentRecommendationItemsResponseTypeDef:
+        """
+        Lists recommendation items for a specific recommendation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_recommendation_items.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#list_agent_recommendation_items)
+        """
+
+    async def list_agent_recommendations(
+        self, **kwargs: Unpack[ListAgentRecommendationsRequestTypeDef]
+    ) -> ListAgentRecommendationsResponseTypeDef:
+        """
+        Lists active optimization recommendations for a specified profile with optional
+        filtering by state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_recommendations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#list_agent_recommendations)
         """
 
     async def list_answers(
@@ -764,6 +989,28 @@ class WellArchitectedClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#list_workloads)
         """
 
+    async def put_agent_recommendation_feedback(
+        self, **kwargs: Unpack[PutAgentRecommendationFeedbackRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Submits user feedback on a recommendation to help improve future optimization
+        suggestions and track implementation outcomes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/put_agent_recommendation_feedback.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#put_agent_recommendation_feedback)
+        """
+
+    async def start_agent_recommendation_generation(
+        self, **kwargs: Unpack[StartAgentRecommendationGenerationRequestTypeDef]
+    ) -> StartAgentRecommendationGenerationResponseTypeDef:
+        """
+        Initiates a new recommendation generation process for the specified
+        optimization profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/start_agent_recommendation_generation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#start_agent_recommendation_generation)
+        """
+
     async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to the specified resource.
@@ -778,6 +1025,48 @@ class WellArchitectedClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#untag_resource)
+        """
+
+    async def update_agent_context(
+        self, **kwargs: Unpack[UpdateAgentContextRequestTypeDef]
+    ) -> UpdateAgentContextResponseTypeDef:
+        """
+        Updates an existing context associated with a profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/update_agent_context.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#update_agent_context)
+        """
+
+    async def update_agent_goal(
+        self, **kwargs: Unpack[UpdateAgentGoalRequestTypeDef]
+    ) -> UpdateAgentGoalResponseTypeDef:
+        """
+        Updates the pillars and title of an existing goal associated with a profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/update_agent_goal.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#update_agent_goal)
+        """
+
+    async def update_agent_profile(
+        self, **kwargs: Unpack[UpdateAgentProfileRequestTypeDef]
+    ) -> UpdateAgentProfileResponseTypeDef:
+        """
+        Updates an existing optimization profile's configuration, including its
+        pillars, execution role, and aggregation settings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/update_agent_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#update_agent_profile)
+        """
+
+    async def update_agent_recommendation_status(
+        self, **kwargs: Unpack[UpdateAgentRecommendationStatusRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the status of a recommendation to track its progress through the
+        implementation lifecycle.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/update_agent_recommendation_status.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#update_agent_recommendation_status)
         """
 
     async def update_answer(
@@ -919,6 +1208,72 @@ class WellArchitectedClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/upgrade_review_template_lens_review.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#upgrade_review_template_lens_review)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_contexts"]
+    ) -> ListAgentContextsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_goals"]
+    ) -> ListAgentGoalsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_profiles"]
+    ) -> ListAgentProfilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_recommendation_generations"]
+    ) -> ListAgentRecommendationGenerationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_recommendation_items"]
+    ) -> ListAgentRecommendationItemsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_recommendations"]
+    ) -> ListAgentRecommendationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_wellarchitected/client/#get_paginator)
         """
 
     async def __aenter__(self) -> Self:

@@ -189,7 +189,7 @@ class Response:
     def from_requests(cls, response: requests.Response, verify: bool, _override: Override | None = None) -> Response:
         raw = response.raw
         raw_headers = raw.headers if raw is not None else {}
-        headers = {name: response.raw.headers.getlist(name) for name in raw_headers.keys()}
+        headers = {name: response.raw.headers.getlist(name) for name in raw_headers}
         # Similar to http.client:319 (HTTP version detection in stdlib's `http` package)
         version = raw.version if raw is not None else 10
         http_version = "1.0" if version == 10 else "1.1"
@@ -260,7 +260,7 @@ class Response:
         ).prepare()
         return Response(
             status_code=response.status_code,
-            headers={name: response.headers.getlist(name) for name in response.headers.keys()},
+            headers={name: response.headers.getlist(name) for name in response.headers.keys()},  # noqa: SIM118
             content=data,
             request=request,
             # Elapsed time is not available
@@ -311,6 +311,9 @@ class Response:
         return self._encoded_body
 
 
+_STATUS_CODE_CHARACTERS = frozenset(string.digits + "X")
+
+
 def expand_status_code(status_code: StatusCodePattern | int) -> list[int]:
     """Expand OpenAPI status code patterns like '2XX' or 'default' into concrete codes.
 
@@ -321,7 +324,11 @@ def expand_status_code(status_code: StatusCodePattern | int) -> list[int]:
         List of concrete status codes matching the pattern
 
     """
-    chars = [list(string.digits) if digit == "X" else [digit] for digit in str(status_code).upper()]
+    pattern = str(status_code).upper()
+    # A response key is arbitrary text, and one that is not a code pattern describes no response.
+    if not 0 < len(pattern) <= 3 or any(char not in _STATUS_CODE_CHARACTERS for char in pattern):
+        return []
+    chars = [list(string.digits) if digit == "X" else [digit] for digit in pattern]
     return [int("".join(expanded)) for expanded in product(*chars)]
 
 

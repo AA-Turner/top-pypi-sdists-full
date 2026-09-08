@@ -14,6 +14,7 @@ Usage::
     from types_aiobotocore_elementalinference.paginator import (
         ListDictionariesPaginator,
         ListFeedsPaginator,
+        SearchFixturesPaginator,
     )
 
     session = get_session()
@@ -22,6 +23,7 @@ Usage::
 
         list_dictionaries_paginator: ListDictionariesPaginator = client.get_paginator("list_dictionaries")
         list_feeds_paginator: ListFeedsPaginator = client.get_paginator("list_feeds")
+        search_fixtures_paginator: SearchFixturesPaginator = client.get_paginator("search_fixtures")
     ```
 """
 
@@ -37,6 +39,8 @@ from .type_defs import (
     ListDictionariesResponseTypeDef,
     ListFeedsRequestPaginateTypeDef,
     ListFeedsResponseTypeDef,
+    SearchFixturesRequestPaginateTypeDef,
+    SearchFixturesResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -45,7 +49,7 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ListDictionariesPaginator", "ListFeedsPaginator")
+__all__ = ("ListDictionariesPaginator", "ListFeedsPaginator", "SearchFixturesPaginator")
 
 
 if TYPE_CHECKING:
@@ -87,4 +91,25 @@ class ListFeedsPaginator(_ListFeedsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListFeeds.html#ElementalInference.Paginator.ListFeeds.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/paginators/#listfeedspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _SearchFixturesPaginatorBase = AioPaginator[SearchFixturesResponseTypeDef]
+else:
+    _SearchFixturesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class SearchFixturesPaginator(_SearchFixturesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/SearchFixtures.html#ElementalInference.Paginator.SearchFixtures)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/paginators/#searchfixturespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchFixturesRequestPaginateTypeDef]
+    ) -> AioPageIterator[SearchFixturesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/SearchFixtures.html#ElementalInference.Paginator.SearchFixtures.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_elementalinference/paginators/#searchfixturespaginator)
         """

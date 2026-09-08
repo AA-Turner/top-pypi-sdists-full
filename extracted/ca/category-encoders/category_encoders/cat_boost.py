@@ -119,6 +119,11 @@ class CatBoostEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
         random_state=None,
         sigma=None,
         a=1,
+        min_group_size: int | float | None = None,
+        min_group_name: str | None = None,
+        combine_min_nan_groups: bool | str | None = None,
+        composite_cols=None,
+        keep_components=False,
     ):
         super().__init__(
             verbose=verbose,
@@ -127,6 +132,11 @@ class CatBoostEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
             return_df=return_df,
             handle_unknown=handle_unknown,
             handle_missing=handle_missing,
+            min_group_size=min_group_size,
+            min_group_name=min_group_name,
+            combine_min_nan_groups=combine_min_nan_groups,
+            composite_cols=composite_cols,
+            keep_components=keep_components,
         )
         self.mapping = None
         self._mean = None
@@ -179,7 +189,7 @@ class CatBoostEncoder(util.SupervisedTransformerMixin, util.BaseEncoder):
                 # Cumsum does not work nicely with None (while cumcount does).
                 # As a workaround, we cast the grouping column as string.
                 # See: issue #209
-                temp = y.groupby(X[col].astype(str)).agg(['cumsum', 'cumcount'])
+                temp = y.groupby(X[col].astype(str).fillna('nan')).agg(['cumsum', 'cumcount'])
                 X[col] = (temp['cumsum'] - y + self._mean * self.a) / (temp['cumcount'] + self.a)
 
             if self.handle_unknown == 'value':

@@ -36,6 +36,8 @@ pub const FLEET_AUTH_STORE_SCHEMA_VERSION: u32 = 1;
 pub const FLEET_BOOTSTRAP_TTL_SECONDS: f64 = 10.0 * 60.0;
 pub const FLEET_CREDENTIAL_TTL_SECONDS: f64 = 90.0 * 24.0 * 60.0 * 60.0;
 pub const FLEET_SCOPE_HELLO: &str = "fleet.hello";
+pub const FLEET_SCOPE_LAUNCH: &str = "fleet.launch";
+pub const FLEET_SCOPE_MUTATE: &str = "fleet.mutate";
 pub const FLEET_SCOPE_ROTATE: &str = "fleet.credential.rotate";
 pub const FLEET_SCOPE_REVOKE: &str = "fleet.credential.revoke";
 pub const FLEET_SCOPE_SUMMARY_READ: &str = "fleet.summary.read";
@@ -45,6 +47,8 @@ pub const FLEET_SCOPE_DETAIL_READ: &str = "fleet.detail.read";
 pub const FLEET_SCOPE_CONTENT_READ: &str = "fleet.content.read";
 pub const FLEET_SCOPE_PROJECTS_READ: &str = "fleet.projects.read";
 pub const FLEET_SCOPE_EVENTS_READ: &str = "fleet.events.read";
+pub const FLEET_SCOPE_ATTENTION_READ: &str = "fleet.attention.read";
+pub const FLEET_SCOPE_ATTENTION_RESOLVE: &str = "fleet.attention.resolve";
 
 const MAX_AUTH_FILE_BYTES: u64 = 512 * 1024;
 const MAX_LABEL_BYTES: usize = 256;
@@ -713,11 +717,15 @@ pub fn default_fleet_scopes() -> Vec<String> {
         FLEET_SCOPE_CONTENT_READ.to_string(),
         FLEET_SCOPE_DETAIL_READ.to_string(),
         FLEET_SCOPE_EVENTS_READ.to_string(),
+        FLEET_SCOPE_LAUNCH.to_string(),
+        FLEET_SCOPE_MUTATE.to_string(),
         FLEET_SCOPE_REVOKE.to_string(),
         FLEET_SCOPE_ROTATE.to_string(),
         FLEET_SCOPE_HELLO.to_string(),
         FLEET_SCOPE_PROJECTS_READ.to_string(),
         FLEET_SCOPE_SUMMARY_READ.to_string(),
+        FLEET_SCOPE_ATTENTION_READ.to_string(),
+        FLEET_SCOPE_ATTENTION_RESOLVE.to_string(),
     ]
 }
 

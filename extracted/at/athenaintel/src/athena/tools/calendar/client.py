@@ -4,6 +4,7 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.calendar_events_response_out import CalendarEventsResponseOut
 from .raw_client import AsyncRawCalendarClient, RawCalendarClient
 
 
@@ -22,18 +23,56 @@ class CalendarClient:
         """
         return self._raw_client
 
-    def list_events(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
+    def list_events(
+        self,
+        *,
+        title: typing.Optional[str] = None,
+        start: typing.Optional[str] = None,
+        end: typing.Optional[str] = None,
+        location: typing.Optional[str] = None,
+        attendees: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        catalog_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CalendarEventsResponseOut:
         """
-        Coming soon! List calendar events with optional filtering.
+        List events on the calendar of the caller's connected account.
+
+        Reads the primary Google Calendar of a Gmail account or the default calendar
+        of an Outlook account. `start`/`end` select the events overlapping that
+        window; without them, Outlook returns recurring series as single entries, so
+        supply a window to expand them. `title`, `location` and `attendees` filter the
+        events that were read.
 
         Parameters
         ----------
+        title : typing.Optional[str]
+            Text filter. On Outlook this matches the event title only (`contains(subject, …)`); on Google Calendar it is Google's free-text event search (`q`), which also matches the description, location and attendee names.
+
+        start : typing.Optional[str]
+            Window start. `start` and `end` select events that overlap the window: an event that begins before `start` but is still running at `start` is included. ISO 8601 with an explicit UTC offset or Z (e.g. `2026-10-01T00:00:00-04:00`); the instant is forwarded in RFC 3339 form. Recurring series are expanded into their instances inside the window. Given only one bound, Google leaves the other side open while Outlook derives it 60 days away.
+
+        end : typing.Optional[str]
+            Window end (see `start`); must be later than `start` when both are given. ISO 8601 with an explicit UTC offset or Z.
+
+        location : typing.Optional[str]
+            Only events whose location contains this text. Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        attendees : typing.Optional[str]
+            Only events with at least one of these attendee emails (comma-separated). Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        limit : typing.Optional[int]
+            Maximum number of events (1-200).
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        CalendarEventsResponseOut
             Successful Response
 
         Examples
@@ -43,35 +82,20 @@ class CalendarClient:
         client = Athena(
             api_key="YOUR_API_KEY",
         )
-        client.tools.calendar.list_events()
-        """
-        _response = self._raw_client.list_events(request_options=request_options)
-        return _response.data
-
-    def create_event(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Optional[typing.Any]:
-        """
-        Coming soon! Create new calendar events.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.Optional[typing.Any]
-            Successful Response
-
-        Examples
-        --------
-        from athena import Athena
-
-        client = Athena(
-            api_key="YOUR_API_KEY",
+        client.tools.calendar.list_events(
+            limit=50,
         )
-        client.tools.calendar.create_event()
         """
-        _response = self._raw_client.create_event(request_options=request_options)
+        _response = self._raw_client.list_events(
+            title=title,
+            start=start,
+            end=end,
+            location=location,
+            attendees=attendees,
+            limit=limit,
+            catalog_id=catalog_id,
+            request_options=request_options,
+        )
         return _response.data
 
 
@@ -91,19 +115,55 @@ class AsyncCalendarClient:
         return self._raw_client
 
     async def list_events(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+        self,
+        *,
+        title: typing.Optional[str] = None,
+        start: typing.Optional[str] = None,
+        end: typing.Optional[str] = None,
+        location: typing.Optional[str] = None,
+        attendees: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        catalog_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CalendarEventsResponseOut:
         """
-        Coming soon! List calendar events with optional filtering.
+        List events on the calendar of the caller's connected account.
+
+        Reads the primary Google Calendar of a Gmail account or the default calendar
+        of an Outlook account. `start`/`end` select the events overlapping that
+        window; without them, Outlook returns recurring series as single entries, so
+        supply a window to expand them. `title`, `location` and `attendees` filter the
+        events that were read.
 
         Parameters
         ----------
+        title : typing.Optional[str]
+            Text filter. On Outlook this matches the event title only (`contains(subject, …)`); on Google Calendar it is Google's free-text event search (`q`), which also matches the description, location and attendee names.
+
+        start : typing.Optional[str]
+            Window start. `start` and `end` select events that overlap the window: an event that begins before `start` but is still running at `start` is included. ISO 8601 with an explicit UTC offset or Z (e.g. `2026-10-01T00:00:00-04:00`); the instant is forwarded in RFC 3339 form. Recurring series are expanded into their instances inside the window. Given only one bound, Google leaves the other side open while Outlook derives it 60 days away.
+
+        end : typing.Optional[str]
+            Window end (see `start`); must be later than `start` when both are given. ISO 8601 with an explicit UTC offset or Z.
+
+        location : typing.Optional[str]
+            Only events whose location contains this text. Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        attendees : typing.Optional[str]
+            Only events with at least one of these attendee emails (comma-separated). Applied after up to `limit` events have been read from the provider, so narrow the window with `start`/`end` when looking for a specific event.
+
+        limit : typing.Optional[int]
+            Maximum number of events (1-200).
+
+        catalog_id : typing.Optional[str]
+            Connected email account to use, as the catalog asset id returned by the Athena UI or the assets API. Defaults to the caller's default email account. An id that is not one of the caller's own connected accounts in the current workspace is a 404.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        CalendarEventsResponseOut
             Successful Response
 
         Examples
@@ -118,46 +178,21 @@ class AsyncCalendarClient:
 
 
         async def main() -> None:
-            await client.tools.calendar.list_events()
+            await client.tools.calendar.list_events(
+                limit=50,
+            )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_events(request_options=request_options)
-        return _response.data
-
-    async def create_event(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
-        """
-        Coming soon! Create new calendar events.
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.Optional[typing.Any]
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from athena import AsyncAthena
-
-        client = AsyncAthena(
-            api_key="YOUR_API_KEY",
+        _response = await self._raw_client.list_events(
+            title=title,
+            start=start,
+            end=end,
+            location=location,
+            attendees=attendees,
+            limit=limit,
+            catalog_id=catalog_id,
+            request_options=request_options,
         )
-
-
-        async def main() -> None:
-            await client.tools.calendar.create_event()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.create_event(request_options=request_options)
         return _response.data

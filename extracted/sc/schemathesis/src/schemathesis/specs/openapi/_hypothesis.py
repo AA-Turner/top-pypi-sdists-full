@@ -1034,6 +1034,18 @@ def jsonify_python_specific_types(value: Any) -> Any:
     return value
 
 
+def jsonify_query_parameters(value: dict[str, Any], optional: frozenset[str]) -> dict[str, Any]:
+    """Convert query values to their JSON equivalents, omitting optional parameters that carry no value.
+
+    Query strings have no rendering for a JSON null; leaving the parameter out is what "no value" means there.
+    """
+    return {
+        key: jsonify_python_specific_types(item)
+        for key, item in value.items()
+        if item is not None or key not in optional
+    }
+
+
 def _build_custom_formats(generation_config: GenerationConfig, mode: GenerationMode) -> dict[str, st.SearchStrategy]:
     cache_key = (id(generation_config), mode)
     cached = custom_formats_cache.get(cache_key)
@@ -1244,9 +1256,11 @@ def _build_header_formats(generation_config: GenerationConfig, mode: GenerationM
 
 
 def _can_skip_header_filter(schema: dict[str, Any]) -> bool:
-    # All headers should have a known format key in order to avoid the header filter
+    # All headers should have a known format key in order to avoid the header filter.
+    # A header written as a boolean names no format, and claims either every value or none.
     return all(
-        sub_schema.get("format") in _PLAIN_HEADER_FORMATS for sub_schema in schema.get("properties", {}).values()
+        isinstance(sub_schema, dict) and sub_schema.get("format") in _PLAIN_HEADER_FORMATS
+        for sub_schema in schema.get("properties", {}).values()
     )
 
 

@@ -10,8 +10,9 @@ from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
-from ...types.general_agent_request import GeneralAgentRequest
+from ...types.general_agent_config import GeneralAgentConfig
 from ...types.general_agent_response import GeneralAgentResponse
+from ...types.input_message import InputMessage
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -21,64 +22,14 @@ class RawGeneralClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def batch(
-        self, *, request: typing.Sequence[GeneralAgentRequest], request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.List[GeneralAgentResponse]]:
-        """
-        Coming soon! Call the general agent with batched requests and return the results.
-
-        Parameters
-        ----------
-        request : typing.Sequence[GeneralAgentRequest]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[typing.List[GeneralAgentResponse]]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v0/agents/general/batch",
-            method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Sequence[GeneralAgentRequest], direction="write"
-            ),
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.List[GeneralAgentResponse],
-                    parse_obj_as(
-                        type_=typing.List[GeneralAgentResponse],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def invoke(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        config: GeneralAgentConfig,
+        messages: typing.Sequence[InputMessage],
+        channel: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GeneralAgentResponse]:
         """
         Call the general Athena agent synchronously.
@@ -88,7 +39,16 @@ class RawGeneralClient:
 
         Parameters
         ----------
-        request : GeneralAgentRequest
+        config : GeneralAgentConfig
+
+        messages : typing.Sequence[InputMessage]
+            The messages to send to the agent. Each message should be a string (for text inputs) or a list of multimodal content parts.
+
+        channel : typing.Optional[str]
+            The channel through which the request is being made.
+
+        thread_id : typing.Optional[str]
+            Optional thread ID for conversation persistence. If not provided, a new thread will be created.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -101,65 +61,16 @@ class RawGeneralClient:
         _response = self._client_wrapper.httpx_client.request(
             "api/v0/agents/general/invoke",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=GeneralAgentRequest, direction="write"
-            ),
-            headers={
-                "content-type": "application/json",
+            json={
+                "channel": channel,
+                "config": convert_and_respect_annotation_metadata(
+                    object_=config, annotation=GeneralAgentConfig, direction="write"
+                ),
+                "messages": convert_and_respect_annotation_metadata(
+                    object_=messages, annotation=typing.Sequence[InputMessage], direction="write"
+                ),
+                "thread_id": thread_id,
             },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    GeneralAgentResponse,
-                    parse_obj_as(
-                        type_=GeneralAgentResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def stream_events(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[GeneralAgentResponse]:
-        """
-        Coming soon! Call the general agent and stream events for real-time chat applications.
-
-        Parameters
-        ----------
-        request : GeneralAgentRequest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[GeneralAgentResponse]
-            Successful Response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v0/agents/general/stream_events",
-            method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=GeneralAgentRequest, direction="write"
-            ),
             headers={
                 "content-type": "application/json",
             },
@@ -197,64 +108,14 @@ class AsyncRawGeneralClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def batch(
-        self, *, request: typing.Sequence[GeneralAgentRequest], request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.List[GeneralAgentResponse]]:
-        """
-        Coming soon! Call the general agent with batched requests and return the results.
-
-        Parameters
-        ----------
-        request : typing.Sequence[GeneralAgentRequest]
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[typing.List[GeneralAgentResponse]]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v0/agents/general/batch",
-            method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=typing.Sequence[GeneralAgentRequest], direction="write"
-            ),
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    typing.List[GeneralAgentResponse],
-                    parse_obj_as(
-                        type_=typing.List[GeneralAgentResponse],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def invoke(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        config: GeneralAgentConfig,
+        messages: typing.Sequence[InputMessage],
+        channel: typing.Optional[str] = OMIT,
+        thread_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GeneralAgentResponse]:
         """
         Call the general Athena agent synchronously.
@@ -264,7 +125,16 @@ class AsyncRawGeneralClient:
 
         Parameters
         ----------
-        request : GeneralAgentRequest
+        config : GeneralAgentConfig
+
+        messages : typing.Sequence[InputMessage]
+            The messages to send to the agent. Each message should be a string (for text inputs) or a list of multimodal content parts.
+
+        channel : typing.Optional[str]
+            The channel through which the request is being made.
+
+        thread_id : typing.Optional[str]
+            Optional thread ID for conversation persistence. If not provided, a new thread will be created.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -277,65 +147,16 @@ class AsyncRawGeneralClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/v0/agents/general/invoke",
             method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=GeneralAgentRequest, direction="write"
-            ),
-            headers={
-                "content-type": "application/json",
+            json={
+                "channel": channel,
+                "config": convert_and_respect_annotation_metadata(
+                    object_=config, annotation=GeneralAgentConfig, direction="write"
+                ),
+                "messages": convert_and_respect_annotation_metadata(
+                    object_=messages, annotation=typing.Sequence[InputMessage], direction="write"
+                ),
+                "thread_id": thread_id,
             },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    GeneralAgentResponse,
-                    parse_obj_as(
-                        type_=GeneralAgentResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Optional[typing.Any],
-                        parse_obj_as(
-                            type_=typing.Optional[typing.Any],  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def stream_events(
-        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[GeneralAgentResponse]:
-        """
-        Coming soon! Call the general agent and stream events for real-time chat applications.
-
-        Parameters
-        ----------
-        request : GeneralAgentRequest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[GeneralAgentResponse]
-            Successful Response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v0/agents/general/stream_events",
-            method="POST",
-            json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=GeneralAgentRequest, direction="write"
-            ),
             headers={
                 "content-type": "application/json",
             },

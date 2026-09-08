@@ -4,7 +4,7 @@
 //! on the caller's loop thread; other threads only enqueue commands or results.
 
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{BinaryHeap, HashMap, VecDeque};
 use std::fmt;
 use std::future::Future;
 use std::ops::DerefMut;
@@ -16,11 +16,12 @@ use std::task::{Context, Poll, Waker};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use super::callbacks::{CallbackId, CallbackKind, ReadyCallback};
+use super::callbacks::{CallbackArgs, CallbackId, CallbackKind, ReadyCallback};
 use super::commands::{
     LoopCommand, LoopFutureCommand, LoopIoCommand, LoopRunCommand, LoopTransportCommand, ReadyItem,
 };
 use super::dispatcher::run_runtime_thread;
+use super::timer_entry::TimerEntry;
 use crate::context::{capture_context, clear_running_loop, ensure_running_loop};
 use crate::errors::handle_callback_error;
 use crate::fd_ops::RawFd;
@@ -94,10 +95,15 @@ struct WaitForWake {
 }
 
 impl WaitForWake {
+    #[cfg(test)]
     fn new(wake: Arc<LoopWake>, timeout: Duration) -> Self {
+        Self::until(wake, Instant::now() + timeout)
+    }
+
+    fn until(wake: Arc<LoopWake>, deadline: Instant) -> Self {
         Self {
             wake,
-            sleep: Box::pin(crate::vibeio::time::Sleep::new(timeout)),
+            sleep: Box::pin(crate::vibeio::time::Sleep::sleep_until(deadline)),
         }
     }
 }
@@ -151,6 +157,7 @@ impl Future for WaitForWake {
 }
 
 const READY_DRAIN_SLICE: usize = 64;
+const MAX_READY_ITEMS_PER_TURN: usize = 1024;
 const SIGNAL_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const RUN_FINISH_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -162,6 +169,7 @@ struct ActiveLoopTls {
     core: Cell<*const LoopCore>,
     ready_queue: Cell<*mut VecDeque<ReadyItem>>,
     drain_active: Cell<bool>,
+    timers: Cell<*mut BinaryHeap<TimerEntry>>,
 }
 
 thread_local! {
@@ -170,8 +178,75 @@ thread_local! {
             core: Cell::new(std::ptr::null()),
             ready_queue: Cell::new(std::ptr::null_mut()),
             drain_active: Cell::new(false),
+            timers: Cell::new(std::ptr::null_mut()),
         }
     };
+}
+
+/// The active timer heap belongs to this run's thread. A stable allocation
+/// permits callback scheduling through TLS without a mutex or dispatcher hop.
+/// The guard returns outstanding timers when a run ends, including unwinding.
+struct LocalTimers<'a> {
+    core: &'a LoopCore,
+    #[allow(
+        clippy::box_collection,
+        reason = "TLS points to the heap object, whose address must survive moving this guard"
+    )]
+    heap: Box<BinaryHeap<TimerEntry>>,
+}
+
+impl<'a> LocalTimers<'a> {
+    fn new(core: &'a LoopCore) -> Self {
+        let mut heap = Box::new(BinaryHeap::new());
+        ACTIVE_LOOP_TLS.with(|tls| tls.timers.set(&mut *heap));
+        Self { core, heap }
+    }
+
+    fn collect(&mut self, ready: &mut VecDeque<ReadyItem>) {
+        if self.core.pending_timers_dirty.swap(false, Ordering::AcqRel) {
+            self.heap.append(
+                &mut self
+                    .core
+                    .pending_timers
+                    .lock()
+                    .expect("poisoned pending timers"),
+            );
+        }
+        let now = Instant::now();
+        while self
+            .heap
+            .peek()
+            .is_some_and(|entry| entry.when <= now || entry.callback.cancelled())
+        {
+            let entry = self.heap.pop().expect("timer heap was nonempty");
+            // Even cancelled callbacks are released by the ready drain, never
+            // while the heap is mutably borrowed: finalizers can schedule work.
+            ready.push_back(ReadyItem::Callback(entry.callback));
+        }
+    }
+
+    fn deadline(&self) -> Instant {
+        let signal_deadline = Instant::now() + SIGNAL_POLL_INTERVAL;
+        self.heap
+            .peek()
+            .map_or(signal_deadline, |entry| entry.when.min(signal_deadline))
+    }
+}
+
+impl Drop for LocalTimers<'_> {
+    fn drop(&mut self) {
+        ACTIVE_LOOP_TLS.with(|tls| tls.timers.set(std::ptr::null_mut()));
+        if !self.heap.is_empty() {
+            self.core
+                .pending_timers
+                .lock()
+                .expect("poisoned pending timers")
+                .append(&mut self.heap);
+            self.core
+                .pending_timers_dirty
+                .store(true, Ordering::Release);
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -271,6 +346,8 @@ pub struct LoopCore {
     runtime_thread: Mutex<Option<JoinHandle<()>>>,
     runtime_waker: Mutex<Option<Waker>>,
     active_ready_dispatch: Mutex<Option<ActiveReadyDispatch>>,
+    pending_timers: Mutex<BinaryHeap<TimerEntry>>,
+    pending_timers_dirty: AtomicBool,
     // Wakes the loop thread when a producer enqueues a ready item. Held in an
     // Arc so the park future (`WaitForWake`) can own a clone under `py.detach`.
     wake: Arc<LoopWake>,
@@ -293,6 +370,8 @@ impl LoopCore {
             runtime_thread: Mutex::new(None),
             runtime_waker: Mutex::new(None),
             active_ready_dispatch: Mutex::new(None),
+            pending_timers: Mutex::new(BinaryHeap::new()),
+            pending_timers_dirty: AtomicBool::new(false),
             wake: Arc::new(LoopWake::new()),
         });
 
@@ -415,6 +494,30 @@ impl LoopCore {
         Ok(handle)
     }
 
+    /// FASTCALL entry point: no temporary argument tuple for zero/one args.
+    pub(crate) fn schedule_callback_args(
+        self: &Arc<Self>,
+        py: Python<'_>,
+        kind: CallbackKind,
+        callback: Py<PyAny>,
+        args: CallbackArgs,
+        context: Option<Py<PyAny>>,
+    ) -> PyResult<Py<super::callbacks::PyHandle>> {
+        let (context, needs_run) = capture_context(py, context)?;
+        let ready = ReadyCallback::from_args(
+            self.next_callback_id(),
+            kind,
+            callback,
+            args,
+            context,
+            needs_run,
+        );
+        let handle = Py::new(py, super::callbacks::PyHandle::new(ready))?;
+        self.send_command(LoopCommand::ScheduleReadyHandle(handle.clone_ref(py)))
+            .map_err(|err| pyo3::exceptions::PyRuntimeError::new_err(err.to_string()))?;
+        Ok(handle)
+    }
+
     /// Captures context and schedules a callback after `delay`.
     ///
     /// Returns the shared callback and its absolute value on [`LoopCore::time`],
@@ -441,11 +544,36 @@ impl LoopCore {
 
         let when = self.time() + delay.as_secs_f64();
         let deadline = Instant::now() + delay;
-        self.send_command(LoopCommand::ScheduleTimer {
+        let entry = TimerEntry {
             callback: Arc::clone(&ready),
             when: deadline,
-        })
-        .map_err(|err| pyo3::exceptions::PyRuntimeError::new_err(err.to_string()))?;
+            seq: ready.id(),
+        };
+        let remote = ACTIVE_LOOP_TLS.with(|tls| {
+            if std::ptr::eq(tls.core.get(), Arc::as_ptr(self)) && !tls.timers.get().is_null() {
+                // SAFETY: LocalTimers owns this stable heap on the current
+                // thread. No heap borrow crosses callback execution.
+                unsafe { (*tls.timers.get()).push(entry) };
+                None
+            } else {
+                Some(entry)
+            }
+        });
+        if let Some(entry) = remote {
+            let state = self.state.lock().expect("poisoned loop state");
+            if state.closed {
+                return Err(pyo3::exceptions::PyRuntimeError::new_err(
+                    "event loop is closed",
+                ));
+            }
+            self.pending_timers
+                .lock()
+                .expect("poisoned pending timers")
+                .push(entry);
+            self.pending_timers_dirty.store(true, Ordering::Release);
+            drop(state);
+            self.wake.signal();
+        }
         Ok((ready, when))
     }
 
@@ -499,10 +627,11 @@ impl LoopCore {
                 .borrow_mut()
                 .entry(loop_runtime_key)
                 .or_insert_with(|| {
+                    let builder = crate::vibeio::RuntimeBuilder::new()
+                        .rsloop_profile()
+                        .enable_timer(true);
                     std::mem::ManuallyDrop::new(
-                        crate::vibeio::RuntimeBuilder::new()
-                            .rsloop_profile()
-                            .enable_timer(true)
+                        builder
                             .build()
                             .expect("failed to initialize loop-thread vibeio runtime"),
                     )
@@ -511,6 +640,7 @@ impl LoopCore {
 
         ensure_running_loop(py, &loop_obj)?;
         self.mark_runtime_thread();
+        let mut local_timers = LocalTimers::new(self);
         let mut local_ready = VecDeque::new();
         self.install_local_ready_queue(&mut local_ready);
 
@@ -521,10 +651,12 @@ impl LoopCore {
         let mut spin_cooldown: u32 = 0;
         let run_result = loop {
             self.set_ready_drain_active(true);
+            local_timers.collect(&mut local_ready);
 
             let mut ready_error = None;
             let mut deferred_fd_rearms = Vec::new();
             let mut processed_since_refill = 0_usize;
+            let mut processed_this_turn = 0_usize;
             loop {
                 if ready_batch.is_empty() || processed_since_refill >= READY_DRAIN_SLICE {
                     // Every cross-thread producer raises `wake_pending` after
@@ -653,6 +785,14 @@ impl LoopCore {
                         crate::profile_scope!("ready.stream_transport_write");
                         core.flush_pending_direct_write();
                     }
+                    #[cfg(unix)]
+                    ReadyItem::StartTcpReader { fd, core, stream } => {
+                        // The runtime is installed before the ready drain begins.
+                        assert!(self.spawn_io_tracked(
+                            fd,
+                            crate::transport::stream::run_tcp_socket_reader_task(core, stream),
+                        ));
+                    }
                     ReadyItem::ProcessTransport(core) => {
                         crate::profile_scope!("ready.process_transport");
                         core.drain_pending_events_with_py(py)?;
@@ -677,6 +817,15 @@ impl LoopCore {
                 }
 
                 processed_since_refill += 1;
+                processed_this_turn += 1;
+                if processed_this_turn >= MAX_READY_ITEMS_PER_TURN {
+                    // stop() must not truncate callbacks already queued for
+                    // this run merely because we reached the I/O budget.
+                    if !self.state.lock().expect("poisoned loop state").stopping {
+                        break;
+                    }
+                    processed_this_turn = 0;
+                }
             }
 
             self.set_ready_drain_active(false);
@@ -703,6 +852,28 @@ impl LoopCore {
                 continue;
             }
 
+            if self.pending_timers_dirty.load(Ordering::Acquire) {
+                // A producer may have published a timer while the ready drain
+                // cleared the ordinary wake flag. Never park before importing it.
+                continue;
+            }
+            // A missed cross-thread spin suggests progress needs the owning
+            // reactor. During its cooldown, service local readiness before
+            // detaching and constructing a park future. Keep successful
+            // worker-thread ping-pong on its cheaper spin path. As before,
+            // hot Python callback chains must also service local I/O.
+            if !ready_batch.is_empty() || !local_ready.is_empty() || spin_cooldown > 0 {
+                LOOP_RUNTIMES.with(|runtimes| {
+                    runtimes.borrow()[&loop_runtime_key].poll_once();
+                });
+                if !ready_batch.is_empty()
+                    || !local_ready.is_empty()
+                    || self.wake.ready_pending.load(Ordering::Acquire)
+                {
+                    continue;
+                }
+            }
+
             // Wait for the next wakeup with the GIL released. First spin briefly
             // to catch an imminent cross-thread wake (reader worker / runtime
             // thread) in user space — this keeps request/response ping-pong
@@ -713,6 +884,7 @@ impl LoopCore {
             // Keep the `!Send` runtime lookup and future construction inside
             // the closure so the closure itself satisfies PyO3's `Ungil`
             // bound without bypassing PyO3's attachment bookkeeping.
+            let park_deadline = local_timers.deadline();
             py.detach(|| {
                 let mut caught = false;
                 // A spin that times out is pure loss: the loop thread burns a
@@ -726,7 +898,7 @@ impl LoopCore {
                 if spin_window.is_zero() || spin_cooldown > 0 {
                     spin_cooldown = spin_cooldown.saturating_sub(1);
                 } else {
-                    let spin_deadline = Instant::now() + spin_window;
+                    let spin_deadline = (Instant::now() + spin_window).min(park_deadline);
                     'spin: loop {
                         for _ in 0..64 {
                             if self.wake.ready_pending.load(Ordering::Acquire) {
@@ -746,7 +918,7 @@ impl LoopCore {
                     consecutive_spins += 1;
                 } else {
                     consecutive_spins = 0;
-                    let wait = WaitForWake::new(Arc::clone(&self.wake), SIGNAL_POLL_INTERVAL);
+                    let wait = WaitForWake::until(Arc::clone(&self.wake), park_deadline);
                     LOOP_RUNTIMES.with(|runtimes| {
                         let runtimes = runtimes.borrow();
                         let runtime = runtimes
@@ -759,6 +931,7 @@ impl LoopCore {
         };
 
         self.set_ready_drain_active(false);
+        drop(local_timers);
         self.clear_runtime_thread();
         clear_running_loop(py)?;
 
@@ -847,12 +1020,17 @@ impl LoopCore {
             state.closed = true;
         }
 
+        // Release Python callbacks outside the timer mutex (their finalizers
+        // may re-enter the loop). No active LocalTimers exists while stopped.
+        let timers =
+            std::mem::take(&mut *self.pending_timers.lock().expect("poisoned pending timers"));
+        self.pending_timers_dirty.store(false, Ordering::Release);
+        drop(timers);
+
         // Drop this loop's on-thread vibeio runtime now, while the loop thread
         // (and vibeio's own thread-locals) are still alive. Letting it drop
         // during thread destruction trips a TLS-access panic. `close()` runs on
-        // the loop thread with the loop stopped, so no `block_on` is active and
-        // the runtime holds no in-flight tasks yet (I/O still on the runtime
-        // thread in this phase).
+        // the loop thread with the loop stopped, so no `block_on` is active.
         let runtime_key = self as *const LoopCore as usize;
         // Cancel tracked tasks while the runtime and its driver are alive, then
         // drop the runtime after cancellation has released pending operations.
@@ -1030,7 +1208,6 @@ impl LoopCore {
     /// the next time the loop parks in `block_on`; its completions push ready
     /// items and wake the loop **on the same thread**, with no cross-thread hop.
     /// Returns `false` if the loop has no runtime yet (spawned before first run).
-    #[cfg(unix)]
     pub(crate) fn spawn_io<F>(&self, future: F) -> bool
     where
         F: Future<Output = ()> + 'static,
@@ -1178,6 +1355,24 @@ impl LoopCore {
     #[inline]
     fn try_handle_local_command(&self, command: LoopCommand) -> Result<(), LoopCommand> {
         match command {
+            #[cfg(unix)]
+            LoopCommand::Io(LoopIoCommand::StartSocketReader {
+                fd,
+                core,
+                reader: crate::transport::stream::ReaderTarget::Tcp(stream),
+            }) if !core.uses_native_stream_reader() => self
+                .try_enqueue_local_ready(ReadyItem::StartTcpReader { fd, core, stream })
+                .or_else(|item| self.try_enqueue_active_ready(item))
+                .map_err(|item| match item {
+                    ReadyItem::StartTcpReader { fd, core, stream } => {
+                        LoopCommand::Io(LoopIoCommand::StartSocketReader {
+                            fd,
+                            core,
+                            reader: crate::transport::stream::ReaderTarget::Tcp(stream),
+                        })
+                    }
+                    _ => unreachable!("local reader enqueue preserves item kind"),
+                }),
             LoopCommand::ScheduleReady(callback) => self
                 .try_enqueue_local_ready(ReadyItem::Callback(callback))
                 .or_else(|item| self.try_enqueue_active_ready(item))
@@ -1196,6 +1391,14 @@ impl LoopCore {
                     }
                     ReadyItem::StreamTransportWrite(core) => {
                         LoopCommand::Transport(LoopTransportCommand::StreamWrite(core))
+                    }
+                    #[cfg(unix)]
+                    ReadyItem::StartTcpReader { fd, core, stream } => {
+                        LoopCommand::Io(LoopIoCommand::StartSocketReader {
+                            fd,
+                            core,
+                            reader: crate::transport::stream::ReaderTarget::Tcp(stream),
+                        })
                     }
                     ReadyItem::ProcessTransport(core) => {
                         LoopCommand::Transport(LoopTransportCommand::Process(core))
@@ -1328,7 +1531,7 @@ impl LoopCore {
     #[inline]
     fn try_enqueue_local_ready(&self, item: ReadyItem) -> Result<(), ReadyItem> {
         ACTIVE_LOOP_TLS.with(|tls| {
-            if !std::ptr::eq(tls.core.get(), self) || !tls.drain_active.get() {
+            if !std::ptr::eq(tls.core.get(), self) {
                 return Err(item);
             }
 
@@ -1337,8 +1540,16 @@ impl LoopCore {
                 return Err(item);
             }
 
-            // SAFETY: `ready` points to the stack-local queue owned by `run_forever` on this thread.
+            // SAFETY: `ready` points to run_forever's stack-local queue on this
+            // thread. Neither callback invocation nor runtime polling holds a
+            // mutable reference to it across this call.
             unsafe { (*ready).push_back(item) };
+            if !tls.drain_active.get() {
+                // I/O futures are polled with Python detached, but still on
+                // this thread. Wake the park future without locking the
+                // cross-thread pending queue for each transport event.
+                self.wake.signal();
+            }
             Ok(())
         })
     }

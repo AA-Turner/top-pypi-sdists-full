@@ -165,7 +165,7 @@ class AcousticField(ABC):
 
     ## TOOLS METHODS ##
 
-    def generate_field(self, isGPU=None, GPUdevice=None,tempFieldName="Kwave", generation_type="envelope_squarred", show_log=False):
+    def generate_field(self, burst=None, isGPU=None, GPUdevice=None,tempFieldName="Kwave", generation_type="envelope_squarred", show_log=False):
         """
         Generate the acoustic field based on the specified simulation type and parameters.
         """
@@ -177,11 +177,11 @@ class AcousticField(ABC):
             if self.params.acoustic['typeSim'] == TypeSim.FIELD2.value:
                 raise NotImplementedError("[AOT-biomaps] FIELD2 simulation is not implemented yet.")
             elif self.params.acoustic['typeSim'] == TypeSim.SIMPLE_SIM.value:
-                self.field = self._generate_acoustic_field_SIMPLE_SIM(show_log)
+                self.field = self._generate_acoustic_field_SIMPLE_SIM(burst=burst, show_log=show_log)
             elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
                 if self.params.acoustic["dim"] == Dim.D2.value:
                     try:
-                        field = self._generate_acoustic_field_KWAVE_2D(isGPU, GPUdevice, tempFieldName=tempFieldName, show_log=show_log)
+                        field = self._generate_acoustic_field_KWAVE_2D(burst, isGPU, GPUdevice, tempFieldName=tempFieldName, show_log=show_log)
                     except Exception as e:
                         raise RuntimeError(f"[AOT-biomaps] Failed to generate 2D acoustic field: {e}")
                     if generation_type == "envelope_squarred":
@@ -445,7 +445,7 @@ class AcousticField(ABC):
     ## PRIVATE METHODS ##
 
     @abstractmethod
-    def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
+    def _generate_acoustic_field_SIMPLE_SIM(self, burst=None, show_log=False):
         pass
 
     def generate_burst_signal(self):
@@ -466,7 +466,7 @@ class AcousticField(ABC):
             print(f"[AOT-biomaps] Error in _generate_burst_signal method: {e}")
             raise
 
-    def _generate_acoustic_field_KWAVE_2D(self, isGPU=None, GPUdevice=None, tempFieldName="Kwave", show_log=True):
+    def _generate_acoustic_field_KWAVE_2D(self, burst=None, isGPU=None, GPUdevice=None, tempFieldName="Kwave", show_log=True):
         """
         Base function to generate a 2D acoustic field using k-Wave.
         Handles common setup, simulation, and post-processing.
@@ -484,7 +484,7 @@ class AcousticField(ABC):
             source = kSource()
             source.p_mask = np.zeros((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)
             
-            source = self._set_up_source(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean, self.medium.factorT)
+            source = self._set_up_source(source, self.medium.Nx_reshaped, self.medium.kgrid.dt, self.medium.dx_reshaped, self.medium.c_mean, self.medium.factorT, burst=burst)
 
             sensor = kSensor()
             sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped), dtype=bool)

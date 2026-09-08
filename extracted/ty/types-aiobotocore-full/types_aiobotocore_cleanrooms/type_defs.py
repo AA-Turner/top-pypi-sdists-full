@@ -25,7 +25,9 @@ from .literals import (
     AccessBudgetTypeType,
     AdditionalAnalysesType,
     AggregateFunctionNameType,
+    AllowedAggregateExpressionTypeType,
     AnalysisFormatType,
+    AnalysisLogExportStatusType,
     AnalysisMethodType,
     AnalysisRuleTypeType,
     AnalysisTemplateValidationStatusType,
@@ -91,6 +93,14 @@ __all__ = (
     "AggregateColumnOutputTypeDef",
     "AggregateColumnTypeDef",
     "AggregationConstraintTypeDef",
+    "AggregationThresholdOutputTypeDef",
+    "AggregationThresholdTypeDef",
+    "AnalysisLogExportErrorTypeDef",
+    "AnalysisLogExportOutputConfigurationTypeDef",
+    "AnalysisLogExportResultConfigurationTypeDef",
+    "AnalysisLogExportS3OutputConfigurationTypeDef",
+    "AnalysisLogExportSummaryTypeDef",
+    "AnalysisLogExportTypeDef",
     "AnalysisParameterTypeDef",
     "AnalysisRuleAggregationOutputTypeDef",
     "AnalysisRuleAggregationTypeDef",
@@ -157,6 +167,8 @@ __all__ = (
     "ColumnClassificationDetailsTypeDef",
     "ColumnLineageEntryTypeDef",
     "ColumnTypeDef",
+    "ComparisonControlsOutputTypeDef",
+    "ComparisonControlsTypeDef",
     "ComputeConfigurationOutputTypeDef",
     "ComputeConfigurationTypeDef",
     "ComputeConfigurationUnionTypeDef",
@@ -250,6 +262,8 @@ __all__ = (
     "DirectAnalysisConfigurationDetailsTypeDef",
     "DisallowIntermediateTableInputTypeDef",
     "ErrorMessageConfigurationTypeDef",
+    "GetAnalysisLogExportInputTypeDef",
+    "GetAnalysisLogExportOutputTypeDef",
     "GetAnalysisTemplateInputTypeDef",
     "GetAnalysisTemplateOutputTypeDef",
     "GetCollaborationAnalysisTemplateInputTypeDef",
@@ -335,6 +349,9 @@ __all__ = (
     "IntermediateTableTypeDef",
     "IntermediateTableVersionSummaryTypeDef",
     "JobComputePaymentConfigTypeDef",
+    "ListAnalysisLogExportsInputPaginateTypeDef",
+    "ListAnalysisLogExportsInputTypeDef",
+    "ListAnalysisLogExportsOutputTypeDef",
     "ListAnalysisTemplatesInputPaginateTypeDef",
     "ListAnalysisTemplatesInputTypeDef",
     "ListAnalysisTemplatesOutputTypeDef",
@@ -429,6 +446,7 @@ __all__ = (
     "MembershipTypeDef",
     "ModelInferencePaymentConfigTypeDef",
     "ModelTrainingPaymentConfigTypeDef",
+    "OutputColumnThresholdTypeDef",
     "PaginatorConfigTypeDef",
     "PaymentConfigurationTypeDef",
     "PopulateIdMappingTableInputTypeDef",
@@ -514,6 +532,8 @@ __all__ = (
     "SnowflakeTableSchemaOutputTypeDef",
     "SnowflakeTableSchemaTypeDef",
     "SnowflakeTableSchemaV1TypeDef",
+    "StartAnalysisLogExportInputTypeDef",
+    "StartAnalysisLogExportOutputTypeDef",
     "StartProtectedJobInputTypeDef",
     "StartProtectedJobOutputTypeDef",
     "StartProtectedQueryInputTypeDef",
@@ -607,6 +627,31 @@ AggregationConstraintTypeDef = TypedDict(
         "type": Literal["COUNT_DISTINCT"],
     },
 )
+
+
+class OutputColumnThresholdTypeDef(TypedDict):
+    outputColumnName: str
+    minimumIdentityCount: int
+
+
+class AnalysisLogExportErrorTypeDef(TypedDict):
+    code: str
+    message: str
+
+
+class AnalysisLogExportS3OutputConfigurationTypeDef(TypedDict):
+    bucket: str
+    keyPrefix: NotRequired[str]
+
+
+class AnalysisLogExportSummaryTypeDef(TypedDict):
+    analysisLogExportId: str
+    analysisId: str
+    analysisType: Literal["PROTECTED_QUERY"]
+    status: AnalysisLogExportStatusType
+    createTime: datetime
+
+
 AnalysisParameterTypeDef = TypedDict(
     "AnalysisParameterTypeDef",
     {
@@ -615,6 +660,16 @@ AnalysisParameterTypeDef = TypedDict(
         "defaultValue": NotRequired[str],
     },
 )
+
+
+class ComparisonControlsOutputTypeDef(TypedDict):
+    allowedLiteralComparisonColumns: list[str]
+    allowedColumnComparisonColumns: list[str]
+
+
+class ComparisonControlsTypeDef(TypedDict):
+    allowedLiteralComparisonColumns: Sequence[str]
+    allowedColumnComparisonColumns: Sequence[str]
 
 
 class AnalysisRuleListOutputTypeDef(TypedDict):
@@ -1149,6 +1204,11 @@ class DisallowIntermediateTableInputTypeDef(TypedDict):
     includeDescendants: NotRequired[bool]
 
 
+class GetAnalysisLogExportInputTypeDef(TypedDict):
+    membershipIdentifier: str
+    analysisLogExportIdentifier: str
+
+
 class GetAnalysisTemplateInputTypeDef(TypedDict):
     membershipIdentifier: str
     analysisTemplateIdentifier: str
@@ -1376,6 +1436,14 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+
+class ListAnalysisLogExportsInputTypeDef(TypedDict):
+    membershipIdentifier: str
+    analysisIdentifier: NotRequired[str]
+    status: NotRequired[AnalysisLogExportStatusType]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 
 class ListAnalysisTemplatesInputTypeDef(TypedDict):
@@ -1831,6 +1899,32 @@ class ConsolidatedPolicyAggregationTypeDef(TypedDict):
     allowedAdditionalAnalyses: NotRequired[list[str]]
 
 
+AggregationThresholdOutputTypeDef = TypedDict(
+    "AggregationThresholdOutputTypeDef",
+    {
+        "identityColumns": list[str],
+        "minimumIdentityCount": int,
+        "type": Literal["COUNT_DISTINCT"],
+        "allowedAggregateExpressionType": AllowedAggregateExpressionTypeType,
+        "outputColumnThresholds": NotRequired[list[OutputColumnThresholdTypeDef]],
+    },
+)
+AggregationThresholdTypeDef = TypedDict(
+    "AggregationThresholdTypeDef",
+    {
+        "identityColumns": Sequence[str],
+        "minimumIdentityCount": int,
+        "type": Literal["COUNT_DISTINCT"],
+        "allowedAggregateExpressionType": AllowedAggregateExpressionTypeType,
+        "outputColumnThresholds": NotRequired[Sequence[OutputColumnThresholdTypeDef]],
+    },
+)
+
+
+class AnalysisLogExportOutputConfigurationTypeDef(TypedDict):
+    s3: AnalysisLogExportS3OutputConfigurationTypeDef
+
+
 AnalysisSchemaUnionTypeDef = Union[AnalysisSchemaTypeDef, AnalysisSchemaOutputTypeDef]
 
 
@@ -1851,6 +1945,12 @@ AnalysisTemplateValidationStatusDetailTypeDef = TypedDict(
         "reasons": NotRequired[list[AnalysisTemplateValidationStatusReasonTypeDef]],
     },
 )
+
+
+class ListAnalysisLogExportsOutputTypeDef(TypedDict):
+    analysisLogExports: list[AnalysisLogExportSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class ListAnalysisTemplatesOutputTypeDef(TypedDict):
@@ -2235,6 +2335,13 @@ class ListIntermediateTableVersionsOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListAnalysisLogExportsInputPaginateTypeDef(TypedDict):
+    membershipIdentifier: str
+    analysisIdentifier: NotRequired[str]
+    status: NotRequired[AnalysisLogExportStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListAnalysisTemplatesInputPaginateTypeDef(TypedDict):
     membershipIdentifier: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -2494,6 +2601,10 @@ class PrivacyBudgetTemplateUpdateParametersTypeDef(TypedDict):
     accessBudget: NotRequired[AccessBudgetsPrivacyTemplateUpdateParametersTypeDef]
 
 
+class AnalysisLogExportResultConfigurationTypeDef(TypedDict):
+    outputConfiguration: AnalysisLogExportOutputConfigurationTypeDef
+
+
 class AnalysisSourceMetadataTypeDef(TypedDict):
     artifacts: NotRequired[AnalysisTemplateArtifactMetadataTypeDef]
 
@@ -2611,6 +2722,8 @@ class AnalysisRuleCustomOutputTypeDef(TypedDict):
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
     disallowedOutputColumns: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
+    aggregationThresholds: NotRequired[list[AggregationThresholdOutputTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsOutputTypeDef]
     allowedResultReceivers: NotRequired[list[str]]
     allowedAdditionalAnalyses: NotRequired[list[str]]
 
@@ -2621,6 +2734,8 @@ class ConsolidatedPolicyCustomTypeDef(TypedDict):
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
     disallowedOutputColumns: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
+    aggregationThresholds: NotRequired[list[AggregationThresholdOutputTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsOutputTypeDef]
     allowedResultReceivers: NotRequired[list[str]]
     allowedAdditionalAnalyses: NotRequired[list[str]]
 
@@ -2633,6 +2748,8 @@ class IntermediateTableAnalysisRuleCustomOutputTypeDef(TypedDict):
     allowedResultReceivers: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
     disallowedOutputColumns: NotRequired[list[str]]
+    aggregationThresholds: NotRequired[list[AggregationThresholdOutputTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsOutputTypeDef]
 
 
 class AnalysisRuleCustomTypeDef(TypedDict):
@@ -2641,6 +2758,8 @@ class AnalysisRuleCustomTypeDef(TypedDict):
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
     disallowedOutputColumns: NotRequired[Sequence[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationTypeDef]
+    aggregationThresholds: NotRequired[Sequence[AggregationThresholdTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsTypeDef]
     allowedResultReceivers: NotRequired[Sequence[str]]
     allowedAdditionalAnalyses: NotRequired[Sequence[str]]
 
@@ -2653,6 +2772,8 @@ class IntermediateTableAnalysisRuleCustomTypeDef(TypedDict):
     allowedResultReceivers: NotRequired[Sequence[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationTypeDef]
     disallowedOutputColumns: NotRequired[Sequence[str]]
+    aggregationThresholds: NotRequired[Sequence[AggregationThresholdTypeDef]]
+    comparisonControls: NotRequired[ComparisonControlsTypeDef]
 
 
 class PrivacyImpactTypeDef(TypedDict):
@@ -2864,6 +2985,25 @@ class UpdatePrivacyBudgetTemplateInputTypeDef(TypedDict):
     privacyBudgetTemplateIdentifier: str
     privacyBudgetType: PrivacyBudgetTypeType
     parameters: NotRequired[PrivacyBudgetTemplateUpdateParametersTypeDef]
+
+
+class AnalysisLogExportTypeDef(TypedDict):
+    analysisLogExportId: str
+    analysisId: str
+    analysisType: Literal["PROTECTED_QUERY"]
+    membershipId: str
+    status: AnalysisLogExportStatusType
+    resultConfiguration: AnalysisLogExportResultConfigurationTypeDef
+    createTime: datetime
+    updateTime: datetime
+    error: NotRequired[AnalysisLogExportErrorTypeDef]
+
+
+class StartAnalysisLogExportInputTypeDef(TypedDict):
+    membershipIdentifier: str
+    analysisId: str
+    analysisType: Literal["PROTECTED_QUERY"]
+    resultConfiguration: AnalysisLogExportResultConfigurationTypeDef
 
 
 class AnalysisSourceOutputTypeDef(TypedDict):
@@ -3242,6 +3382,16 @@ class GetPrivacyBudgetTemplateOutputTypeDef(TypedDict):
 
 class UpdatePrivacyBudgetTemplateOutputTypeDef(TypedDict):
     privacyBudgetTemplate: PrivacyBudgetTemplateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAnalysisLogExportOutputTypeDef(TypedDict):
+    analysisLogExport: AnalysisLogExportTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartAnalysisLogExportOutputTypeDef(TypedDict):
+    analysisLogExport: AnalysisLogExportTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

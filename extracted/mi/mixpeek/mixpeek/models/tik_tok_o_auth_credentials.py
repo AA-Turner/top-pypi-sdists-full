@@ -26,11 +26,11 @@ from typing_extensions import Self
 
 class TikTokOAuthCredentials(BaseModel):
     """
-    Credentials for TikTok Content API OAuth2 authentication.  TikTok uses OAuth2 via TikTok Login Kit. Access tokens are short-lived (24 hours) and must be refreshed using the refresh token.  Prerequisites:     - TikTok Developer account with an approved app     - App must have user.info.basic and video.list scopes  Security:     - client_secret, access_token, and refresh_token encrypted at rest via CSFLE     - Access tokens expire in 24h; refresh tokens used for renewal     - Token refresh happens automatically during sync execution
+    Credentials for TikTok Content API OAuth2 authentication.  TikTok uses OAuth2 via TikTok Login Kit. Access tokens are short-lived (24 hours) and must be refreshed using the refresh token.  Prerequisites:     - TikTok Developer account with an approved app     - App must have user.info.basic and video.list scopes  Security:     - client_secret, access_token, and refresh_token are secret credentials, redacted on read     - Access tokens expire in 24h; refresh tokens used for renewal     - Token refresh happens automatically during sync execution
     """ # noqa: E501
     type: Optional[StrictStr] = 'oauth'
     client_key: StrictStr = Field(description="TikTok App Client Key from Developer Portal.")
-    client_secret: StrictStr = Field(description="SECURITY: Encrypted at rest via CSFLE. TikTok App Client Secret from Developer Portal.")
+    client_secret: StrictStr = Field(description="SECURITY: Secret credential, redacted on read. Never log or expose. TikTok App Client Secret from Developer Portal.")
     access_token: StrictStr = Field(description="SECURITY: Encrypted at rest. TikTok access token (24h validity).")
     refresh_token: StrictStr = Field(description="SECURITY: Encrypted at rest. Used to obtain new access tokens.")
     token_expires_at: Optional[datetime] = Field(default=None, description="Access token expiration timestamp.")

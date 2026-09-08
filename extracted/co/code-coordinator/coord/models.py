@@ -8,6 +8,8 @@ from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from coord.uat_checks import UatCheckConfig
+
 # #316: pattern that distinguishes a file-path value for `new_issue_guidance`
 # from inline markdown text.  Matches paths like `docs/ISSUE_GUIDANCE.md` or
 # `GUIDANCE.txt` but not multi-line or space-containing strings.
@@ -154,6 +156,16 @@ class Repo:
     # URL of any kind and must be read from the GitHub Deployment the CI
     # action creates per PR (`coord.github_ops.get_pr_deployment_url`).
     uat_live_preview: bool = False
+    # #3198: declared, machine-checkable UAT assertions -- the third way to
+    # satisfy the UAT gate, alongside an operator's `coord uat --passed` and
+    # a customer's portal sign-off (#3188). `None` (the default) means "no
+    # declared checks" -- the gate stays exactly as human as it always was.
+    # See `coord.uat_checks` for the assertion vocabulary and the safety
+    # rationale, and `coord.merge_queue._run_declared_uat_checks` for how a
+    # passing evaluation is folded into the SAME `uat_state`/`uat_reason`
+    # `coord uat --passed` writes (attributed to `actor="checker"`), so
+    # `evaluate_uat_verdict` never needs to know a third path exists.
+    uat_checks: UatCheckConfig | None = None
 
     def resolve_uat_preview_url(
         self,
@@ -802,6 +814,28 @@ class Assignment:
     # there's nothing to mechanically re-verify against a moved SHA.
     uat_state: str | None = None
     uat_reason: str | None = None
+    # #3188: WHO recorded uat_state/uat_reason -- "customer" (the portal's
+    # preview sign-off, `preview.approved`/`preview.changes_requested` via
+    # `coord.portal_sync._consume_preview_verdicts`) or "operator" (`coord
+    # uat <id> --passed|--failed`, the only source before #3188 and still
+    # the default an operator call records). None for rows predating this
+    # column, treated identically to "operator" everywhere it's read.
+    # Attribution only -- `coord.merge_queue.evaluate_uat_verdict` does not
+    # read this field and does not need to: it is the exact same uat_state/
+    # uat_reason `coord uat --passed` already wrote, so there remains
+    # exactly one function answering "is UAT ok" regardless of who supplied
+    # the verdict (#2096, "one question, one answer").
+    uat_actor: str | None = None
+    # #3188: the ONE verdict `uat_state`/`uat_reason`/`uat_actor` just
+    # replaced, JSON-encoded (``{"state", "reason", "actor"}``) — set only
+    # when `coord.state.record_uat_verdict` actually overrides a prior,
+    # different verdict (a customer's `changes_requested` overwritten by a
+    # later operator `--passed`, or the reverse). None when no override has
+    # happened. Not a full history — the audit log is — just enough for a
+    # caller displaying the current verdict to also show the one it
+    # replaced, so an override can never read as if the earlier verdict
+    # never existed.
+    uat_prior: str | None = None
     # #1479: staleness anchor for a terminal (passed/skipped) Test-gate
     # verdict — captured once, best-effort, when the verdict is recorded
     # (``coord.state._record_test_verdict_local``). Mirrors the review gate's
@@ -851,7 +885,7 @@ class Assignment:
     # --verdict` posted by an operator, not parsed from the reviewer's own
     # log) is otherwise indistinguishable from one the reviewer agent
     # produced itself — every downstream reader (merge gate, `coord gates`,
-    # the TUI) sees a plain "approve" either way. Three values:
+    # the TUI) sees a plain "approve" either way. Four values:
     #   "agent"      — parsed from the reviewer's own transcript (the
     #                  overwhelming common case; also the default when this
     #                  column is NULL, for every row predating this feature).
@@ -867,6 +901,15 @@ class Assignment:
     #                  when the override happened automatically (#476); a
     #                  manual override may have no prior agent verdict at
     #                  all (e.g. an interactive review that never finished).
+    #   "mechanical" — (#3180) request-changes recorded WITHOUT ever
+    #                  dispatching a reviewer session at all: the diff trips
+    #                  a rule (coordinator-owned doc / sealed path) that
+    #                  `coord.review.build_review_briefing` already computes,
+    #                  unconditionally, at prompt-assembly time — spending a
+    #                  review leg to have an LLM read the same banner and
+    #                  agree with it added no information. There is no
+    #                  reviewer transcript behind this verdict at all, unlike
+    #                  every other source above.
     # `verdict_source_reason` is a required, human-readable justification for
     # anything that isn't "agent" — see issue_store._validate_result.
     verdict_source: str | None = None

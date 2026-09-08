@@ -39,6 +39,7 @@ from collections import namedtuple
 from peewee import *
 from peewee import is_model
 from peewee import sort_models
+from playhouse.fields import EnumFieldMixin
 from playhouse.migrate import SchemaMigrator
 from playhouse.migrate import make_index_name
 
@@ -312,6 +313,9 @@ def _build_field_args(field, imports, todos, targets=None, unbound=False):
 
 def _build_field(field, imports, todos, targets=None, unbound=False):
     cls = type(field)
+    if isinstance(field, EnumFieldMixin):
+        # Emit the storage type so the file does not depend on the enum.
+        cls = next(c for c in cls.__mro__ if c.__module__ == 'peewee')
     if cls.__module__ != 'peewee':
         imports.add('from %s import %s' % (cls.__module__, cls.__name__))
 

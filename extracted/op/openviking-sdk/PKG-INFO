@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking-sdk
-Version: 0.1.9
+Version: 0.1.10
 Summary: Lightweight Python HTTP SDK for OpenViking
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

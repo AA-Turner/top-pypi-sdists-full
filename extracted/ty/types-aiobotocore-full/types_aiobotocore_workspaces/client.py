@@ -424,7 +424,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[CreateWorkspacesPoolRequestTypeDef]
     ) -> CreateWorkspacesPoolResultTypeDef:
         """
-        Creates a pool of WorkSpaces.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/create_workspaces_pool.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#create_workspaces_pool)
@@ -760,7 +761,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeWorkspacesPoolSessionsRequestTypeDef]
     ) -> DescribeWorkspacesPoolSessionsResultTypeDef:
         """
-        Retrieves a list that describes the streaming sessions for a specified pool.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/describe_workspaces_pool_sessions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#describe_workspaces_pool_sessions)
@@ -770,7 +772,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeWorkspacesPoolsRequestTypeDef]
     ) -> DescribeWorkspacesPoolsResultTypeDef:
         """
-        Describes the specified WorkSpaces Pools.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/describe_workspaces_pools.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#describe_workspaces_pools)
@@ -1072,7 +1075,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[StartWorkspacesPoolRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Starts the specified pool.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/start_workspaces_pool.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#start_workspaces_pool)
@@ -1092,7 +1096,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[StopWorkspacesPoolRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Stops the specified pool.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/stop_workspaces_pool.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#stop_workspaces_pool)
@@ -1112,7 +1117,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[TerminateWorkspacesPoolRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Terminates the specified pool.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/terminate_workspaces_pool.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#terminate_workspaces_pool)
@@ -1122,7 +1128,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[TerminateWorkspacesPoolSessionRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Terminates the pool session.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/terminate_workspaces_pool_session.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#terminate_workspaces_pool_session)
@@ -1185,7 +1192,8 @@ class WorkSpacesClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateWorkspacesPoolRequestTypeDef]
     ) -> UpdateWorkspacesPoolResultTypeDef:
         """
-        Updates the specified pool.
+        End of support notice: On December 31, 2027, Amazon Web Services will end
+        support for Amazon WorkSpaces Pools.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces/client/update_workspaces_pool.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/client/#update_workspaces_pool)

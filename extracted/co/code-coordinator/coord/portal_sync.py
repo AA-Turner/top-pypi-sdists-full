@@ -26,34 +26,65 @@ One pass, in this order:
    re-processes that event next tick rather than dropping the client's
    feedback or skipping past it. An ``approved`` verdict is deliberately
    left alone here — see :func:`_consume_verdicts`.
-3. **Ledger question answers** (#2749, IL-3) — the running-context ledger's
+3. **Consume preview verdicts** (#3188) — the UAT-gate sibling of step 2,
+   walking its OWN private watermark
+   (:func:`coord.portal_store.events_after_preview_verdict_watermark`) over
+   the same inbox. For each ``preview.approved``/``preview.
+   changes_requested`` event, resolve the linked issue (#2665 issue-scoped
+   ``coord portal link`` only — a preview is one PR's deployment, never a
+   whole milestone's) and record the matching pre-merge UAT verdict
+   (:func:`coord.state.record_uat_verdict`, ``actor="customer"``) on that
+   issue's current work assignment — the exact same ``uat_state``/
+   ``uat_reason`` ``coord uat --passed|--failed`` already writes, so
+   :func:`coord.merge_queue.evaluate_uat_verdict` needs no second source of
+   truth for "is UAT ok". Same consumed-only-on-success watermark discipline
+   as step 2. See :func:`_consume_preview_verdicts`.
+4. **Ledger question answers** (#2749, IL-3) — the running-context ledger's
    consumer: walk events pulled but not yet scanned by THIS consumer (its
    own watermark, independent of both ``handled_at`` and the verdict
    consumer's watermark) and, for each ``question.answered`` event, append
    an immutable ``portal_ledger`` row pairing the answer with the question
    that prompted it, then nudge the submission's customer status off
    ``needs-input``. See :func:`_consume_questions`.
-4. **Ledger relayed-answer confirmations** (#2987) — the client's half of
+5. **Ledger relayed-answer confirmations** (#2987) — the client's half of
    the loop #2986 started: walk events pulled but not yet scanned by THIS
    consumer (again its own watermark) and, for each
    ``relayed_answer.confirmed`` event, append an immutable
    ``portal_ledger`` row marking the relayed answer client-confirmed, then
    nudge the submission's customer status off ``needs-input`` the same way
-   step 3 does. A CORRECTION needs no consumer here — it arrives as an
-   ordinary ``question.answered`` event and step 3 above already ledgers it
+   step 4 does. A CORRECTION needs no consumer here — it arrives as an
+   ordinary ``question.answered`` event and step 4 above already ledgers it
    as a normal client-authored answer, which is exactly "lands as a normal
    answer that supersedes it, both remain visible". See
    :func:`_consume_relayed_answer_confirmations`.
-5. **Fold status** (#2588, widened by #3106) — every linked milestone
+6. **Fold status** (#2588, widened by #3106) — every linked milestone
    (``coord portal link``, #2507/PDR-1) has its issues folded into one
    customer status (:func:`fold_submission_status`: planned / in-progress /
    shipped / post-shipped) and, if it changed since the last push, enqueued
    — the automatic caller `enqueue_status` never had before this issue. See
    :func:`sync_submission_statuses`.
-6. **Push** — coord-authored facts from the outbox (design rounds · status ·
+7. **Consume draft verdicts** (#3178, coord-portal#318's companion) — walk
+   events pulled but not yet acted on by THIS consumer (filtered by ``kind``
+   and the plain shared ``handled_at`` column — see
+   :func:`coord.portal_store.outbound_draft_verdict_events` for why this one
+   consumer, uniquely, does not need a private watermark of its own) and,
+   for each ``outbound_draft.approved`` / ``outbound_draft.rejected`` event,
+   apply the operator's verdict to the matching **local** ``draft`` outbox
+   row through the exact same store functions ``coord portal draft
+   approve``/``reject`` already call —
+   :func:`coord.portal_store.edit_draft`/:func:`~coord.portal_store.
+   approve_draft`/:func:`~coord.portal_store.reject_draft` — so the CLI and
+   the portal can never disagree about what "approved" means. Run BEFORE
+   push, so a draft released from the portal this tick sends this same tick.
+   See :func:`_consume_draft_verdicts`.
+8. **Publish pending drafts** (#3178) — assert every row still sitting in
+   ``portal_store.STATE_DRAFT`` to coord-portal's own mirror of the queue
+   (``POST /api/bridge/outbound-drafts``), so the operator's screen there has
+   something to review, edit and decide on. See :func:`_publish_pending_drafts`.
+9. **Push** — coord-authored facts from the outbox (design rounds · status ·
    open questions · relayed answers), one row at a time, in per-submission
    FIFO order.
-7. **Heartbeat** — say the daemon is alive.
+10. **Heartbeat** — say the daemon is alive.
 
 Each phase is independently guarded: a portal outage, a rejected field, or a
 malformed event can never crash the tick or silence the other two phases (the
@@ -98,6 +129,14 @@ per kind (``portal.approval`` in coordinator.yml, default: gate the two
 prose kinds, pass ``status``/``preview`` straight through) and is read in
 exactly one place, :func:`initial_outbox_state`.
 
+**The draft gate's portal surface (#3178, coord-portal#318's companion).**
+Phases 7 and 8 above are what make a ``draft`` row visible and decidable from
+coord-portal's own operator screen, not only from ``coord portal drafts`` in
+a terminal. There is still exactly ONE gate and ONE set of state transitions
+— :mod:`coord.portal_store`'s draft-gate functions — the portal is just a
+second caller of them, alongside the CLI. Neither surface writes
+``portal_outbox`` any other way.
+
 **Idempotency and replay.** Inbound events dedupe on the portal's own event
 id; the cursor advances only after a page commits. Outbound rows allocate
 ``(seq, revision)`` once and keep it across every retry. A daemon that dies
@@ -126,6 +165,8 @@ from coord import portal_store
 from coord.portal_bridge import (
     BridgeUpdate,
     COORD_OWNED_FIELDS,
+    MAX_OUTBOUND_DRAFTS_PUSH,
+    OutboundDraftUpdate,
     PortalBridgeError,
     SUBMISSION_STATUSES,
     client_from_config,
@@ -241,6 +282,47 @@ MAX_QUESTION_PAGES = 10
 MAX_RELAYED_ANSWER_EVENTS_PER_TICK = 100
 MAX_RELAYED_ANSWER_PAGES = 10
 
+#: The outbound-draft VERDICT consumer's per-tick page size / page count
+#: (#3178) — same shape as `MAX_QUESTION_EVENTS_PER_TICK`/`MAX_QUESTION_PAGES`
+#: above, but this one walks `portal_store.outbound_draft_verdict_events`
+#: (the shared `handled_at` column, not a private watermark) — see that
+#: function's own docstring for why that is safe here specifically.
+MAX_DRAFT_VERDICT_EVENTS_PER_TICK = 100
+MAX_DRAFT_VERDICT_PAGES = 10
+
+#: The preview-verdict consumer's per-tick page size / page count (#3188) —
+#: same shape and same reasoning as `MAX_VERDICTS_PER_TICK`/
+#: `MAX_VERDICT_PAGES` above (a private watermark walk, bounded per tick so
+#: a large one-time backlog drains over a handful of ticks rather than
+#: blocking the rest of the pass). See :func:`_consume_preview_verdicts`.
+MAX_PREVIEW_VERDICTS_PER_TICK = 100
+MAX_PREVIEW_VERDICT_PAGES = 10
+
+#: The actor name attached to a ledger entry (`draft_edited`/`draft_approved`/
+#: `draft_rejected`) recorded because of a decision made IN THE PORTAL rather
+#: than `coord portal draft *` — the pulled event carries no operator email
+#: (`outbound_draft.approved`/`.rejected`'s payload is `{draft_id, kind[,
+#: fields]}`, coord-portal#318's own wire shape), so this is the best
+#: identity coord can attach. Distinct from an empty string (an unspecified
+#: CLI actor) so the ledger can still tell "someone typed a command" apart
+#: from "the portal told us".
+DRAFT_VERDICT_ACTOR = "portal"
+
+#: Wire field name (what an operator reads and edits on the portal screen)
+#: paired with the internal dotted path `portal_store.EDITABLE_DRAFT_FIELDS`
+#: names for it, for each kind that has exactly one editable prose field
+#: (#3178). `status`/`preview` are deliberately absent: neither has an entry
+#: in `EDITABLE_DRAFT_FIELDS` — their one field is a reference/fact, not
+#: prose — so :func:`_draft_wire_fields` publishes them read-only under their
+#: own natural key instead, and any edit the portal sends back for them is
+#: ignored rather than routed through `edit_draft` (which would refuse it
+#: anyway — see that function's own docstring).
+_DRAFT_WIRE_FIELD: dict[str, tuple[str, str]] = {
+    KIND_QUESTION: ("question", "question"),
+    KIND_DESIGN_ROUND: ("outcome_definition", "design_round.outcome_definition"),
+    KIND_RELAYED_ANSWER: ("answer", "relayed_answer.text"),
+}
+
 
 @dataclass(frozen=True)
 class SyncResult:
@@ -249,12 +331,18 @@ class SyncResult:
     enabled: bool = True
     pulled: int = 0
     verdicts_consumed: int = 0
+    #: `preview.approved`/`preview.changes_requested` events consumed this
+    #: pass (#3188) — see :func:`_consume_preview_verdicts`.
+    preview_verdicts_consumed: int = 0
     #: `question.answered` events ledgered this pass (#2749) — see
     #: :func:`_consume_questions`.
     questions_consumed: int = 0
     #: `relayed_answer.confirmed` events ledgered this pass (#2987) — see
     #: :func:`_consume_relayed_answer_confirmations`.
     relayed_answer_confirmations_consumed: int = 0
+    #: `outbound_draft.approved`/`.rejected` events applied to a local
+    #: `draft` row this pass (#3178) — see :func:`_consume_draft_verdicts`.
+    draft_verdicts_consumed: int = 0
     applied: int = 0
     rejected: int = 0
     held: int = 0
@@ -262,6 +350,10 @@ class SyncResult:
     #: that ran and found nothing changed does NOT count here; see
     #: :func:`sync_submission_statuses`.
     status_queued: int = 0
+    #: `draft` outbox rows asserted to coord-portal's outbound-drafts mirror
+    #: this pass (#3178) — see :func:`_publish_pending_drafts`. Zero whenever
+    #: nothing is currently queued as a draft, which is the common case.
+    drafts_published: int = 0
     heartbeat_ok: bool = False
     errors: list[str] = field(default_factory=list)
 
@@ -269,9 +361,12 @@ class SyncResult:
     def moved(self) -> bool:
         """True when this pass actually moved a row in either direction."""
         return bool(
-            self.pulled or self.verdicts_consumed or self.questions_consumed
+            self.pulled or self.verdicts_consumed or self.preview_verdicts_consumed
+            or self.questions_consumed
             or self.relayed_answer_confirmations_consumed
+            or self.draft_verdicts_consumed
             or self.applied or self.rejected or self.status_queued
+            or self.drafts_published
         )
 
     def summary(self) -> str:
@@ -285,13 +380,16 @@ class SyncResult:
         parts = [
             f"pulled={self.pulled}",
             f"verdicts_consumed={self.verdicts_consumed}",
+            f"preview_verdicts_consumed={self.preview_verdicts_consumed}",
             f"questions_consumed={self.questions_consumed}",
             f"relayed_answer_confirmations_consumed="
             f"{self.relayed_answer_confirmations_consumed}",
+            f"draft_verdicts_consumed={self.draft_verdicts_consumed}",
             f"applied={self.applied}",
             f"rejected={self.rejected}",
             f"held={self.held}",
             f"status_queued={self.status_queued}",
+            f"drafts_published={self.drafts_published}",
             f"heartbeat={'ok' if self.heartbeat_ok else 'FAILED'}",
         ]
         if self.errors:
@@ -1627,17 +1725,24 @@ def sync_tick(
     (``coord.serve_app._portal_sync_tick``) always passes a freshly-built
     board; the ``coord portal sync`` CLI and most tests don't need to.
 
-    Seven phases, independently isolated, deliberately in this order: pull
-    first (a sign-off verdict — or a question's answer, or a relayed
-    answer's confirmation — pulled now can be acted on this same tick), then
-    verdict consumption (#2509), then question-answer ledgering (#2749),
-    then relayed-answer confirmation ledgering (#2987) — both feed the fold
-    right after them — then the automatic status fold (#2588 — runs BEFORE
-    push so a status it just enqueued goes out with this same tick's push
-    rather than waiting a full cycle), then push, heartbeat last but
-    unconditionally — a pass that failed everything else still proves the
-    daemon is alive, and that is precisely the pass the portal most needs to
-    hear about.
+    Ten phases, independently isolated, deliberately in this order: pull
+    first (a sign-off verdict — or a question's answer, a relayed answer's
+    confirmation, a preview sign-off, or an operator's portal-side draft
+    decision — pulled now can be acted on this same tick), then
+    draft-verdict consumption (#3178 — early, so a draft the portal just
+    released sends with THIS tick's push rather than waiting a cycle), then
+    design-round verdict consumption (#2509), then preview-verdict
+    consumption (#3188 — a UAT gate verdict off a customer's own preview
+    sign-off, sibling to the design-round verdict phase right before it),
+    then question-answer ledgering (#2749), then relayed-answer confirmation
+    ledgering (#2987) — both feed the fold right after them — then the
+    automatic status fold (#2588 — runs BEFORE push so a status it just
+    enqueued goes out with this same tick's push rather than waiting a full
+    cycle), then publishing whatever is still queued as a draft (#3178 —
+    after draft-verdict consumption, so a row just released this tick is not
+    re-asserted), then push, heartbeat last but unconditionally — a pass
+    that failed everything else still proves the daemon is alive, and that
+    is precisely the pass the portal most needs to hear about.
     """
     if client is None:
         try:
@@ -1660,6 +1765,24 @@ def sync_tick(
         errors.append(f"pull: {exc}")
         logger.warning("portal sync: pull failed", exc_info=True)
 
+    # #3178: apply whatever operator decision on a coord-drafted outbound
+    # message the pull above (or an earlier tick) left in the inbox — BEFORE
+    # everything else, so a draft the portal just released is `pending` in
+    # time for this same tick's push. Isolated exactly like the other
+    # phases: a bad event must not silence anything below it.
+    draft_verdicts_consumed = 0
+    try:
+        draft_verdicts_consumed, draft_verdict_errors = _consume_draft_verdicts(
+            now=now
+        )
+        errors.extend(draft_verdict_errors)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"draft_verdicts: {exc}")
+        logger.warning(
+            "portal sync: outbound draft verdict consumption failed",
+            exc_info=True,
+        )
+
     # #2509 (PDR-4): act on whatever the pull above (or an earlier tick) left
     # in the inbox. Isolated exactly like the other phases — a dispatch
     # failure (no idle machine, GitHub down, the milestone's Gate A already
@@ -1677,6 +1800,22 @@ def sync_tick(
     except Exception as exc:  # noqa: BLE001
         errors.append(f"verdicts: {exc}")
         logger.warning("portal sync: verdict consumption failed", exc_info=True)
+
+    # #3188: act on whatever preview sign-off the pull above (or an earlier
+    # tick) left in the inbox — isolated exactly like sign-off verdict
+    # consumption just above: a resolution failure (no link, no matching
+    # work row) must not silence anything below it.
+    preview_verdicts_consumed = 0
+    try:
+        preview_verdicts_consumed, preview_verdict_errors = _consume_preview_verdicts(
+            config, board, now=now
+        )
+        errors.extend(preview_verdict_errors)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"preview_verdicts: {exc}")
+        logger.warning(
+            "portal sync: preview verdict consumption failed", exc_info=True
+        )
 
     # #2749 (IL-3): ledger every `question.answered` event pulled above (or
     # by an earlier tick) — the running-context ledger's own consumer,
@@ -1728,6 +1867,22 @@ def sync_tick(
         errors.append(f"status: {exc}")
         logger.warning("portal sync: status fold failed", exc_info=True)
 
+    # #3178: assert whatever is still queued as a `draft` to coord-portal's
+    # own mirror, so its operator screen has something to show. After
+    # draft-verdict consumption above (a row released this tick has already
+    # left `draft` and is not re-asserted) and before push, though the two
+    # are otherwise independent — this phase touches no `portal_outbox`
+    # state itself, only coord-portal's read-only mirror of it.
+    drafts_published = 0
+    try:
+        drafts_published, draft_publish_errors = _publish_pending_drafts(
+            client, now=now
+        )
+        errors.extend(draft_publish_errors)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"drafts_published: {exc}")
+        logger.warning("portal sync: outbound draft publish failed", exc_info=True)
+
     applied = rejected = held = 0
     try:
         applied, rejected, held, push_errors = _push(
@@ -1767,12 +1922,15 @@ def sync_tick(
         enabled=True,
         pulled=pulled,
         verdicts_consumed=verdicts_consumed,
+        preview_verdicts_consumed=preview_verdicts_consumed,
         questions_consumed=questions_consumed,
         relayed_answer_confirmations_consumed=relayed_answer_confirmations_consumed,
+        draft_verdicts_consumed=draft_verdicts_consumed,
         applied=applied,
         rejected=rejected,
         held=held,
         status_queued=status_queued,
+        drafts_published=drafts_published,
         heartbeat_ok=heartbeat_ok,
         errors=errors,
     )
@@ -2234,6 +2392,252 @@ def _consume_verdicts(
     return consumed, errors
 
 
+# ── consuming portal PREVIEW verdicts (#3188) ───────────────────────────────
+#
+# The gap this closes: a real pre-merge preview build (`enqueue_preview`,
+# #2359) already summons the customer to a sign-off screen
+# (`quality-check`/`ANNOUNCING_STATUSES`), and coord-portal's own
+# `src/previewReviews.ts` already lets the customer answer it —
+# `preview.approved` / `preview.changes_requested`. Until this consumer
+# existed, nothing here ever read that answer: the UAT merge gate
+# (`coord.merge_queue.evaluate_uat_verdict`) stayed keyed to `coord uat <id>
+# --passed|--failed`, an operator typing it by hand, so the customer's own
+# approval landed in the portal and gated nothing (natal-chart#61,
+# SUB-95998B).
+#
+# Sibling to :func:`_consume_verdicts` right above — same per-event
+# isolation, same "an event is marked consumed only once the action
+# succeeded" watermark discipline (the first failure in a page freezes the
+# persisted watermark, so a still-unlinked submission or a board with no
+# matching work row is retried every tick rather than silently dropped),
+# same "requires a real config, a bare client-only sync is a deliberate
+# no-op" contract. A private watermark
+# (`portal_store.get_preview_verdict_watermark`/
+# `set_preview_verdict_watermark`/
+# `events_after_preview_verdict_watermark`), independent of the shared
+# `handled_at` column AND of every other consumer's own watermark, for the
+# identical reason `_consume_verdicts` needs one: a backlog of event kinds
+# this consumer ignores must not be able to starve a `preview.*` event
+# sitting behind it once that backlog exceeds one page.
+#
+# Deliberately writes through `coord.state.record_uat_verdict` — the exact
+# same `uat_state`/`uat_reason` `coord uat --passed|--failed` already
+# writes, resolved against the exact same "winning work assignment" the
+# gates dashboard and the merge gate's own tie-break agree on
+# (`coord.gates.gate_columns_for_issue`) — rather than teaching
+# `evaluate_uat_verdict` a second source of truth for "is UAT ok" (#2096:
+# one question, one answer). The only new thing this consumer adds is
+# `actor="customer"`, so the board can say WHO approved without the merge
+# gate needing to care.
+
+
+def _preview_verdict(event: "portal_store.PortalEvent") -> str | None:
+    """``"approved"`` / ``"changes_requested"``, or ``None`` if *event* is
+    not a preview sign-off.
+
+    Unlike :func:`_signoff_verdict`, coord-portal's preview-review event
+    contract (`src/previewReviews.ts`) names the verdict directly in the
+    event `kind` (`preview.approved` / `preview.changes_requested`) — there
+    is no second, nested shape to guess at here.
+    """
+    kind = (event.kind or "").strip().lower()
+    if kind == "preview.approved":
+        return "approved"
+    if kind == "preview.changes_requested":
+        return "changes_requested"
+    return None
+
+
+def _preview_verdict_target(
+    config: Any, event: "portal_store.PortalEvent"
+) -> tuple[str, int]:
+    """The ``(repo_name, issue_number)`` a preview verdict on *event* targets.
+
+    Raises on anything that stops resolution — no link recorded, an
+    unresolvable repo, or a link scoped to a whole milestone — mirroring
+    :func:`_amend_from_verdict`'s posture: the caller marks the event
+    consumed only if this (and the write it feeds) succeeds, so any failure
+    here retries next tick instead of dropping the customer's verdict.
+
+    Scoped to an ISSUE-linked (`link.issue_number is not None`, #2665)
+    portal link only: a real pre-merge preview build is one PR's
+    deployment, never a whole milestone's, so a milestone-scoped link has no
+    single issue to record a UAT verdict against — an operator who wants
+    this consumer to act on a preview sign-off links the specific issue
+    with `coord portal link` instead.
+    """
+    link = portal_store.get_link_by_submission(event.submission_id)
+    if link is None:
+        raise RuntimeError(
+            f"no milestone/issue is linked to portal submission "
+            f"{event.submission_id!r} (coord portal link) — cannot resolve "
+            "which issue's UAT verdict this preview sign-off is for"
+        )
+    if link.issue_number is None:
+        raise RuntimeError(
+            f"{link.target_desc} is a milestone-scoped link — a preview "
+            "sign-off targets one PR, not a whole milestone; link the "
+            "specific issue with `coord portal link` instead"
+        )
+    if config.repo(link.repo_name) is None:
+        raise RuntimeError(f"linked repo {link.repo_name!r} is not in coordinator.yml")
+    return link.repo_name, link.issue_number
+
+
+def _preview_verdict_assignment_id(board: Any, repo_name: str, issue_number: int) -> str:
+    """The assignment id :func:`coord.state.record_uat_verdict` should write
+    to for ``(repo_name, issue_number)`` — the exact same "winning work row"
+    :func:`coord.gates.gate_columns_for_issue` already picks for the gates
+    dashboard and the merge gate's own tie-break, never a second,
+    independently-derived notion of "the current assignment" (#2096: one
+    question, one answer).
+
+    Raises when no board was supplied or it carries no work-like row for
+    this issue at all — the caller retries next tick rather than guessing.
+    """
+    from coord import gates as gates_mod  # noqa: PLC0415
+
+    if board is None:
+        raise RuntimeError(
+            f"no board available to resolve a work assignment for "
+            f"{repo_name}#{issue_number}"
+        )
+    row = gates_mod.gate_columns_for_issue(board, repo_name, issue_number)
+    if row is None or not row.assignment_id:
+        raise RuntimeError(
+            f"no work assignment found on the board for {repo_name}#{issue_number} "
+            "— cannot record a UAT verdict against it"
+        )
+    return row.assignment_id
+
+
+def _apply_preview_verdict(
+    config: Any, board: Any, event: "portal_store.PortalEvent", verdict: str
+) -> None:
+    """Record the UAT-gate verdict *event* carries against its linked
+    issue's current work assignment, attributed to the customer (#3188).
+
+    Raises on anything that stops the write — resolution failures from
+    :func:`_preview_verdict_target`/:func:`_preview_verdict_assignment_id`,
+    or whatever :func:`coord.state.record_uat_verdict` itself raises. The
+    caller marks the event consumed only if this returns normally, the same
+    "an event is marked consumed only once the action succeeded" discipline
+    :func:`_amend_from_verdict` already follows.
+    """
+    from coord import state as state_mod  # noqa: PLC0415
+
+    repo_name, issue_number = _preview_verdict_target(config, event)
+    assignment_id = _preview_verdict_assignment_id(board, repo_name, issue_number)
+
+    if verdict == "approved":
+        state_mod.record_uat_verdict(
+            assignment_id=assignment_id,
+            uat_state="passed",
+            uat_reason=_signoff_comment(event) or None,
+            actor="customer",
+        )
+        return
+
+    comment = _signoff_comment(event)
+    reason = comment or (
+        "The customer requested changes on the preview via the portal but "
+        f"left no comment text — check portal submission "
+        f"{event.submission_id!r} directly for context."
+    )
+    state_mod.record_uat_verdict(
+        assignment_id=assignment_id,
+        uat_state="failed",
+        uat_reason=reason,
+        actor="customer",
+    )
+
+
+def _consume_preview_verdicts(
+    config: Any,
+    board: Any = None,
+    *,
+    limit: int = MAX_PREVIEW_VERDICTS_PER_TICK,
+    pages: int = MAX_PREVIEW_VERDICT_PAGES,
+    now: float | None = None,
+) -> tuple[int, list[str]]:
+    """Walk the inbox from this consumer's own watermark, recording a UAT
+    verdict for every ``preview.approved``/``preview.changes_requested``
+    event found (#3188).
+
+    Requires *config* to resolve the linked repo — same "no config, no
+    resolvable topology, deliberate no-op" contract
+    :func:`_consume_verdicts` uses. *board* additionally supplies the work
+    assignment to write the verdict onto
+    (:func:`_preview_verdict_assignment_id`); the daemon
+    (:func:`coord.serve_app._portal_sync_tick`) always passes a freshly
+    built one, same as :func:`sync_submission_statuses` already relies on.
+
+    Returns ``(consumed, errors)``. Never raises: every event is handled
+    inside its own try/except so one bad event (an unlinked submission, a
+    board with no matching work row) cannot stop the rest of the page. It
+    CAN, deliberately, stop the watermark: the first failure in a page
+    freezes it at the position just before that event, so a still-broken
+    link is retried every tick rather than silently skipped — see
+    :func:`_consume_verdicts`'s own docstring for the full reasoning, which
+    applies here unchanged.
+    """
+    if config is None:
+        return 0, []
+    consumed = 0
+    errors: list[str] = []
+
+    initial_at, initial_rowid = portal_store.get_preview_verdict_watermark()
+    commit_at, commit_rowid = initial_at, initial_rowid
+    scan_at, scan_rowid = initial_at, initial_rowid
+    blocked = False
+
+    for _page_num in range(pages):
+        page = portal_store.events_after_preview_verdict_watermark(
+            scan_at, scan_rowid, limit=limit
+        )
+        if not page:
+            break
+        for rowid, event in page:
+            scan_at, scan_rowid = event.received_at, rowid
+            if event.handled_at is not None:
+                # Already applied by an earlier pass — see
+                # `_consume_verdicts`'s identical branch for why this can
+                # happen while this tick's commit point is frozen behind a
+                # still-failing sibling.
+                if not blocked:
+                    commit_at, commit_rowid = scan_at, scan_rowid
+                continue
+            verdict = _preview_verdict(event)
+            if verdict is None:
+                if not blocked:
+                    commit_at, commit_rowid = scan_at, scan_rowid
+                continue
+            try:
+                _apply_preview_verdict(config, board, event, verdict)
+            except Exception as exc:  # noqa: BLE001 — one bad event must not stop the page
+                errors.append(
+                    f"preview verdict {event.event_id} ({event.submission_id}): {exc}"
+                )
+                logger.warning(
+                    "portal sync: could not record UAT verdict for preview "
+                    "sign-off on submission %s",
+                    event.submission_id,
+                    exc_info=True,
+                )
+                blocked = True
+                continue
+            portal_store.mark_event_handled(event.event_id, now=now)
+            consumed += 1
+            if not blocked:
+                commit_at, commit_rowid = scan_at, scan_rowid
+        if blocked or len(page) < limit:
+            break
+
+    if (commit_at, commit_rowid) != (initial_at, initial_rowid):
+        portal_store.set_preview_verdict_watermark(commit_at, commit_rowid)
+    return consumed, errors
+
+
 # ── consuming portal question answers (#2749, IL-3) ─────────────────────────
 #
 # The gap this closes, stated plainly in the issue: every other kind of
@@ -2639,6 +3043,293 @@ def _consume_relayed_answer_confirmations(
 
     if (commit_at, commit_rowid) != (initial_at, initial_rowid):
         portal_store.set_relayed_answer_watermark(commit_at, commit_rowid)
+    return consumed, errors
+
+
+# ── the draft gate's portal surface (#3178, coord-portal#318's companion) ───
+#
+# coord-portal#318 shipped the portal half of "review, edit and approve
+# coord's queued outbound drafts in the portal": a `coord_outbound_drafts`
+# mirror table, `POST /api/bridge/outbound-drafts` for coord to assert what
+# it has queued, and an operator screen that turns an approve/reject into
+# `outbound_draft.approved`/`outbound_draft.rejected` on the existing
+# `GET /api/bridge/pull` stream. Nothing on this side ever called the new
+# route or read those two event kinds — this section is that missing half.
+#
+# Two directions, both through the SAME store functions `coord portal draft
+# edit`/`approve`/`reject` already call (`portal_store.edit_draft`/
+# `approve_draft`/`reject_draft`) — never a second write path into
+# `portal_outbox`:
+#
+#   * _publish_pending_drafts  — coord -> portal: assert the current
+#     `draft`-state set, every tick.
+#   * _consume_draft_verdicts  — portal -> coord: apply an operator's
+#     decision, pulled back as an ordinary event.
+
+
+def _draft_wire_fields(row: "portal_store.OutboxRow") -> dict[str, str]:
+    """The flat ``{wire_key: text}`` map coord-portal's ``fields`` column
+    expects for *row* (#3178) — never the row's own, possibly nested,
+    ``fields`` payload (``design_round``/``relayed_answer`` both nest their
+    prose one level down; coord-portal's ``parseFields`` drops anything that
+    is not a plain string value, so sending the nested shape verbatim would
+    publish an empty card).
+
+    Only the ONE field :data:`_DRAFT_WIRE_FIELD` names as editable for this
+    kind is published for ``question``/``design_round``/``relayed_answer`` —
+    ``bundle_key``/``decomposition`` are references, not prose, the same
+    reasoning :data:`portal_store.EDITABLE_DRAFT_FIELDS` already applies to
+    what an operator may rewrite locally. ``status``/``preview`` have no
+    editable field at all, so their one natural value is published under its
+    own name instead — still reviewable (approve or reject), just not
+    rewritable, matching :func:`portal_store.edit_draft`'s own refusal for
+    those kinds. An unrecognised future kind publishes no fields at all
+    rather than guessing a shape coord-portal's own closed
+    ``COORD_OUTBOUND_DRAFT_KINDS`` enum would reject anyway.
+    """
+    mapping = _DRAFT_WIRE_FIELD.get(row.kind)
+    if mapping is not None:
+        wire_key, path = mapping
+        value = portal_store.draft_field_value(row, path)
+        return {wire_key: str(value) if value is not None else ""}
+    if row.kind == KIND_STATUS:
+        return {"status": str(row.fields.get("status", ""))}
+    if row.kind == KIND_PREVIEW:
+        return {"preview_url": str(row.fields.get("preview_url", ""))}
+    return {}
+
+
+def _iso_from_epoch(ts: float) -> str:
+    """*ts* (a wall-clock epoch stamp, e.g. ``OutboxRow.enqueued_at``) as UTC
+    ISO-8601 with a ``Z`` suffix — coord-portal's ``queued_at`` expects a
+    string it can display verbatim, and this is the same format
+    :func:`coord.portal_bridge._utcnow_iso` already uses for ``heartbeat``'s
+    ``at``, just built from a stored timestamp instead of "now".
+    """
+    return (
+        datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z")
+    )
+
+
+def _publish_pending_drafts(
+    client: Any, *, now: float | None = None
+) -> tuple[int, list[str]]:
+    """Assert every currently-queued ``draft`` row to coord-portal's mirror
+    (#3178). Returns ``(published, errors)``; never raises.
+
+    A re-assertion of the CURRENT set, not an append-only log — there is
+    nothing to diff against locally, so this simply reads
+    :func:`portal_store.draft_outbox` fresh every tick and sends it, the same
+    posture coord-portal's own route doc comment describes on the other end.
+    A row already decided by an operator (through either surface) has left
+    ``draft`` and :func:`~portal_store.draft_outbox` no longer returns it, so
+    it naturally stops being asserted — no separate "withdraw" call needed.
+
+    Bounded to :data:`coord.portal_bridge.MAX_OUTBOUND_DRAFTS_PUSH` per tick,
+    oldest-queued first (:func:`portal_store.draft_outbox`'s own ordering) —
+    the same batching posture :func:`_push` takes against
+    :data:`MAX_PUSH_PER_TICK`, for the identical reason: a backlog beyond one
+    Worker-sized batch drains over a handful of ticks rather than failing the
+    whole pass.
+    """
+    rows = portal_store.draft_outbox()
+    if not rows:
+        return 0, []
+    updates = [
+        OutboundDraftUpdate(
+            id=str(row.id),
+            submission_id=row.submission_id,
+            kind=row.kind,
+            fields=_draft_wire_fields(row),
+            queued_at=_iso_from_epoch(row.enqueued_at),
+        )
+        for row in rows[:MAX_OUTBOUND_DRAFTS_PUSH]
+    ]
+    try:
+        results = client.push_outbound_drafts(updates)
+    except PortalBridgeError as exc:
+        return 0, [f"outbound drafts: {exc}"]
+    errors = [
+        f"outbound draft {r.id} rejected: {r.reason}"
+        for r in results
+        if r.outcome != "applied"
+    ]
+    published = sum(1 for r in results if r.outcome == "applied")
+    return published, errors
+
+
+def _draft_verdict_body(payload: Any) -> dict[str, Any]:
+    """The ``{draft_id, kind[, fields]}`` body of an ``outbound_draft.*``
+    event, unwrapped from the raw pulled event's ``payload`` envelope key
+    (coord-portal's ``BridgeEvent.payload``, ``src/bridge/events.ts``) —
+    deliberately NOT :func:`_merged_event_payload`. That helper's cleanup
+    pops a top-level ``fields`` key as an ENVELOPE alias (some other event
+    shape's nested body might arrive under ``fields`` instead of ``data``),
+    which here would destroy the ``fields`` key this body carries as genuine
+    PAYLOAD CONTENT — the edited text an approval carries back. Unlike the
+    other consumers in this module, this event's shape is fixed and owned
+    entirely by coord's own two callers (:func:`_publish_pending_drafts` on
+    the way out, coord-portal's ``src/routes/requests.ts`` on the way back)
+    — there is no multi-alias guessing to do here.
+    """
+    if not isinstance(payload, dict):
+        return {}
+    nested = payload.get("payload")
+    if isinstance(nested, dict):
+        return nested
+    # Already flat (a hand-built test payload, or a future wire revision
+    # that stops nesting) — read it as-is.
+    return payload
+
+
+def _draft_row_id(payload: dict[str, Any]) -> int | None:
+    """The local outbox row id out of an ``outbound_draft.*`` event's
+    (already-unwrapped, see :func:`_draft_verdict_body`) ``draft_id`` — that
+    field is coord's own :class:`~portal_store.OutboxRow.id`, stringified
+    for the wire by :func:`_publish_pending_drafts`, so this is just parsing
+    it back. ``None`` for anything unusable (a malformed event, a
+    hand-crafted test payload) — the caller turns that into a loud error
+    rather than a silent skip.
+    """
+    raw = payload.get("draft_id")
+    try:
+        return int(str(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def _apply_outbound_draft_approved(event: "portal_store.PortalEvent") -> None:
+    """Apply an ``outbound_draft.approved`` verdict to the matching local
+    ``draft`` row (#3178): write back any edited text, then flip it to
+    ``pending`` — through :func:`portal_store.edit_draft`/:func:`~portal_store.
+    approve_draft`, the exact same functions ``coord portal draft edit``/
+    ``approve`` call, so the CLI and the portal cannot drift on what
+    "approved" means (#3178's own "one approval path, not two").
+
+    A row that is no longer ``draft`` locally (already decided through
+    either surface — a double-click, a race with the CLI, a replayed event
+    from a prior tick that already applied it) is a clean no-op, not a
+    failure: the portal's own decision write is equally guarded to
+    ``WHERE state = 'pending'``, so "already decided" is a legitimate,
+    expected outcome on both sides of this bridge, never something to retry.
+    """
+    payload = _draft_verdict_body(event.payload)
+    draft_id = _draft_row_id(payload)
+    if draft_id is None:
+        raise PortalSyncError(
+            f"outbound_draft.approved with no usable draft_id: {event.payload!r}"
+        )
+    row = portal_store.get_outbox_row_by_id(draft_id)
+    if row is None or row.state != portal_store.STATE_DRAFT:
+        logger.info(
+            "portal sync: outbound_draft.approved for id=%s — no longer a "
+            "pending draft locally, treating as already applied",
+            draft_id,
+        )
+        return
+
+    fields = payload.get("fields")
+    if isinstance(fields, dict):
+        mapping = _DRAFT_WIRE_FIELD.get(row.kind)
+        if mapping is not None:
+            wire_key, path = mapping
+            text = fields.get(wire_key)
+            if isinstance(text, str) and text.strip():
+                current = str(portal_store.draft_field_value(row, path) or "")
+                if text != current:
+                    portal_store.edit_draft(
+                        row.submission_id, row.seq, path, text,
+                        actor=DRAFT_VERDICT_ACTOR,
+                    )
+    portal_store.approve_draft(row.submission_id, row.seq, actor=DRAFT_VERDICT_ACTOR)
+
+
+def _apply_outbound_draft_rejected(event: "portal_store.PortalEvent") -> None:
+    """The reject half of :func:`_apply_outbound_draft_approved` — same
+    no-op-if-already-decided posture, through :func:`portal_store.
+    reject_draft` (which also cascades to whatever the row announces, exactly
+    as ``coord portal draft reject`` does).
+
+    The pulled event carries no reason (coord-portal's own
+    ``outbound_draft.rejected`` payload is just ``{draft_id, kind}`` — the
+    operator's screen takes no free-text input for a reject, only a button),
+    so this supplies a fixed one. `reject_draft` requires a non-empty reason
+    (#2749/#2903's own posture: "we did not send this" is useless without
+    "because") and this is the truest short one available here.
+    """
+    payload = _draft_verdict_body(event.payload)
+    draft_id = _draft_row_id(payload)
+    if draft_id is None:
+        raise PortalSyncError(
+            f"outbound_draft.rejected with no usable draft_id: {event.payload!r}"
+        )
+    row = portal_store.get_outbox_row_by_id(draft_id)
+    if row is None or row.state != portal_store.STATE_DRAFT:
+        logger.info(
+            "portal sync: outbound_draft.rejected for id=%s — no longer a "
+            "pending draft locally, treating as already applied",
+            draft_id,
+        )
+        return
+    portal_store.reject_draft(
+        row.submission_id,
+        row.seq,
+        "rejected in the portal",
+        cascade=True,
+        actor=DRAFT_VERDICT_ACTOR,
+    )
+
+
+def _consume_draft_verdicts(
+    *,
+    limit: int = MAX_DRAFT_VERDICT_EVENTS_PER_TICK,
+    pages: int = MAX_DRAFT_VERDICT_PAGES,
+    now: float | None = None,
+) -> tuple[int, list[str]]:
+    """Walk every un-consumed ``outbound_draft.approved``/``.rejected``
+    event, oldest first, and apply it (#3178).
+
+    Needs no *config*: unlike :func:`_consume_verdicts`, applying a draft
+    verdict is pure local `portal_outbox` bookkeeping — no repo to resolve,
+    nothing to dispatch. Isolated per event, same as every other consumer in
+    this module: one bad event (a stale id, a store-level guard tripping)
+    must not stop the rest of the page, and is retried next tick because it
+    is simply left unmarked — see
+    :func:`portal_store.outbound_draft_verdict_events` for why this consumer
+    is safe to use the shared ``handled_at`` column directly rather than a
+    private watermark of its own.
+    """
+    consumed = 0
+    errors: list[str] = []
+    for _page_num in range(pages):
+        events = portal_store.outbound_draft_verdict_events(limit=limit)
+        if not events:
+            break
+        for event in events:
+            try:
+                if event.kind == "outbound_draft.approved":
+                    _apply_outbound_draft_approved(event)
+                elif event.kind == "outbound_draft.rejected":
+                    _apply_outbound_draft_rejected(event)
+                else:  # pragma: no cover — excluded by the query's own `kind LIKE`
+                    continue
+            except Exception as exc:  # noqa: BLE001 — one bad event must not stop the page
+                errors.append(
+                    f"draft verdict {event.event_id} ({event.submission_id}): {exc}"
+                )
+                logger.warning(
+                    "portal sync: could not apply outbound draft verdict for "
+                    "submission %s",
+                    event.submission_id,
+                    exc_info=True,
+                )
+                continue
+            portal_store.mark_event_handled(event.event_id, now=now)
+            consumed += 1
+        if len(events) < limit:
+            break
     return consumed, errors
 
 

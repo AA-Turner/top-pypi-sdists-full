@@ -31,6 +31,7 @@ Usage::
         ListConfigurationPolicyAssociationsPaginator,
         ListEnabledProductsForImportPaginator,
         ListFindingAggregatorsPaginator,
+        ListFreeTrialStatusesV2Paginator,
         ListInvitationsPaginator,
         ListMembersPaginator,
         ListOrganizationAdminAccountsPaginator,
@@ -61,6 +62,7 @@ Usage::
         list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
         list_enabled_products_for_import_paginator: ListEnabledProductsForImportPaginator = client.get_paginator("list_enabled_products_for_import")
         list_finding_aggregators_paginator: ListFindingAggregatorsPaginator = client.get_paginator("list_finding_aggregators")
+        list_free_trial_statuses_v2_paginator: ListFreeTrialStatusesV2Paginator = client.get_paginator("list_free_trial_statuses_v2")
         list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
         list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
         list_organization_admin_accounts_paginator: ListOrganizationAdminAccountsPaginator = client.get_paginator("list_organization_admin_accounts")
@@ -115,6 +117,8 @@ from .type_defs import (
     ListEnabledProductsForImportResponseTypeDef,
     ListFindingAggregatorsRequestPaginateTypeDef,
     ListFindingAggregatorsResponseTypeDef,
+    ListFreeTrialStatusesV2RequestPaginateTypeDef,
+    ListFreeTrialStatusesV2ResponseTypeDef,
     ListInvitationsRequestPaginateTypeDef,
     ListInvitationsResponseTypeDef,
     ListMembersRequestPaginateTypeDef,
@@ -153,6 +157,7 @@ __all__ = (
     "ListConfigurationPolicyAssociationsPaginator",
     "ListEnabledProductsForImportPaginator",
     "ListFindingAggregatorsPaginator",
+    "ListFreeTrialStatusesV2Paginator",
     "ListInvitationsPaginator",
     "ListMembersPaginator",
     "ListOrganizationAdminAccountsPaginator",
@@ -563,6 +568,27 @@ class ListFindingAggregatorsPaginator(_ListFindingAggregatorsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListFindingAggregators.html#SecurityHub.Paginator.ListFindingAggregators.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listfindingaggregatorspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListFreeTrialStatusesV2PaginatorBase = AioPaginator[ListFreeTrialStatusesV2ResponseTypeDef]
+else:
+    _ListFreeTrialStatusesV2PaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListFreeTrialStatusesV2Paginator(_ListFreeTrialStatusesV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListFreeTrialStatusesV2.html#SecurityHub.Paginator.ListFreeTrialStatusesV2)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listfreetrialstatusesv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFreeTrialStatusesV2RequestPaginateTypeDef]
+    ) -> AioPageIterator[ListFreeTrialStatusesV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/paginator/ListFreeTrialStatusesV2.html#SecurityHub.Paginator.ListFreeTrialStatusesV2.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/paginators/#listfreetrialstatusesv2paginator)
         """
 
 

@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2019 Martijn Pieters
+# Copyright (c) 2019-2025 Martijn Pieters
 # Licensed under the MIT license as detailed in LICENSE.txt
 
-from importlib.metadata import version  # type: ignore
+from importlib.metadata import version
 
 from .leakybucket import AsyncLimiter
 

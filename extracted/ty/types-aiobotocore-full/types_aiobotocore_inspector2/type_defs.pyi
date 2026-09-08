@@ -2170,6 +2170,17 @@ class ResourceFilterCriteriaOutputTypeDef(TypedDict):
     ecrImageTags: NotRequired[list[ResourceStringFilterTypeDef]]
     ec2InstanceTags: NotRequired[list[ResourceMapFilterTypeDef]]
     lambdaFunctionTags: NotRequired[list[ResourceMapFilterTypeDef]]
+    cloudProvider: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudProviderAccountId: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudProviderOrgId: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudProviderRegion: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudVmInstanceTags: NotRequired[list[ResourceMapFilterTypeDef]]
+    cloudContainerImageTags: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudContainerRepositoryName: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudContainerRegistryName: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudServerlessFunctionName: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudServerlessFunctionRuntime: NotRequired[list[ResourceStringFilterTypeDef]]
+    cloudServerlessFunctionTags: NotRequired[list[ResourceMapFilterTypeDef]]
 
 class ResourceFilterCriteriaTypeDef(TypedDict):
     accountId: NotRequired[Sequence[ResourceStringFilterTypeDef]]
@@ -2180,6 +2191,17 @@ class ResourceFilterCriteriaTypeDef(TypedDict):
     ecrImageTags: NotRequired[Sequence[ResourceStringFilterTypeDef]]
     ec2InstanceTags: NotRequired[Sequence[ResourceMapFilterTypeDef]]
     lambdaFunctionTags: NotRequired[Sequence[ResourceMapFilterTypeDef]]
+    cloudProvider: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudProviderAccountId: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudProviderOrgId: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudProviderRegion: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudVmInstanceTags: NotRequired[Sequence[ResourceMapFilterTypeDef]]
+    cloudContainerImageTags: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudContainerRepositoryName: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudContainerRegistryName: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudServerlessFunctionName: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudServerlessFunctionRuntime: NotRequired[Sequence[ResourceStringFilterTypeDef]]
+    cloudServerlessFunctionTags: NotRequired[Sequence[ResourceMapFilterTypeDef]]
 
 class SearchVulnerabilitiesRequestPaginateTypeDef(TypedDict):
     filterCriteria: SearchVulnerabilitiesFilterCriteriaTypeDef

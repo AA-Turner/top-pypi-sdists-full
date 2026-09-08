@@ -82,6 +82,27 @@ class TestRepositoriesApi(unittest.TestCase):
         """
         pass
 
+    def test_api_v10_repositories_repository_id_branches_get(self) -> None:
+        """Test case for api_v10_repositories_repository_id_branches_get
+
+        Get repository branches
+        """
+        pass
+
+    def test_api_v10_repositories_repository_id_branches_repository_branch_id_track_by_id_delete(self) -> None:
+        """Test case for api_v10_repositories_repository_id_branches_repository_branch_id_track_by_id_delete
+
+        Stop monitoring a repository branch
+        """
+        pass
+
+    def test_api_v10_repositories_repository_id_branches_repository_branch_id_track_by_id_post(self) -> None:
+        """Test case for api_v10_repositories_repository_id_branches_repository_branch_id_track_by_id_post
+
+        Monitor a repository branch
+        """
+        pass
+
     def test_api_v10_repositories_score_get(self) -> None:
         """Test case for api_v10_repositories_score_get
 

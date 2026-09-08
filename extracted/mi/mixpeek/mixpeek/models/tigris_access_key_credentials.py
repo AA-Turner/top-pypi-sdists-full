@@ -26,11 +26,11 @@ from typing_extensions import Self
 
 class TigrisAccessKeyCredentials(BaseModel):
     """
-    Tigris Data access key credentials.  Tigris uses S3-compatible authentication with access keys. The Tigris dashboard at https://console.tigris.dev issues the access keys.  Prerequisites:     - Create a Tigris account at https://www.tigrisdata.com     - Create a bucket in the Tigris console     - Generate access keys from the dashboard  Security:     - secret_access_key is encrypted at rest using MongoDB CSFLE     - Rotate keys regularly via the Tigris dashboard     - Use bucket-scoped keys when possible for least privilege  Use Cases:     - Globally distributed object storage     - Low-latency content delivery     - S3-compatible workflows with zero egress fees
+    Tigris Data access key credentials.  Tigris uses S3-compatible authentication with access keys. The Tigris dashboard at https://console.tigris.dev issues the access keys.  Prerequisites:     - Create a Tigris account at https://www.tigrisdata.com     - Create a bucket in the Tigris console     - Generate access keys from the dashboard  Security:     - secret_access_key is a secret credential, redacted on read     - Rotate keys regularly via the Tigris dashboard     - Use bucket-scoped keys when possible for least privilege  Use Cases:     - Globally distributed object storage     - Low-latency content delivery     - S3-compatible workflows with zero egress fees
     """ # noqa: E501
     type: Optional[StrictStr] = 'access_key'
     access_key_id: Annotated[str, Field(min_length=1, strict=True)] = Field(description="REQUIRED. Tigris access key ID for authentication. Obtain from: Tigris Console > Access Keys")
-    secret_access_key: Annotated[str, Field(min_length=1, strict=True)] = Field(description="REQUIRED. Tigris secret access key for authentication. SECURITY: This field is encrypted at rest. Never log or expose this value. Obtain from: Tigris Console when creating access key (shown only once)")
+    secret_access_key: Annotated[str, Field(min_length=1, strict=True)] = Field(description="REQUIRED. Tigris secret access key for authentication. SECURITY: This is a secret credential, redacted on read. Never log or expose this value. Obtain from: Tigris Console when creating access key (shown only once)")
     __properties: ClassVar[List[str]] = ["type", "access_key_id", "secret_access_key"]
 
     @field_validator('type')

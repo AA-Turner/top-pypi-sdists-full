@@ -513,6 +513,17 @@ class RawToolsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[DataFrameRequestOut]:
         """
+        Read a tabular asset as a JSON data frame.
+
+        Returns `columns`, an optional `index`, and `data` rows (pandas "split"
+        orientation) for an asset the caller can read: an Athena spreadsheet, a
+        file-backed live spreadsheet (SharePoint, OneDrive, Drive, iManage), or an
+        uploaded CSV, Excel or Parquet file. `row_limit` caps the rows returned,
+        `columns` selects columns by name or position, `sheet_name` picks the sheet
+        of an Excel file (the first by default), and `separator` sets the delimiter
+        of a CSV file. Any other asset type is a 415; a file the parser cannot read
+        is a 500 carrying the parser's message.
+
         Parameters
         ----------
         asset_id : str
@@ -1297,6 +1308,17 @@ class AsyncRawToolsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[DataFrameRequestOut]:
         """
+        Read a tabular asset as a JSON data frame.
+
+        Returns `columns`, an optional `index`, and `data` rows (pandas "split"
+        orientation) for an asset the caller can read: an Athena spreadsheet, a
+        file-backed live spreadsheet (SharePoint, OneDrive, Drive, iManage), or an
+        uploaded CSV, Excel or Parquet file. `row_limit` caps the rows returned,
+        `columns` selects columns by name or position, `sheet_name` picks the sheet
+        of an Excel file (the first by default), and `separator` sets the delimiter
+        of a CSV file. Any other asset type is a 415; a file the parser cannot read
+        is a 500 carrying the parser's message.
+
         Parameters
         ----------
         asset_id : str

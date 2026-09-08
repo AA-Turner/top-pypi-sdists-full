@@ -10,7 +10,7 @@ from schemathesis.config._auth import DynamicTokenAuthConfig
 from schemathesis.config._checks import ChecksConfig
 from schemathesis.core.failures import AcceptedNegativeData, Failure, MalformedJson
 from schemathesis.core.mutations import OperatorKind
-from schemathesis.core.parameters import ParameterLocation
+from schemathesis.core.parameters import EncodedPath, ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.generation import GenerationMode
@@ -24,7 +24,14 @@ from schemathesis.generation.meta import (
     PhaseInfo,
     TestPhase,
 )
-from schemathesis.openapi.checks import AllowHeaderMismatch, JsonSchemaError, UseAfterFree
+from schemathesis.generation.overrides import Override
+from schemathesis.openapi.checks import (
+    AllowHeaderMismatch,
+    JsonSchemaError,
+    RejectedPositiveData,
+    UnsupportedMethodResponse,
+    UseAfterFree,
+)
 from schemathesis.specs.openapi.checks import (
     ResourcePath,
     _additional_properties_hint,
@@ -350,6 +357,11 @@ def test_has_only_additional_properties_with_large_quantifier_pattern(ctx):
     assert has_only_additional_properties_in_non_body_parameters(case) is True
 
 
+def _opaque_rejection(response_factory):
+    # A rejection with nothing to attribute, so the hint falls back to its schema-side reasoning.
+    return Response.from_requests(response_factory.requests(status_code=400), verify=True)
+
+
 @pytest.mark.parametrize(
     ("body", "expected_hint"),
     [
@@ -357,7 +369,7 @@ def test_has_only_additional_properties_with_large_quantifier_pattern(ctx):
         pytest.param({"a": 1, "b": {"x": "q"}, "extra": "yes"}, "`extra`", id="real-extra-fires"),
     ],
 )
-def test_additional_properties_hint_resolves_bundled_ref(ctx, body, expected_hint):
+def test_additional_properties_hint_resolves_bundled_ref(ctx, response_factory, body, expected_hint):
     # Bundled `$ref` bodies must be resolved before classifying extras.
     schema = ctx.openapi.from_full_schema(
         {
@@ -390,7 +402,7 @@ def test_additional_properties_hint_resolves_bundled_ref(ctx, body, expected_hin
     )
     operation = schema["/foo"]["POST"]
     case = operation.Case(body=body, media_type="application/json", method="POST")
-    hint = _additional_properties_hint(case)
+    hint = _additional_properties_hint(case, _opaque_rejection(response_factory))
     if expected_hint is None:
         assert hint is None, f"False positive: {hint!r}"
     else:
@@ -405,7 +417,7 @@ def test_additional_properties_hint_resolves_bundled_ref(ctx, body, expected_hin
         pytest.param({"a": "x", "b": "y", "extra": "yes"}, "`extra`", id="real-extra-fires"),
     ],
 )
-def test_additional_properties_hint_with_composed_properties(ctx, combinator, body, expected_hint):
+def test_additional_properties_hint_with_composed_properties(ctx, response_factory, combinator, body, expected_hint):
     # Properties declared inside combinator branches are not extras, and telling the user to add
     # `additionalProperties: false` there would reject valid requests.
     schema = ctx.openapi.from_full_schema(
@@ -437,7 +449,7 @@ def test_additional_properties_hint_with_composed_properties(ctx, combinator, bo
     )
     operation = schema["/foo"]["POST"]
     case = operation.Case(body=body, media_type="application/json", method="POST")
-    hint = _additional_properties_hint(case)
+    hint = _additional_properties_hint(case, _opaque_rejection(response_factory))
     if expected_hint is None:
         assert hint is None, f"False positive: {hint!r}"
     else:
@@ -445,7 +457,7 @@ def test_additional_properties_hint_with_composed_properties(ctx, combinator, bo
         assert "`a`" not in hint and "`b`" not in hint, f"Declared keys reported as extras: {hint!r}"
 
 
-def test_additional_properties_hint_skipped_when_branch_forbids_extras(ctx):
+def test_additional_properties_hint_skipped_when_branch_forbids_extras(ctx, response_factory):
     # `additionalProperties: false` inside a branch already forbids extras, so advising to add it is noise.
     schema = ctx.openapi.from_full_schema(
         {
@@ -478,7 +490,50 @@ def test_additional_properties_hint_skipped_when_branch_forbids_extras(ctx):
     )
     operation = schema["/foo"]["POST"]
     case = operation.Case(body={"a": "x", "extra": "yes"}, media_type="application/json", method="POST")
-    assert _additional_properties_hint(case) is None
+    assert _additional_properties_hint(case, _opaque_rejection(response_factory)) is None
+
+
+_EXTRA_PROPERTY_HINT = (
+    "\nHint: The request body contains 1 additional property not defined in the schema (`extra`). "
+    "The server likely rejects unexpected fields. "
+    "Add `additionalProperties: false` to your schema to prevent this."
+)
+
+
+@pytest.mark.parametrize(
+    ("error_body", "hint"),
+    [
+        pytest.param(b'{"name": ["This field may not be blank."]}', "", id="declared-field-blamed"),
+        pytest.param(b'{"extra": ["This field may not be blank."]}', _EXTRA_PROPERTY_HINT, id="extra-property-blamed"),
+        pytest.param(b'{"detail": "Bad request"}', _EXTRA_PROPERTY_HINT, id="no-field-blamed"),
+    ],
+)
+def test_additional_properties_hint_follows_response_attribution(ctx, response_factory, error_body, hint):
+    # Blaming extras for a rejection the server pinned on a declared field points the reader at the wrong fix.
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object", "properties": {"name": {"type": "string"}}}
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/foo"]["POST"].Case(
+        body={"name": "value", "extra": "yes"}, media_type="application/json", _meta=build_metadata()
+    )
+    response = Response.from_requests(response_factory.requests(status_code=400, content=error_body), verify=True)
+    with pytest.raises(RejectedPositiveData) as exc:
+        positive_data_acceptance(check_context(), response, case)
+    assert exc.value.message == f"Valid data should have been accepted\nExpected: 2xx, 401, 403, 404, 409, 5xx{hint}"
 
 
 @pytest.mark.parametrize(
@@ -1103,6 +1158,103 @@ def test_negative_data_rejection_query_object_mutation_with_numeric_key(ctx, res
     )
 
 
+def test_negative_data_rejection_multiple_mutations_name_parameters(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/api/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "kind", "in": "query", "required": True, "schema": {"type": "string", "minLength": 2}},
+                        {"name": "tag", "in": "query", "required": False, "schema": {"type": "string", "minLength": 2}},
+                    ],
+                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    operation = schema["/api/items"]["GET"]
+
+    case = operation.Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            description="Violates `minLength` at /properties/kind\nViolates `minLength` at /properties/tag",
+            parameter_location=ParameterLocation.QUERY,
+            mutations=tuple(
+                Mutation(
+                    path=(),
+                    schema_pointer=f"/properties/{name}",
+                    channel=MutationChannel.SCHEMA,
+                    operator=OperatorKind.NEGATE_CONSTRAINTS,
+                    keywords=("minLength",),
+                    parameter=name,
+                    original_value=None,
+                    new_value=None,
+                )
+                for name in ("kind", "tag")
+            ),
+        ),
+        query={"kind": "", "tag": ""},
+    )
+
+    with pytest.raises(AcceptedNegativeData) as exc:
+        negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
+
+    assert "Invalid component: parameters `kind`, `tag` in query" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    ("value", "reported"),
+    [
+        ({"7": "x"}, False),
+        (7, False),
+        (True, False),
+        ({"a b": "x"}, True),
+    ],
+    ids=["object-collapse-valid", "scalar-valid", "boolean-valid", "object-collapse-invalid"],
+)
+def test_negative_data_rejection_query_string_parameter_wire_form(ctx, response_factory, value, reported):
+    # A wrong-typed query value can still reach the server as text that satisfies the declared schema.
+    schema = ctx.openapi.load_schema(
+        {
+            "/api/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "kind",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "string", "minLength": 1, "maxLength": 100, "pattern": "^\\S+$"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    operation = schema["/api/items"]["GET"]
+
+    case = operation.Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            description="Invalid type object (expected string)",
+            parameter="kind",
+            parameter_location=ParameterLocation.QUERY,
+        ),
+        query={"kind": value},
+    )
+    response = response_factory.requests(status_code=200)
+
+    if reported:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
+
+
 def test_negative_data_rejection_path_string_numeric_serialization(ctx, response_factory):
     schema = ctx.openapi.load_schema(
         {
@@ -1138,6 +1290,37 @@ def test_negative_data_rejection_path_string_numeric_serialization(ctx, response
         )
         is None
     )
+
+
+def test_negative_data_rejection_encoded_path_value(ctx, response_factory):
+    # Already-encoded path values carry a `str` subclass that the JSON Schema validator rejects.
+    schema = ctx.openapi.load_schema(
+        {
+            "/api/run/{id}": {
+                "post": {
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "string", "minLength": 1}}
+                    ],
+                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    operation = schema["/api/run/{id}"]["POST"]
+
+    case = operation.Case(
+        _meta=build_metadata(
+            path_parameters=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            description="Invalid type integer (expected string)",
+            parameter="id",
+            parameter_location=ParameterLocation.PATH,
+        ),
+        path_parameters={"id": EncodedPath("abc")},
+    )
+
+    assert negative_data_rejection(check_context(), response_factory.requests(status_code=200), case) is None
 
 
 def test_negative_data_rejection_path_string_numeric_serialization_with_other_negation(ctx, response_factory):
@@ -1281,6 +1464,37 @@ def test_response_schema_conformance_invalid_format_fails_by_default(ctx, respon
 
     with pytest.raises(JsonSchemaError, match='is not a "date-time"'):
         response_schema_conformance(_CHECK_CTX, response, case)
+
+
+# A `writeOnly` property is rewritten to a schema nothing satisfies; the message must still read as English.
+def test_response_schema_conformance_forbidden_property_message(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"secret": {"type": "string", "writeOnly": True}},
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+    case = schema["/test"]["GET"].Case()
+    response = Response.from_requests(response_factory.requests(content=b'{"secret": "s"}'), True)
+
+    with pytest.raises(JsonSchemaError) as exc_info:
+        response_schema_conformance(_CHECK_CTX, response, case)
+    assert exc_info.value.message.startswith('Property "secret" is not allowed')
 
 
 def test_response_schema_conformance_validate_formats_disabled(ctx, response_factory):
@@ -1597,6 +1811,108 @@ def test_unsupported_method_404_on_templated_path(
             unsupported_method(context, response, case)
     else:
         assert unsupported_method(context, response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("pinned", "should_raise"),
+    [(True, True), (False, False)],
+    ids=["pinned", "generated"],
+)
+def test_unsupported_method_404_on_pinned_templated_path(ctx, response_factory, pinned, should_raise):
+    # A pinned path parameter names a resource the user vouched for, so 404 is a finding rather than a miss.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{item_id}": {
+                "get": {
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items/{item_id}"]["GET"].Case(
+        path_parameters={"item_id": "42"},
+        _meta=CaseMetadata(
+            generation=GenerationInfo(time=0.1, mode=GenerationMode.NEGATIVE),
+            components={},
+            phase=PhaseInfo(
+                name=TestPhase.COVERAGE,
+                data=CoveragePhaseData(
+                    scenario=CoverageScenario.UNSPECIFIED_HTTP_METHOD,
+                    description="Unspecified HTTP method: TRACE",
+                    location=None,
+                    parameter=None,
+                    parameter_location=None,
+                ),
+            ),
+        ),
+    )
+    override = (
+        Override(query={}, headers={}, cookies={}, path_parameters={"item_id": "42"}, body={}) if pinned else None
+    )
+    context = check_context(override=override)
+    response = response_factory.requests(status_code=404, method="TRACE")
+    if should_raise:
+        with pytest.raises(UnsupportedMethodResponse, match=re.escape("Unsupported method TRACE returned 404")):
+            unsupported_method(context, response, case)
+    else:
+        assert unsupported_method(context, response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("secured", "status_code", "expected_message"),
+    [
+        (True, 401, None),
+        (True, 403, None),
+        (False, 401, "Unsupported method TRACE returned 401"),
+        (False, 403, "Unsupported method TRACE returned 403"),
+        (True, 500, "Unsupported method TRACE returned 500"),
+        (True, 405, "TRACE returned 405 without required `Allow` header"),
+    ],
+    ids=[
+        "secured-401",
+        "secured-403",
+        "open-401",
+        "open-403",
+        "secured-non-auth-status",
+        "secured-405-without-allow",
+    ],
+)
+def test_unsupported_method_auth_before_routing(ctx, response_factory, secured, status_code, expected_message):
+    # Many frameworks authenticate before method dispatch, so a protected path answers 401/403 instead of 405.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    **({"security": [{"basicAuth": []}]} if secured else {}),
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={"securitySchemes": {"basicAuth": {"type": "http", "scheme": "basic"}}},
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=CaseMetadata(
+            generation=GenerationInfo(time=0.1, mode=GenerationMode.NEGATIVE),
+            components={},
+            phase=PhaseInfo(
+                name=TestPhase.COVERAGE,
+                data=CoveragePhaseData(
+                    scenario=CoverageScenario.UNSPECIFIED_HTTP_METHOD,
+                    description="Unspecified HTTP method: TRACE",
+                    location=None,
+                    parameter=None,
+                    parameter_location=None,
+                ),
+            ),
+        ),
+    )
+    response = response_factory.requests(status_code=status_code, method="TRACE")
+    if expected_message is None:
+        assert unsupported_method(check_context(), response, case) is None
+    else:
+        with pytest.raises(UnsupportedMethodResponse, match=re.escape(expected_message)):
+            unsupported_method(check_context(), response, case)
 
 
 def _token_endpoint_paths():
